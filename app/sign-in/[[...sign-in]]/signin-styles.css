@@ -1,0 +1,124 @@
+:root {
+  --primary: #0a4d4a;
+  --primary-light: #0d6d69;
+  --secondary: #f8f9fa;
+  --dark: #343a40;
+  --light: #f8f9fa;
+  --danger: #dc3545;
+  --success: #28a745;
+  --warning: #ffc107;
+  --info: #17a2b8;
+}
+
+.login-container {
+  display: flex;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.login-left {
+  flex: 1;
+  background: linear-gradient(135deg, #0a4d4a 0%, #0d6d69 100%) !important;
+  color: white;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  z-index: 10;
+  box-shadow: inset 0 0 0 1000px rgba(0,0,0,0.1);
+}
+
+.login-logo {
+  max-width: 200px;
+  height: auto;
+  margin: 0 auto 1.5rem;
+  display: block;
+}
+
+.logo-container {
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.login-right {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  background-color: #f0f2f5;
+}
+
+.login-box {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 450px;
+}
+
+/* Clerk component overrides */
+.cl-internal-b3fm6y {
+  display: none;
+}
+
+.cl-card {
+  box-shadow: none !important;
+  width: 100% !important;
+}
+
+.cl-headerTitle, .cl-headerSubtitle {
+  text-align: center;
+  color: var(--dark) !important;
+}
+
+.cl-formFieldInput {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem 1rem !important;
+  transition: all 0.2s ease;
+}
+
+.cl-formFieldInput:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(10, 77, 74, 0.2) !important;
+}
+
+.cl-formButtonPrimary {
+  background-color: var(--primary) !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.cl-formButtonPrimary:hover {
+  background-color: var(--primary-light) !important;
+}
+
+.cl-footerActionLink {
+  color: var(--primary) !important;
+}
+
+.cl-footerActionLink:hover {
+  color: var(--primary-light) !important;
+  text-decoration: underline !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .login-container {
+    flex-direction: column;
+  }
+  
+  .login-left, .login-right {
+    padding: 2rem 1rem;
+  }
+  
+  .login-box {
+    padding: 1.5rem;
+  }
+}
