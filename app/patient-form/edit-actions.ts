@@ -108,7 +108,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
       vacunas: formData.get('vacunas') as string || undefined,
       observaciones_medicas: formData.get('observaciones_medicas') as string || undefined,
       fuma: formData.get('fuma') as Patient['fuma'],
-      fuma_cantidad: formData.get('fuma_cantidad') as string || undefined,
+      fuma_cantidad: formData.get('fuma_cantidad') ? parseInt(formData.get('fuma_cantidad') as string) : undefined,
       fuma_frecuencia: formData.get('fuma_frecuencia') as Patient['fuma_frecuencia'] || undefined,
       alcohol: formData.get('alcohol') as Patient['alcohol'],
       alcohol_frecuencia: formData.get('alcohol_frecuencia') as Patient['alcohol_frecuencia'] || undefined,
