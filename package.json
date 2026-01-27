@@ -56,5 +56,8 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.52.0"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
