@@ -3,12 +3,18 @@ import { ClerkProvider } from '@clerk/nextjs'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '../contexts/ThemeContext'
+import { HistoricalModeProvider } from '../contexts/HistoricalModeContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Your App Name',
-  description: 'Your app description',
+  title: 'Diamond Link',
+  description: 'Sistema de gestión clínica dental',
+  icons: {
+    icon: '/Logo.svg',
+    shortcut: '/Logo.svg',
+    apple: '/Logo.svg',
+  },
 }
 
 export default function RootLayout({
@@ -17,8 +23,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
+    <ClerkProvider 
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      signInUrl="/sign-in"
+    >
+      <html lang="es" suppressHydrationWarning>
         <head>
           <link 
             rel="stylesheet" 
@@ -27,12 +36,17 @@ export default function RootLayout({
             crossOrigin="anonymous"
             referrerPolicy="no-referrer"
           />
+          <link rel="icon" href="/Logo.svg" type="image/svg+xml" />
+          <link rel="shortcut icon" href="/Logo.svg" />
+          <link rel="apple-touch-icon" href="/Logo.svg" />
         </head>
         <body className={inter.className}>
           <ThemeProvider>
-            <main className="min-h-screen">
-              {children}
-            </main>
+            <HistoricalModeProvider>
+              <main className="min-h-screen">
+                {children}
+              </main>
+            </HistoricalModeProvider>
           </ThemeProvider>
         </body>
       </html>

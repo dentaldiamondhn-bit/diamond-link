@@ -1,3 +1,5 @@
+import { AVAILABLE_DOCTORS } from '../config/doctors';
+
 export interface Patient {
   paciente_id?: string;
   codigo_interno?: string;
@@ -12,11 +14,13 @@ export interface Patient {
   otro_parentesco?: string;
   rep_celular?: string;
   codigopaisrepresentante?: string;
+  rep_pais_codigo?: string;
   sexo: 'masculino' | 'femenino' | 'otro';
   otro_genero?: string;
   tipo_sangre: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'Desconocido';
   telefono?: string;
   codigopais?: string;
+  pais_codigo?: string;
   direccion: string;
   escolaridad: string;
   estado_civil: 'Soltero' | 'Casado' | 'Viudo' | 'Divorciado' | 'Union Libre';
@@ -25,8 +29,9 @@ export interface Patient {
   contacto_emergencia: string;
   contacto_telefono: string;
   codigopaisemergencia?: string;
+  contacto_pais_codigo?: string;
   medico_cabecera?: string;
-  doctor: 'Dra. Sully Calix' | 'Dra. Karen Pacheco' | 'otro';
+  doctor: typeof AVAILABLE_DOCTORS[number]['name'] | 'otro';
   otro_doctor?: string;
   fecha_inicio: string;
   seguro: 'Ninguno' | 'IHSS' | 'Mapfre' | 'Palic' | 'ficohsa_seguros' | 'otro';
@@ -39,6 +44,10 @@ export interface Patient {
   hospitalizaciones: string;
   cirugias: string;
   embarazo?: 'no' | 'si';
+  semanas_embarazo?: number;
+  medicamentos_embarazo?: string;
+  embarazo_fecha_fin?: string;
+  embarazo_activo?: boolean;
   antecedentes_familiares: string;
   vacunas?: string;
   observaciones_medicas?: string;
@@ -83,6 +92,7 @@ export interface Patient {
   protesis_tipo?: 'Removible' | 'Fija' | 'Implante';
   protesis_nocturno?: 'no' | 'si';
   sensibilidad: 'no' | 'si';
+  tipo_sensibilidad?: string;
   bruxismo: 'no' | 'si';
   tipo_bruxismo?: 'diurno' | 'nocturno' | 'ambos';
   ultima_limpieza?: string;
@@ -107,4 +117,7 @@ export interface Patient {
   documentos?: string[];
   observaciones_plan?: string;
   firma_digital?: string;
+  is_historical?: boolean;
+  matchedFields?: string[];
+  score?: number;
 }

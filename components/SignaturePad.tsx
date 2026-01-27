@@ -75,16 +75,8 @@ export default function SignaturePadComponent({ onChange, value }: SignaturePadC
   };
 
   return (
-    <div className="signature-section">
-      <h4 className="text-lg font-semibold mb-4 flex items-center">
-        <i className="fas fa-signature mr-2"></i>
-        Firma Digital
-      </h4>
-      <p className="signature-hint text-sm text-gray-600 italic mb-4">
-        Por favor, firme dentro del área designada. Esta firma será utilizada como su consentimiento.
-      </p>
-      
-      <div className="relative border-2 border-gray-300 rounded-lg bg-white">
+    <div className="w-full">
+      <div className="relative border-2 border-gray-300 rounded-lg bg-white" style={{ minHeight: '200px' }}>
         {isEmpty && (
           <div className="signature-placeholder absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-gray-400">
             <i className="fas fa-signature text-4xl mb-2 opacity-50"></i>
@@ -94,12 +86,12 @@ export default function SignaturePadComponent({ onChange, value }: SignaturePadC
         <canvas
           ref={canvasRef}
           id="signature-canvas"
-          className="w-full h-48 cursor-crosshair"
-          style={{ touchAction: 'none' }}
+          className="w-full cursor-crosshair"
+          style={{ touchAction: 'none', height: '150px' }}
         />
       </div>
       
-      <div className="signature-actions flex justify-between items-center mt-3">
+      <div className="flex justify-between items-center mt-3">
         <button
           type="button"
           onClick={clearSignature}
@@ -109,7 +101,7 @@ export default function SignaturePadComponent({ onChange, value }: SignaturePadC
           <i className="fas fa-eraser mr-2"></i>
           Limpiar Firma
         </button>
-        <span className="signature-hint text-sm text-gray-600">
+        <span className="text-sm text-gray-600">
           Firme en el área de arriba
         </span>
       </div>

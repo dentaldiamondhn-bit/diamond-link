@@ -1,0 +1,257 @@
+/* Dark mode overrides for react-big-calendar */
+
+/* Calendar container */
+.rbc-calendar {
+  background-color: transparent !important;
+}
+
+/* Calendar toolbar */
+.rbc-toolbar {
+  background-color: transparent !important;
+  border-bottom: 1px solid #374151 !important;
+}
+
+.rbc-toolbar-label {
+  color: #374151 !important;
+}
+
+/* Month view */
+.rbc-month-view {
+  background-color: transparent !important;
+}
+
+.rbc-month-row {
+  background-color: transparent !important;
+}
+
+.rbc-month-header {
+  background-color: transparent !important;
+}
+
+.rbc-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.rbc-header > span {
+  color: #374151 !important;
+}
+
+/* Day cells */
+.rbc-day-bg {
+  background-color: #ffffff !important;
+}
+
+.dark .rbc-day-bg {
+  background-color: #1f2937 !important;
+}
+
+.rbc-off-range-bg {
+  background-color: #e5e7eb !important;
+}
+
+.dark .rbc-off-range-bg {
+  background-color: #374151 !important;
+}
+
+/* Today cell */
+.rbc-today {
+  background-color: #fef3c7 !important;
+}
+
+.dark .rbc-today {
+  background-color: #374151 !important;
+}
+
+/* Event styling */
+.rbc-event {
+  background-color: #3b82f6 !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.dark .rbc-event {
+  background-color: #1e40af !important;
+  border: 1px solid #1e40af !important;
+  color: #ffffff !important;
+}
+
+.rbc-event:hover {
+  background-color: #2563eb !important;
+  opacity: 0.9 !important;
+}
+
+.dark .rbc-event:hover {
+  background-color: #3b82f6 !important;
+  opacity: 0.9 !important;
+}
+
+/* Event content */
+.rbc-event-title {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.dark .rbc-event-title {
+  color: #ffffff !important;
+}
+
+.rbc-event-content {
+  color: #ffffff !important;
+}
+
+.dark .rbc-event-content {
+  color: #ffffff !important;
+}
+
+/* Week view */
+.rbc-time-slot {
+  border-top: 1px solid #e5e7eb !important;
+}
+
+.dark .rbc-time-slot {
+  border-top: 1px solid #374151 !important;
+}
+
+.rbc-time-content {
+  border-left: 1px solid #e5e7eb !important;
+}
+
+.dark .rbc-time-content {
+  border-left: 1px solid #374151 !important;
+}
+
+/* Day view */
+.rbc-day-slot {
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.dark .rbc-day-slot {
+  border-bottom: 1px solid #374151 !important;
+}
+
+/* More events indicator */
+.rbc-show-more {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.dark .rbc-show-more {
+  background-color: #1e40af !important;
+  color: #ffffff !important;
+}
+
+/* Agenda view */
+.rbc-agenda-view {
+  background-color: transparent !important;
+}
+
+.rbc-agenda-table {
+  background-color: transparent !important;
+}
+
+.rbc-agenda-date-cell {
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.dark .rbc-agenda-date-cell {
+  border-bottom: 1px solid #374151 !important;
+}
+
+.rbc-agenda-time-cell {
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.dark .rbc-agenda-time-cell {
+  border-bottom: 1px solid #374151 !important;
+}
+
+/* Selecting slots */
+.rbc-day-slot .rbc-selected {
+  background-color: #3b82f6 !important;
+}
+
+.dark .rbc-day-slot .rbc-selected {
+  background-color: #1e40af !important;
+}
+
+/* Navigation buttons */
+.rbc-btn-group {
+  background-color: transparent !important;
+}
+
+.rbc-btn {
+  background-color: #ffffff !important;
+  border: 1px solid #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
+.dark .rbc-btn {
+  background-color: #1f2937 !important;
+  border: 1px solid #374151 !important;
+  color: #ffffff !important;
+}
+
+.rbc-btn:hover {
+  background-color: #2563eb !important;
+}
+
+.dark .rbc-btn:hover {
+  background-color: #3b82f6 !important;
+}
+
+.rbc-btn:active {
+  background-color: #1d4ed8 !important;
+}
+
+.dark .rbc-btn:active {
+  background-color: #1e40af !important;
+}
+
+/* Week headers */
+.rbc-time-header {
+  background-color: #f8f9fa !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.dark .rbc-time-header {
+  background-color: #1f2937 !important;
+  border-bottom: 1px solid #374151 !important;
+}
+
+.rbc-time-header-cell {
+  color: #374151 !important;
+}
+
+.dark .rbc-time-header-cell {
+  color: #ffffff !important;
+}
+
+/* Month view day numbers */
+.rbc-date-cell {
+  color: #374151 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.dark .rbc-date-cell {
+  color: #ffffff !important;
+  border-bottom: 1px solid #374151 !important;
+}
+
+.rbc-date-cell.rbc-off-range-bg {
+  color: #6c757d !important;
+}
+
+.dark .rbc-date-cell.rbc-off-range-bg {
+  color: #9ca3af !important;
+}
+
+.rbc-date-cell.rbc-now {
+  color: #3b82f6 !important;
+  font-weight: bold !important;
+}
+
+.dark .rbc-date-cell.rbc-now {
+  color: #ffffff !important;
+  font-weight: bold !important;
+}

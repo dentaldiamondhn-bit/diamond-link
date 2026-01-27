@@ -11,7 +11,7 @@ const SignatureDisplay: React.FC<SignatureDisplayProps> = ({
   signatureUrl, 
   label = "Firma Digital Existente" 
 }) => {
-  if (!signatureUrl) {
+  if (!signatureUrl || signatureUrl === '') {
     return (
       <div className="signature-section">
         <h4><i className="fas fa-signature"></i> {label}</h4>

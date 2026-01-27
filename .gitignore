@@ -41,3 +41,6 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
+
+# Broken app directory
+clerk.broken/
