@@ -80,32 +80,32 @@ export default clerkMiddleware(async (auth, req) => {
   // Define permissions for each role (only for non-admin users)
   const rolePermissions = {
     doctor: {
-      '/dashboard': true,
-      '/pacientes': true,
-      '/patient-form': true,
-      '/patient-preview': true,
-      '/patient-preview/': true, // Add prefix match
-      '/odontogram': true,
-      '/tratamientos': true,
-      '/tratamientos-completados': true,
-      '/doctores': true,
-      '/consentimientos': true,
-      '/calendario': true,
-      '/menu-navegacion': true,
+      '/auth/dashboard': true,
+      '/auth/pacientes': true,
+      '/auth/patient-form': true,
+      '/auth/patient-preview': true,
+      '/auth/patient-preview/': true, // Add prefix match
+      '/auth/odontogram': true,
+      '/auth/tratamientos': true,
+      '/auth/tratamientos-completados': true,
+      '/auth/doctores': true,
+      '/auth/consentimientos': true,
+      '/auth/calendario': true,
+      '/auth/menu-navegacion': true,
     },
     staff: {
-      '/dashboard': true,
-      '/pacientes': true,
-      '/patient-form': true,
-      '/patient-preview': true,
-      '/patient-preview/': true, // Add prefix match
-      '/odontogram': true,
-      '/tratamientos': true,
-      '/tratamientos-completados': true,
-      '/doctores': true,
-      '/consentimientos': true,
-      '/calendario': true,
-      '/menu-navegacion': true,
+      '/auth/dashboard': true,
+      '/auth/pacientes': true,
+      '/auth/patient-form': true,
+      '/auth/patient-preview': true,
+      '/auth/patient-preview/': true, // Add prefix match
+      '/auth/odontogram': true,
+      '/auth/tratamientos': true,
+      '/auth/tratamientos-completados': true,
+      '/auth/doctores': true,
+      '/auth/consentimientos': true,
+      '/auth/calendario': true,
+      '/auth/menu-navegacion': true,
     },
   };
 
@@ -119,8 +119,8 @@ export default clerkMiddleware(async (auth, req) => {
       console.log('✅ Permission granted for exact match');
       return NextResponse.next();
     } else {
-      console.log('🚫 Permission denied, redirecting to menu-navegacion (exact match)');
-      return NextResponse.redirect(new URL('/menu-navegacion', req.url));
+      console.log('🚫 Permission denied, redirecting to /auth/menu-navegacion (exact match)');
+      return NextResponse.redirect(new URL('/auth/menu-navegacion', req.url));
     }
   }
   
@@ -134,14 +134,14 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // If no permission found, deny access
-  console.log('🚫 No permission found for pathname, redirecting to menu-navegacion:', { pathname, userRole, permissions });
-  return NextResponse.redirect(new URL('/menu-navegacion', req.url));
+  console.log('🚫 No permission found for pathname, redirecting to /auth/menu-navegacion:', { pathname, userRole, permissions });
+  return NextResponse.redirect(new URL('/auth/menu-navegacion', req.url));
 });
 
 export const config = {
   matcher: [
     '/((?!.*\\..*|_next).*)',
     '/',
-    '/(auth)/:path*',
+    '/auth/:path*',
   ],
 };
