@@ -13,6 +13,5 @@
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"
     }
-  },
-  "nodeVersion": "18.x"
+  }
 }
