@@ -44,3 +44,4 @@ Thumbs.db
 
 # Broken app directory
 clerk.broken/
+.env*.local
