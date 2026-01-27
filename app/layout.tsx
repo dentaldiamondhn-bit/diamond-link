@@ -5,6 +5,9 @@ import './globals.css'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { HistoricalModeProvider } from '../contexts/HistoricalModeContext'
 
+// Force dynamic rendering for the entire app
+export const dynamic = 'force-dynamic'
+
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
