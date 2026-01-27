@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(request: NextRequest) {
   try {
     const { patientId, filePath, documentIndex, documents } = await request.json();

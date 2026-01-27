@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PatientService } from '../../../services/patientService';
 
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

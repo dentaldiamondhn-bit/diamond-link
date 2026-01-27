@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { StorageService } from '../../../services/storageService';
 import { PatientService } from '../../../services/patientService';
 
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

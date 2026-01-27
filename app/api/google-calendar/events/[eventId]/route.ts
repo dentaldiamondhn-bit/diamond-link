@@ -15,6 +15,10 @@ function getTokensFromRequest(request: NextRequest) {
   return cookies ? JSON.parse(cookies.value) : null
 }
 
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { eventId: string } }

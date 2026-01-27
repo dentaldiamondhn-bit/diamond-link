@@ -14,6 +14,10 @@ let notifications: any[] = [
   }
 ];
 
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const { userId } = await auth();
