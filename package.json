@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
-    "lint:check": "eslint . --ext .js,.jsx,.ts,.tsx"
+    "lint:check": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@clerk/nextjs": "latest",

@@ -1,0 +1,37 @@
+name: dental-clinic-app
+services:
+- name: web
+  source_dir: /
+  github:
+    repo: dentaldiamondhn-bit/clinica-dental-app
+    branch: main
+  run_command: npm run build && npm start
+  environment_slug: node-js
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  env:
+  - key: NODE_ENV
+    value: production
+  - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    value: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+  - key: CLERK_SECRET_KEY
+    value: ${CLERK_SECRET_KEY}
+  - key: NEXT_PUBLIC_SUPABASE_URL
+    value: ${NEXT_PUBLIC_SUPABASE_URL}
+  - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    value: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+  - key: SUPABASE_SERVICE_ROLE_KEY
+    value: ${SUPABASE_SERVICE_ROLE_KEY}
+  - key: GOOGLE_CLIENT_ID
+    value: ${GOOGLE_CLIENT_ID}
+  - key: GOOGLE_CLIENT_SECRET
+    value: ${GOOGLE_CLIENT_SECRET}
+  - key: GOOGLE_REDIRECT_URI
+    value: ${GOOGLE_REDIRECT_URI}
+  http_port: 3000
+  routes:
+  - path: /
+databases:
+- engine: PG
+  name: dental-clinic-db
+  version: "15"
