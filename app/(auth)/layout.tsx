@@ -17,6 +17,9 @@ import { TutorialProvider } from '../../contexts/TutorialContext';
 import { TutorialModal } from '../../components/TutorialModal';
 import { TutorialButton } from '../../components/TutorialButton';
 
+// Force dynamic rendering for this layout
+export const dynamic = 'force-dynamic'
+
 // Separate component for modal content
 function EventModalWrapper() {
   const { isEventModalOpen, selectedEvent, closeEventModal } = useEventModal();
