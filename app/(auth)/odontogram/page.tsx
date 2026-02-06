@@ -102,31 +102,30 @@ function Tooth({ numero, estado, nota, estadoSeleccionado, onEstadoChange, onNot
           }
         }
       `}</style>
-      <div 
-        className="note-dot"
-        style={{
-          position: 'absolute',
-          bottom: '-2px',
-          left: '-2px',
-          width: '8px',
-          height: '8px',
-          backgroundColor: '#FF5252',
-          borderRadius: '50%',
-          opacity: hasNote ? 1 : 0,
-          transition: 'all 0.2s ease',
-          zIndex: 15,
-          boxShadow: '0 0 6px rgba(255, 82, 82, 0.8)',
-          border: '2px solid #FFFFFF',
-          animation: hasNote ? 'pulse 2s infinite' : 'none'
-        }}
-      ></div>
       <div className="tooth-container">
         <div className="tooth-number" style={{
           transform: isLower ? 'rotate(180deg)' : 'none',
           color: estado === 'sano' ? '#1F2937' : '#FFFFFF',
-          textShadow: estado === 'sano' ? '0 0 2px rgba(255,255,255,0.7)' : '0 0 2px rgba(0,0,0,0.7)'
+          textShadow: estado === 'sano' ? '0 0 2px rgba(255,255,255,0.7)' : '0 0 2px rgba(0,0,0,0.7)',
+          position: 'relative'
         }}>
           {numero}
+          {hasNote && (
+            <div 
+              style={{
+                position: 'absolute',
+                top: '-5px',
+                right: '-5px',
+                width: '6px',
+                height: '6px',
+                backgroundColor: '#FF5252',
+                borderRadius: '50%',
+                zIndex: 1000,
+                boxShadow: '0 0 4px rgba(255, 82, 82, 0.8)',
+                border: '1px solid #FFFFFF'
+              }}
+            ></div>
+          )}
         </div>
       </div>
     </div>
@@ -427,16 +426,24 @@ function OdontogramPageContent() {
   const buildOdontogramData = () => {
     const dientes: Record<string, any> = {};
     
-    // First, ensure all teeth for the current type are included
+    // Include ALL teeth from dientesData state, regardless of current type
+    Object.keys(dientesData).forEach(key => {
+      const numero = parseInt(key);
+      dientes[key] = dientesData[numero];
+    });
+    
+    // Also ensure all teeth for current type are included with default 'sano' state
     if (tipoOdontograma === 'adulto') {
       for (let i = 18; i <= 48; i++) {
-        if (![11, 12, 13, 14, 15, 16, 17, 18].includes(i)) continue;
-        dientes[i.toString()] = dientesData[i] || { estado: 'sano' };
+        if (![11, 12, 13, 14, 15, 16, 17, 18].includes(i) && !dientes[i.toString()]) {
+          dientes[i.toString()] = { estado: 'sano' };
+        }
       }
     } else {
       for (let i = 51; i <= 85; i++) {
-        if (![55, 56, 64, 65, 75, 85].includes(i)) continue;
-        dientes[i.toString()] = dientesData[i] || { estado: 'sano' };
+        if (![55, 56, 64, 65, 75, 85].includes(i) && !dientes[i.toString()]) {
+          dientes[i.toString()] = { estado: 'sano' };
+        }
       }
     }
 
@@ -518,10 +525,6 @@ function OdontogramPageContent() {
       setError(null);
 
       const odontogramData = buildOdontogramData();
-
-      console.log('Creating new odontogram version from current state...');
-      console.log('Current odontogram version:', currentOdontogram?.version);
-      console.log('New odontogram data:', odontogramData);
 
       // Always create a new version (this creates a copy and increments version)
       await OdontogramService.createNewVersion(pacienteId, odontogramData, notasGenerales);
@@ -825,18 +828,27 @@ function OdontogramPageContent() {
           display: inline-flex;
           justify-content: center;
           align-items: center;
-          cursor: pointer;
-          transition: all 0.2s ease;
           position: relative;
-          background: #ffffff;
-          border: 1px solid #bbb;
-          border-radius: 8px 8px 12px 12px;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-          overflow: hidden;
-          margin: 5px;
+          cursor: pointer;
+          border: 2px solid;
+          border-radius: 4px;
+          margin: 1px;
+          font-size: 10px;
+          font-weight: bold;
+          transition: all 0.2s ease;
           grid-column: auto;
           grid-row: auto;
         }
+
+        .tooth-container {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+        } 
 
         .diente[data-tooth-type="incisor"] {
           width: 35px;
