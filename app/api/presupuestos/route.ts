@@ -24,12 +24,12 @@ export async function GET(request: NextRequest) {
       .eq('status', 'pending')
       .lt('expires_at', now);
 
-    // Fetch quotes for the patient
+    // Fetch quotes for patient
     const { data: quotes, error } = await supabase
       .from('presupuestos')
       .select('*')
       .eq('patient_id', patient_id)
-      .order('created_at', { ascending: false });
+      .order('quote_date', { ascending: false });
 
     if (error) {
       console.error('Error fetching quotes:', error);
@@ -51,38 +51,63 @@ export async function POST(request: NextRequest) {
       patient_name,
       treatment_description,
       notes,
+      quote_date,
       items,
       total_amount,
-      doctor_name,
-      expires_at
+      doctor_name
     } = body;
 
     // Validate required fields
-    if (!patient_id || !patient_name || !treatment_description || !items || !total_amount || !doctor_name) {
+    if (!patient_id || !patient_name || !items || !total_amount || !doctor_name) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Create the quote
+    // Calculate expiration date from quote_date (or current date if no quote_date)
+    const quoteDate = quote_date ? new Date(quote_date) : new Date();
+    const expires_at = new Date(quoteDate.getTime() + 180 * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Use quote_date as created_at if provided (for legacy data), otherwise use current time
+    const created_at = quote_date ? new Date(quote_date).toISOString() : new Date().toISOString();
+    
+    console.log('Creating quote with data:', {
+      patient_id,
+      patient_name,
+      treatment_description,
+      notes,
+      quote_date,
+      items,
+      total_amount,
+      doctor_name,
+      expires_at,
+      created_at
+    });
+    
     const { data: quote, error } = await supabase
       .from('presupuestos')
       .insert([{
         patient_id,
         patient_name,
-        treatment_description,
+        treatment_description: treatment_description && treatment_description.trim() ? treatment_description : null,
         notes: notes || null,
+        quote_date: quote_date ? new Date(quote_date).toISOString() : new Date().toISOString(),
         items,
         total_amount,
         doctor_name,
         status: 'pending',
         expires_at,
-        created_at: new Date().toISOString(),
+        created_at,
       }])
       .select()
       .single();
 
     if (error) {
       console.error('Error creating quote:', error);
-      return NextResponse.json({ error: 'Failed to create quote' }, { status: 500 });
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      return NextResponse.json({ 
+        error: 'Failed to create quote',
+        details: error.details || error.message 
+      }, { status: 500 });
     }
 
     return NextResponse.json({ 

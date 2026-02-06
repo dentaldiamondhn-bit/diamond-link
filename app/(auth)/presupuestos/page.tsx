@@ -30,6 +30,22 @@ interface Promotion {
   max_beneficiarios?: number;
 }
 
+// Define Quote interface
+interface Quote {
+  id: string;
+  patient_id: string;
+  patient_name: string;
+  treatment_description: string;
+  notes: string;
+  quote_date: string;
+  items: QuoteItem[];
+  total_amount: number;
+  doctor_name: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'expired';
+  created_at: string;
+  expires_at: string;
+}
+
 export default function PresupuestosPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
@@ -271,6 +287,7 @@ export default function PresupuestosPage() {
   const [newQuote, setNewQuote] = useState({
     treatment_description: '',
     notes: '',
+    quote_date: '',
     items: [
       { id: '1', description: '', quantity: 1, unit_price: 0, total_price: 0 }
     ]
@@ -324,8 +341,8 @@ export default function PresupuestosPage() {
   };
 
   const createQuote = async () => {
-    if (!newQuote.treatment_description || !currentPatient) {
-      alert('Por favor complete la descripción del tratamiento');
+    if (!currentPatient) {
+      alert('Por favor seleccione un paciente');
       return;
     }
 
@@ -339,21 +356,30 @@ export default function PresupuestosPage() {
     try {
       const total_amount = validItems.reduce((sum, item) => sum + item.total_price, 0);
       
+      // Calculate expiration date from quote_date (or current date if no quote_date)
+      const quoteDate = newQuote.quote_date ? new Date(newQuote.quote_date) : new Date();
+      const expires_at = new Date(quoteDate.getTime() + 180 * 24 * 60 * 60 * 1000).toISOString();
+      
+      const requestBody = {
+        patient_id: pacienteId,
+        patient_name: currentPatient.nombre_completo,
+        treatment_description: newQuote.treatment_description || null,
+        notes: newQuote.notes,
+        quote_date: newQuote.quote_date,
+        items: validItems,
+        total_amount,
+        doctor_name: `${user.firstName} ${user.lastName}`,
+        expires_at: expires_at,
+      };
+      
+      console.log('Request body:', requestBody);
+      
       const response = await fetch('/api/presupuestos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          patient_id: pacienteId,
-          patient_name: currentPatient.nombre_completo,
-          treatment_description: newQuote.treatment_description,
-          notes: newQuote.notes,
-          items: validItems,
-          total_amount,
-          doctor_name: `${user.firstName} ${user.lastName}`,
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -361,12 +387,14 @@ export default function PresupuestosPage() {
         setNewQuote({
           treatment_description: '',
           notes: '',
+          quote_date: '',
           items: [{ id: Date.now().toString(), description: '', quantity: 1, unit_price: 0, total_price: 0 }]
         });
         await loadQuotes();
         alert('Presupuesto creado exitosamente');
       } else {
         const error = await response.json();
+        console.error('API Error:', error);
         alert('Error al crear presupuesto: ' + error.error);
       }
     } catch (error) {
@@ -485,15 +513,59 @@ export default function PresupuestosPage() {
   };
 
   const isExpired = (expiresAt: string) => {
-    return new Date(expiresAt) < new Date();
+    if (!expiresAt) return false;
+    
+    let date: Date;
+    
+    // Handle different date formats
+    if (expiresAt.includes('T') && expiresAt.includes('Z')) {
+      date = new Date(expiresAt);
+    } else if (expiresAt.includes('T')) {
+      // Remove timezone offset and add Z to force UTC
+      const dateWithoutOffset = expiresAt.split(/[+-]\d{2}:\d{2}$/)[0];
+      date = new Date(dateWithoutOffset + 'Z');
+    } else {
+      date = new Date(expiresAt);
+    }
+    
+    return date < new Date();
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    if (!dateString) return 'Fecha no disponible';
+    
+    let date: Date;
+    
+    // Handle different date formats
+    if (dateString.includes('T') && dateString.includes('Z')) {
+      // ISO format with Z: 2022-03-21T00:00:00.000Z
+      date = new Date(dateString);
+    } else if (dateString.includes('T')) {
+      // ISO format with timezone offset: 2022-03-21T00:00:00+00:00
+      // Remove timezone offset and add Z to force UTC
+      const dateWithoutOffset = dateString.split(/[+-]\d{2}:\d{2}$/)[0];
+      date = new Date(dateWithoutOffset + 'Z');
+    } else {
+      // Simple format: 2022-03-21
+      date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date string:', dateString);
+      return 'Fecha no disponible';
+    }
+    
+    const day = date.getUTCDate(); // Use UTC methods
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const month = monthNames[date.getUTCMonth()];
+    const year = date.getUTCFullYear();
+    
+    return `${day} de ${month} ${year}`;
+  };
+
+  // Get the display date for a quote (quote_date if available, otherwise created_at)
+  const getQuoteDisplayDate = (quote: Quote) => {
+    return quote.quote_date || quote.created_at;
   };
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -664,7 +736,7 @@ export default function PresupuestosPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Descripción del Tratamiento *
+                  Descripción del Tratamiento
                 </label>
                 <textarea
                   value={newQuote.treatment_description}
@@ -672,6 +744,19 @@ export default function PresupuestosPage() {
                   className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   rows={3}
                   placeholder="Describa el tratamiento a realizar..."
+                />
+              </div>
+              
+              {/* Date Picker */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Fecha del Presupuesto *
+                </label>
+                <input
+                  type="date"
+                  value={newQuote.quote_date}
+                  onChange={(e) => setNewQuote(prev => ({ ...prev, quote_date: e.target.value }))}
+                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                 />
               </div>
 
@@ -906,7 +991,7 @@ export default function PresupuestosPage() {
                   )}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Válido por 30 días
+                  Válido por 6 meses
                 </div>
               </div>
             </div>
@@ -918,6 +1003,7 @@ export default function PresupuestosPage() {
                   setNewQuote({
                     treatment_description: '',
                     notes: '',
+                    quote_date: '',
                     items: [{ id: Date.now().toString(), description: '', quantity: 1, unit_price: 0, total_price: 0 }]
                   });
                 }}
@@ -978,7 +1064,7 @@ export default function PresupuestosPage() {
                   {quotes.map((quote) => (
                     <tr key={quote.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {formatDate(quote.created_at)}
+                        {formatDate(getQuoteDisplayDate(quote))}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
                         <div className="max-w-xs truncate" title={quote.treatment_description}>
@@ -1065,7 +1151,7 @@ export default function PresupuestosPage() {
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Fecha:</p>
-                          <p className="font-medium">{formatDate(selectedQuote.created_at)}</p>
+                          <p className="font-medium">{formatDate(getQuoteDisplayDate(selectedQuote))}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Expira:</p>

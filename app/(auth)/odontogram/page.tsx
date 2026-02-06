@@ -80,6 +80,7 @@ function Tooth({ numero, estado, nota, estadoSeleccionado, onEstadoChange, onNot
       className={`diente ${hasNote ? 'has-note' : ''}`}
       data-tooth-type={toothType}
       data-estado={estado}
+      data-has-note={hasNote}
       style={{
         backgroundColor,
         borderColor: backgroundColor,
@@ -89,7 +90,36 @@ function Tooth({ numero, estado, nota, estadoSeleccionado, onEstadoChange, onNot
       onDoubleClick={handleDoubleClick}
       title={`Diente ${numero}${nota ? ' - ' + nota : ''}`}
     >
-      <div className="note-indicator"></div>
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.2);
+            opacity: 0.8;
+          }
+        }
+      `}</style>
+      <div 
+        className="note-dot"
+        style={{
+          position: 'absolute',
+          bottom: '-2px',
+          left: '-2px',
+          width: '8px',
+          height: '8px',
+          backgroundColor: '#FF5252',
+          borderRadius: '50%',
+          opacity: hasNote ? 1 : 0,
+          transition: 'all 0.2s ease',
+          zIndex: 15,
+          boxShadow: '0 0 6px rgba(255, 82, 82, 0.8)',
+          border: '2px solid #FFFFFF',
+          animation: hasNote ? 'pulse 2s infinite' : 'none'
+        }}
+      ></div>
       <div className="tooth-container">
         <div className="tooth-number" style={{
           transform: isLower ? 'rotate(180deg)' : 'none',
@@ -111,12 +141,39 @@ function OdontogramPageContent() {
   const versionParam = searchParams.get('version');
   const editParam = searchParams.get('edit');
 
+  // Date formatting function (same as pacientes page)
+  const formatDateSpanish = (dateString: string): string => {
+    let date: Date;
+    
+    // Handle different date formats
+    if (dateString.includes('T') && dateString.includes('Z')) {
+      // ISO format with Z: 2022-03-21T00:00:00.000Z
+      date = new Date(dateString);
+    } else if (dateString.includes('T')) {
+      // ISO format without Z: 2022-03-21T00:00:00.000
+      date = new Date(dateString + 'Z');
+    } else {
+      // Simple format: 2022-03-21
+      date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) return 'Fecha no disponible';
+    
+    const day = date.getUTCDate(); // Use UTC methods
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const month = monthNames[date.getUTCMonth()];
+    const year = date.getUTCFullYear();
+    
+    return `${day} de ${month} ${year}`;
+  };
+
   const [tipoOdontograma, setTipoOdontograma] = useState<'adulto' | 'nino'>('adulto');
   const [estadoSeleccionado, setEstadoSeleccionado] = useState('sano');
   const [dientesData, setDientesData] = useState<Record<number, { estado: string; nota?: string }>>({});
   const [historialCambios, setHistorialCambios] = useState<Array<{ numero: number; estadoAnterior: string; estadoNuevo: string }>>([]);
   const [notasGenerales, setNotasGenerales] = useState('');
-  const [fechaOdontograma, setFechaOdontograma] = useState(new Date().toISOString().split('T')[0]);
+  const [fechaOdontograma, setFechaOdontograma] = useState('');
+  const [fechaOdontogramaDisplay, setFechaOdontogramaDisplay] = useState('');
   const [patient, setPatient] = useState<any>(null);
   const [currentOdontogram, setCurrentOdontogram] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -202,15 +259,15 @@ function OdontogramPageContent() {
           setSelectedVersion(parseInt(versionParam));
           loadOdontogramData(odontogram);
         }
-      } else {
+      } else if (!editParam) {
         const odontogram = await OdontogramService.getActiveOdontogram(pacienteId!);
         if (odontogram) {
           setCurrentOdontogram(odontogram);
           setSelectedVersion(odontogram.version);
           loadOdontogramData(odontogram);
-        } else {
-          initializeEmptyOdontogram();
         }
+      } else {
+        initializeEmptyOdontogram();
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -222,40 +279,36 @@ function OdontogramPageContent() {
 
   const loadOdontogramData = (odontogram: any) => {
     const datos: Record<number, { estado: string; nota?: string }> = {};
-    
-    // Debug: Log what we're loading
-    console.log('Loading odontogram data:', odontogram);
-    console.log('Odontogram datos_odontograma:', odontogram.datos_odontograma);
-    console.log('Odontogram notas field:', odontogram.notas);
+    let notasData: string = '';
     
     // Handle both data structures
     let odontogramData = odontogram.datos_odontograma;
-    let notasData = odontogram.notas;
     
     // Check if data is nested (old format)
     if (odontogramData && odontogramData.datos_odontograma) {
-      console.log('Detected nested data structure, using nested datos_odontograma');
       odontogramData = odontogramData.datos_odontograma;
       // Also check for notas in nested structure
       if (odontogram.datos_odontograma.notas) {
         notasData = odontogram.datos_odontograma.notas;
-        console.log('Found notas in nested structure:', notasData);
       }
     }
     
-    // Set the tipo from the loaded odontogram
+    // Set tipo from loaded odontogram
     if (odontogramData && odontogramData.tipo) {
       setTipoOdontograma(odontogramData.tipo);
     }
     
-    // Set the fecha from the loaded odontogram
+    // Set fecha from loaded odontogram
     if (odontogramData && odontogramData.fecha) {
+      // Use fecha field directly
       const fechaDate = new Date(odontogramData.fecha);
       setFechaOdontograma(fechaDate.toISOString().split('T')[0]);
-    } else if (odontogram.fecha_creacion) {
+      setFechaOdontogramaDisplay(formatDateSpanish(odontogramData.fecha));
+    } else if (odontogramData.fecha_creacion) {
       // Fallback to creation date
-      const fechaDate = new Date(odontogram.fecha_creacion);
+      const fechaDate = new Date(odontogramData.fecha_creacion);
       setFechaOdontograma(fechaDate.toISOString().split('T')[0]);
+      setFechaOdontogramaDisplay(formatDateSpanish(odontogramData.fecha_creacion));
     }
     
     if (odontogramData && odontogramData.dientes) {
@@ -266,10 +319,6 @@ function OdontogramPageContent() {
         };
       });
     }
-    
-    // Debug: Log what we're setting
-    console.log('Setting dientesData to:', datos);
-    console.log('Setting notasGenerales to:', notasData || '');
     
     setDientesData(datos);
     setNotasGenerales(notasData || '');
@@ -378,42 +427,23 @@ function OdontogramPageContent() {
   const buildOdontogramData = () => {
     const dientes: Record<string, any> = {};
     
-    // Debug: Log current state
-    console.log('Current dientesData:', dientesData);
-    console.log('Current tipoOdontograma:', tipoOdontograma);
-    
     // First, ensure all teeth for the current type are included
     if (tipoOdontograma === 'adulto') {
-      const upperTeeth = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
-      const lowerTeeth = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
-      [...upperTeeth, ...lowerTeeth].forEach(num => {
-        dientes[num.toString()] = dientesData[num] || { estado: 'sano' };
-      });
-    } else {
-      const upperTeeth = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65];
-      const lowerTeeth = [85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
-      [...upperTeeth, ...lowerTeeth].forEach(num => {
-        dientes[num.toString()] = dientesData[num] || { estado: 'sano' };
-      });
-    }
-    
-    // Then include any additional teeth that might be in dientesData
-    Object.entries(dientesData).forEach(([numero, data]) => {
-      if (!dientes[numero]) {
-        dientes[numero] = {
-          estado: data.estado,
-          nota: data.nota
-        };
+      for (let i = 18; i <= 48; i++) {
+        if (![11, 12, 13, 14, 15, 16, 17, 18].includes(i)) continue;
+        dientes[i.toString()] = dientesData[i] || { estado: 'sano' };
       }
-    });
-
-    // Debug: Log final data
-    console.log('Final dientes to save:', dientes);
+    } else {
+      for (let i = 51; i <= 85; i++) {
+        if (![55, 56, 64, 65, 75, 85].includes(i)) continue;
+        dientes[i.toString()] = dientesData[i] || { estado: 'sano' };
+      }
+    }
 
     return {
       tipo: tipoOdontograma,
       dientes,
-      fecha: new Date(fechaOdontograma).toISOString()
+      fecha: fechaOdontograma
     };
   };
 
@@ -447,34 +477,18 @@ function OdontogramPageContent() {
 
       const odontogramData = buildOdontogramData();
       
-      // Debug: Log what we're saving
-      console.log('Updating current odontogram with notas:', notasGenerales);
-      console.log('Odontogram data:', odontogramData);
-
       // Always update the current active odontogram (don't create new version)
       if (currentOdontogram) {
-        console.log('Updating current odontogram with ID:', currentOdontogram.id);
         await OdontogramService.updateOdontogram(currentOdontogram.id, odontogramData, notasGenerales);
         
         // Reload the updated odontogram to reflect changes
-        const updatedOdontogram = await OdontogramService.getOdontogramById(currentOdontogram.id);
+        const updatedOdontogram = await OdontogramService.getActiveOdontogram(pacienteId!);
         if (updatedOdontogram) {
           setCurrentOdontogram(updatedOdontogram);
           loadOdontogramData(updatedOdontogram);
         }
-        
-        // Refresh odontogram history to show updated data
-        const history = await OdontogramService.getOdontogramHistory(pacienteId);
-        setOdontogramasGuardados(history.map(h => ({
-          id: h.odontograma.id,
-          nombre: `Versión ${h.odontograma.version}${h.es_version_actual ? ' (Actual)' : ''}`,
-          fecha: (h.odontograma.datos_odontograma as any)?.fecha || h.odontograma.fecha_creacion,
-          version: h.odontograma.version,
-          esActual: h.es_version_actual
-        })));
       } else {
         // If no current odontogram, create the first one
-        console.log('Creating first odontogram for patient:', pacienteId);
         await OdontogramService.createOdontogram(pacienteId, odontogramData, notasGenerales);
         
         // Load the new active odontogram
@@ -522,20 +536,18 @@ function OdontogramPageContent() {
         esActual: h.es_version_actual
       })));
 
-      // Load the new active odontogram
+      // Load new active odontogram
       const activeOdontogram = await OdontogramService.getActiveOdontogram(pacienteId);
       if (activeOdontogram) {
-        console.log('New active odontogram loaded:', activeOdontogram.version);
         setCurrentOdontogram(activeOdontogram);
         loadOdontogramData(activeOdontogram);
         setIsEditing(false);
         setEditVersion(null);
         setSelectedVersion(activeOdontogram.version);
       }
-
     } catch (err) {
-      console.error('Error saving new odontogram:', err);
-      setError('Error al guardar el odontograma');
+      console.error('Error creating new odontogram version:', err);
+      setError('Error al crear nueva versión del odontograma');
     } finally {
       setSaving(false);
     }
@@ -876,21 +888,73 @@ function OdontogramPageContent() {
 
         .note-indicator {
           position: absolute;
-          top: 2px;
-          right: 2px;
-          width: 14px;
-          height: 14px;
+          top: -2px;
+          right: -2px;
+          width: 20px;
+          height: 20px;
           opacity: 0;
-          transition: opacity 0.2s ease;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF5252'%3E%3Cpath d='M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z'/%3E%3C/svg%3E");
+          transition: all 0.2s ease;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF5252'%3E%3Cpath d='M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z'/%3E%3C/svg%3E");
           background-size: contain;
           background-repeat: no-repeat;
           background-position: center;
-          z-index: 10;
+          z-index: 15;
+          border-radius: 3px;
+          box-shadow: 0 2px 6px rgba(255, 82, 82, 0.4);
+          background-color: rgba(255, 255, 255, 0.9);
         }
 
         .has-note .note-indicator {
           opacity: 1;
+          transform: scale(1.1);
+        }
+
+        .has-note .note-indicator:hover {
+          transform: scale(1.2);
+          filter: brightness(1.2);
+        }
+
+        .note-dot {
+          position: absolute;
+          bottom: -2px;
+          left: -2px;
+          width: 10px;
+          height: 10px;
+          background-color: #FF5252;
+          border-radius: 50%;
+          opacity: 0;
+          transition: all 0.2s ease;
+          z-index: 15;
+          box-shadow: 0 0 6px rgba(255, 82, 82, 0.8);
+          border: 2px solid #FFFFFF;
+        }
+
+        .has-note .note-dot {
+          opacity: 1;
+          animation: pulse 2s infinite;
+        }
+
+        /* Make sure indicators are always visible for teeth with notes */
+        .diente[data-has-note="true"] .note-indicator {
+          opacity: 1 !important;
+          display: block !important;
+        }
+
+        .diente[data-has-note="true"] .note-dot {
+          opacity: 1 !important;
+          display: block !important;
+          animation: pulse 2s infinite !important;
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.2);
+            opacity: 0.8;
+          }
         }
 
         /* Gum line effect */
@@ -1310,11 +1374,13 @@ function OdontogramPageContent() {
             <input
               type="date"
               value={fechaOdontograma}
-              onChange={(e) => setFechaOdontograma(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-              style={{
-                colorScheme: resolvedTheme,
+              onChange={(e) => {
+                if (!editParam || editParam !== 'true') {
+                  setFechaOdontograma(e.target.value);
+                  setFechaOdontogramaDisplay(formatDateSpanish(e.target.value));
+                }
               }}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
           </div>
         </div>
@@ -1401,7 +1467,7 @@ function OdontogramPageContent() {
                       {odo.nombre}
                     </div>
                     <div className="text-xs text-gray-300">
-                      {new Date(odo.fecha).toLocaleDateString()}
+                      {formatDateSpanish(odo.fecha)}
                     </div>
                   </div>
                 ))

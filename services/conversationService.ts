@@ -281,20 +281,22 @@ export class ConversationService {
       }
 
       // Check if there's already a room between these two users
-      const existingRoom = existingRooms?.find((room: any) => 
-        room.chat_rooms.created_by_clerk_id === user2ClerkId
-      );
+      const existingRoom = existingRooms?.find((room: any) => {
+        const chatRoom = room.chat_rooms;
+        return chatRoom && chatRoom.created_by_clerk_id === user2ClerkId;
+      });
 
       if (existingRoom) {
         // Convert to conversation format
+        const room = existingRoom as any;
         return {
-          id: existingRoom.chat_rooms.id,
-          type: existingRoom.chat_rooms.type as 'direct',
-          name: existingRoom.chat_rooms.name,
-          participant_ids: [existingRoom.chat_rooms.created_by_clerk_id],
-          created_by_clerk_id: existingRoom.chat_rooms.created_by_clerk_id,
-          created_at: existingRoom.chat_rooms.created_at,
-          updated_at: existingRoom.chat_rooms.created_at,
+          id: room.chat_rooms?.id || room.room_id,
+          type: room.chat_rooms?.type as 'direct',
+          name: room.chat_rooms?.name,
+          participant_ids: [room.chat_rooms?.created_by_clerk_id],
+          created_by_clerk_id: room.chat_rooms?.created_by_clerk_id,
+          created_at: room.chat_rooms?.created_at,
+          updated_at: room.chat_rooms?.created_at,
           last_message: undefined,
           last_message_time: undefined,
           unread_count: 0,

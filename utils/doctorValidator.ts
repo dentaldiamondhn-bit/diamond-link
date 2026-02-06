@@ -143,15 +143,15 @@ export class DoctorValidator {
    * Validates complete doctor object (name and specialty)
    * For new doctor creation, allow any name with basic validation
    */
-  static validateDoctorObject(doctor: { name?: string; specialty?: string }, allowNewDoctors: boolean = false): { isValid: boolean; errors: string[] } {
+  static async validateDoctorObject(doctor: { name?: string; specialty?: string }, allowNewDoctors: boolean = false): Promise<{ isValid: boolean; errors: string[] }> {
     const errors: string[] = [];
 
-    const nameValidation = doctor.name ? this.validateDoctorName(doctor.name, allowNewDoctors) : null;
+    const nameValidation = doctor.name ? await this.validateDoctorName(doctor.name, allowNewDoctors) : null;
     if (nameValidation && !nameValidation.isValid) {
       errors.push(nameValidation.error || 'Invalid doctor name');
     }
 
-    const specialtyValidation = doctor.specialty ? this.validateSpecialty(doctor.specialty, allowNewDoctors) : null;
+    const specialtyValidation = doctor.specialty ? await this.validateSpecialty(doctor.specialty, allowNewDoctors) : null;
     if (specialtyValidation && !specialtyValidation.isValid) {
       errors.push(specialtyValidation.error || 'Invalid specialty');
     }

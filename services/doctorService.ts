@@ -138,10 +138,10 @@ export class DoctorService {
   }
 
   // For server-side usage (API endpoints)
-  static getServerDoctors(): Doctor[] {
+  static async getServerDoctors(): Promise<Doctor[]> {
     // In a real implementation, this would fetch from database
     // For now, return dynamic configuration
-    return getAvailableDoctors();
+    return await getAvailableDoctors();
   }
 
   static async exportDoctors(): Promise<string> {
