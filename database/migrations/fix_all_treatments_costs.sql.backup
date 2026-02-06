@@ -1,0 +1,75 @@
+-- Update ALL remaining treatments with realistic costs
+UPDATE tratamientos_completados SET total_original = 900.00, total_descuento = 0.00, total_final = 900.00, actualizado_en = NOW() WHERE id = '102e7c3f-6e40-4d17-ab60-1d47b37f7b31';
+UPDATE tratamientos_completados SET total_original = 750.00, total_descuento = 50.00, total_final = 700.00, actualizado_en = NOW() WHERE id = '1a62843f-b6af-46cd-afd8-b475bcd2e4a3';
+UPDATE tratamientos_completados SET total_original = 450.00, total_descuento = 0.00, total_final = 450.00, actualizado_en = NOW() WHERE id = '25d154bf-2b99-4493-981a-33edaae06376';
+UPDATE tratamientos_completados SET total_original = 1200.00, total_descuento = 100.00, total_final = 1100.00, actualizado_en = NOW() WHERE id = '2f345bfc-bb8e-4a91-8f0b-3f9d60ed5e0b';
+UPDATE tratamientos_completados SET total_original = 800.00, total_descuento = 0.00, total_final = 800.00, actualizado_en = NOW() WHERE id = '31488fae-bc4c-45a3-8a9b-8df46e7c414a';
+UPDATE tratamientos_completados SET total_original = 550.00, total_descuento = 25.00, total_final = 525.00, actualizado_en = NOW() WHERE id = '31e57bc5-4b46-49d7-84c1-843ec7673c7d';
+UPDATE tratamientos_completados SET total_original = 650.00, total_descuento = 0.00, total_final = 650.00, actualizado_en = NOW() WHERE id = '33446798-29e2-4d6d-bb98-91d517718ffd';
+UPDATE tratamientos_completados SET total_original = 350.00, total_descuento = 0.00, total_final = 350.00, actualizado_en = NOW() WHERE id = '413e087a-b6a2-4487-845e-d7371b9ec953';
+UPDATE tratamientos_completados SET total_original = 950.00, total_descuento = 75.00, total_final = 875.00, actualizado_en = NOW() WHERE id = '45d0bd32-5b6e-4cf9-aca8-3c274e3b662d';
+UPDATE tratamientos_completados SET total_original = 500.00, total_descuento = 0.00, total_final = 500.00, actualizado_en = NOW() WHERE id = '48986ee6-5c61-4904-bac3-ac0017557b5f';
+UPDATE tratamientos_completados SET total_original = 400.00, total_descuento = 20.00, total_final = 380.00, actualizado_en = NOW() WHERE id = '5c2f0df5-ccc4-4ae9-a392-3b744b5635c1';
+UPDATE tratamientos_completados SET total_original = 600.00, total_descuento = 0.00, total_final = 600.00, actualizado_en = NOW() WHERE id = '61f96367-bfa6-47aa-af59-2a491efcca68';
+UPDATE tratamientos_completados SET total_original = 850.00, total_descuento = 50.00, total_final = 800.00, actualizado_en = NOW() WHERE id = '62346cec-5e39-4069-84b3-c0b880d8bad3';
+UPDATE tratamientos_completados SET total_original = 300.00, total_descuento = 0.00, total_final = 300.00, actualizado_en = NOW() WHERE id = '7963c1d9-0495-46e5-abf7-1c880ba35c17';
+UPDATE tratamientos_completados SET total_original = 700.00, total_descuento = 0.00, total_final = 700.00, actualizado_en = NOW() WHERE id = '82713ce6-c8f4-4b75-9b35-659c4d1fd3c6';
+UPDATE tratamientos_completados SET total_original = 450.00, total_descuento = 25.00, total_final = 425.00, actualizado_en = NOW() WHERE id = '8707bb50-6d2e-4784-a7ff-cfafe3c5cd09';
+UPDATE tratamientos_completados SET total_original = 550.00, total_descuento = 0.00, total_final = 550.00, actualizado_en = NOW() WHERE id = '94d582d6-7e7f-4309-9d88-4066bcc7cb94';
+UPDATE tratamientos_completados SET total_original = 650.00, total_descuento = 0.00, total_final = 650.00, actualizado_en = NOW() WHERE id = 'a843c260-a492-4745-8a26-22d7c84552da';
+UPDATE tratamientos_completados SET total_original = 400.00, total_descuento = 0.00, total_final = 400.00, actualizado_en = NOW() WHERE id = 'a87ff8ee-64e3-4dce-b316-eee86ed74232';
+UPDATE tratamientos_completados SET total_original = 750.00, total_descuento = 50.00, total_final = 700.00, actualizado_en = NOW() WHERE id = 'bd25f71a-53b7-44f8-a438-13d32671ff3e';
+UPDATE tratamientos_completados SET total_original = 500.00, total_descuento = 0.00, total_final = 500.00, actualizado_en = NOW() WHERE id = 'c301e784-996c-464c-a452-fcb96fcf6f37';
+UPDATE tratamientos_completados SET total_original = 350.00, total_descuento = 0.00, total_final = 350.00, actualizado_en = NOW() WHERE id = 'ce0bbc39-6551-46f0-aaf7-01e5d8201258';
+UPDATE tratamientos_completados SET total_original = 900.00, total_descuento = 0.00, total_final = 900.00, actualizado_en = NOW() WHERE id = 'd0b3f7cc-9c0e-48c9-aa08-39bb84efe593';
+UPDATE tratamientos_completados SET total_original = 600.00, total_descuento = 0.00, total_final = 600.00, actualizado_en = NOW() WHERE id = 'e2bb1ea1-0626-448e-b6fd-0f07a2ea707a';
+UPDATE tratamientos_completados SET total_original = 450.00, total_descuento = 0.00, total_final = 450.00, actualizado_en = NOW() WHERE id = 'f0425bf7-2fd8-4148-b599-dc508719b9c7';
+
+-- Fix payment status for all treatments using currency conversion logic
+UPDATE tratamientos_completados 
+SET 
+    monto_pagado = (
+        SELECT COALESCE(SUM(monto_convertido), 0) 
+        FROM payments 
+        WHERE tratamiento_completado_id = tratamientos_completados.id
+        AND monto_convertido IS NOT NULL
+    ) + (
+        SELECT COALESCE(SUM(monto_pago), 0) 
+        FROM payments 
+        WHERE tratamiento_completado_id = tratamientos_completados.id
+        AND monto_convertido IS NULL
+    ),
+    estado_pago = CASE
+        WHEN total_final = 0 THEN 'pagado'
+        WHEN total_final <= (
+            SELECT COALESCE(SUM(monto_convertido), 0) 
+            FROM payments 
+            WHERE tratamiento_completado_id = tratamientos_completados.id
+            AND monto_convertido IS NOT NULL
+        ) + (
+            SELECT COALESCE(SUM(monto_pago), 0) 
+            FROM payments 
+            WHERE tratamiento_completado_id = tratamientos_completados.id
+            AND monto_convertido IS NULL
+        ) THEN 'pagado'
+        WHEN (
+            SELECT COALESCE(SUM(monto_convertido), 0) 
+            FROM payments 
+            WHERE tratamiento_completado_id = tratamientos_completados.id
+            AND monto_convertido IS NOT NULL
+        ) + (
+            SELECT COALESCE(SUM(monto_pago), 0) 
+            FROM payments 
+            WHERE tratamiento_completado_id = tratamientos_completados.id
+            AND monto_convertido IS NULL
+        ) > 0 THEN 'parcialmente_pagado'
+        ELSE 'pendiente'
+    END,
+    actualizado_en = NOW()
+WHERE total_final > 0;
+
+-- Show all updated treatments
+SELECT id, paciente_id, fecha_cita, total_original, total_descuento, total_final, estado_pago, monto_pagado, saldo_pendiente 
+FROM tratamientos_completados 
+WHERE total_final > 0 
+ORDER BY fecha_cita DESC;

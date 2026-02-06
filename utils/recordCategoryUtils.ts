@@ -44,17 +44,14 @@ export const getRecordCategoryConfig = async (): Promise<RecordCategoryConfig> =
       // Parse database date (should be 2026-02-02) as UTC
       const [year, month, day] = launchDateData.config_value.split('-').map(Number);
       appLaunchDate = new Date(Date.UTC(year, month - 1, day));
-      console.log('🔍 Using database launch date:', launchDateData.config_value, '->', appLaunchDate.toISOString());
       
       // TEMPORARY FIX: Override database date if it's wrong (2026-02-01 should be 2026-02-02)
       if (launchDateData.config_value === '2026-02-01') {
-        console.log('🔍 CORRECTING: Database has wrong date (2026-02-01), using correct date (2026-02-02)');
         appLaunchDate = new Date(Date.UTC(2026, 1, 2)); // UTC 2026-02-02
       }
     } else {
       // Fallback to default (matching user requirement: 2026-02-02)
       appLaunchDate = new Date(Date.UTC(2026, 1, 2)); // UTC 2026-02-02
-      console.log('🔍 Using fallback launch date: 2026-02-02 ->', appLaunchDate.toISOString());
     }
     
     const historicalRecordsEnabled = enabledData?.config_value === 'true';
@@ -122,14 +119,6 @@ export const isHistoricalRecord = (
     return false;
   }
   
-  // Debug logging
-  console.log('🔍 isHistoricalRecord Debug:', {
-    fechaInicioConsulta,
-    consultaDate: consultaDate.toISOString(),
-    launchDate: launchDate.toISOString(),
-    comparison: consultaDate < launchDate
-  });
-  
   const result = consultaDate < launchDate;
   
   return result;
@@ -156,7 +145,6 @@ export const getRecordCategoryInfo = async (
 ): Promise<HistoricalRecordInfo> => {
   // Handle undefined/null fecha_inicio_consulta
   if (!fechaInicioConsulta) {
-    console.log('🔍 getRecordCategoryInfo: fecha_inicio_consulta is undefined/null');
     return {
       isHistorical: false,
       isArchived: false,
@@ -165,12 +153,6 @@ export const getRecordCategoryInfo = async (
   }
   
   const config = await getRecordCategoryConfig();
-  
-  console.log('🔍 getRecordCategoryInfo Debug:', {
-    fechaInicioConsulta,
-    config,
-    configLaunchDate: config.appLaunchDate
-  });
   
   const isHistorical = isHistoricalRecord(fechaInicioConsulta, config);
   const isArchived = lastTreatmentDate ? shouldArchiveRecord(lastTreatmentDate) : false;

@@ -22,6 +22,7 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
     { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+    { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
   ],
   doctor: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -31,12 +32,14 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
     { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+    { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
   ],
   staff: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
     { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
     { href: '/tratamientos-completados', label: 'Tratamientos', icon: 'fas fa-check-circle' },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+    { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
   ],
 };
 

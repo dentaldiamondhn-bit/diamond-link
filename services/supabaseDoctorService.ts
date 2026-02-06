@@ -45,10 +45,24 @@ export class SupabaseDoctorService {
 
   static async createDoctor(doctorData: Omit<Doctor, 'id' | 'created_at' | 'updated_at'>): Promise<Doctor> {
     try {
-      // Validate doctor data
-      const validation = DoctorValidator.validateDoctorObject(doctorData, true);
-      if (!validation.isValid) {
-        throw new Error(validation.errors.join(', '));
+      // Basic validation only - don't rely on hardcoded lists
+      if (!doctorData.name || doctorData.name.trim() === '') {
+        throw new Error('Doctor name is required');
+      }
+      if (doctorData.name.length < 3) {
+        throw new Error('Doctor name must be at least 3 characters');
+      }
+      if (doctorData.name.length > 255) {
+        throw new Error('Doctor name must be less than 255 characters');
+      }
+      if (!doctorData.specialty || doctorData.specialty.trim() === '') {
+        throw new Error('Specialty is required');
+      }
+      if (doctorData.specialty.length < 2) {
+        throw new Error('Specialty must be at least 2 characters');
+      }
+      if (doctorData.specialty.length > 100) {
+        throw new Error('Specialty must be less than 100 characters');
       }
 
       const { data, error } = await supabase
@@ -82,10 +96,10 @@ export class SupabaseDoctorService {
 
   static async updateDoctor(id: string, updates: Partial<Doctor>): Promise<Doctor | null> {
     try {
-      // Validate updates
-      const validation = DoctorValidator.validateDoctorObject(updates);
-      if (!validation.isValid) {
-        throw new Error(validation.errors.join(', '));
+      // For updates, allow any doctor name since we're updating an existing doctor
+      // Basic validation only
+      if (updates.name && updates.name.trim() === '') {
+        throw new Error('Doctor name cannot be empty');
       }
 
       const { data, error } = await supabase

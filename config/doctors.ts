@@ -24,7 +24,8 @@ export const DEFAULT_DOCTORS: Doctor[] = [
   { id: 'dra-jimena-molina', name: 'Dra. Jimena Molina', specialty: 'Odontología General' },
   { id: 'dra-melissa-escalante', name: 'Dra. Melissa Escalante', specialty: 'Ortodoncia' },
   { id: 'dr-gustavo-urtecho', name: 'Dr. Gustavo Urtecho', specialty: 'Odontología General' },
-  { id: 'dr-jain-reyes', name: 'Dr. Jain Reyes', specialty: 'Odontología General' }
+  { id: 'dr-jain-reyes', name: 'Dr. Jain Reyes', specialty: 'Odontología General' },
+  { id: 'dra-daniela-lopez', name: 'Dra. Daniela Lopez', specialty: 'Odontología General' }
 ];
 
 // Available specialties - these can be extended as needed
@@ -46,8 +47,21 @@ export const AVAILABLE_SPECIALTIES = [
 
 export type Specialty = typeof AVAILABLE_SPECIALTIES[number];
 
-// Get doctors from localStorage or return defaults
-export function getAvailableDoctors(): Doctor[] {
+// Get doctors from database or return defaults
+export async function getAvailableDoctors(): Promise<Doctor[]> {
+  try {
+    // Import dynamically to avoid circular dependencies
+    const { SupabaseDoctorService } = await import('../services/supabaseDoctorService');
+    const doctors = await SupabaseDoctorService.getDoctors();
+    return doctors || DEFAULT_DOCTORS;
+  } catch (error) {
+    console.error('Error fetching doctors from database:', error);
+    return DEFAULT_DOCTORS;
+  }
+}
+
+// For backward compatibility - synchronous version for client-side
+export function getAvailableDoctorsSync(): Doctor[] {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('clinica_doctores_config');
     if (stored) {
@@ -62,35 +76,35 @@ export function getAvailableDoctors(): Doctor[] {
 }
 
 // For backward compatibility
-export const AVAILABLE_DOCTORS = getAvailableDoctors();
+export const AVAILABLE_DOCTORS = getAvailableDoctorsSync();
 
 // Helper function to get doctor by ID
 export function getDoctorById(id: string): Doctor | undefined {
-  const doctors = getAvailableDoctors();
+  const doctors = getAvailableDoctorsSync();
   return doctors.find(doctor => doctor.id === id);
 }
 
 // Helper function to get doctor by name
 export function getDoctorByName(name: string): Doctor | undefined {
-  const doctors = getAvailableDoctors();
+  const doctors = getAvailableDoctorsSync();
   return doctors.find(doctor => doctor.name === name);
 }
 
 // Helper function to validate if a doctor is valid
 export function isValidDoctor(doctorName: string): boolean {
-  const doctors = getAvailableDoctors();
+  const doctors = getAvailableDoctorsSync();
   return doctors.some(doctor => doctor.name === doctorName);
 }
 
 // Helper function to get doctor by specialty
 export function getDoctorsBySpecialty(specialty: string): Doctor[] {
-  const doctors = getAvailableDoctors();
+  const doctors = getAvailableDoctorsSync();
   return doctors.filter(doctor => doctor.specialty === specialty);
 }
 
 // Helper function to get all unique specialties
 export function getUniqueSpecialties(): string[] {
-  const doctors = getAvailableDoctors();
+  const doctors = getAvailableDoctorsSync();
   return [...new Set(doctors.map(doctor => doctor.specialty))];
 }
 
@@ -101,7 +115,7 @@ export function isValidSpecialty(specialty: string): boolean {
 
 // Helper function to get doctor options for dropdowns (with specialty)
 export function getDoctorOptions(): { value: string; label: string; specialty?: string }[] {
-  const doctors = getAvailableDoctors();
+  const doctors = getAvailableDoctorsSync();
   return [
     { value: '', label: 'Seleccionar' },
     ...doctors.map(doctor => ({ 

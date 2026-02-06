@@ -1,13 +1,13 @@
-import { AVAILABLE_DOCTORS, AVAILABLE_SPECIALTIES, isValidDoctor, isValidSpecialty } from '../config/doctors';
+import { getAvailableDoctors, AVAILABLE_SPECIALTIES, isValidSpecialty } from '../config/doctors';
 
 // Validation functions for doctor-related API requests
 export class DoctorValidator {
   /**
-   * Validates if a doctor name is in the approved list
+   * Validates if a doctor name is in approved list
    * For new doctor creation, allow any name (basic validation only)
    * For existing operations, check against approved list
    */
-  static validateDoctorName(doctorName: string, allowNewDoctors: boolean = false): { isValid: boolean; error?: string } {
+  static async validateDoctorName(doctorName: string, allowNewDoctors: boolean = false): Promise<{ isValid: boolean; error?: string }> {
     if (!doctorName || doctorName.trim() === '') {
       return { isValid: false, error: 'Doctor name is required' };
     }
@@ -27,12 +27,20 @@ export class DoctorValidator {
       return { isValid: true };
     }
 
-    // For existing operations, check against approved list
-    if (!isValidDoctor(doctorName)) {
-      return { 
-        isValid: false, 
-        error: `Invalid doctor: ${doctorName}. Must be one of: ${AVAILABLE_DOCTORS.map(d => d.name).join(', ')} or 'otro'` 
-      };
+    // For existing operations, check against approved list from database
+    try {
+      const availableDoctors = await getAvailableDoctors();
+      const isValid = availableDoctors.some(doctor => doctor.name === doctorName);
+      
+      if (!isValid) {
+        return { 
+          isValid: false, 
+          error: `Invalid doctor: ${doctorName}. Must be one of: ${availableDoctors.map(d => d.name).join(', ')} or 'otro'` 
+        };
+      }
+    } catch (error) {
+      console.error('Error validating doctor name:', error);
+      return { isValid: false, error: 'Error validating doctor name' };
     }
 
     return { isValid: true };
@@ -41,34 +49,41 @@ export class DoctorValidator {
   /**
    * Validates if a doctor ID is in approved list or is a valid UUID
    */
-  static validateDoctorId(doctorId: string): { isValid: boolean; error?: string } {
+  static async validateDoctorId(doctorId: string): Promise<{ isValid: boolean; error?: string }> {
     if (!doctorId || doctorId.trim() === '') {
       return { isValid: false, error: 'Doctor ID is required' };
     }
 
-    // Check if it's a legacy string ID
-    const doctor = AVAILABLE_DOCTORS.find(d => d.id === doctorId);
-    if (doctor) {
-      return { isValid: true };
-    }
+    try {
+      const availableDoctors = await getAvailableDoctors();
+      
+      // Check if it's a legacy string ID
+      const doctor = availableDoctors.find(d => d.id === doctorId);
+      if (doctor) {
+        return { isValid: true };
+      }
 
-    // Check if it's a valid UUID format (for new database doctors)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(doctorId)) {
-      return { isValid: true }; // Assume UUID is valid if format is correct
-    }
+      // Check if it's a valid UUID format (for new database doctors)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(doctorId)) {
+        return { isValid: true }; // Assume UUID is valid if format is correct
+      }
 
-    return { 
-      isValid: false, 
-      error: `Invalid doctor ID: ${doctorId}. Must be a valid UUID or one of: ${AVAILABLE_DOCTORS.map(d => d.id).join(', ')}` 
-    };
+      return { 
+        isValid: false, 
+        error: `Invalid doctor ID: ${doctorId}. Must be a valid UUID or one of: ${availableDoctors.map(d => d.id).join(', ')}` 
+      };
+    } catch (error) {
+      console.error('Error validating doctor ID:', error);
+      return { isValid: false, error: 'Error validating doctor ID' };
+    }
   }
 
   /**
    * Validates patient doctor field
    */
-  static validatePatientDoctor(doctor: string, otroDoctor?: string): { isValid: boolean; error?: string } {
-    const validation = this.validateDoctorName(doctor);
+  static async validatePatientDoctor(doctor: string, otroDoctor?: string): Promise<{ isValid: boolean; error?: string }> {
+    const validation = await this.validateDoctorName(doctor);
     
     if (!validation.isValid) {
       return validation;
@@ -150,7 +165,13 @@ export class DoctorValidator {
   /**
    * Gets all valid doctor IDs for API responses
    */
-  static getValidDoctorIds(): string[] {
-    return AVAILABLE_DOCTORS.map(d => d.id);
+  static async getValidDoctorIds(): Promise<string[]> {
+    try {
+      const availableDoctors = await getAvailableDoctors();
+      return availableDoctors.map(d => d.id);
+    } catch (error) {
+      console.error('Error getting valid doctor IDs:', error);
+      return [];
+    }
   }
 }

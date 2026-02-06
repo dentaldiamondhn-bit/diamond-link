@@ -128,8 +128,9 @@ export function DocumentDisplay({ documents, onRemove, removable = false, patien
   };
 
   const deleteDocument = async (index: number) => {
-    if (!patientId) {
-      alert('Error: No se puede eliminar el documento');
+    // If onRemove callback is provided, use it instead of direct deletion
+    if (onRemove) {
+      onRemove(index);
       return;
     }
 

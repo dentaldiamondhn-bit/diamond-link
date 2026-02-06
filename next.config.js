@@ -11,16 +11,10 @@ const nextConfig = {
     },
     serverComponentsExternalPackages: ['@supabase/supabase-js']
   },
-  // Ensure proper build for production
+  // Ensure proper build for Vercel
   swcMinify: true,
   // Fix client reference manifest issues
-  transpilePackages: [],
-  // DigitalOcean App Platform compatibility
-  standaloneMode: false,
-  // Environment variables
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-  }
+  transpilePackages: []
 };
 
 export default nextConfig;

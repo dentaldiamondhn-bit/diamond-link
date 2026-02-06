@@ -10,10 +10,6 @@ export function useUserRole() {
   // Get role from user object public metadata
   const userRole = user?.publicMetadata?.role as UserRole | undefined;
   
-  console.log('User object:', user);
-  console.log('Public metadata:', user?.publicMetadata);
-  console.log('Extracted role:', userRole);
-  
   return {
     userRole,
     userId: user?.id,

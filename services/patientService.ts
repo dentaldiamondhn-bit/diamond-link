@@ -6,12 +6,12 @@ import { DoctorValidator } from '../utils/doctorValidator';
 export class PatientService {
   static async createPatient(patientData: Omit<Patient, 'paciente_id'>) {
     try {
-      console.log('PatientService.createPatient called with:', patientData);
-      console.log('Doctor field in patientData:', patientData.doctor);
+      console.log('Creating patient with data:', patientData);
+      console.log('Doctor field:', patientData.doctor);
       console.log('Otro doctor field in patientData:', patientData.otro_doctor);
       
       // Validate doctor field
-      const doctorValidation = DoctorValidator.validatePatientDoctor(
+      const doctorValidation = await DoctorValidator.validatePatientDoctor(
         patientData.doctor, 
         patientData.otro_doctor
       );

@@ -19,6 +19,9 @@ export interface CompletedTreatment {
   firma_paciente_url?: string;
   especialidad?: string;
   estado: 'pendiente_firma' | 'firmado' | 'pagado';
+  monto_pagado?: number; // Amount paid so far
+  saldo_pendiente?: number; // Remaining balance (calculated)
+  estado_pago?: 'pendiente' | 'parcialmente_pagado' | 'pagado'; // Payment status
   creado_en: string;
   actualizado_en: string;
   paciente?: any;
@@ -74,7 +77,7 @@ export class CompletedTreatmentService {
   static async getAllCompletedTreatments(): Promise<CompletedTreatment[]> {
     try {
       const { data, error } = await supabase
-        .from('vista_tratamientos_completados_detalles')
+        .from('tratamientos_completados')
         .select('*')
         .order('fecha_cita', { ascending: false });
 
@@ -142,7 +145,7 @@ export class CompletedTreatmentService {
     try {
       // First get the treatment details
       const { data, error } = await supabase
-        .from('vista_tratamientos_completados_detalles')
+        .from('tratamientos_completados')
         .select('*')
         .eq('id', id)
         .single();
@@ -208,7 +211,7 @@ export class CompletedTreatmentService {
       
       // Fetch treatments where patient is the main patient
       const { data: mainTreatments, error: mainError } = await supabase
-        .from('vista_tratamientos_completados_detalles')
+        .from('tratamientos_completados')
         .select('*')
         .eq('paciente_id', pacienteId)
         .order('fecha_cita', { ascending: false });
@@ -217,7 +220,7 @@ export class CompletedTreatmentService {
 
       // Also check if there are separate treatment records where patient is beneficiary
       const { data: separateBeneficiaryTreatments, error: separateError } = await supabase
-        .from('vista_tratamientos_completados_detalles')
+        .from('tratamientos_completados')
         .select('*')
         .eq('paciente_id', pacienteId)  // Look for treatments where beneficiary is the main patient
         .eq('estado', 'completado')  // Beneficiary treatments are marked as completed
@@ -342,7 +345,7 @@ export class CompletedTreatmentService {
         // Validate all doctor IDs in treatment items
         for (const item of treatmentData.tratamientos_realizados) {
           if (item.doctor_id) {
-            const doctorValidation = DoctorValidator.validateDoctorId(item.doctor_id);
+            const doctorValidation = await DoctorValidator.validateDoctorId(item.doctor_id);
             if (!doctorValidation.isValid) {
               throw new Error(`Invalid doctor ID in treatment item "${item.nombre_tratamiento}": ${doctorValidation.error}`);
             }
@@ -533,7 +536,7 @@ export class CompletedTreatmentService {
   static async searchCompletedTreatments(query: string): Promise<CompletedTreatment[]> {
     try {
       const { data, error } = await supabase
-        .from('vista_tratamientos_completados_detalles')
+        .from('tratamientos_completados')
         .select('*')
         .or(`nombre_completo.ilike.%${query}%,numero_identidad.ilike.%${query}%,telefono.ilike.%${query}%`)
         .order('fecha_cita', { ascending: false });
@@ -574,7 +577,7 @@ export class CompletedTreatmentService {
   static async getCompletedTreatmentsByDateRange(startDate: string, endDate: string): Promise<CompletedTreatment[]> {
     try {
       const { data, error } = await supabase
-        .from('vista_tratamientos_completados_detalles')
+        .from('tratamientos_completados')
         .select('*')
         .gte('fecha_cita', startDate)
         .lte('fecha_cita', endDate)
@@ -620,7 +623,7 @@ export class CompletedTreatmentService {
   static async getTreatmentStatistics(): Promise<any> {
     try {
       const { data, error } = await supabase
-        .from('vista_tratamientos_completados_detalles')
+        .from('tratamientos_completados')
         .select('*');
 
       if (error) {
