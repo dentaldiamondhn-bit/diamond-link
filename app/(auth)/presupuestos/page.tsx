@@ -30,22 +30,6 @@ interface Promotion {
   max_beneficiarios?: number;
 }
 
-// Define Quote interface
-interface Quote {
-  id: string;
-  patient_id: string;
-  patient_name: string;
-  treatment_description: string;
-  notes: string;
-  quote_date: string;
-  items: QuoteItem[];
-  total_amount: number;
-  doctor_name: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'expired';
-  created_at: string;
-  expires_at: string;
-}
-
 export default function PresupuestosPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
