@@ -11,6 +11,7 @@ export interface Quote {
   notes?: string;
   doctor_name: string;
   items: QuoteItem[];
+  quote_date?: string;
 }
 
 export interface QuoteItem {
