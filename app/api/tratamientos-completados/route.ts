@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
+import { TreatmentService } from '@/services/treatmentService';
 
 
 // Force dynamic rendering for this API route
@@ -95,6 +96,18 @@ export async function POST(request: NextRequest) {
     }
 
     const treatment = await CompletedTreatmentService.createCompletedTreatment(body);
+    
+    // Increment the counter for each treatment that was completed
+    if (body.tratamientos_realizados && Array.isArray(body.tratamientos_realizados)) {
+      for (const item of body.tratamientos_realizados) {
+        try {
+          await TreatmentService.incrementTreatmentCounter(item.tratamiento_id, item.cantidad);
+        } catch (error) {
+          console.error(`Error incrementing counter for treatment ${item.tratamiento_id}:`, error);
+        }
+      }
+    }
+    
     return NextResponse.json(treatment, { status: 201 });
   } catch (error) {
     console.error('Error in POST /api/tratamientos-completados:', error);

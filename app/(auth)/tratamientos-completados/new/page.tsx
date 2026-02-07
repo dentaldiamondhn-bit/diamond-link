@@ -650,6 +650,15 @@ function NuevoTratamientoCompletadoPage() {
         
         const mainTreatment = await CompletedTreatmentService.createCompletedTreatment(mainTreatmentData);
         
+        // Increment the counter for each treatment that was completed (main payer)
+        for (const item of selectedTreatments) {
+          try {
+            await TreatmentService.incrementTreatmentCounter(item.tratamiento_id, item.cantidad);
+          } catch (error) {
+            console.error(`Error incrementing counter for treatment ${item.tratamiento_id}:`, error);
+          }
+        }
+        
         // 2. Create separate treatment records for each beneficiary
         for (const beneficiary of beneficiaries) {
           const beneficiaryTreatmentData = {
@@ -719,6 +728,16 @@ function NuevoTratamientoCompletadoPage() {
         };
         
         await CompletedTreatmentService.createCompletedTreatment(treatmentData);
+        
+        // Increment the counter for each treatment that was completed
+        for (const item of selectedTreatments) {
+          try {
+            await TreatmentService.incrementTreatmentCounter(item.tratamiento_id, item.cantidad);
+          } catch (error) {
+            console.error(`Error incrementing counter for treatment ${item.tratamiento_id}:`, error);
+          }
+        }
+        
         alert('Tratamiento completado guardado exitosamente');
       }
       
