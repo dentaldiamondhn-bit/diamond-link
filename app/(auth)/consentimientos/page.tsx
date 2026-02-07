@@ -411,6 +411,15 @@ function ConsentimientosContent() {
           </div>
           
           <div className="flex items-center gap-4">
+            {/* Crear Nuevo Button */}
+            <Link
+              href={pacienteId ? `/consentimientos/new?id=${pacienteId}` : "/consentimientos/new"}
+              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
+            >
+              <i className="fas fa-plus mr-2"></i>
+              Crear Nuevo
+            </Link>
+            
             {/* View Toggle Button */}
             <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               <button
