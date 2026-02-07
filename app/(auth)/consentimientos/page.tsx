@@ -28,6 +28,8 @@ function ConsentimientosContent() {
     content: ''
   });
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [sortBy, setSortBy] = useState<'nombre' | 'fecha' | 'tipo'>('nombre');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const searchParams = useSearchParams();
   const pacienteId = searchParams.get('paciente_id') || searchParams.get('id');
@@ -237,7 +239,26 @@ function ConsentimientosContent() {
     const matchesSearch = (consent.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (consent.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (consent.patientInfo?.nombre_completo || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    const matchesType = selectedType === 'all' || consent.tipo === selectedType;
+    return matchesSearch && matchesType;
+  }).sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortBy) {
+      case 'nombre':
+        comparison = (a.nombre || '').localeCompare(b.nombre || '');
+        break;
+      case 'fecha':
+        comparison = new Date(a.fecha_cita || 0).getTime() - new Date(b.fecha_cita || 0).getTime();
+        break;
+      case 'tipo':
+        comparison = (a.tipo || '').localeCompare(b.tipo || '');
+        break;
+      default:
+        comparison = (a.nombre || '').localeCompare(b.nombre || '');
+    }
+    
+    return sortOrder === 'asc' ? comparison : -comparison;
   });
 
   // Pagination calculations
@@ -247,10 +268,10 @@ function ConsentimientosContent() {
   const endIndex = startIndex + recordsPerPage;
   const currentConsentimientos = filteredConsentimientos.slice(startIndex, endIndex);
 
-  // Reset to page 1 when search term or records per page changes
+  // Reset to page 1 when search term, records per page, sort by, sort order, or type changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, recordsPerPage]);
+  }, [searchTerm, recordsPerPage, sortBy, sortOrder, selectedType]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -327,76 +348,99 @@ function ConsentimientosContent() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-teal-600 to-cyan-600 rounded-2xl shadow-xl p-8 text-white">
-        <div className="flex flex-col space-y-4">
-          {/* Top Row with Search and Toggle */}
-          <div className="flex justify-between items-center">
-            <div className="flex-1">
-              {/* Title moved to main header */}
-            </div>
-            
-            {/* Search and Toggle Section - Inline */}
-            <div className="flex items-center space-x-3">
-              {/* Search */}
-              <div className="relative max-w-xs">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <i className="fas fa-search text-white/70"></i>
-                </div>
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          {/* Title moved to main header */}
+        </div>
+        
+        {/* Search Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex-1">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
                 <input
                   type="text"
+                  placeholder="Buscar por nombre, descripción o paciente..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar consentimientos..."
-                  className="block w-full pl-10 pr-3 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent"
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
                 />
+                <i className="fas fa-search absolute right-3 top-3 text-gray-400"></i>
               </div>
               
-              {/* View Toggle Button */}
-              <div className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm dark:bg-gray-700/80 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    viewMode === 'grid'
-                      ? 'bg-white text-gray-900 dark:text-gray-900 shadow-sm'
-                      : 'text-white dark:text-gray-400 hover:text-white/90 dark:hover:text-white'
-                  }`}
+              {/* Type Filter */}
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="all">Todos los tipos</option>
+                <option value="ortodoncia">Ortodoncia</option>
+                <option value="implantes">Implantes</option>
+                <option value="blanqueamiento">Blanqueamiento</option>
+                <option value="cirugia">Cirugía</option>
+                <option value="endodoncia">Endodoncia</option>
+                <option value="periodoncia">Periodoncia</option>
+                <option value="protesis">Prótesis</option>
+                <option value="otros">Otros</option>
+              </select>
+              
+              {/* Sort Controls */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por:</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'nombre' | 'fecha' | 'tipo')}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
                 >
-                  <i className="fas fa-th mr-2"></i>
-                  Cuadrícula
-                </button>
+                  <option value="nombre">Nombre</option>
+                  <option value="fecha">Fecha</option>
+                  <option value="tipo">Tipo</option>
+                </select>
                 <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    viewMode === 'list'
-                      ? 'bg-white text-gray-900 dark:text-gray-900 shadow-sm'
-                      : 'text-white dark:text-gray-400 hover:text-white/90 dark:hover:text-white'
-                  }`}
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                  title={`Orden ${sortOrder === 'asc' ? 'ascendente' : 'descendente'}`}
                 >
-                  <i className="fas fa-list mr-2"></i>
-                  Lista
+                  <i className={`fas fa-sort-amount-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
                 </button>
               </div>
             </div>
           </div>
           
-          {/* Bottom Row with Statistics */}
-          <div className="flex gap-4">
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
-              <span className="text-2xl font-bold">{consentimientos.length}</span>
-              <span className="text-sm ml-2 text-teal-100">Total</span>
-            </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
-              <span className="text-2xl font-bold">{consentimientos.filter(c => c.status === 'active').length}</span>
-              <span className="text-sm ml-2 text-teal-100">Activos</span>
+          <div className="flex items-center gap-4">
+            {/* View Toggle Button */}
+            <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <i className="fas fa-th-large mr-2"></i>
+                Cuadrícula
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
+                  viewMode === 'list'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <i className="fas fa-list mr-2"></i>
+                Lista
+              </button>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Enhanced Consentimientos Display */}
-      {viewMode === 'grid' ? (
+        
+        {/* Enhanced Consentimientos Display */}
+        {viewMode === 'grid' ? (
         /* Grid View */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {currentConsentimientos.map((consentimiento) => (
@@ -727,6 +771,7 @@ function ConsentimientosContent() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -397,13 +397,24 @@ export class ReportsService {
 
   static async getRevenueStats(startDate?: string, endDate?: string) {
     try {
+      // If custom dates are provided, use them exactly as provided
+      // Only use defaults if no dates are specified
+      const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
+      const queryEndDate = endDate || new Date().toISOString();
+      
+      // Debug logging
+      console.log('getRevenueStats called with:', { startDate, endDate });
+      console.log('Using query dates:', { queryStartDate, queryEndDate });
+      
       const { data, error } = await supabase
         .from('tratamientos_completados')
         .select('total_final, fecha_cita')
-        .gte('fecha_cita', startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString())
-        .lte('fecha_cita', endDate || new Date().toISOString());
+        .gte('fecha_cita', queryStartDate)
+        .lte('fecha_cita', queryEndDate);
 
       if (error) throw error;
+      
+      console.log('Query returned records:', data?.length);
 
       const totalRevenue = data?.reduce((sum, item) => sum + (item.total_final || 0), 0) || 0;
       const totalTreatments = data?.length || 0;
