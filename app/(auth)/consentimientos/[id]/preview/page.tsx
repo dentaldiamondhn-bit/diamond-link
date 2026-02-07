@@ -27,7 +27,7 @@ export default function ConsentimientoPreview() {
 
   // Watch for bypass state changes
   useEffect(() => {
-    console.log('🔄 Consentimiento Preview - bypassHistoricalMode changed:', bypassHistoricalMode);
+    // Bypass state changes are handled by the context
   }, [bypassHistoricalMode]);
 
   useEffect(() => {
@@ -64,13 +64,6 @@ export default function ConsentimientoPreview() {
         
         // Load patient-specific historical mode settings
         await loadPatientSettings(consentimientoData.paciente_id);
-        
-        console.log('📋 Consentimiento Preview Debug:', {
-          patientId: consentimientoData.paciente_id,
-          fechaInicio: patientData.fecha_inicio || patientData.fecha_inicio_consulta,
-          recordCategoryInfo: categoryInfo,
-          bypassHistoricalMode: bypassHistoricalMode
-        });
         
         setLoading(false);
       } catch (err) {
@@ -145,7 +138,6 @@ export default function ConsentimientoPreview() {
           pdf.text('[Firma digital del paciente]', 35, yPosition + 20, { align: 'center' });
           yPosition += 40;
         } catch (error) {
-          console.log('Error adding patient signature:', error);
           pdf.text('Firma del Paciente:', 20, yPosition, { align: 'left' });
           yPosition += 10;
           pdf.rect(20, yPosition, 60, 30);
@@ -163,7 +155,6 @@ export default function ConsentimientoPreview() {
           pdf.rect(120, yPosition, 60, 30);
           pdf.text('[Firma digital del doctor]', 135, yPosition + 20, { align: 'center' });
         } catch (error) {
-          console.log('Error adding doctor signature:', error);
           pdf.text('Firma del Doctor/a:', 120, yPosition, { align: 'left' });
           yPosition += 10;
           pdf.rect(120, yPosition, 60, 30);

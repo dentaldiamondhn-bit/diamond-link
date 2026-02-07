@@ -29,17 +29,10 @@ function ConsentimientosContent() {
   });
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [sortBy, setSortBy] = useState<'nombre' | 'fecha' | 'tipo'>('nombre');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Change 'asc' to 'desc'
 
   const searchParams = useSearchParams();
   const pacienteId = searchParams.get('paciente_id') || searchParams.get('id');
-
-  console.log('🔍 CONSENTIMIENTOS PAGE DEBUG:', {
-    pacienteId,
-    loading,
-    error,
-    consentimientosCount: consentimientos.length
-  });
 
   useEffect(() => {
     const loadConsentimientos = async () => {
@@ -176,7 +169,6 @@ function ConsentimientosContent() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Here you would typically save to your backend
-    console.log('Saving consentimiento:', formData);
     alert('Consentimiento guardado exitosamente');
     setShowForm(false);
     setFormData({

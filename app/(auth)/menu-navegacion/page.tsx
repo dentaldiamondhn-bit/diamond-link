@@ -17,16 +17,9 @@ import HistoricalBadge from '@/components/HistoricalBadge';
 import HistoricalBanner from '@/components/HistoricalBanner';
 import Link from 'next/link';
 
-// DEBUG: Add role detection debugging
 export default function MenuNavegacion() {
   const { user } = useUser();
   const { userRole } = useRoleBasedAccess();
-  
-  console.log('🔍 MENU-NAVEGACION DEBUG:', {
-    user: user?.id,
-    userRole,
-    pathname: typeof window !== 'undefined' ? window.location.pathname : 'SSR'
-  });
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);

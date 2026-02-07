@@ -112,10 +112,9 @@ export default function ConsentimientoDocument() {
         let existingConsentimiento = null;
 
         if (consentimiento && !consentimientoError) {
-          // This is a consentimiento ID, get the patient ID from it
+          // This is a consentimiento ID, get patient ID from it
           actualPatientId = consentimiento.paciente_id;
           existingConsentimiento = consentimiento;
-          console.log('Found consentimiento:', consentimiento);
           
           // Check if consentimiento is signed - if so, redirect to preview
           if (consentimiento.estado === 'firmado') {
@@ -132,7 +131,6 @@ export default function ConsentimientoDocument() {
           }
         } else {
           // This might be a patient ID directly, continue as before
-          console.log('Using provided ID as patient ID:', actualPatientId);
         }
 
         const patientData = await PatientService.getPatientById(actualPatientId);
@@ -195,12 +193,6 @@ export default function ConsentimientoDocument() {
     // Handle signature based on record category and bypass mode
     const shouldRequireSignature = !recordCategoryInfo?.isHistorical || bypassHistoricalMode;
     
-    console.log('🔍 Consentimientos save debug:', {
-      isHistorical: recordCategoryInfo?.isHistorical,
-      bypassHistoricalMode,
-      shouldRequireSignature
-    });
-    
     if (shouldRequireSignature && (!signatureData || !doctorSignature)) {
       alert('Por favor, firme ambos campos antes de guardar');
       return;
@@ -240,7 +232,6 @@ export default function ConsentimientoDocument() {
         ]);
       } else {
         // Historical record with no bypass - no signatures required
-        console.log('Historical record - no signatures required');
       }
 
       // Update consentimiento with signature URLs or empty strings
@@ -249,17 +240,8 @@ export default function ConsentimientoDocument() {
         firma_doctor_url: doctorSignatureUrl || '',
         is_historical: !shouldRequireSignature
       });
-
-      console.log('Consentimiento saved successfully:', {
-        id: savedConsentimiento.id,
-        patient: patient.nombre_completo,
-        patientSignature: patientSignatureUrl,
-        doctorSignature: doctorSignatureUrl,
-        date: currentDate
-      });
       
-      alert('Consentimiento guardado exitosamente');
-      router.back();
+      router.push(`/consentimientos/${savedConsentimiento.id}/preview`);
     } catch (error) {
       console.error('Error saving consentimiento:', error);
       alert('Error al guardar el consentimiento. Por favor, intente nuevamente.');
@@ -331,9 +313,8 @@ export default function ConsentimientoDocument() {
             onBypassChange={async (newBypassValue) => {
               try {
                 await savePatientSettings(pacienteId, newBypassValue);
-                console.log('✅ Patient bypass setting updated successfully');
               } catch (error) {
-                console.error('❌ Failed to update bypass setting:', error);
+                console.error('Failed to update bypass setting:', error);
                 alert('Error al actualizar la configuración del modo histórico');
               }
             }}

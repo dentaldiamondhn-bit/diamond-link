@@ -51,16 +51,9 @@ export function HistoricalModeProvider({ children }: { children: ReactNode }) {
       }
       
       const bypassValue = data?.bypass_historical_mode ?? false;
-      console.log('🔍 Historical Mode Debug:', {
-        patientId,
-        bypassValue,
-        data,
-        error
-      });
       // Only update if value actually changed to prevent infinite loops
       setBypassHistoricalMode(prev => {
         if (prev !== bypassValue) {
-          console.log('🔍 Updating bypassHistoricalMode from', prev, 'to', bypassValue);
           setCurrentPatient(patientId);
           return bypassValue;
         }
