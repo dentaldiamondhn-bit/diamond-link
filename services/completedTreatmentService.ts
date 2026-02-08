@@ -651,4 +651,63 @@ export class CompletedTreatmentService {
       throw error;
     }
   }
+
+  static async getPatientTreatmentStatistics(pacienteId: string): Promise<any> {
+    try {
+      console.log('Fetching treatment statistics for patient:', pacienteId);
+      
+      // Fetch treatments for the specific patient
+      const { data, error } = await supabase
+        .from('tratamientos_completados')
+        .select('*')
+        .eq('paciente_id', pacienteId);
+
+      if (error) {
+        console.error('Error fetching patient treatment statistics:', error);
+        throw error;
+      }
+
+      const treatments = data || [];
+      
+      // Calculate statistics
+      const totalTreatments = treatments.length;
+      const totalAmountPaid = treatments.reduce((sum, t) => {
+        const paidAmount = t.monto_pagado || 0;
+        return sum + parseFloat(paidAmount.toString());
+      }, 0);
+      const totalAmountBilled = treatments.reduce((sum, t) => sum + parseFloat(t.total_final), 0);
+      const totalDiscount = treatments.reduce((sum, t) => sum + parseFloat(t.total_descuento), 0);
+      
+      const treatmentsByStatus = {
+        pendiente_firma: treatments.filter(t => t.estado === 'pendiente_firma').length,
+        firmado: treatments.filter(t => t.estado === 'firmado').length,
+        pagado: treatments.filter(t => t.estado === 'pagado').length
+      };
+
+      const averageTreatmentValue = totalTreatments > 0 ? totalAmountBilled / totalTreatments : 0;
+      
+      // Get latest treatment date
+      const latestTreatmentDate = treatments.length > 0 
+        ? treatments.reduce((latest, current) => {
+            const latestDate = new Date(latest.fecha_cita);
+            const currentDate = new Date(current.fecha_cita);
+            return currentDate > latestDate ? current : latest;
+          }).fecha_cita
+        : null;
+      
+      return {
+        total_treatments: totalTreatments,
+        total_amount_paid: totalAmountPaid,
+        total_amount_billed: totalAmountBilled,
+        total_discount: totalDiscount,
+        average_treatment_value: averageTreatmentValue,
+        treatments_by_status: treatmentsByStatus,
+        latest_treatment_date: latestTreatmentDate,
+        currency: treatments.length > 0 ? treatments[0].moneda : 'USD'
+      };
+    } catch (error) {
+      console.error('Unexpected error fetching patient treatment statistics:', error);
+      throw error;
+    }
+  }
 }

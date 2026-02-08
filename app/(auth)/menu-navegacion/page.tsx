@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { PatientService } from '@/services/patientService';
+import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import { Patient } from '@/types/patient';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
@@ -24,6 +25,8 @@ export default function MenuNavegacion() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
   const [patientLoading, setPatientLoading] = useState(true);
+  const [treatmentStats, setTreatmentStats] = useState<any>(null);
+  const [treatmentStatsLoading, setTreatmentStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const searchParams = useSearchParams();
@@ -92,6 +95,25 @@ export default function MenuNavegacion() {
     }
   }, [searchParams.get('id'), isLoaded]); // Only depend on the ID, not the entire searchParams
 
+  useEffect(() => {
+    const loadTreatmentStats = async () => {
+      if (!patient) return;
+      
+      try {
+        setTreatmentStatsLoading(true);
+        const stats = await CompletedTreatmentService.getPatientTreatmentStatistics(patient.paciente_id);
+        setTreatmentStats(stats);
+      } catch (error) {
+        console.error('Error loading treatment statistics:', error);
+        setTreatmentStats(null);
+      } finally {
+        setTreatmentStatsLoading(false);
+      }
+    };
+
+    loadTreatmentStats();
+  }, [patient]);
+
   const calculateAge = (fechaNacimiento: string): string => {
     const birthDate = new Date(fechaNacimiento);
     if (isNaN(birthDate.getTime())) return 'No especificada';
@@ -100,6 +122,86 @@ export default function MenuNavegacion() {
     const ageDate = new Date(ageDiff);
     const age = Math.abs(ageDate.getUTCFullYear() - 1970);
     return `${age} años`;
+  };
+
+  const getTreatmentStatsDescription = (): JSX.Element => {
+    if (treatmentStatsLoading) {
+      return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
+    }
+    
+    if (!treatmentStats) {
+      return <span className="text-gray-500 dark:text-gray-400">No hay tratamientos registrados</span>;
+    }
+
+    const { 
+      total_treatments, 
+      total_amount_paid, 
+      total_amount_billed, 
+      total_discount, 
+      currency,
+      latest_treatment_date
+    } = treatmentStats;
+
+    const outstandingBalance = total_amount_billed - total_amount_paid;
+    const formattedPaid = new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: currency || 'USD'
+    }).format(total_amount_paid);
+    
+    const formattedOutstanding = new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: currency || 'USD'
+    }).format(outstandingBalance);
+    
+    const formattedSaved = new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: currency || 'USD'
+    }).format(total_discount);
+
+    // Format latest treatment date
+    const formatDate = (dateString: string) => {
+      if (!dateString) return null;
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    };
+
+    return (
+      <div className="text-sm space-y-1">
+        <div className="flex items-center space-x-2">
+          <span className="text-gray-700 dark:text-gray-300">
+            {total_treatments} tratamiento{total_treatments !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-green-600 dark:text-green-400 font-medium">
+            {formattedPaid} pagado{total_amount_paid !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className={outstandingBalance > 0 ? "text-orange-600 dark:text-orange-400 font-medium" : "text-green-600 dark:text-green-400"}>
+            {formattedOutstanding} pendiente{outstandingBalance !== 1 ? 's' : ''}
+          </span>
+        </div>
+        {total_discount > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-blue-600 dark:text-blue-400 font-medium">
+              Ahorró {formattedSaved}
+            </span>
+          </div>
+        )}
+        {latest_treatment_date && (
+          <div className="flex items-center space-x-2">
+            <span className="text-purple-600 dark:text-purple-400 font-medium">
+              Último: {formatDate(latest_treatment_date)}
+            </span>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const pacienteId = searchParams.get('id');
@@ -320,7 +422,7 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
       id: 'preformas',
       icon: 'fas fa-check-circle',
       title: 'Tratamientos Completados',
-      description: 'Vea y gestione los tratamientos completados del paciente, incluyendo precios, descuentos y firmas.',
+      description: getTreatmentStatsDescription(),
       href: `/tratamientos-completados?paciente_id=${validPacienteId}`
     },
     {
