@@ -252,8 +252,8 @@ export default function MenuNavegacion() {
 
     // Get top 3 most common tooth states for display
     const sortedStates = Object.entries(status_counts)
-      .filter(([_, count]) => count > 0)
-      .sort(([, a], [, b]) => b - a)
+      .filter(([_, count]: [string, number]) => count > 0)
+      .sort(([, a]: [string, number], [, b]: [string, number]) => b - a)
       .slice(0, 3);
 
     const getStateLabel = (state: string) => {
