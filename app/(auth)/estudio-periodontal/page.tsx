@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { PatientService } from '@/services/patientService';
+import { Patient } from '@/types/patient';
 
 interface PeriodontalStudy {
   id: number;
@@ -30,7 +33,13 @@ interface ToothMeasurement {
 
 export default function EstudioPeriodontal() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { theme, systemTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'nuevo' | 'guardados'>('nuevo');
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [patientLoading, setPatientLoading] = useState(true);
+  
+  const pacienteId = searchParams.get('paciente_id');
   const [formData, setFormData] = useState({
     patientName: '',
     date: new Date().toISOString().split('T')[0],
@@ -67,6 +76,11 @@ export default function EstudioPeriodontal() {
     '41', '42', '43', '44', '45', '46', '47', '48'
   ];
 
+  // Animation refs
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const studiesListRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     // Initialize tooth measurements
     const initialMeasurements: ToothMeasurement[] = teeth.map(tooth => ({
@@ -84,16 +98,45 @@ export default function EstudioPeriodontal() {
     loadSavedStudies();
   }, []);
 
+  // Load patient data if paciente_id is provided
+  useEffect(() => {
+    const loadPatientData = async () => {
+      if (pacienteId) {
+        try {
+          const patientData = await PatientService.getPatientById(pacienteId);
+          setPatient(patientData);
+          setFormData(prev => ({
+            ...prev,
+            patientName: patientData.nombre_completo
+          }));
+        } catch (error) {
+          console.error('Error loading patient data:', error);
+        } finally {
+          setPatientLoading(false);
+        }
+      } else {
+        setPatientLoading(false);
+      }
+    };
+
+    loadPatientData();
+  }, [pacienteId]);
+
   const loadSavedStudies = async () => {
     setLoading(true);
     try {
-      // Mock data - replace with actual API call
-      const mockStudies: PeriodontalStudy[] = [
-        { id: 1, fecha: '2025-09-22', notas: 'Primera evaluación periodontal', datos: {} },
-        { id: 2, fecha: '2025-08-15', notas: 'Control de mantenimiento', datos: {} },
-        { id: 3, fecha: '2025-07-10', notas: 'Evaluación inicial', datos: {} }
-      ];
-      setSavedStudies(mockStudies);
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '5',
+        ...(searchTerm && { search: searchTerm }),
+        ...(dateFilter && { date: dateFilter })
+      });
+
+      const response = await fetch(`/api/estudios-periodontales?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch studies');
+      
+      const result = await response.json();
+      setSavedStudies(result.data || []);
     } catch (error) {
       console.error('Error loading studies:', error);
     } finally {
@@ -156,30 +199,78 @@ export default function EstudioPeriodontal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate that a patient is selected
+    if (!pacienteId && !patient) {
+      alert('Por favor seleccione un paciente antes de crear el estudio periodontal.');
+      return;
+    }
+    
     if (!confirm('¿Está seguro que desea guardar este estudio periodontal?')) {
       return;
     }
 
     try {
       const studyData = {
-        ...formData,
+        paciente_id: pacienteId || patient?.paciente_id, // Use the actual patient ID
+        doctor_id: formData.doctor || null,
+        fecha_estudio: formData.date,
+        indice_placa: formData.indicePlaca ? parseFloat(formData.indicePlaca) : null,
+        indice_sangrado: formData.indiceSangrado ? parseFloat(formData.indiceSangrado) : null,
+        nivel_insercion_clinica: formData.nivelInsercion || null,
+        furcaciones: formData.furcaciones || 'no-evaluado',
+        observaciones_generales: formData.observacionesGenerales || null,
+        plan_tratamiento: {
+          profilaxis: formData.profilaxis,
+          raspaje: formData.raspaje,
+          cirugia: formData.cirugia,
+          mantenimiento: formData.mantenimiento,
+          otro: formData.otro,
+          otroEspecificar: formData.otroEspecificar
+        },
         mediciones: toothMeasurements
       };
 
-      console.log('Datos del estudio periodontal a guardar:', studyData);
-      
-      // Here you would send the data to your API
-      // await fetch('/api/estudio-periodontal', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(studyData)
-      // });
+      const response = await fetch('/api/estudios-periodontales', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studyData)
+      });
 
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save study');
+      }
+
+      const result = await response.json();
       alert('Estudio periodontal guardado correctamente');
-      // Optionally reset form or redirect
+      
+      // Reset form or redirect
+      setFormData({
+        patientName: '',
+        date: new Date().toISOString().split('T')[0],
+        doctor: '',
+        indicePlaca: '',
+        indiceSangrado: '',
+        nivelInsercion: '',
+        furcaciones: 'no-evaluado',
+        observacionesGenerales: '',
+        profilaxis: false,
+        raspaje: false,
+        cirugia: false,
+        mantenimiento: false,
+        otro: false,
+        otroEspecificar: ''
+      });
+      
+      // Switch to saved studies tab
+      setActiveTab('guardados');
+      loadSavedStudies();
+      
     } catch (error) {
       console.error('Error al guardar el estudio:', error);
-      alert('Ocurrió un error al guardar el estudio');
+      alert('Ocurrió un error al guardar el estudio: ' + (error as Error).message);
     }
   };
 
@@ -209,27 +300,17 @@ export default function EstudioPeriodontal() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            <i className="fas fa-teeth mr-2 text-teal-600"></i>
-            Estudio Periodontal
-          </h1>
-          <p className="text-gray-600">Registro y gestión de estudios periodontales</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="border-b border-gray-200">
+    <>
+      {/* Tabs */}
+      <div ref={tabsRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex -mb-px">
               <button
                 onClick={() => setActiveTab('nuevo')}
-                className={`py-3 px-6 border-b-2 font-medium text-sm ${
+                className={`tab-button py-3 px-6 border-b-2 font-medium text-sm transition-all duration-200 ${
                   activeTab === 'nuevo'
-                    ? 'border-teal-500 text-teal-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
                 }`}
               >
                 <i className="fas fa-plus-circle mr-2"></i>
@@ -237,10 +318,10 @@ export default function EstudioPeriodontal() {
               </button>
               <button
                 onClick={() => setActiveTab('guardados')}
-                className={`py-3 px-6 border-b-2 font-medium text-sm ${
+                className={`tab-button py-3 px-6 border-b-2 font-medium text-sm transition-all duration-200 ${
                   activeTab === 'guardados'
-                    ? 'border-teal-500 text-teal-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
                 }`}
               >
                 <i className="fas fa-history mr-2"></i>
@@ -252,42 +333,56 @@ export default function EstudioPeriodontal() {
           <div className="p-6">
             {activeTab === 'nuevo' ? (
               /* New Study Form */
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form ref={formRef} onSubmit={handleSubmit} className="space-y-6 transition-all duration-300 ease-in-out">
                 {/* Patient Information */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Paciente
                     </label>
-                    <input
-                      type="text"
-                      value={formData.patientName}
-                      onChange={(e) => handleInputChange('patientName', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      required
-                    />
+                    {patientLoading ? (
+                      <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <div className="animate-pulse">Cargando...</div>
+                      </div>
+                    ) : patient ? (
+                      <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-600 text-gray-900 dark:text-white">
+                        <div className="font-medium">{patient.nombre_completo}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          ID: {patient.paciente_id}
+                        </div>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.patientName}
+                        onChange={(e) => handleInputChange('patientName', e.target.value)}
+                        placeholder="Seleccione un paciente o ingrese el nombre"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        required
+                      />
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Fecha
                     </label>
                     <input
                       type="date"
                       value={formData.date}
                       onChange={(e) => handleInputChange('date', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Odontólogo
                     </label>
                     <input
                       type="text"
                       value={formData.doctor}
                       onChange={(e) => handleInputChange('doctor', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       required
                     />
                   </div>
@@ -296,7 +391,7 @@ export default function EstudioPeriodontal() {
                 {/* Periodontal Chart */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       Chart Periodontal
                     </h3>
                     <button
@@ -312,52 +407,52 @@ export default function EstudioPeriodontal() {
 
                   <div className="overflow-x-auto">
                     <table className="min-w-full border border-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b">
                             Diente
                           </th>
-                          <th colSpan={3} className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                          <th colSpan={3} className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b">
                             Vestibular
                           </th>
-                          <th colSpan={3} className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                          <th colSpan={3} className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b">
                             Palatino/Lingual
                           </th>
-                          <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                          <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b">
                             Movilidad
                           </th>
-                          <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                          <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b">
                             Sangrado
                           </th>
-                          <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                          <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b">
                             Placa
                           </th>
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b">
                             Observaciones
                           </th>
                         </tr>
                         <tr>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 border-b"></th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b">Mesial</th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b">Medio</th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b">Distal</th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b">Mesial</th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b">Medio</th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b">Distal</th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b"></th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b"></th>
-                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 border-b"></th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 border-b"></th>
+                          <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 dark:text-gray-300 border-b"></th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b">Mesial</th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b">Medio</th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b">Distal</th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b">Mesial</th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b">Medio</th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b">Distal</th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b"></th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b"></th>
+                          <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 dark:text-gray-300 border-b"></th>
+                          <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 dark:text-gray-300 border-b"></th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {toothMeasurements.map((tooth, index) => (
-                          <tr key={tooth.diente} className="hover:bg-gray-50">
+                          <tr key={tooth.diente} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td className="px-2 py-2">
                               <button
                                 type="button"
                                 onClick={() => deleteToothRow(index)}
-                                className="text-red-600 hover:text-red-800 font-bold cursor-pointer"
+                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-600 font-bold cursor-pointer"
                               >
                                 {tooth.diente}
                               </button>
@@ -371,7 +466,7 @@ export default function EstudioPeriodontal() {
                                 step="0.5"
                                 value={tooth.vestibular.mesial}
                                 onChange={(e) => handleToothMeasurementChange(index, 'vestibular.mesial', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-gray-300 rounded"
+                                className="w-full px-1 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               />
                             </td>
                             <td className="px-1 py-2">
@@ -382,7 +477,7 @@ export default function EstudioPeriodontal() {
                                 step="0.5"
                                 value={tooth.vestibular.medio}
                                 onChange={(e) => handleToothMeasurementChange(index, 'vestibular.medio', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-gray-300 rounded"
+                                className="w-full px-1 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               />
                             </td>
                             <td className="px-1 py-2">
@@ -393,7 +488,7 @@ export default function EstudioPeriodontal() {
                                 step="0.5"
                                 value={tooth.vestibular.distal}
                                 onChange={(e) => handleToothMeasurementChange(index, 'vestibular.distal', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-gray-300 rounded"
+                                className="w-full px-1 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               />
                             </td>
                             {/* Palatino/Lingual */}
@@ -405,7 +500,7 @@ export default function EstudioPeriodontal() {
                                 step="0.5"
                                 value={tooth.palatino.mesial}
                                 onChange={(e) => handleToothMeasurementChange(index, 'palatino.mesial', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-gray-300 rounded"
+                                className="w-full px-1 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               />
                             </td>
                             <td className="px-1 py-2">
@@ -416,7 +511,7 @@ export default function EstudioPeriodontal() {
                                 step="0.5"
                                 value={tooth.palatino.medio}
                                 onChange={(e) => handleToothMeasurementChange(index, 'palatino.medio', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-gray-300 rounded"
+                                className="w-full px-1 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               />
                             </td>
                             <td className="px-1 py-2">
@@ -427,7 +522,7 @@ export default function EstudioPeriodontal() {
                                 step="0.5"
                                 value={tooth.palatino.distal}
                                 onChange={(e) => handleToothMeasurementChange(index, 'palatino.distal', e.target.value)}
-                                className="w-full px-1 py-1 text-center border border-gray-300 rounded"
+                                className="w-full px-1 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               />
                             </td>
                             {/* Movilidad */}
@@ -435,7 +530,7 @@ export default function EstudioPeriodontal() {
                               <select
                                 value={tooth.movilidad}
                                 onChange={(e) => handleToothMeasurementChange(index, 'movilidad', e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               >
                                 <option value="0">0</option>
                                 <option value="1">I</option>
@@ -449,7 +544,7 @@ export default function EstudioPeriodontal() {
                                 type="checkbox"
                                 checked={tooth.sangrado}
                                 onChange={(e) => handleToothMeasurementChange(index, 'sangrado', e.target.checked)}
-                                className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                                className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                               />
                             </td>
                             {/* Placa */}
@@ -458,7 +553,7 @@ export default function EstudioPeriodontal() {
                                 type="checkbox"
                                 checked={tooth.placa}
                                 onChange={(e) => handleToothMeasurementChange(index, 'placa', e.target.checked)}
-                                className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                                className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                               />
                             </td>
                             {/* Observaciones */}
@@ -467,7 +562,7 @@ export default function EstudioPeriodontal() {
                                 type="text"
                                 value={tooth.observaciones}
                                 onChange={(e) => handleToothMeasurementChange(index, 'observaciones', e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               />
                             </td>
                           </tr>
@@ -479,12 +574,12 @@ export default function EstudioPeriodontal() {
 
                 {/* Periodontal Parameters */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                     Parámetros Periodontales
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Índice de Placa
                       </label>
                       <input
@@ -494,11 +589,11 @@ export default function EstudioPeriodontal() {
                         step="0.1"
                         value={formData.indicePlaca}
                         onChange={(e) => handleInputChange('indicePlaca', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Índice de Sangrado
                       </label>
                       <input
@@ -508,28 +603,28 @@ export default function EstudioPeriodontal() {
                         step="0.1"
                         value={formData.indiceSangrado}
                         onChange={(e) => handleInputChange('indiceSangrado', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Nivel de Inserción Clínica
                       </label>
                       <input
                         type="text"
                         value={formData.nivelInsercion}
                         onChange={(e) => handleInputChange('nivelInsercion', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Furcaciones
                       </label>
                       <select
                         value={formData.furcaciones}
                         onChange={(e) => handleInputChange('furcaciones', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="no-evaluado">No evaluado</option>
                         <option value="grado1">Grado I</option>
@@ -542,20 +637,20 @@ export default function EstudioPeriodontal() {
 
                 {/* Additional Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Observaciones Generales
                   </label>
                   <textarea
                     rows={3}
                     value={formData.observacionesGenerales}
                     onChange={(e) => handleInputChange('observacionesGenerales', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
 
                 {/* Treatment Plan */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                     Plan de Tratamiento
                   </h3>
                   <div className="space-y-2">
@@ -564,7 +659,7 @@ export default function EstudioPeriodontal() {
                         type="checkbox"
                         checked={formData.profilaxis}
                         onChange={(e) => handleInputChange('profilaxis', e.target.checked)}
-                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded mr-2"
+                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 dark:border-gray-600 rounded mr-2 bg-white dark:bg-gray-700"
                       />
                       Profilaxis
                     </label>
@@ -573,7 +668,7 @@ export default function EstudioPeriodontal() {
                         type="checkbox"
                         checked={formData.raspaje}
                         onChange={(e) => handleInputChange('raspaje', e.target.checked)}
-                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded mr-2"
+                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 dark:border-gray-600 rounded mr-2 bg-white dark:bg-gray-700"
                       />
                       Raspado y Alisado Radicular
                     </label>
@@ -582,7 +677,7 @@ export default function EstudioPeriodontal() {
                         type="checkbox"
                         checked={formData.cirugia}
                         onChange={(e) => handleInputChange('cirugia', e.target.checked)}
-                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded mr-2"
+                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 dark:border-gray-600 rounded mr-2 bg-white dark:bg-gray-700"
                       />
                       Cirugía Periodontal
                     </label>
@@ -591,7 +686,7 @@ export default function EstudioPeriodontal() {
                         type="checkbox"
                         checked={formData.mantenimiento}
                         onChange={(e) => handleInputChange('mantenimiento', e.target.checked)}
-                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded mr-2"
+                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 dark:border-gray-600 rounded mr-2 bg-white dark:bg-gray-700"
                       />
                       Mantenimiento Periodontal
                     </label>
@@ -600,7 +695,7 @@ export default function EstudioPeriodontal() {
                         type="checkbox"
                         checked={formData.otro}
                         onChange={(e) => handleInputChange('otro', e.target.checked)}
-                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded mr-2"
+                        className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 dark:border-gray-600 rounded mr-2 bg-white dark:bg-gray-700"
                       />
                       Otro
                     </label>
@@ -610,7 +705,7 @@ export default function EstudioPeriodontal() {
                         value={formData.otroEspecificar}
                         onChange={(e) => handleInputChange('otroEspecificar', e.target.value)}
                         placeholder="Especificar..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ml-6"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ml-6"
                       />
                     )}
                   </div>
@@ -621,7 +716,7 @@ export default function EstudioPeriodontal() {
                   <button
                     type="button"
                     onClick={() => router.push('/menu-navegacion')}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
                   >
                     <i className="fas fa-arrow-left mr-2"></i>
                     Volver al Inicio
@@ -630,7 +725,7 @@ export default function EstudioPeriodontal() {
                     <button
                       type="button"
                       onClick={() => router.back()}
-                      className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
                     >
                       <i className="fas fa-arrow-left mr-2"></i>
                       Volver
@@ -647,26 +742,26 @@ export default function EstudioPeriodontal() {
               </form>
             ) : (
               /* Saved Studies */
-              <div>
+              <div ref={studiesListRef} className="transition-all duration-300 ease-in-out">
                 {/* Search and Filters */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <i className="fas fa-search text-gray-400"></i>
+                      <i className="fas fa-search text-gray-400 dark:text-gray-500"></i>
                     </div>
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Buscar por fecha o notas..."
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <input
                     type="date"
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                   <button
                     onClick={loadSavedStudies}
@@ -679,21 +774,21 @@ export default function EstudioPeriodontal() {
 
                 {/* Studies Table */}
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Fecha
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Notas
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                           Acciones
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {loading ? (
                         <tr>
                           <td colSpan={3} className="px-6 py-4 text-center">
@@ -704,40 +799,55 @@ export default function EstudioPeriodontal() {
                         </tr>
                       ) : currentStudies.length === 0 ? (
                         <tr>
-                          <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
+                          <td colSpan={3} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                             <i className="fas fa-info-circle mr-2"></i>
                             No se encontraron estudios
                           </td>
                         </tr>
                       ) : (
                         currentStudies.map((study) => (
-                          <tr key={study.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <tr key={study.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                               {formatDate(study.fecha)}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-900">
+                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
                               {study.notas || 'Sin notas'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => alert(`Viendo estudio con ID: ${study.id}`)}
-                                  className="text-teal-600 hover:text-teal-900"
+                                  className="text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-600"
                                   title="Ver detalles"
                                 >
                                   <i className="fas fa-eye"></i>
                                 </button>
                                 <button
                                   onClick={() => alert(`Editando estudio con ID: ${study.id}`)}
-                                  className="text-yellow-600 hover:text-yellow-900"
+                                  className="text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-600"
                                   title="Editar"
                                 >
                                   <i className="fas fa-edit"></i>
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (confirm('¿Está seguro que desea eliminar este estudio?')) {
-                                      setSavedStudies(prev => prev.filter(s => s.id !== study.id));
+                                      try {
+                                        const response = await fetch(`/api/estudios-periodontales/${study.id}`, {
+                                          method: 'DELETE'
+                                        });
+                                        
+                                        if (!response.ok) {
+                                          const error = await response.json();
+                                          throw new Error(error.error || 'Failed to delete study');
+                                        }
+                                        
+                                        setSavedStudies(prev => prev.filter(s => s.id !== study.id));
+                                        alert('Estudio eliminado correctamente');
+                                      } catch (error) {
+                                        console.error('Error deleting study:', error);
+                                        alert('Error al eliminar estudio: ' + (error as Error).message);
+                                      }
                                     }
                                   }}
                                   className="text-red-600 hover:text-red-900"
@@ -761,7 +871,7 @@ export default function EstudioPeriodontal() {
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <i className="fas fa-chevron-left"></i>
                       </button>
@@ -772,7 +882,7 @@ export default function EstudioPeriodontal() {
                           className={`px-3 py-1 text-sm border rounded-md ${
                             currentPage === page
                               ? 'bg-teal-600 text-white border-teal-600'
-                              : 'border-gray-300 hover:bg-gray-50'
+                              : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                           }`}
                         >
                           {page}
@@ -781,7 +891,7 @@ export default function EstudioPeriodontal() {
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <i className="fas fa-chevron-right"></i>
                       </button>
@@ -791,8 +901,7 @@ export default function EstudioPeriodontal() {
               </div>
             )}
           </div>
-        </div>
       </div>
-    </div>
+    </>
   );
 }

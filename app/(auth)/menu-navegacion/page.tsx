@@ -300,7 +300,7 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
       icon: 'fas fa-teeth-open',
       title: 'Estudios Periodontales',
       description: 'Registre y gestione los estudios periodontales, incluyendo índices de placa, sangrado y profundidad de bolsas.',
-      href: `/dashboard/periodontal?id=${validPacienteId}`
+      href: `/estudio-periodontal?id=${validPacienteId}`
     },
     {
       id: 'consentimientos',
@@ -503,7 +503,8 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
                     {item.id === 'editar-datos-btn' ? 'Editar Datos' : 
                      item.id === 'registros-paciente' ? 'Ver Registros' :
                      item.id === 'odontograma' ? 'Ir al Odontograma' :
-                     item.id.includes('estudios') ? 'Ir a Estudios' :
+                     item.id === 'estudios-ortodonticos' ? 'Ir a Estudios Ortodónticos' :
+                     item.id === 'estudios-periodontales' ? 'Ir a Estudios Periodontales' :
                      item.id === 'consentimientos' ? 'Consentimientos' :
                      item.id === 'presupuesto' ? 'Ir a Presupuestos' :
                      item.id === 'preformas' ? 'Ver Tratamientos' :

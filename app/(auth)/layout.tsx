@@ -168,6 +168,12 @@ export default function AuthLayout({
                       Gestión de Doctores
                     </h1>
                   )}
+                  {pathname === '/estudio-periodontal' && (
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-teeth mr-2 text-teal-600"></i>
+                      Estudio Periodontal
+                    </h1>
+                  )}
                 </div>
                 
                 {/* Right side - User Info and Actions */}
