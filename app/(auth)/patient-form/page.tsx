@@ -326,8 +326,6 @@ export default function PatientForm() {
         return;
       }
       
-      console.log('🔍 Loading historical mode setting for patient:', pacienteId);
-      
       // Get ALL settings for this patient (from any user) and use the latest one
       const { data: allPatientSettings, error: patientError } = await supabase
         .from('historical_mode_settings')
@@ -555,7 +553,6 @@ export default function PatientForm() {
         try {
           const calculation = calculatePregnancyStatus(fechaInicio, semanasNum);
           setPregnancyCalculation(calculation);
-          console.log('Pregnancy calculation:', calculation);
         } catch (error) {
           console.error('Error calculating pregnancy status:', error);
           setPregnancyCalculation(null);

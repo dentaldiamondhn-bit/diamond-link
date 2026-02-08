@@ -105,8 +105,6 @@ export class ReportsService {
   static async getDoctorPerformance(startDate?: string, endDate?: string): Promise<DoctorPerformance[]> {
     try {
       // Get all completed treatments details from tratamientos_realizados
-      // NO DATE FILTERING - Get all data to ensure we see everything
-      console.log('Fetching ALL treatments from tratamientos_realizados...');
       const { data: treatments, error } = await supabase
         .from('tratamientos_realizados')
         .select(`
@@ -119,8 +117,6 @@ export class ReportsService {
           cantidad,
           notas
         `);
-
-      console.log('Fetched treatments count:', treatments?.length);
 
       if (error) throw error;
 
@@ -207,15 +203,6 @@ export class ReportsService {
         treatmentTypes: Array.from(group.treatmentTypes),
         satisfaction: 4.5 // Mock satisfaction score - can be enhanced later
       }));
-
-      // Debug logging
-      console.log('Doctor Performance Results:', performance.map(p => ({
-        name: p.name,
-        treatments: p.treatments,
-        patients: p.patients,
-        revenue: p.revenue
-      })));
-      console.log('Total treatments calculated:', performance.reduce((sum, doc) => sum + doc.treatments, 0));
 
       // Sort by treatments count (highest first), then by revenue
       return performance.sort((a, b) => {
@@ -402,10 +389,6 @@ export class ReportsService {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
       
-      // Debug logging
-      console.log('getRevenueStats called with:', { startDate, endDate });
-      console.log('Using query dates:', { queryStartDate, queryEndDate });
-      
       const { data, error } = await supabase
         .from('tratamientos_completados')
         .select('total_final, fecha_cita')
@@ -414,8 +397,6 @@ export class ReportsService {
 
       if (error) throw error;
       
-      console.log('Query returned records:', data?.length);
-
       const totalRevenue = data?.reduce((sum, item) => sum + (item.total_final || 0), 0) || 0;
       const totalTreatments = data?.length || 0;
 

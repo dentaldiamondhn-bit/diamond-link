@@ -221,7 +221,7 @@ export default function TratamientosCompletadosPage() {
   };
 
   const filteredTreatments = completedTreatments.filter(treatment => {
-    // First filter by historical mode - TEMPORARILY DISABLED FOR DEBUGGING
+    // Check if this is a historical treatment and filter it out
     if (!bypassHistoricalMode) {
       // Check if this is a historical treatment and filter it out
       const treatmentDate = treatment.fecha_cita;

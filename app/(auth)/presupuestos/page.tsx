@@ -356,8 +356,6 @@ export default function PresupuestosPage() {
         expires_at: expires_at,
       };
       
-      console.log('Request body:', requestBody);
-      
       const response = await fetch('/api/presupuestos', {
         method: 'POST',
         headers: {

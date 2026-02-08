@@ -66,10 +66,8 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
     const loadTreatment = async () => {
       try {
         setLoading(true);
-        console.log('🔍 Loading treatment with ID:', params.id);
+        
         const treatmentData = await CompletedTreatmentService.getCompletedTreatmentById(params.id);
-        console.log('🔍 Raw treatment data:', treatmentData);
-        console.log('🔍 Patient data from treatment:', treatmentData?.paciente);
         setTreatment(treatmentData);
         
         if (treatmentData?.paciente) {
@@ -82,10 +80,6 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
                           treatmentData.paciente.fecha_inicio || 
                           treatmentData.paciente.fecha_inicio_consulta || 
                           treatmentData.paciente.fecha_nacimiento;
-          
-          console.log('🔍 Using fechaInicio for historical check:', fechaInicio);
-          console.log('🔍 Treatment fecha_cita:', treatmentData.fecha_cita);
-          console.log('🔍 Patient fecha_inicio_consulta:', treatmentData.paciente.fecha_inicio_consulta);
           
           // Then get record category info
           const categoryInfo = await getRecordCategoryInfo(fechaInicio);
@@ -190,7 +184,6 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
                 const url = treatment.paciente_id 
                   ? `/menu-navegacion?id=${encodeURIComponent(treatment.paciente_id)}`
                   : '/menu-navegacion';
-                console.log('🔍 Redirecting to:', url);
                 router.push(url);
               }}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"

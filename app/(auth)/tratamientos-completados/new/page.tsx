@@ -224,7 +224,6 @@ function NuevoTratamientoCompletadoPage() {
       const pacienteId = searchParams.get('paciente_id');
       if (pacienteId) {
         await savePatientSettings(pacienteId, newBypassValue);
-        console.log('✅ Patient bypass setting updated successfully');
       }
     } catch (error) {
       console.error('❌ Failed to update bypass setting:', error);
@@ -616,7 +615,6 @@ function NuevoTratamientoCompletadoPage() {
       
       // If this is a group promotion with beneficiaries, create separate treatment records
       if (selectedPromotion?.es_grupal && beneficiaries.length > 0) {
-        console.log(' Creating group promotion with beneficiaries');
         
         // 1. Create main treatment record for the payer
         const mainTreatmentData = {
@@ -1246,7 +1244,6 @@ function NuevoTratamientoCompletadoPage() {
               onClose={() => setShowPatientSignatureModal(false)}
               onSave={(signatureData) => {
                 setPatientSignature(signatureData);
-                console.log('Patient signature saved:', signatureData);
               }}
               title="Firma de Paciente"
               isHistorical={recordCategoryInfo?.isHistorical && !bypassHistoricalMode}
