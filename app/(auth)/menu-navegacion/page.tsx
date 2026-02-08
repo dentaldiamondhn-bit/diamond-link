@@ -250,27 +250,36 @@ export default function MenuNavegacion() {
       });
     };
 
-    // Get top 3 most common tooth states for display
-    const sortedStates = Object.entries(status_counts)
+    // Get all tooth states for display
+    const allStates = Object.entries(status_counts)
       .filter(([_, count]: [string, number]) => count > 0)
-      .sort(([, a]: [string, number], [, b]: [string, number]) => b - a)
-      .slice(0, 3);
+      .sort(([stateA, countA]: [string, number], [stateB, countB]: [string, number]) => {
+        // Sort by status type order: Sanos first, then others alphabetically
+        const order = ['sano', 'ausente', 'caries', 'obturado', 'extraccion', 'corona', 'puente', 'implante', 'endodoncia', 'fracturado', 'sellante'];
+        const aIndex = order.indexOf(stateA);
+        const bIndex = order.indexOf(stateB);
+        
+        if (aIndex === -1 && bIndex === -1) return stateA.localeCompare(stateB);
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+      });
 
     const getStateLabel = (state: string) => {
       const labels: Record<string, string> = {
-        sano: 'Sanos',
-        caries: 'Caries',
-        obturado: 'Obturados',
-        extraccion: 'Extraídos',
-        ausente: 'Ausentes',
-        corona: 'Coronas',
-        puente: 'Puentes',
-        implante: 'Implantes',
-        endodoncia: 'Endodoncias',
-        fracturado: 'Fracturados',
-        sellante: 'Sellantes'
+        sano: 'Sano',
+        caries: 'Cariado',
+        obturado: 'Obturado',
+        extraccion: 'Extracción indicada',
+        ausente: 'Ausente',
+        corona: 'Corona',
+        puente: 'Puente',
+        implante: 'Implante',
+        endodoncia: 'Endodoncia',
+        fracturado: 'Fracturado',
+        sellante: 'Sellante'
       };
-      return labels[state] || state;
+      return labels[state] || state.charAt(0).toUpperCase() + state.slice(1);
     };
 
     return (
@@ -294,10 +303,10 @@ export default function MenuNavegacion() {
             </span>
           </div>
         )}
-        {sortedStates.length > 0 && (
+        {allStates.length > 0 && (
           <div className="flex items-center space-x-2">
             <span className="text-xs text-gray-600 dark:text-gray-400">
-              {sortedStates.map(([state, count]) => `${getStateLabel(state)}: ${count}`).join(' • ')}
+              {allStates.map(([state, count]) => `${getStateLabel(state)}: ${count}`).join(' • ')}
             </span>
           </div>
         )}
@@ -694,9 +703,9 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
                 </div>
               </div>
               <div className="p-6">
-                <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm leading-relaxed line-clamp-3">
+                <div className="text-gray-600 dark:text-gray-400 mb-6 text-sm leading-relaxed line-clamp-3">
                   {item.description}
-                </p>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link 
                     href={item.href}

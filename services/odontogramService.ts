@@ -299,24 +299,16 @@ export class OdontogramService {
       const latestVersion = odontograms.length > 0 ? odontograms[0] : null;
       
       // Calculate tooth status counts from the latest active odontogram
-      let statusCounts = {
-        sano: 0,
-        caries: 0,
-        obturado: 0,
-        extraccion: 0,
-        ausente: 0,
-        corona: 0,
-        puente: 0,
-        implante: 0,
-        endodoncia: 0,
-        fracturado: 0,
-        sellante: 0
-      };
+      let statusCounts: Record<string, number> = {};
 
       if (latestVersion && latestVersion.datos_odontograma?.dientes) {
         Object.values(latestVersion.datos_odontograma.dientes).forEach((diente: any) => {
           const estado = diente.estado;
-          if (estado && statusCounts.hasOwnProperty(estado)) {
+          if (estado) {
+            // Initialize count if this status hasn't been seen before
+            if (!statusCounts[estado]) {
+              statusCounts[estado] = 0;
+            }
             statusCounts[estado]++;
           }
         });
