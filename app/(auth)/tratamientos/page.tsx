@@ -133,24 +133,18 @@ export default function TratamientosPage() {
   // Initialize preferences from pagePrefs
   useEffect(() => {
     if (pagePrefs && !prefsLoading) {
-      console.log('Loading pagePrefs for tratamientos:', pagePrefs);
-      
       // Only set if different from current value to avoid unnecessary re-renders
       if (pagePrefs.viewMode && pagePrefs.viewMode !== viewMode) {
-        console.log('Setting viewMode:', pagePrefs.viewMode);
         setViewMode(pagePrefs.viewMode);
       }
       if (pagePrefs.recordsPerPage && pagePrefs.recordsPerPage !== recordsPerPagePref) {
-        console.log('Setting recordsPerPage:', pagePrefs.recordsPerPage);
         setRecordsPerPagePref(pagePrefs.recordsPerPage);
         setRecordsPerPage(pagePrefs.recordsPerPage);
       }
       if (pagePrefs.sortBy && pagePrefs.sortBy !== sortBy) {
-        console.log('Setting sortBy:', pagePrefs.sortBy);
         setSortBy(pagePrefs.sortBy);
       }
       if (pagePrefs.sortOrder && pagePrefs.sortOrder !== sortOrder) {
-        console.log('Setting sortOrder:', pagePrefs.sortOrder);
         setSortOrder(pagePrefs.sortOrder);
       }
     }
@@ -176,7 +170,6 @@ export default function TratamientosPage() {
 
   useEffect(() => {
     if (!prefsLoading) {
-      console.log('Saving sortBy preference:', sortBy);
       const timeoutId = setTimeout(() => {
         updatePagePrefs({ sortBy });
       }, 500);
@@ -260,15 +253,12 @@ export default function TratamientosPage() {
 
       const treatmentUsage = await Promise.all(
         (completedTreatments || []).map(async (item) => {
-          console.log('Getting payments for treatment_completed_id:', item.tratamientos_completados.id);
           const { data: payments, error: paymentError } = await supabase
             .from('payments')
             .select('monto_pago, moneda')
             .eq('tratamiento_completado_id', item.tratamientos_completados.id);
 
-          console.log('Payments data:', payments, 'Error:', paymentError);
           const totalPaid = payments?.reduce((sum, payment) => sum + payment.monto_pago, 0) || 0;
-          console.log('Total paid:', totalPaid);
 
           return {
             patientName: item.tratamientos_completados.patients.nombre_completo,
