@@ -143,20 +143,22 @@ export default function MenuNavegacion() {
     } = treatmentStats;
 
     const outstandingBalance = total_amount_billed - total_amount_paid;
-    const formattedPaid = new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: currency || 'USD'
-    }).format(total_amount_paid);
-    
-    const formattedOutstanding = new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: currency || 'USD'
-    }).format(outstandingBalance);
-    
-    const formattedSaved = new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: currency || 'USD'
-    }).format(total_discount);
+    // Format currency with proper thousand separators and decimal handling
+    const formatCurrency = (amount: number, currency: string) => {
+      // Handle HNL (Honduran Lempira) and other currencies
+      const formatter = new Intl.NumberFormat('es-HN', {
+        style: 'currency',
+        currency: currency || 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      
+      return formatter.format(amount);
+    };
+
+    const formattedPaid = formatCurrency(total_amount_paid, currency || 'USD');
+    const formattedOutstanding = formatCurrency(outstandingBalance, currency || 'USD');
+    const formattedSaved = formatCurrency(total_discount, currency || 'USD');
 
     // Format latest treatment date
     const formatDate = (dateString: string) => {
