@@ -113,13 +113,18 @@ export default function EstudioPeriodontal() {
       const updated = [...prev];
       if (field.includes('.')) {
         const [parent, child] = field.split('.');
-        updated[toothIndex] = {
-          ...updated[toothIndex],
-          [parent]: {
-            ...updated[toothIndex][parent as keyof ToothMeasurement],
-            [child]: value
-          }
-        };
+        const parentKey = parent as keyof ToothMeasurement;
+        const currentValue = updated[toothIndex][parentKey];
+        
+        if (typeof currentValue === 'object' && currentValue !== null) {
+          updated[toothIndex] = {
+            ...updated[toothIndex],
+            [parentKey]: {
+              ...currentValue,
+              [child]: value
+            }
+          };
+        }
       } else {
         updated[toothIndex] = {
           ...updated[toothIndex],
