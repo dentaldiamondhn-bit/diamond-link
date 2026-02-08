@@ -8,6 +8,7 @@ import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { PatientService } from '@/services/patientService';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
+import { OdontogramService } from '@/services/odontogramService';
 import { Patient } from '@/types/patient';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
@@ -27,6 +28,8 @@ export default function MenuNavegacion() {
   const [patientLoading, setPatientLoading] = useState(true);
   const [treatmentStats, setTreatmentStats] = useState<any>(null);
   const [treatmentStatsLoading, setTreatmentStatsLoading] = useState(true);
+  const [odontogramStats, setOdontogramStats] = useState<any>(null);
+  const [odontogramStatsLoading, setOdontogramStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const searchParams = useSearchParams();
@@ -114,6 +117,25 @@ export default function MenuNavegacion() {
     loadTreatmentStats();
   }, [patient]);
 
+  useEffect(() => {
+    const loadOdontogramStats = async () => {
+      if (!patient) return;
+      
+      try {
+        setOdontogramStatsLoading(true);
+        const stats = await OdontogramService.getPatientOdontogramStatistics(patient.paciente_id);
+        setOdontogramStats(stats);
+      } catch (error) {
+        console.error('Error loading odontogram statistics:', error);
+        setOdontogramStats(null);
+      } finally {
+        setOdontogramStatsLoading(false);
+      }
+    };
+
+    loadOdontogramStats();
+  }, [patient]);
+
   const calculateAge = (fechaNacimiento: string): string => {
     const birthDate = new Date(fechaNacimiento);
     if (isNaN(birthDate.getTime())) return 'No especificada';
@@ -199,6 +221,83 @@ export default function MenuNavegacion() {
           <div className="flex items-center space-x-2">
             <span className="text-purple-600 dark:text-purple-400 font-medium">
               Último: {formatDate(latest_treatment_date)}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const getOdontogramDescription = (): JSX.Element => {
+    if (odontogramStatsLoading) {
+      return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
+    }
+    
+    if (!odontogramStats) {
+      return <span className="text-gray-500 dark:text-gray-400">No hay odontogramas registrados</span>;
+    }
+
+    const { total_versions, latest_version, status_counts } = odontogramStats;
+
+    // Format latest version date
+    const formatDate = (dateString: string) => {
+      if (!dateString) return null;
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    };
+
+    // Get top 3 most common tooth states for display
+    const sortedStates = Object.entries(status_counts)
+      .filter(([_, count]) => count > 0)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3);
+
+    const getStateLabel = (state: string) => {
+      const labels: Record<string, string> = {
+        sano: 'Sanos',
+        caries: 'Caries',
+        obturado: 'Obturados',
+        extraccion: 'Extraídos',
+        ausente: 'Ausentes',
+        corona: 'Coronas',
+        puente: 'Puentes',
+        implante: 'Implantes',
+        endodoncia: 'Endodoncias',
+        fracturado: 'Fracturados',
+        sellante: 'Sellantes'
+      };
+      return labels[state] || state;
+    };
+
+    return (
+      <div className="text-sm space-y-1">
+        <div className="flex items-center space-x-2">
+          <span className="text-gray-700 dark:text-gray-300">
+            {total_versions} versión{total_versions !== 1 ? 'es' : ''}
+          </span>
+        </div>
+        {latest_version && (
+          <div className="flex items-center space-x-2">
+            <span className="text-blue-600 dark:text-blue-400 font-medium">
+              Última: v{latest_version.version}
+            </span>
+          </div>
+        )}
+        {latest_version && (
+          <div className="flex items-center space-x-2">
+            <span className="text-purple-600 dark:text-purple-400 font-medium">
+              {formatDate(latest_version.fecha_creacion)}
+            </span>
+          </div>
+        )}
+        {sortedStates.length > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              {sortedStates.map(([state, count]) => `${getStateLabel(state)}: ${count}`).join(' • ')}
             </span>
           </div>
         )}
@@ -389,7 +488,7 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
       id: 'odontograma',
       icon: 'fas fa-tooth',
       title: 'Odontograma',
-      description: 'Registre y visualice el estado dental del paciente, incluyendo tratamientos realizados y planificados.',
+      description: getOdontogramDescription(),
       href: `/odontogram?id=${validPacienteId}`
     },
     {

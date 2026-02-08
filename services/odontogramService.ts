@@ -264,7 +264,8 @@ export class OdontogramService {
     try {
       const { data, error } = await supabase
         .from('odontograms')
-        .select('*');
+        .select('*')
+        .order('fecha_creacion', { ascending: false });
 
       if (error) {
         console.error('Error fetching all odontograms:', error);
@@ -274,6 +275,63 @@ export class OdontogramService {
       return data || [];
     } catch (error) {
       console.error('Unexpected error fetching all odontograms:', error);
+      throw error;
+    }
+  }
+
+  static async getPatientOdontogramStatistics(pacienteId: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('odontograms')
+        .select('*')
+        .eq('paciente_id', pacienteId)
+        .order('version', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching odontogram statistics:', error);
+        throw error;
+      }
+
+      const odontograms = data || [];
+      
+      // Calculate statistics
+      const totalVersions = odontograms.length;
+      const latestVersion = odontograms.length > 0 ? odontograms[0] : null;
+      
+      // Calculate tooth status counts from the latest active odontogram
+      let statusCounts = {
+        sano: 0,
+        caries: 0,
+        obturado: 0,
+        extraccion: 0,
+        ausente: 0,
+        corona: 0,
+        puente: 0,
+        implante: 0,
+        endodoncia: 0,
+        fracturado: 0,
+        sellante: 0
+      };
+
+      if (latestVersion && latestVersion.datos_odontograma?.dientes) {
+        Object.values(latestVersion.datos_odontograma.dientes).forEach((diente: any) => {
+          const estado = diente.estado;
+          if (estado && statusCounts.hasOwnProperty(estado)) {
+            statusCounts[estado]++;
+          }
+        });
+      }
+
+      return {
+        total_versions: totalVersions,
+        latest_version: latestVersion ? {
+          version: latestVersion.version,
+          fecha_creacion: latestVersion.fecha_creacion
+        } : null,
+        status_counts: statusCounts
+      };
+    } catch (error) {
+      console.error('Unexpected error fetching odontogram statistics:', error);
       throw error;
     }
   }
