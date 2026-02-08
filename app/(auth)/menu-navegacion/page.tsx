@@ -10,6 +10,7 @@ import { PatientService } from '@/services/patientService';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import { OdontogramService } from '@/services/odontogramService';
 import { consentimientoService } from '@/services/consentimientoService';
+import { presupuestoService } from '@/services/presupuestoService';
 import { Patient } from '@/types/patient';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
@@ -33,6 +34,8 @@ export default function MenuNavegacion() {
   const [odontogramStatsLoading, setOdontogramStatsLoading] = useState(true);
   const [consentimientoStats, setConsentimientoStats] = useState<any>(null);
   const [consentimientoStatsLoading, setConsentimientoStatsLoading] = useState(true);
+  const [presupuestoStats, setPresupuestoStats] = useState<any>(null);
+  const [presupuestoStatsLoading, setPresupuestoStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const searchParams = useSearchParams();
@@ -156,6 +159,25 @@ export default function MenuNavegacion() {
     };
 
     loadConsentimientoStats();
+  }, [patient]);
+
+  useEffect(() => {
+    const loadPresupuestoStats = async () => {
+      if (!patient) return;
+      
+      try {
+        setPresupuestoStatsLoading(true);
+        const stats = await presupuestoService.getPatientPresupuestoStatistics(patient.paciente_id);
+        setPresupuestoStats(stats);
+      } catch (error) {
+        console.error('Error loading presupuesto statistics:', error);
+        setPresupuestoStats(null);
+      } finally {
+        setPresupuestoStatsLoading(false);
+      }
+    };
+
+    loadPresupuestoStats();
   }, [patient]);
 
   const calculateAge = (fechaNacimiento: string): string => {
@@ -424,6 +446,96 @@ export default function MenuNavegacion() {
     );
   };
 
+  const getPresupuestoDescription = (): JSX.Element => {
+    if (presupuestoStatsLoading) {
+      return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
+    }
+    
+    if (!presupuestoStats) {
+      return <span className="text-gray-500 dark:text-gray-400">No hay presupuestos registrados</span>;
+    }
+
+    const { 
+      total_presupuestos, 
+      pendientes, 
+      aceptados, 
+      expirados,
+      total_valor_pendiente,
+      total_valor_aceptado,
+      latest_presupuesto,
+      valor_promedio
+    } = presupuestoStats;
+
+    // Format currency
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('es-HN', {
+        style: 'currency',
+        currency: 'HNL',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    };
+
+    // Format latest presupuesto date
+    const formatDate = (dateString: string) => {
+      if (!dateString) return null;
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    };
+
+    return (
+      <div className="text-sm space-y-1">
+        <div className="flex items-center space-x-2">
+          <span className="text-gray-700 dark:text-gray-300">
+            {total_presupuestos} presupuesto{total_presupuestos !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-blue-600 dark:text-blue-400 font-medium">
+            {pendientes} pendiente{pendientes !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-green-600 dark:text-green-400 font-medium">
+            {aceptados} aceptado{aceptados !== 1 ? 's' : ''}
+          </span>
+        </div>
+        {total_valor_pendiente > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-orange-600 dark:text-orange-400 font-medium">
+              {formatCurrency(total_valor_pendiente)} pendiente
+            </span>
+          </div>
+        )}
+        {total_valor_aceptado > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-purple-600 dark:text-purple-400 font-medium">
+              {formatCurrency(total_valor_aceptado)} aceptado
+            </span>
+          </div>
+        )}
+        {latest_presupuesto && (
+          <div className="flex items-center space-x-2">
+            <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+              Último: {formatDate(latest_presupuesto.quote_date)}
+            </span>
+          </div>
+        )}
+        {valor_promedio > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              Promedio: {formatCurrency(valor_promedio)}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const pacienteId = searchParams.get('id');
 const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'undefined' ? pacienteId : '';
 
@@ -635,7 +747,7 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
       id: 'presupuesto',
       icon: 'fas fa-file-invoice-dollar',
       title: 'Presupuestos',
-      description: 'Cree y gestione presupuestos de tratamientos con 30 días de validez para el paciente.',
+      description: getPresupuestoDescription(),
       href: `/presupuestos?id=${validPacienteId}`
     },
     {
