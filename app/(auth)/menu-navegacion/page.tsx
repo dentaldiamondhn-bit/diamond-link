@@ -9,6 +9,7 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { PatientService } from '@/services/patientService';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import { OdontogramService } from '@/services/odontogramService';
+import { consentimientoService } from '@/services/consentimientoService';
 import { Patient } from '@/types/patient';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
@@ -30,6 +31,8 @@ export default function MenuNavegacion() {
   const [treatmentStatsLoading, setTreatmentStatsLoading] = useState(true);
   const [odontogramStats, setOdontogramStats] = useState<any>(null);
   const [odontogramStatsLoading, setOdontogramStatsLoading] = useState(true);
+  const [consentimientoStats, setConsentimientoStats] = useState<any>(null);
+  const [consentimientoStatsLoading, setConsentimientoStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const searchParams = useSearchParams();
@@ -134,6 +137,25 @@ export default function MenuNavegacion() {
     };
 
     loadOdontogramStats();
+  }, [patient]);
+
+  useEffect(() => {
+    const loadConsentimientoStats = async () => {
+      if (!patient) return;
+      
+      try {
+        setConsentimientoStatsLoading(true);
+        const stats = await consentimientoService.getPatientConsentimientoStatistics(patient.paciente_id);
+        setConsentimientoStats(stats);
+      } catch (error) {
+        console.error('Error loading consentimiento statistics:', error);
+        setConsentimientoStats(null);
+      } finally {
+        setConsentimientoStatsLoading(false);
+      }
+    };
+
+    loadConsentimientoStats();
   }, [patient]);
 
   const calculateAge = (fechaNacimiento: string): string => {
@@ -307,6 +329,94 @@ export default function MenuNavegacion() {
           <div className="flex items-center space-x-2">
             <span className="text-xs text-gray-600 dark:text-gray-400">
               {allStates.map(([state, count]) => `${getStateLabel(state)}: ${count}`).join(' • ')}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const getConsentimientoDescription = (): JSX.Element => {
+    if (consentimientoStatsLoading) {
+      return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
+    }
+    
+    if (!consentimientoStats) {
+      return <span className="text-gray-500 dark:text-gray-400">No hay consentimientos registrados</span>;
+    }
+
+    const { 
+      total_consentimientos, 
+      activos, 
+      firmados, 
+      cancelados,
+      latest_consentimiento,
+      consentimientos_por_tipo 
+    } = consentimientoStats;
+
+    // Format latest consentimiento date
+    const formatDate = (dateString: string) => {
+      if (!dateString) return null;
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    };
+
+    // Get top 2 most common consentimiento types for display
+    const sortedTypes = Object.entries(consentimientos_por_tipo)
+      .filter(([_, count]) => count > 0)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 2);
+
+    const getConsentimientoTypeLabel = (tipo: string) => {
+      const labels: Record<string, string> = {
+        'tratamiento': 'Tratamiento',
+        'extraccion': 'Extracción',
+        'endodoncia': 'Endodoncia',
+        'ortodoncia': 'Ortodoncia',
+        'implante': 'Implante',
+        'blanqueamiento': 'Blanqueamiento',
+        'limpieza': 'Limpieza',
+        'radiografia': 'Radiografía',
+        'cirugia': 'Cirugía',
+        'protesis': 'Prótesis'
+      };
+      return labels[tipo] || tipo.charAt(0).toUpperCase() + tipo.slice(1);
+    };
+
+    return (
+      <div className="text-sm space-y-1">
+        <div className="flex items-center space-x-2">
+          <span className="text-gray-700 dark:text-gray-300">
+            {total_consentimientos} consentimiento{total_consentimientos !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-green-600 dark:text-green-400 font-medium">
+            {firmados} firmados{firmados !== 1 ? 's' : ''}
+          </span>
+        </div>
+        {activos > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-blue-600 dark:text-blue-400 font-medium">
+              {activos} activos
+            </span>
+          </div>
+        )}
+        {latest_consentimiento && (
+          <div className="flex items-center space-x-2">
+            <span className="text-purple-600 dark:text-purple-400 font-medium">
+              Último: {formatDate(latest_consentimiento.fecha_consentimiento)}
+            </span>
+          </div>
+        )}
+        {sortedTypes.length > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              {sortedTypes.map(([tipo, count]) => `${getConsentimientoTypeLabel(tipo)}: ${count}`).join(' • ')}
             </span>
           </div>
         )}
@@ -518,7 +628,7 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
       id: 'consentimientos',
       icon: 'fas fa-file-signature',
       title: 'Consentimientos',
-      description: 'Genere y gestione los consentimientos informados para los distintos procedimientos odontológicos.',
+      description: getConsentimientoDescription(),
       href: `/consentimientos?id=${validPacienteId}`
     },
     {

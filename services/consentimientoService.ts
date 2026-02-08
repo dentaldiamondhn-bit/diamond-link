@@ -297,6 +297,67 @@ class ConsentimientoService {
 
     return stats;
   }
+
+  async getPatientConsentimientoStatistics(pacienteId: string): Promise<{
+    total_consentimientos: number;
+    activos: number;
+    firmados: number;
+    cancelados: number;
+    latest_consentimiento?: {
+      nombre_consentimiento: string;
+      tipo_consentimiento: string;
+      fecha_consentimiento: string;
+      estado: string;
+    };
+    consentimientos_por_tipo: Record<string, number>;
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('consentimientos')
+        .select('*')
+        .eq('paciente_id', pacienteId)
+        .order('fecha_consentimiento', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching patient consentimiento statistics:', error);
+        throw error;
+      }
+
+      const consentimientos = data || [];
+      
+      // Calculate statistics
+      const totalConsentimientos = consentimientos.length;
+      const activos = consentimientos.filter(c => c.estado === 'activo').length;
+      const firmados = consentimientos.filter(c => c.estado === 'firmado').length;
+      const cancelados = consentimientos.filter(c => c.estado === 'cancelado').length;
+      
+      // Get latest consentimiento
+      const latestConsentimiento = consentimientos.length > 0 ? {
+        nombre_consentimiento: consentimientos[0].nombre_consentimiento,
+        tipo_consentimiento: consentimientos[0].tipo_consentimiento,
+        fecha_consentimiento: consentimientos[0].fecha_consentimiento,
+        estado: consentimientos[0].estado
+      } : undefined;
+      
+      // Count by type
+      const consentimientosPorTipo = consentimientos.reduce((acc, c) => {
+        acc[c.tipo_consentimiento] = (acc[c.tipo_consentimiento] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      return {
+        total_consentimientos: totalConsentimientos,
+        activos: activos,
+        firmados: firmados,
+        cancelados: cancelados,
+        latest_consentimiento: latestConsentimiento,
+        consentimientos_por_tipo: consentimientosPorTipo
+      };
+    } catch (error) {
+      console.error('Unexpected error fetching patient consentimiento statistics:', error);
+      throw error;
+    }
+  }
 }
 
 export const consentimientoService = new ConsentimientoService();
