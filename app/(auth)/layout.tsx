@@ -174,6 +174,12 @@ export default function AuthLayout({
                       Estudio Periodontal
                     </h1>
                   )}
+                  {pathname.startsWith('/admin/users') && (
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-users-cog mr-2 text-teal-600"></i>
+                      User Administration
+                    </h1>
+                  )}
                 </div>
                 
                 {/* Right side - User Info and Actions */}
