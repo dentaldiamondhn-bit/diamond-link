@@ -389,8 +389,8 @@ export default function MenuNavegacion() {
 
     // Get top 2 most common consentimiento types for display
     const sortedTypes = Object.entries(consentimientos_por_tipo)
-      .filter(([_, count]) => count > 0)
-      .sort(([, a], [, b]) => b - a)
+      .filter(([_, count]: [string, number]) => count > 0)
+      .sort(([, a]: [string, number], [, b]: [string, number]) => b - a)
       .slice(0, 2);
 
     const getConsentimientoTypeLabel = (tipo: string) => {

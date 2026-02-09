@@ -2,6 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom loading state to prevent white screen during refresh */
+html {
+  background-color: #1f2937; /* charcoal gray */
+}
+
+body {
+  background-color: #1f2937; /* charcoal gray */
+}
+
+/* Loading overlay for page transitions */
+#loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #1f2937;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* Logo animation for loading state */
+.loading-logo {
+  width: 60px;
+  height: 60px;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
 /* Signature Section Styles */
 .signature-section {
   margin: 30px 0 20px 0;
