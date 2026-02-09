@@ -620,7 +620,74 @@ export class CompletedTreatmentService {
   // Statistics and Analytics
   // ========================================
 
-  static async getTreatmentStatistics(): Promise<any> {
+  static async getCompletedTreatmentsByDoctor(doctorName: string): Promise<CompletedTreatment[]> {
+    try {
+      const { data, error } = await supabase
+        .from('tratamientos_completados')
+        .select(`
+          *,
+          tratamientos_realizados (*),
+          paciente:patients (*),
+          paciente_beneficiario:patients (*)
+        `)
+        .eq('doctor_name', doctorName)
+        .order('fecha_cita', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching treatments by doctor:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error fetching treatments by doctor:', error);
+      throw error;
+    }
+  }
+
+  static async getDoctorRevenue(doctorName: string): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .from('tratamientos_completados')
+        .select('total_final')
+        .eq('doctor_name', doctorName)
+        .eq('estado', 'pagado');
+
+      if (error) {
+        console.error('Error fetching doctor revenue:', error);
+        throw error;
+      }
+
+      return data?.reduce((sum, treatment) => sum + treatment.total_final, 0) || 0;
+    } catch (error) {
+      console.error('Unexpected error fetching doctor revenue:', error);
+      throw error;
+    }
+  }
+
+  static async getDoctorAverageRevenue(doctorName: string): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .from('tratamientos_completados')
+        .select('total_final')
+        .eq('doctor_name', doctorName)
+        .eq('estado', 'pagado');
+
+      if (error) {
+        console.error('Error fetching doctor average revenue:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) return 0;
+      const total = data.reduce((sum, treatment) => sum + treatment.total_final, 0);
+      return total / data.length;
+    } catch (error) {
+      console.error('Unexpected error fetching doctor average revenue:', error);
+      throw error;
+    }
+  }
+
+  static async getDoctorStatistics(): Promise<any> {
     try {
       const { data, error } = await supabase
         .from('tratamientos_completados')

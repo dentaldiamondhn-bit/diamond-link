@@ -69,6 +69,56 @@ export class PatientService {
     }
   }
 
+  static async getPatientsByDoctor(doctorName: string) {
+    try {
+      const { data, error } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('doctor', doctorName)
+        .order('fecha_inicio', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching patients by doctor:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error fetching patients by doctor:', error);
+      throw error;
+    }
+  }
+
+  static async getDoctorPatientStats(doctorName: string) {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data, error } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('doctor', doctorName);
+
+      if (error) {
+        console.error('Error fetching doctor patient stats:', error);
+        throw error;
+      }
+
+      const allPatients = data || [];
+      const newPatients = allPatients.filter(p => new Date(p.fecha_inicio) > thirtyDaysAgo);
+      const returningPatients = allPatients.filter(p => new Date(p.fecha_inicio) <= thirtyDaysAgo);
+
+      return {
+        totalPatients: allPatients.length,
+        newPatients: newPatients.length,
+        returningPatients: returningPatients.length
+      };
+    } catch (error) {
+      console.error('Unexpected error fetching doctor patient stats:', error);
+      throw error;
+    }
+  }
+
   static async getPatientById(paciente_id: string) {
     try {
       const { data, error } = await supabase

@@ -5,6 +5,7 @@ import { UserButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { PatientService } from '../../../services/patientService';
+import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import { googleCalendarService } from '../../../services/googleCalendar';
 import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import { EventModal } from '../../../components/calendar/EventModal';
@@ -20,6 +21,10 @@ export default function DashboardPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [eventsLoading, setEventsLoading] = useState<boolean>(true);
+  const [treatmentCount, setTreatmentCount] = useState<number>(0);
+  const [doctorRevenue, setDoctorRevenue] = useState<number>(0);
+  const [averageRevenue, setAverageRevenue] = useState<number>(0);
+  const [patientStats, setPatientStats] = useState<any>({ newPatients: 0, returningPatients: 0 });
 
   // Helper function to format event time
   const formatEventTime = (dateString: string) => {
@@ -72,37 +77,77 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch patient count
-        const patients = await PatientService.getPatients();
-        setPatientCount(patients.length);
+        const doctorName = user?.fullName || '';
+        
+        // Fetch role-specific data
+        if (userRole === 'doctor') {
+          // Fetch doctor's patients and stats
+          const doctorPatients = await PatientService.getPatientsByDoctor(doctorName);
+          const doctorPatientStats = await PatientService.getDoctorPatientStats(doctorName);
+          setPatientCount(doctorPatients.length);
+          setPatientStats(doctorPatientStats);
+
+          // Fetch doctor's treatments
+          const doctorTreatments = await CompletedTreatmentService.getCompletedTreatmentsByDoctor(doctorName);
+          setTreatmentCount(doctorTreatments.length);
+
+          // Fetch doctor's revenue and average
+          const revenue = await CompletedTreatmentService.getDoctorRevenue(doctorName);
+          const avgRevenue = await CompletedTreatmentService.getDoctorAverageRevenue(doctorName);
+          setDoctorRevenue(revenue);
+          setAverageRevenue(avgRevenue);
+
+        } else if (userRole === 'admin') {
+          // Fetch all patients for admin
+          const allPatients = await PatientService.getPatients();
+          setPatientCount(allPatients.length);
+
+          // Fetch all treatments for admin
+          const allTreatments = await CompletedTreatmentService.getAllCompletedTreatments();
+          setTreatmentCount(allTreatments.length);
+
+        } else {
+          // For staff and others, fetch all patients
+          const patients = await PatientService.getPatients();
+          setPatientCount(patients.length);
+        }
 
         // Fetch calendar events from Google Calendar API with error handling
         try {
+          console.log('Attempting to fetch calendar events...');
           const allEvents = await googleCalendarService.getEvents();
+          console.log('Fetched events:', allEvents);
           
           // Filter for upcoming events only (events that haven't ended yet)
           const now = new Date();
           const upcoming = allEvents.filter(event => new Date(event.end) > now);
+          console.log('Upcoming events:', upcoming);
           
           setEventCount(upcoming.length);
           setUpcomingEvents(upcoming.slice(0, 5)); // Show only first 5 upcoming events
+          setEventsLoading(false); // Set events loading to false here
         } catch (calendarError) {
           console.error('Calendar fetch error:', calendarError);
+          console.error('Calendar error details:', calendarError.message);
           setEventCount(0);
           setUpcomingEvents([]);
+          setEventsLoading(false); // Also set to false on error
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         setPatientCount(0);
         setEventCount(0);
+        setTreatmentCount(0);
+        setDoctorRevenue(0);
+        setAverageRevenue(0);
+        setPatientStats({ newPatients: 0, returningPatients: 0 });
       } finally {
         setLoading(false);
-        setEventsLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, []);
+  }, [user?.fullName, userRole]);
 
   return (
     <>
@@ -121,74 +166,145 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Estadísticas */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-            {/* Tarjeta 1 */}
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total de Pacientes</dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">
-                          {loading ? '...' : patientCount}
-                        </div>
-                      </dd>
-                    </dl>
-                  </div>
+          {/* Estadísticas - Role Specific */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            {userRole === 'doctor' ? (
+              <>
+                {/* Doctor-specific stats */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Mis Pacientes</h3>
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {loading ? '...' : patientCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {patientStats.newPatients} nuevos, {patientStats.returningPatients} recurrentes
+                  </p>
                 </div>
-              </div>
-            </div>
-
-            {/* Tarjeta 2 */}
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-md p-3">
-                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Citas Totales</dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">
-                          {eventsLoading ? '...' : eventCount}
-                        </div>
-                      </dd>
-                    </dl>
-                  </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Citas de Hoy</h3>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    {eventsLoading ? '...' : upcomingEvents.length}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Próximas citas
+                  </p>
                 </div>
-              </div>
-            </div>
-
-            {/* Tarjeta 3 */}
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-yellow-500 rounded-md p-3">
-                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Tiempo de Respuesta</dt>
-                      <dd className="flex items-baseline">
-                        <div className="text-2xl font-semibold text-gray-900">24 min</div>
-                      </dd>
-                    </dl>
-                  </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Completados</h3>
+                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                    {loading ? '...' : treatmentCount}
+                  </p>
+                  <p className="text-sm text-green-600 dark:text-green-400">
+                    {averageRevenue > 0 ? 
+                      `Promedio: $${averageRevenue.toLocaleString()}` : 
+                      'Sin datos'
+                    }
+                  </p>
                 </div>
-              </div>
-            </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingresos Generados</h3>
+                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
+                    ${loading ? '...' : doctorRevenue.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Tratamientos pagados
+                  </p>
+                </div>
+              </>
+            ) : userRole === 'admin' ? (
+              <>
+                {/* Admin-specific stats */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Total de Usuarios</h3>
+                  <p className="text-3xl font-bold text-red-600 dark:text-red-400">
+                    {loading ? '...' : patientCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Todos los roles
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Totales</h3>
+                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                    {loading ? '...' : treatmentCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Todos los tratamientos
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingresos Hoy</h3>
+                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
+                    {loading ? '...' : '12'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Nuevos ingresos
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tasa de Actividad</h3>
+                  <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {loading ? '...' : '87%'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Usuarios activos
+                  </p>
+                </div>
+              </>
+            ) : userRole === 'staff' ? (
+              <>
+                {/* Staff-specific stats */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tareas Pendientes</h3>
+                  <p className="text-3xl font-bold text-gray-600 dark:text-gray-400">
+                    {loading ? '...' : '5'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Por completar
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Mensajes Hoy</h3>
+                  <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {loading ? '...' : '3'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Sin responder
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Documentos</h3>
+                  <p className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">
+                    {loading ? '...' : '8'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Por procesar
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Default/Fallback stats */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Total de Pacientes</h3>
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {loading ? '...' : patientCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    En el sistema
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Citas Totales</h3>
+                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
+                    {eventsLoading ? '...' : eventCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Programadas
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Actividad Reciente */}

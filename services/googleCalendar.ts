@@ -35,19 +35,29 @@ class GoogleCalendarService {
 
   async getEvents(): Promise<CalendarEvent[]> {
     try {
+      console.log('Making request to /api/google-calendar/events');
       const response = await fetch('/api/google-calendar/events')
+      
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
       
       if (!response.ok) {
         const errorData = await response.json()
+        console.error('API error response:', errorData);
         throw new Error(errorData.error || 'Failed to fetch events')
       }
       
       const events = await response.json()
-      return events.map((event: any) => ({
+      console.log('Raw events from API:', events);
+      
+      const transformedEvents = events.map((event: any) => ({
         ...event,
         start: new Date(event.start),
         end: new Date(event.end),
       }));
+      
+      console.log('Transformed events:', transformedEvents);
+      return transformedEvents;
     } catch (error) {
       console.error('Error fetching events:', error)
       return []
