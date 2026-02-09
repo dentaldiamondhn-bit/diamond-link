@@ -34,6 +34,7 @@ class PresupuestoService {
     valor_promedio: number;
   }> {
     try {
+      // Use the correct field name: patient_id (not paciente_id)
       const { data, error } = await supabase
         .from('presupuestos')
         .select('*')
