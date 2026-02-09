@@ -2,7 +2,7 @@
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
@@ -459,21 +459,79 @@ export default function MenuNavegacion() {
       total_presupuestos, 
       pendientes, 
       aceptados, 
+      rechazados,
       expirados,
       total_valor_pendiente,
       total_valor_aceptado,
+      total_valor_rechazado,
+      totals_by_currency,
       latest_presupuesto,
       valor_promedio
     } = presupuestoStats;
 
-    // Format currency
-    const formatCurrency = (amount: number) => {
-      return new Intl.NumberFormat('es-HN', {
-        style: 'currency',
-        currency: 'HNL',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(amount);
+    // Format currency with proper currency detection
+    const formatCurrency = (amount: number, currency: string = 'HNL') => {
+      if (currency === 'USD') {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(amount);
+      } else {
+        return new Intl.NumberFormat('es-HN', {
+          style: 'currency',
+          currency: 'HNL',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(amount);
+      }
+    };
+
+    // Helper function to render currency amounts by status
+    const renderCurrencyAmounts = (status: 'pendientes' | 'aceptados' | 'rechazados') => {
+      const totals = totals_by_currency[status];
+      const amounts = [];
+      
+      if (totals.HNL > 0) {
+        const colorClass = status === 'pendientes' ? 'text-blue-600 dark:text-blue-400' : 
+                         status === 'aceptados' ? 'text-green-600 dark:text-green-400' : 
+                         'text-orange-600 dark:text-orange-400';
+        
+        amounts.push(
+          <span key="HNL" className={`${colorClass} font-medium`}>
+            {formatCurrency(totals.HNL, 'HNL')}
+          </span>
+        );
+      }
+      
+      if (totals.USD > 0) {
+        const colorClass = status === 'pendientes' ? 'text-blue-600 dark:text-blue-400' : 
+                         status === 'aceptados' ? 'text-green-600 dark:text-green-400' : 
+                         'text-orange-600 dark:text-orange-400';
+        
+        amounts.push(
+          <span key="USD" className={`${colorClass} font-medium`}>
+            {formatCurrency(totals.USD, 'USD')}
+          </span>
+        );
+      }
+      
+      if (amounts.length === 0) return null;
+      
+      return (
+        <div className="flex items-center space-x-2">
+          {amounts.map((amount, index) => (
+            <React.Fragment key={index}>
+              {index > 0 && <span className="text-gray-400">•</span>}
+              {amount}
+            </React.Fragment>
+          ))}
+          <span className="text-gray-500 dark:text-gray-400 text-xs">
+            {status === 'pendientes' ? 'pendiente' : status === 'aceptados' ? 'aceptado' : 'rechazado'}
+          </span>
+        </div>
+      );
     };
 
     // Format latest presupuesto date
@@ -494,30 +552,30 @@ export default function MenuNavegacion() {
             {total_presupuestos} presupuesto{total_presupuestos !== 1 ? 's' : ''}
           </span>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-blue-600 dark:text-blue-400 font-medium">
-            {pendientes} pendiente{pendientes !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-green-600 dark:text-green-400 font-medium">
-            {aceptados} aceptado{aceptados !== 1 ? 's' : ''}
-          </span>
-        </div>
-        {total_valor_pendiente > 0 && (
+        {pendientes > 0 && (
           <div className="flex items-center space-x-2">
-            <span className="text-orange-600 dark:text-orange-400 font-medium">
-              {formatCurrency(total_valor_pendiente)} pendiente
+            <span className="text-blue-600 dark:text-blue-400 font-medium">
+              {pendientes} pendiente{pendientes !== 1 ? 's' : ''}
             </span>
           </div>
         )}
-        {total_valor_aceptado > 0 && (
+        {aceptados > 0 && total_valor_aceptado === 0 && (
           <div className="flex items-center space-x-2">
-            <span className="text-purple-600 dark:text-purple-400 font-medium">
-              {formatCurrency(total_valor_aceptado)} aceptado
+            <span className="text-green-600 dark:text-green-400 font-medium">
+              {aceptados} aceptado{aceptados !== 1 ? 's' : ''}
             </span>
           </div>
         )}
+        {rechazados > 0 && total_valor_rechazado === 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-red-600 dark:text-red-400 font-medium">
+              {rechazados} rechazado{rechazados !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+        {total_valor_pendiente > 0 && renderCurrencyAmounts('pendientes')}
+        {total_valor_aceptado > 0 && renderCurrencyAmounts('aceptados')}
+        {total_valor_rechazado > 0 && renderCurrencyAmounts('rechazados')}
         {latest_presupuesto && (
           <div className="flex items-center space-x-2">
             <span className="text-indigo-600 dark:text-indigo-400 font-medium">

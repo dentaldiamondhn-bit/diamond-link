@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase';
-
 export interface Presupuesto {
   id?: string;
   patient_id: string;
@@ -10,7 +8,7 @@ export interface Presupuesto {
   items: any[];
   total_amount: number;
   doctor_name: string;
-  status: 'pending' | 'accepted' | 'expired';
+  status: 'pending' | 'accepted' | 'rejected' | 'expired';
   expires_at: string;
   created_at: string;
   acceptd_at?: string;
@@ -21,9 +19,16 @@ class PresupuestoService {
     total_presupuestos: number;
     pendientes: number;
     aceptados: number;
+    rechazados: number;
     expirados: number;
     total_valor_pendiente: number;
     total_valor_aceptado: number;
+    total_valor_rechazado: number;
+    totals_by_currency: {
+      pendientes: { HNL: number; USD: number };
+      aceptados: { HNL: number; USD: number };
+      rechazados: { HNL: number; USD: number };
+    };
     latest_presupuesto?: {
       treatment_description: string;
       total_amount: number;
@@ -34,59 +39,16 @@ class PresupuestoService {
     valor_promedio: number;
   }> {
     try {
-      // Use the correct field name: patient_id (not paciente_id)
-      const { data, error } = await supabase
-        .from('presupuestos')
-        .select('*')
-        .eq('patient_id', pacienteId)
-        .order('quote_date', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching patient presupuesto statistics:', error);
-        throw error;
+      const response = await fetch(`/api/presupuestos/statistics?patient_id=${pacienteId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error fetching presupuesto statistics:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch presupuesto statistics');
       }
 
-      const presupuestos = data || [];
-      
-      // Calculate statistics
-      const totalPresupuestos = presupuestos.length;
-      const pendientes = presupuestos.filter(p => p.status === 'pending').length;
-      const aceptados = presupuestos.filter(p => p.status === 'accepted').length;
-      const expirados = presupuestos.filter(p => p.status === 'expired').length;
-      
-      // Calculate total amounts
-      const totalValorPendiente = presupuestos
-        .filter(p => p.status === 'pending')
-        .reduce((sum, p) => sum + (p.total_amount || 0), 0);
-      
-      const totalValorAceptado = presupuestos
-        .filter(p => p.status === 'accepted')
-        .reduce((sum, p) => sum + (p.total_amount || 0), 0);
-      
-      // Get latest presupuesto
-      const latestPresupuesto = presupuestos.length > 0 ? {
-        treatment_description: presupuestos[0].treatment_description || 'Tratamiento general',
-        total_amount: presupuestos[0].total_amount,
-        quote_date: presupuestos[0].quote_date,
-        status: presupuestos[0].status,
-        doctor_name: presupuestos[0].doctor_name
-      } : undefined;
-      
-      // Calculate average value
-      const valorPromedio = totalPresupuestos > 0 
-        ? presupuestos.reduce((sum, p) => sum + (p.total_amount || 0), 0) / totalPresupuestos
-        : 0;
-
-      return {
-        total_presupuestos: totalPresupuestos,
-        pendientes: pendientes,
-        aceptados: aceptados,
-        expirados: expirados,
-        total_valor_pendiente: totalValorPendiente,
-        total_valor_aceptado: totalValorAceptado,
-        latest_presupuesto: latestPresupuesto,
-        valor_promedio: valorPromedio
-      };
+      const statistics = await response.json();
+      return statistics;
     } catch (error) {
       console.error('Unexpected error fetching patient presupuesto statistics:', error);
       throw error;
