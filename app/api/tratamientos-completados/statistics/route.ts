@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
 
     if (startDate && endDate) {
       // For date-specific statistics, we could extend this in the future
-      statistics = await CompletedTreatmentService.getTreatmentStatistics();
+      statistics = await CompletedTreatmentService.getDoctorStatistics();
     } else {
-      statistics = await CompletedTreatmentService.getTreatmentStatistics();
+      statistics = await CompletedTreatmentService.getDoctorStatistics();
     }
 
     return NextResponse.json(statistics);
