@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Treatment, Promotion } from '@/types/treatment';
+import { Treatment, Promotion } from '../../../types/treatment';
+import { Paquete } from '../../../types/paquete';
 import { formatCurrency, getCurrencySymbol, getAvailableCurrencies } from '../../../utils/currencyUtils';
 import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
@@ -23,20 +24,49 @@ export default function TratamientosPage() {
   const { resolvedTheme } = useTheme();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones'>('tratamientos');
+  const [paquetes, setPaquetes] = useState<Paquete[]>([]);
+  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones' | 'paquetes'>('tratamientos');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage, setRecordsPerPage] = useState(25);
+  const [selectedPaquete, setSelectedPaquete] = useState<Paquete | null>(null);
   
-  // Page preferences for tratamientos page
-  const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('tratamientos');
-  
-  // Initialize state from preferences or defaults
+  // Form data states
+  const [treatmentFormData, setTreatmentFormData] = useState<Treatment>({
+    codigo: '',
+    nombre: '',
+    especialidad: '',
+    precio: 0,
+    moneda: 'HNL',
+    notas: '',
+    veces_realizado: 0,
+    activo: true
+  });
+  const [promotionFormData, setPromotionFormData] = useState<Promotion>({
+    codigo: '',
+    nombre: '',
+    descuento: 0,
+    precio_original: 0,
+    precio_promocional: 0,
+    moneda: 'HNL',
+    fecha_inicio: '',
+    fecha_fin: '',
+    activo: true,
+    veces_realizado: 0,
+  });
+  const [paqueteFormData, setPaqueteFormData] = useState<Paquete>({
+    codigo: '',
+    nombre: '',
+    descripcion: '',
+    precio_total: 0,
+    moneda: 'HNL',
+    max_pacientes: 1,
+    veces_vendido: 0,
+    activo: true,
+  });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [recordsPerPagePref, setRecordsPerPagePref] = useState(25);
   const [sortBy, setSortBy] = useState<'nombre' | 'especialidad' | 'precio' | 'veces_realizado'>('nombre');
@@ -97,6 +127,7 @@ export default function TratamientosPage() {
   useEffect(() => {
     loadTreatments();
     loadPromotions();
+    loadPaquetes();
   }, []);
 
   const loadTreatments = async () => {
@@ -129,6 +160,21 @@ export default function TratamientosPage() {
       console.error('Error loading promotions:', error);
       // Set empty array if API fails
       setPromotions([]);
+    }
+  };
+
+  const loadPaquetes = async () => {
+    try {
+      const response = await fetch('/api/paquetes');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setPaquetes(data);
+    } catch (error) {
+      console.error('Error loading paquetes:', error);
+      // Set empty array if API fails
+      setPaquetes([]);
     }
   };
 
@@ -216,8 +262,15 @@ export default function TratamientosPage() {
     promotion.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredPaquetes = paquetes.filter(paquete =>
+    paquete.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    paquete.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   // Pagination calculations
-  const currentData = activeTab === 'tratamientos' ? filteredTreatments : filteredPromotions;
+  const currentData = activeTab === 'tratamientos' ? filteredTreatments : 
+                     activeTab === 'promociones' ? filteredPromotions : 
+                     filteredPaquetes;
   const totalRecords = currentData.length;
   const totalPages = Math.ceil(totalRecords / recordsPerPagePref);
   const startIndex = (currentPage - 1) * recordsPerPagePref;
@@ -431,6 +484,62 @@ export default function TratamientosPage() {
     setShowDeleteModal(true);
   };
 
+  // Paquete handlers
+  const handleAddPaquete = async () => {
+    setSelectedTreatment(null);
+    setSelectedPromotion(null);
+    setSelectedPaquete(null);
+    
+    // Reset form data for new paquete
+    setPaqueteFormData({
+      codigo: '',
+      nombre: '',
+      descripcion: '',
+      precio_total: 0,
+      moneda: 'HNL',
+      max_pacientes: 1,
+      veces_vendido: 0,
+      activo: true,
+    });
+    
+    // Auto-generate paquete code
+    try {
+      const nextCode = await TreatmentService.generateNextPaqueteCode();
+      setPaqueteFormData(prev => ({ ...prev, codigo: nextCode }));
+    } catch (error) {
+      console.error('Error generating next paquete code:', error);
+    }
+    
+    setShowAddModal(true);
+  };
+
+  const handleEditPaquete = (paquete: Paquete) => {
+    setSelectedTreatment(null);
+    setSelectedPromotion(null);
+    setSelectedPaquete(paquete);
+    
+    // Set form data with existing paquete data
+    setPaqueteFormData({
+      codigo: paquete.codigo,
+      nombre: paquete.nombre,
+      descripcion: paquete.descripcion || '',
+      precio_total: paquete.precio_total,
+      moneda: paquete.moneda,
+      max_pacientes: paquete.max_pacientes,
+      veces_vendido: paquete.veces_vendido,
+      activo: paquete.activo !== false,
+    });
+    
+    setShowAddModal(true);
+  };
+
+  const handleDeletePaquete = (paquete: Paquete) => {
+    setSelectedTreatment(null);
+    setSelectedPromotion(null);
+    setSelectedPaquete(paquete);
+    setShowDeleteModal(true);
+  };
+
   // Autocomplete function for codigo
   const handleCodigoChange = (value: string) => {
     setTreatmentFormData({ ...treatmentFormData, codigo: value });
@@ -637,7 +746,69 @@ export default function TratamientosPage() {
           activo: true,
           veces_realizado: 0, // Reset counter to 0 for new promotions
         });
-        setShowAddModal(false);
+        setShowAddModal(false);;
+      }
+    } else if (activeTab === 'paquetes') {
+        // Handle paquetes
+        const paqueteData = {
+          codigo: paqueteFormData.codigo || '',
+          nombre: paqueteFormData.nombre || '',
+          descripcion: paqueteFormData.descripcion || '',
+          precio_total: paqueteFormData.precio_total || 0,
+          moneda: paqueteFormData.moneda || 'HNL',
+          max_pacientes: paqueteFormData.max_pacientes || 1,
+          activo: paqueteFormData.activo !== false,
+          veces_vendido: paqueteFormData.veces_vendido || 0
+        };
+
+        if (selectedPaquete) {
+          // Edit existing paquete
+          const response = await fetch(`/api/paquetes?id=${selectedPaquete.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(paqueteData),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update paquete');
+          }
+
+          const updatedPaquete = await response.json();
+          setPaquetes(prev => prev.map(p => 
+            p.id === selectedPaquete.id ? updatedPaquete : p
+          ));
+        } else {
+          // Add new paquete
+          const response = await fetch('/api/paquetes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(paqueteData),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create paquete');
+          }
+
+          const newPaquete = await response.json();
+          setPaquetes(prev => [...prev, newPaquete]);
+        }
+
+        // Clear form data
+        setPaqueteFormData({
+          codigo: '',
+          nombre: '',
+          descripcion: '',
+          precio_total: 0,
+          moneda: 'HNL',
+          max_pacientes: 1,
+          veces_vendido: 0,
+          activo: true,
+        });
+        setShowAddModal(false);;
       }
 
       if (activeTab === 'tratamientos') {
@@ -651,7 +822,7 @@ export default function TratamientosPage() {
           veces_realizado: 0, // Reset counter to 0 for new treatments
           activo: true
         });
-      } else {
+      } else if (activeTab === 'promociones') {
         setPromotionFormData({
           codigo: '',
           nombre: '',
@@ -663,6 +834,17 @@ export default function TratamientosPage() {
           fecha_fin: '',
           activo: true,
           veces_realizado: 0, // Reset counter to 0 for new promotions
+        });
+      } else if (activeTab === 'paquetes') {
+        setPaqueteFormData({
+          codigo: '',
+          nombre: '',
+          descripcion: '',
+          precio_total: 0,
+          moneda: 'HNL',
+          max_pacientes: 1,
+          veces_vendido: 0,
+          activo: true,
         });
       }
     } finally {
@@ -735,6 +917,17 @@ export default function TratamientosPage() {
                     <i className="fas fa-tags mr-2"></i>
                     Promociones
                   </button>
+                  <button
+                    onClick={() => setActiveTab('paquetes')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'paquetes'
+                        ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    <i className="fas fa-box mr-2"></i>
+                    Paquetes
+                  </button>
                 </nav>
               </div>
               
@@ -744,7 +937,7 @@ export default function TratamientosPage() {
                     <div className="relative flex-1">
                       <input
                         type="text"
-                        placeholder={activeTab === 'tratamientos' ? 'Buscar por nombre, código o especialidad...' : 'Buscar por nombre o código...'}
+                        placeholder={activeTab === 'tratamientos' ? 'Buscar por nombre, código o especialidad...' : activeTab === 'promociones' ? 'Buscar por nombre o código...' : 'Buscar por nombre o código...'}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full px-4 py-2 pl-10 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
@@ -780,11 +973,11 @@ export default function TratamientosPage() {
             <div className="flex items-center gap-4">
               {/* Add Button */}
               <button
-                onClick={activeTab === 'tratamientos' ? handleAddTreatment : handleAddPromotion}
+                onClick={activeTab === 'tratamientos' ? handleAddTreatment : activeTab === 'promociones' ? handleAddPromotion : handleAddPaquete}
                 className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl"
               >
                 <i className="fas fa-plus mr-2"></i>
-                {activeTab === 'tratamientos' ? 'Nuevo Tratamiento' : 'Nueva Promoción'}
+                {activeTab === 'tratamientos' ? 'Nuevo Tratamiento' : activeTab === 'promociones' ? 'Nueva Promoción' : 'Nuevo Paquete'}
               </button>
               
               {/* View Toggle */}
@@ -1052,6 +1245,117 @@ export default function TratamientosPage() {
                   </tbody>
                 </table>
               )}
+              {/* Paquetes Table */}
+              {activeTab === 'paquetes' && (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Código
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Nombre
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Precio Total
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Max. Pacientes
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Veces Vendido
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Estado
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                      {loading ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                            <LoadingAnimation />
+                          </td>
+                        </tr>
+                      ) : filteredPaquetes.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                            <i className="fas fa-inbox text-4xl mb-4"></i>
+                            <p className="text-lg">No se encontraron paquetes</p>
+                            <p className="text-sm mt-2">
+                              {searchTerm ? 'Intenta con otra búsqueda' : 'Agrega tu primer paquete para comenzar'}
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedData.map((paquete) => (
+                          <tr key={paquete.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                              {paquete.codigo}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              <div>
+                                <div className="font-medium">{paquete.nombre}</div>
+                                {paquete.descripcion && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {paquete.descripcion}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                              {formatCurrency(paquete.precio_total, paquete.moneda)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              <div className="flex items-center">
+                                <i className="fas fa-users text-blue-500 mr-2"></i>
+                                <span className="font-medium">{paquete.max_pacientes}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              <div className="flex items-center">
+                                <span className="font-medium">{paquete.veces_vendido}</span>
+                                <span className="ml-2 text-xs text-gray-500">veces</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                paquete.activo 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}>
+                                {paquete.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => handleEditPaquete(paquete)}
+                                className="text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300 mr-3 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+                                title="Editar paquete"
+                              >
+                                <i className="fas fa-edit"></i>
+                                <span className="text-xs">Editar</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeletePaquete(paquete)}
+                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Eliminar paquete"
+                              >
+                                <i className="fas fa-trash"></i>
+                                <span className="text-xs">Eliminar</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1061,7 +1365,7 @@ export default function TratamientosPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
                 {/* Records Counter */}
                 <div className="text-sm text-gray-700">
-                  <span className="font-medium">Total {activeTab === 'tratamientos' ? 'Tratamientos' : 'Promociones'}: {totalRecords}</span>
+                  <span className="font-medium">Total {activeTab === 'tratamientos' ? 'Tratamientos' : activeTab === 'promociones' ? 'Promociones' : 'Paquetes'}: {totalRecords}</span>
                   <span className="mx-2">|</span>
                   <span>Mostrando: {startIndex + 1}-{Math.min(endIndex, totalRecords)} de {totalRecords}</span>
                 </div>
@@ -1151,7 +1455,9 @@ export default function TratamientosPage() {
                     <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
                       {activeTab === 'tratamientos' 
                         ? (selectedTreatment ? 'Editar Tratamiento' : 'Nuevo Tratamiento')
-                        : (selectedPromotion ? 'Editar Promoción' : 'Nueva Promoción')
+                        : activeTab === 'promociones'
+                        ? (selectedPromotion ? 'Editar Promoción' : 'Nueva Promoción')
+                        : 'Nuevo Paquete'
                       }
                     </h3>
                   </div>
@@ -1362,6 +1668,65 @@ export default function TratamientosPage() {
                             readOnly
                           />
                           <p className="mt-1 text-xs text-gray-500">Se incrementa automáticamente cuando se realiza el tratamiento</p>
+                        </div>
+                      </>
+                    ) : activeTab === 'paquetes' ? (
+                      <>
+                        <div>
+                          <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Descripción
+                          </label>
+                          <textarea
+                            id="descripcion"
+                            rows={3}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            value={paqueteFormData.descripcion || ''}
+                            onChange={(e) => setPaqueteFormData({ ...paqueteFormData, descripcion: e.target.value })}
+                            placeholder="Describe los tratamientos incluidos en el paquete..."
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="precio_total" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Precio Paquete <span className="text-red-500">*</span>
+                            </label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(paqueteFormData.moneda || 'HNL')}</span>
+                              </div>
+                              <input
+                                type="number"
+                                id="precio_total"
+                                required
+                                min="0"
+                                step="0.01"
+                                className="pl-8 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                value={paqueteFormData.precio_total || 0}
+                                onChange={(e) => setPaqueteFormData({ ...paqueteFormData, precio_total: parseFloat(e.target.value) || 0 })}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label htmlFor="max_pacientes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Máx. Pacientes <span className="text-red-500">*</span>
+                            </label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i className="fas fa-users text-blue-500"></i>
+                              </div>
+                              <input
+                                type="number"
+                                id="max_pacientes"
+                                required
+                                min="1"
+                                max="100"
+                                className="pl-8 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                value={paqueteFormData.max_pacientes || 1}
+                                onChange={(e) => setPaqueteFormData({ ...paqueteFormData, max_pacientes: parseInt(e.target.value) || 1 })}
+                              />
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">Número máximo de pacientes que pueden beneficiarse del paquete</p>
+                          </div>
                         </div>
                       </>
                     ) : (
@@ -1596,13 +1961,15 @@ export default function TratamientosPage() {
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                     <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                      {activeTab === 'tratamientos' ? 'Eliminar Tratamiento' : 'Eliminar Promoción'}
+                      {activeTab === 'tratamientos' ? 'Eliminar Tratamiento' : activeTab === 'promociones' ? 'Eliminar Promoción' : 'Eliminar Paquete'}
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         ¿Está seguro de que desea eliminar {activeTab === 'tratamientos' 
                           ? `el tratamiento "${selectedTreatment?.nombre}"` 
-                          : `la promoción "${selectedPromotion?.nombre}"`
+                          : activeTab === 'promociones'
+                          ? `la promoción "${selectedPromotion?.nombre}"`
+                          : `el paquete "${selectedPaquete?.nombre}"`
                         }? Esta acción no se puede deshacer.
                       </p>
                     </div>

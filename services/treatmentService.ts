@@ -1,5 +1,7 @@
-import { supabase } from '../lib/supabase';
+import { Currency } from '../utils/currencyUtils';
 import { Treatment, Promotion } from '../types/treatment';
+import { Paquete, PaqueteTratamiento } from '../types/paquete';
+import { supabase } from '../lib/supabase';
 
 export class TreatmentService {
   // Specialty to code prefix mapping
@@ -455,6 +457,240 @@ export class TreatmentService {
       return data[0];
     } catch (error) {
       console.error('Unexpected error incrementing promotion counter:', error);
+      throw error;
+    }
+  }
+
+  // Paquetes CRUD operations
+  static async getPaquetes(): Promise<Paquete[]> {
+    try {
+      const { data, error } = await supabase
+        .from('paquetes')
+        .select('*')
+        .order('creado_en', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching paquetes:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error fetching paquetes:', error);
+      throw error;
+    }
+  }
+
+  static async createPaquete(paqueteData: Omit<Paquete, 'id' | 'creado_en' | 'actualizado_en'>): Promise<Paquete> {
+    try {
+      const { data, error } = await supabase
+        .from('paquetes')
+        .insert([{
+          codigo: paqueteData.codigo,
+          nombre: paqueteData.nombre,
+          descripcion: paqueteData.descripcion || null,
+          precio_total: paqueteData.precio_total,
+          moneda: paqueteData.moneda,
+          max_pacientes: paqueteData.max_pacientes,
+          veces_vendido: 0,
+          activo: paqueteData.activo,
+          creado_en: new Date().toISOString(),
+          actualizado_en: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating paquete:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error creating paquete:', error);
+      throw error;
+    }
+  }
+
+  static async updatePaquete(id: number, paqueteData: Partial<Paquete>): Promise<Paquete> {
+    try {
+      const { data, error } = await supabase
+        .from('paquetes')
+        .update({
+          ...paqueteData,
+          actualizado_en: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating paquete:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error updating paquete:', error);
+      throw error;
+    }
+  }
+
+  static async deletePaquete(id: number): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('paquetes')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting paquete:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Unexpected error deleting paquete:', error);
+      throw error;
+    }
+  }
+
+  static async getPaqueteById(id: number): Promise<Paquete> {
+    try {
+      const { data, error } = await supabase
+        .from('paquetes')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching paquete:', error);
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('Paquete no encontrado');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error fetching paquete:', error);
+      throw error;
+    }
+  }
+
+  static async addTratamientoToPaquete(paqueteId: number, tratamientoId: number, cantidad: number = 1): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('paquetes_tratamientos')
+        .insert([{
+          paquete_id: paqueteId,
+          tratamiento_id: tratamientoId,
+          cantidad: cantidad
+        }]);
+
+      if (error) {
+        console.error('Error adding tratamiento to paquete:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Unexpected error adding tratamiento to paquete:', error);
+      throw error;
+    }
+  }
+
+  static async removeTratamientoFromPaquete(paqueteId: number, tratamientoId: number): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('paquetes_tratamientos')
+        .delete()
+        .eq('paquete_id', paqueteId)
+        .eq('tratamiento_id', tratamientoId);
+
+      if (error) {
+        console.error('Error removing tratamiento from paquete:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Unexpected error removing tratamiento from paquete:', error);
+      throw error;
+    }
+  }
+
+  static async getPaqueteTratamientos(paqueteId: number): Promise<PaqueteTratamiento[]> {
+    try {
+      const { data, error } = await supabase
+        .from('paquetes_tratamientos')
+        .select(`
+          *,
+          tratamiento:tratamientos!inner(
+            id,
+            codigo,
+            nombre,
+            especialidad,
+            precio,
+            moneda
+          )
+        `)
+        .eq('paquete_id', paqueteId);
+
+      if (error) {
+        console.error('Error fetching paquete tratamientos:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error fetching paquete tratamientos:', error);
+      throw error;
+    }
+  }
+
+  static async generateNextPaqueteCode(): Promise<string> {
+    try {
+      // Get existing paquetes
+      const { data: existingPaquetes, error } = await supabase
+        .from('paquetes')
+        .select('codigo')
+        .like('codigo', 'B%')
+        .order('codigo', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching existing paquetes:', error);
+        throw error;
+      }
+
+      // Extract existing numbers and find next one
+      const existingNumbers = existingPaquetes?.map(p => {
+        const match = p.codigo.match(/^B(\d+)$/);
+        return match ? parseInt(match[1]) : 0;
+      }) || [];
+
+      const maxNumber = Math.max(...existingNumbers, 0);
+      const nextNumber = maxNumber + 1;
+      
+      // Format with leading zeros (3 digits for paquetes)
+      return `B${nextNumber.toString().padStart(3, '0')}`;
+    } catch (error) {
+      console.error('Error generating next paquete code:', error);
+      throw error;
+    }
+  }
+
+  static async searchPaquetes(searchTerm: string): Promise<Paquete[]> {
+    try {
+      const { data, error } = await supabase
+        .from('paquetes')
+        .select('*')
+        .or(`nombre.ilike.%${searchTerm}%,codigo.ilike.%${searchTerm}%`)
+        .order('nombre', { ascending: true });
+
+      if (error) {
+        console.error('Error searching paquetes:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error searching paquetes:', error);
       throw error;
     }
   }
