@@ -724,4 +724,20 @@ export class TreatmentService {
       throw error;
     }
   }
+
+  static async incrementPaqueteCounter(paqueteId: number): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('increment_paquete_counter', { 
+        paquete_id: paqueteId 
+      });
+      
+      if (error) {
+        console.error('Error incrementing paquete counter:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Unexpected error incrementing paquete counter:', error);
+      throw error;
+    }
+  }
 }

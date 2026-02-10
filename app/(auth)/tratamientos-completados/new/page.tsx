@@ -16,7 +16,20 @@ import HistoricalBadge from '../../../../components/HistoricalBadge';
 import HistoricalBanner from '../../../../components/HistoricalBanner';
 import { useTheme } from '@/contexts/ThemeContext';
 
-// Define Promotion interface locally since it's not exported
+interface Paquete {
+  id?: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  precio_total: number;
+  moneda: Currency;
+  max_pacientes: number;
+  veces_vendido: number;
+  activo: boolean;
+  creado_en?: string;
+  actualizado_en?: string;
+}
+
 interface Promotion {
   id?: number;
   codigo: string;
@@ -82,13 +95,14 @@ function NuevoTratamientoCompletadoPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [paquetes, setPaquetes] = useState<Paquete[]>([]);
   const [selectedTreatments, setSelectedTreatments] = useState<SelectedTreatment[]>([]);
   const [discountType, setDiscountType] = useState<'monto' | 'porcentaje' | 'ninguno'>('ninguno');
   const [discountValue, setDiscountValue] = useState(0);
   const [doctorNotes, setDoctorNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
-  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones'>('tratamientos');
+  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones' | 'paquetes'>('tratamientos');
   const [showPatientSignatureModal, setShowPatientSignatureModal] = useState(false);
   const [patientSignature, setPatientSignature] = useState<string | null>(null);
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
@@ -144,6 +158,7 @@ function NuevoTratamientoCompletadoPage() {
       loadPatientData();
       loadAvailableTreatments();
       loadPromotions();
+      loadPaquetes();
     } else {
       router.push('/tratamientos-completados');
     }
@@ -215,6 +230,22 @@ function NuevoTratamientoCompletadoPage() {
         console.error('API returned HTML instead of JSON - likely missing promociones table');
       }
       setPromotions([]);
+    }
+  };
+
+  const loadPaquetes = async () => {
+    try {
+      const response = await fetch('/api/paquetes');
+      if (response.ok) {
+        const paquetesData = await response.json();
+        setPaquetes(paquetesData);
+      } else {
+        console.error('Paquetes API response not ok:', response.status);
+        setPaquetes([]);
+      }
+    } catch (error) {
+      console.error('Error loading paquetes:', error);
+      setPaquetes([]);
     }
   };
 
@@ -748,19 +779,28 @@ function NuevoTratamientoCompletadoPage() {
     }
   };
 
-  const filteredTreatments = availableTreatments.filter(treatment =>
-    (selectedSpecialty === '' || treatment.especialidad === selectedSpecialty) &&
-    (treatment.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     treatment.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     treatment.especialidad?.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredTreatments = availableTreatments
+    .filter(treatment =>
+      treatment.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      treatment.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      treatment.especialidad?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  const filteredPromotions = promotions.filter(promotion =>
-    promotion.activo && (
-      promotion.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      promotion.codigo.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  const filteredPromotions = promotions
+    .filter(promotion =>
+      promotion.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      promotion.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+  const filteredPaquetes = paquetes
+    .filter(paquete =>
+      paquete.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      paquete.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+  const addPaquete = (paquete: any) => {
+    setSelectedTreatments([...selectedTreatments, paquete]);
+  };
 
   if (loading) {
     return (
@@ -899,6 +939,16 @@ function NuevoTratamientoCompletadoPage() {
                   }`}
                 >
                   Promociones
+                </button>
+                <button
+                  onClick={() => setActiveTab('paquetes')}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === 'paquetes'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Paquetes
                 </button>
               </div>
 
@@ -1456,6 +1506,51 @@ function NuevoTratamientoCompletadoPage() {
           </div>
         </div>
       )}
+
+      {/* Paquetes Tab */}
+      {activeTab === 'paquetes' && (
+        <div>
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              placeholder="Buscar paquete..."
+            />
+          </div>
+
+          {/* Paquetes List */}
+          <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+            {filteredPaquetes.length > 0 ? (
+              filteredPaquetes.map((paquete) => (
+                <div
+                  key={paquete.id}
+                  onClick={() => addPaquete(paquete)}
+                  className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                >
+                  <div className="flex-1">
+                    <div className="font-medium text-sm text-gray-900 dark:text-white">
+                      {paquete.codigo} - {paquete.nombre}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {paquete.descripcion}
+                    </div>
+                  </div>
+                  <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
+                    {formatCurrency(paquete.precio_total, paquete.moneda || 'HNL' as Currency)}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                No se encontraron paquetes
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1544,10 +1639,55 @@ function NuevoTratamientoCompletadoWithModal() {
           // TODO: Add to local treatments state if needed
         }
       } else {
-        if (isEdit && promotionData.id) {
-          await TreatmentService.updatePromotion(promotionData.id, promotionData);
+        // Handle paquetes
+        if (selectedTreatments.length > 0 && selectedTreatments[0].id?.toString().startsWith('P')) {
+          // This is a paquete - create completed treatment for the paquete
+          const paqueteData = selectedTreatments[0];
+          const treatmentData = {
+            paciente_id: pacienteId!,
+            fecha_cita: treatmentDate,
+            total_original: paqueteData.precio_total,
+            total_descuento: 0,
+            total_final: paqueteData.precio_total,
+            moneda: paqueteData.moneda || 'HNL' as Currency,
+            tipo_descuento: 'ninguno' as const,
+            valor_descuento: 0,
+            notas_doctor: doctorNotes,
+            firma_paciente_url: shouldRequireSignature ? patientSignature : null,
+            is_historical: recordCategoryInfo?.isHistorical || false,
+            especialidad: null,
+            estado: 'pagado' as const,
+            tratamientos_realizados: [{
+              tratamiento_id: 0, // Use 0 for paquetes or create a special treatment type
+              nombre_tratamiento: paqueteData.nombre,
+              codigo_tratamiento: paqueteData.codigo,
+              precio_original: paqueteData.precio_total,
+              precio_final: paqueteData.precio_total,
+              moneda: paqueteData.moneda || 'HNL' as Currency,
+              cantidad: 1,
+              notas: `Paquete: ${paqueteData.descripcion}`,
+              doctor_id: null,
+              doctor_name: null
+            }]
+          };
+          
+          await CompletedTreatmentService.createCompletedTreatment(treatmentData);
+          
+          // Increment paquete counter
+          try {
+            await TreatmentService.incrementPaqueteCounter(paqueteData.id);
+          } catch (error) {
+            console.error(`Error incrementing counter for paquete ${paqueteData.id}:`, error);
+          }
+          
+          alert('Paquete guardado exitosamente');
         } else {
-          await TreatmentService.createPromotion(promotionData);
+          // Regular promotion handling
+          if (isEdit && promotionData.id) {
+            await TreatmentService.updatePromotion(promotionData.id, promotionData);
+          } else {
+            await TreatmentService.createPromotion(promotionData);
+          }
         }
       }
       
