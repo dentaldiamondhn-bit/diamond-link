@@ -98,7 +98,7 @@ export async function DELETE(
       
       for (const item of completedTreatment.tratamientos_realizados) {
         try {
-          await CompletedTreatmentService.deleteTreatmentItem(item.id);
+          await CompletedTreatmentService.removeTreatmentItem(item.id);
           console.log(`Deleted treatment item: ${item.id}`);
         } catch (itemError) {
           console.error(`Error deleting treatment item ${item.id}:`, itemError);
