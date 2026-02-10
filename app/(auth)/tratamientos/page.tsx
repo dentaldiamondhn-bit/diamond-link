@@ -31,6 +31,7 @@ export default function TratamientosPage() {
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
   const [selectedPaquete, setSelectedPaquete] = useState<Paquete | null>(null);
+  const [selectedTreatments, setSelectedTreatments] = useState<TreatmentItem[]>([]);
   
   // Form data states
   const [treatmentFormData, setTreatmentFormData] = useState<Treatment>({
@@ -506,6 +507,22 @@ export default function TratamientosPage() {
       activo: paquete.activo !== false,
     });
     
+    // Add paquete to selected treatments for form submission
+    setSelectedTreatments([{
+      id: paquete.id.toString(),
+      tratamiento_completado_id: '', // Will be set when treatment is completed
+      tratamiento_id: paquete.id,
+      nombre_tratamiento: paquete.nombre,
+      codigo_tratamiento: paquete.codigo,
+      precio_original: paquete.precio_total,
+      precio_final: paquete.precio_total,
+      moneda: paquete.moneda,
+      cantidad: 1,
+      notas: paquete.descripcion || '',
+      doctor_id: null,
+      doctor_name: null
+    }]);
+    
     setShowAddModal(true);
   };
 
@@ -659,7 +676,75 @@ export default function TratamientosPage() {
           const newTreatment = await response.json();
           setTreatments(prev => [...prev, newTreatment]);
         }
-      } else {
+      } else if (activeTab === 'paquetes') {
+        // Handle paquetes
+        const paqueteData = {
+          codigo: paqueteFormData.codigo || '',
+          nombre: paqueteFormData.nombre || '',
+          descripcion: paqueteFormData.descripcion || '',
+          precio_total: paqueteFormData.precio_total || 0,
+          moneda: paqueteFormData.moneda || 'HNL',
+          max_pacientes: paqueteFormData.max_pacientes || 1,
+          activo: paqueteFormData.activo !== false,
+          veces_vendido: paqueteFormData.veces_vendido || 0
+        };
+
+        if (selectedPaquete) {
+          // Edit existing paquete
+          const response = await fetch(`/api/paquetes?id=${selectedPaquete.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(paqueteData),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update paquete');
+          }
+
+          const updatedPaquete = await response.json();
+          setPaquetes(prev => prev.map(p => 
+            p.id === selectedPaquete.id ? updatedPaquete : p
+          ));
+        } else {
+          // Add new paquete
+          const response = await fetch('/api/paquetes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(paqueteData),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create paquete');
+          }
+
+          const newPaquete = await response.json();
+          setPaquetes(prev => [...prev, newPaquete]);
+        }
+
+        // Reload paquetes to ensure data consistency
+        await loadPaquetes();
+
+        // Clear form and close modal
+        setPaqueteFormData({
+          codigo: '',
+          nombre: '',
+          descripcion: '',
+          precio_total: 0,
+          moneda: 'HNL',
+          max_pacientes: 1,
+          veces_vendido: 0,
+          activo: true
+        });
+        setShowAddModal(false);
+        setSelectedPaquete(null);
+
+        // Reload paquetes to ensure data consistency
+        await loadPaquetes();
+      } else if (activeTab === 'promociones') {
         // Handle promotions
         const promotionData = {
           codigo: promotionFormData.codigo || '',
@@ -725,69 +810,6 @@ export default function TratamientosPage() {
         });
         setShowAddModal(false);
       }
-      
-      if (activeTab === 'paquetes') {
-        // Handle paquetes
-        const paqueteData = {
-          codigo: paqueteFormData.codigo || '',
-          nombre: paqueteFormData.nombre || '',
-          descripcion: paqueteFormData.descripcion || '',
-          precio_total: paqueteFormData.precio_total || 0,
-          moneda: paqueteFormData.moneda || 'HNL',
-          max_pacientes: paqueteFormData.max_pacientes || 1,
-          activo: paqueteFormData.activo !== false,
-          veces_vendido: paqueteFormData.veces_vendido || 0
-        };
-
-        if (selectedPaquete) {
-          // Edit existing paquete
-          const response = await fetch(`/api/paquetes?id=${selectedPaquete.id}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(paqueteData),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to update paquete');
-          }
-
-          const updatedPaquete = await response.json();
-          setPaquetes(prev => prev.map(p => 
-            p.id === selectedPaquete.id ? updatedPaquete : p
-          ));
-        } else {
-          // Add new paquete
-          const response = await fetch('/api/paquetes', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(paqueteData),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to create paquete');
-          }
-
-          const newPaquete = await response.json();
-          setPaquetes(prev => [...prev, newPaquete]);
-        }
-
-        // Clear form data
-        setPaqueteFormData({
-          codigo: '',
-          nombre: '',
-          descripcion: '',
-          precio_total: 0,
-          moneda: 'HNL',
-          max_pacientes: 1,
-          veces_vendido: 0,
-          activo: true,
-        });
-        setShowAddModal(false);
-      }
 
       if (activeTab === 'tratamientos') {
         setTreatmentFormData({
@@ -825,6 +847,9 @@ export default function TratamientosPage() {
           activo: true,
         });
       }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      // You could add error handling here, like showing a toast notification
     } finally {
       setIsSubmitting(false);
     }
@@ -852,10 +877,24 @@ export default function TratamientosPage() {
         }
 
         setPromotions(prev => prev.filter(p => p.id !== selectedPromotion.id));
+      } else if (activeTab === 'paquetes' && selectedPaquete) {
+        const response = await fetch(`/api/paquetes?id=${selectedPaquete.id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete paquete');
+        }
+
+        setPaquetes(prev => prev.filter(p => p.id !== selectedPaquete.id));
+        
+        // Reload paquetes to ensure data consistency
+        await loadPaquetes();
       }
       setShowDeleteModal(false);
       setSelectedTreatment(null);
       setSelectedPromotion(null);
+      setSelectedPaquete(null);
     } catch (error) {
       console.error('Error deleting:', error);
       // You could show a toast notification here
@@ -1105,7 +1144,7 @@ export default function TratamientosPage() {
                     )}
                   </tbody>
                 </table>
-              ) : (
+              ) : activeTab === 'promociones' ? (
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -1222,7 +1261,7 @@ export default function TratamientosPage() {
                     )}
                   </tbody>
                 </table>
-              )}
+              ) : null}
               {/* Paquetes Table */}
               {activeTab === 'paquetes' && (
                 <div className="overflow-x-auto">
