@@ -264,6 +264,9 @@ export default function TratamientosCompletadosPage() {
       case 'doctor':
         comparison = (a.paciente_doctor || a.paciente?.doctor || '').localeCompare(b.paciente_doctor || b.paciente?.doctor || '');
         break;
+      case 'tratamientos':
+        comparison = (a.tratamientos_realizados?.length || 0) - (b.tratamientos_realizados?.length || 0);
+        break;
       case 'total':
         comparison = (a.total_final || 0) - (b.total_final || 0);
         break;
@@ -629,12 +632,13 @@ export default function TratamientosCompletadosPage() {
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por:</label>
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as 'paciente' | 'fecha' | 'doctor' | 'total' | 'estado')}
+                    onChange={(e) => setSortBy(e.target.value as 'paciente' | 'fecha' | 'doctor' | 'total' | 'estado' | 'tratamientos')}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="fecha">Fecha</option>
                     <option value="paciente">Paciente</option>
                     <option value="doctor">Doctor</option>
+                    <option value="tratamientos">Tratamientos</option>
                     <option value="total">Total</option>
                     <option value="estado">Estado</option>
                   </select>
