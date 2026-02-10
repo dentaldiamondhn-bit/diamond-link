@@ -22,9 +22,15 @@ export async function GET() {
   try {
     const { userId } = await auth();
     
+    // If user is not authenticated, return empty array instead of error
+    if (!userId) {
+      return NextResponse.json([]);
+    }
+    
     // In a real implementation, you would fetch from database
-    // For now, return the in-memory notifications
-    return NextResponse.json(notifications);
+    // For now, return the in-memory notifications filtered by user
+    const userNotifications = notifications.filter(n => n.userId === userId || n.userId === 'test-user');
+    return NextResponse.json(userNotifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);
     return NextResponse.json([], { status: 500 });
@@ -34,13 +40,19 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
+    
+    // If user is not authenticated, return error
+    if (!userId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    
     const notificationData = await request.json();
     
     const newNotification = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
       read: false,
-      userId: userId || 'anonymous',
+      userId: userId,
       ...notificationData
     };
     
@@ -56,6 +68,12 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { userId } = await auth();
+    
+    // If user is not authenticated, return error
+    if (!userId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    
     const { notificationId, action } = await request.json();
     
     if (action === 'markAsRead') {
