@@ -746,9 +746,11 @@ export default function TratamientosPage() {
           activo: true,
           veces_realizado: 0, // Reset counter to 0 for new promotions
         });
-        setShowAddModal(false);;
+        setShowAddModal(false);
+      };
       }
-    } else if (activeTab === 'paquetes') {
+      
+      if (activeTab === 'paquetes') {
         // Handle paquetes
         const paqueteData = {
           codigo: paqueteFormData.codigo || '',
@@ -808,7 +810,7 @@ export default function TratamientosPage() {
           veces_vendido: 0,
           activo: true,
         });
-        setShowAddModal(false);;
+        setShowAddModal(false);
       }
 
       if (activeTab === 'tratamientos') {
@@ -849,7 +851,7 @@ export default function TratamientosPage() {
       }
     } finally {
       setIsSubmitting(false);
-    }
+    };
   };
 
   const confirmDelete = async () => {
