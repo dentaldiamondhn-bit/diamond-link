@@ -65,6 +65,38 @@ export class TreatmentService {
       throw error;
     }
   }
+
+  // Generate next available promotion code
+  static async generateNextPromotionCode(): Promise<string> {
+    try {
+      // Get existing promotions
+      const { data: existingPromotions, error } = await supabase
+        .from('promociones')
+        .select('codigo')
+        .like('codigo', 'P%')
+        .order('codigo', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching existing promotions:', error);
+        throw error;
+      }
+
+      // Extract existing numbers and find the next one
+      const existingNumbers = existingPromotions?.map(p => {
+        const match = p.codigo.match(/^P(\d+)$/);
+        return match ? parseInt(match[1]) : 0;
+      }) || [];
+
+      const maxNumber = Math.max(...existingNumbers, 0);
+      const nextNumber = maxNumber + 1;
+      
+      // Format with leading zeros (3 digits for promotions)
+      return `P${nextNumber.toString().padStart(3, '0')}`;
+    } catch (error) {
+      console.error('Error generating next promotion code:', error);
+      throw error;
+    }
+  }
   // Tratamientos CRUD operations
   static async createTreatment(treatmentData: Omit<Treatment, 'id' | 'creado_en' | 'actualizado_en'>) {
     try {
@@ -275,7 +307,7 @@ export class TreatmentService {
           fecha_inicio: promotionData.fecha_inicio,
           fecha_fin: promotionData.fecha_fin,
           activo: promotionData.activo,
-          veces_realizado: promotionData.veces_realizado,
+          veces_realizado: 0, // Start at 0 for new promotions
           creado_en: new Date().toISOString(),
           actualizado_en: new Date().toISOString()
         }])

@@ -50,6 +50,8 @@ export default function TratamientosPage() {
   // Autocomplete states
   const [codigoSuggestions, setCodigoSuggestions] = useState<string[]>([]);
   const [showCodigoSuggestions, setShowCodigoSuggestions] = useState(false);
+  const [promotionCodigoSuggestions, setPromotionCodigoSuggestions] = useState<string[]>([]);
+  const [showPromotionCodigoSuggestions, setShowPromotionCodigoSuggestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [treatmentFormData, setTreatmentFormData] = useState<Partial<Treatment>>({
     codigo: '',
@@ -70,8 +72,8 @@ export default function TratamientosPage() {
     moneda: 'HNL', // Default currency
     fecha_inicio: '',
     fecha_fin: '',
+    activo: true,
     veces_realizado: 0, // Reset counter to 0 for new promotions
-    activo: true
   });
   const router = useRouter();
 
@@ -353,18 +355,30 @@ export default function TratamientosPage() {
     setShowAddModal(true);
   };
 
-  const handleAddPromotion = () => {
+  const handleAddPromotion = async () => {
     setSelectedTreatment(null);
     setSelectedPromotion(null);
     setPromotionFormData({
+      codigo: '',
       nombre: '',
       descuento: 0,
       precio_original: 0,
       precio_promocional: 0,
+      moneda: 'HNL', // Default currency
       fecha_inicio: '',
       fecha_fin: '',
-      activo: true
+      activo: true,
+      veces_realizado: 0, // Reset counter to 0 for new promotions
     });
+    
+    // Auto-generate promotion code
+    try {
+      const nextCode = await TreatmentService.generateNextPromotionCode();
+      setPromotionFormData(prev => ({ ...prev, codigo: nextCode }));
+    } catch (error) {
+      console.error('Error generating next promotion code:', error);
+    }
+    
     setShowAddModal(true);
   };
 
@@ -444,12 +458,52 @@ export default function TratamientosPage() {
         nombre: treatment.nombre,
         especialidad: treatment.especialidad || '',
         precio: treatment.precio,
-        veces_realizado: treatment.veces_realizado || 0,
+        moneda: treatment.moneda,
+        notas: treatment.notas || '',
+        veces_realizado: treatment.veces_realizado,
         activo: treatment.activo !== false
       });
     }
     setShowCodigoSuggestions(false);
     setCodigoSuggestions([]);
+  };
+
+  // Autocomplete function for promotion codigo
+  const handlePromotionCodigoChange = (value: string) => {
+    setPromotionFormData({ ...promotionFormData, codigo: value });
+    
+    if (value.length >= 2) {
+      // Filter existing promotions based on codigo
+      const suggestions = promotions
+        .filter(p => p.codigo.toLowerCase().includes(value.toLowerCase()))
+        .map(p => p.codigo)
+        .slice(0, 5); // Limit to 5 suggestions
+      
+      setPromotionCodigoSuggestions(suggestions);
+      setShowPromotionCodigoSuggestions(suggestions.length > 0);
+    } else {
+      setPromotionCodigoSuggestions([]);
+      setShowPromotionCodigoSuggestions(false);
+    }
+  };
+
+  const handlePromotionCodigoSelect = (codigo: string) => {
+    const promotion = promotions.find(p => p.codigo === codigo);
+    if (promotion) {
+      setPromotionFormData({
+        codigo: promotion.codigo,
+        nombre: promotion.nombre,
+        descuento: promotion.descuento,
+        precio_original: promotion.precio_original,
+        precio_promocional: promotion.precio_promocional,
+        moneda: promotion.moneda,
+        fecha_inicio: promotion.fecha_inicio,
+        fecha_fin: promotion.fecha_fin,
+        activo: promotion.activo
+      });
+    }
+    setShowPromotionCodigoSuggestions(false);
+    setPromotionCodigoSuggestions([]);
   };
 
   // Handle specialty change to auto-generate code for new treatments
@@ -527,9 +581,11 @@ export default function TratamientosPage() {
           descuento: promotionFormData.descuento || 0,
           precio_original: promotionFormData.precio_original || 0,
           precio_promocional: promotionFormData.precio_promocional || 0,
+          moneda: promotionFormData.moneda || 'HNL',
           fecha_inicio: promotionFormData.fecha_inicio || '',
           fecha_fin: promotionFormData.fecha_fin || '',
-          activo: promotionFormData.activo !== false
+          activo: promotionFormData.activo !== false,
+          veces_realizado: promotionFormData.veces_realizado || 0
         };
 
         if (selectedPromotion) {
@@ -567,9 +623,23 @@ export default function TratamientosPage() {
           const newPromotion = await response.json();
           setPromotions(prev => [...prev, newPromotion]);
         }
+
+        // Clear form data
+        setPromotionFormData({
+          codigo: '',
+          nombre: '',
+          descuento: 0,
+          precio_original: 0,
+          precio_promocional: 0,
+          moneda: 'HNL', // Default currency
+          fecha_inicio: '',
+          fecha_fin: '',
+          activo: true,
+          veces_realizado: 0, // Reset counter to 0 for new promotions
+        });
+        setShowAddModal(false);
       }
 
-      setShowAddModal(false);
       if (activeTab === 'tratamientos') {
         setTreatmentFormData({
           codigo: '',
@@ -591,13 +661,10 @@ export default function TratamientosPage() {
           moneda: 'HNL', // Default currency
           fecha_inicio: '',
           fecha_fin: '',
+          activo: true,
           veces_realizado: 0, // Reset counter to 0 for new promotions
-          activo: true
         });
       }
-    } catch (error) {
-      console.error('Error saving:', error);
-      // You could show a toast notification here
     } finally {
       setIsSubmitting(false);
     }
@@ -1098,18 +1165,38 @@ export default function TratamientosPage() {
                           type="text"
                           id="codigo"
                           required
-                          readOnly={!selectedTreatment && treatmentFormData.especialidad !== ''}
+                          readOnly={
+                            (activeTab === 'tratamientos' && !selectedTreatment && treatmentFormData.especialidad !== '') ||
+                            (activeTab === 'promociones' && !selectedPromotion)
+                          }
                           className={`mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                            !selectedTreatment && treatmentFormData.especialidad !== '' ? 'bg-gray-100 dark:bg-gray-600' : ''
+                            (activeTab === 'tratamientos' && !selectedTreatment && treatmentFormData.especialidad !== '') ||
+                            (activeTab === 'promociones' && !selectedPromotion)
+                              ? 'bg-gray-100 dark:bg-gray-600' : ''
                           }`}
                           value={activeTab === 'tratamientos' ? (treatmentFormData.codigo || '') : (promotionFormData.codigo || '')}
                           onChange={(e) => activeTab === 'tratamientos' 
                             ? handleCodigoChange(e.target.value)
-                            : setPromotionFormData({ ...promotionFormData, codigo: e.target.value })
+                            : handlePromotionCodigoChange(e.target.value)
                           }
-                          onFocus={() => activeTab === 'tratamientos' && treatmentFormData.codigo && treatmentFormData.codigo.length >= 2 && setShowCodigoSuggestions(true)}
-                          onBlur={() => setTimeout(() => setShowCodigoSuggestions(false), 200)}
-                          placeholder={activeTab === 'tratamientos' && !selectedTreatment ? "Selecciona una especialidad para generar código" : ""}
+                          onFocus={() => {
+                            if (activeTab === 'tratamientos' && treatmentFormData.codigo && treatmentFormData.codigo.length >= 2) {
+                              setShowCodigoSuggestions(true);
+                            } else if (activeTab === 'promociones' && promotionFormData.codigo && promotionFormData.codigo.length >= 2) {
+                              setShowPromotionCodigoSuggestions(true);
+                            }
+                          }}
+                          onBlur={() => {
+                            setTimeout(() => setShowCodigoSuggestions(false), 200);
+                            setTimeout(() => setShowPromotionCodigoSuggestions(false), 200);
+                          }}
+                          placeholder={
+                            activeTab === 'tratamientos' && !selectedTreatment 
+                              ? "Selecciona una especialidad para generar código" 
+                              : activeTab === 'promociones'
+                              ? "Escribe código de promoción o busca existente"
+                              : ""
+                          }
                         />
                         {/* Autocomplete suggestions dropdown */}
                         {activeTab === 'tratamientos' && showCodigoSuggestions && codigoSuggestions.length > 0 && (
@@ -1127,6 +1214,26 @@ export default function TratamientosPage() {
                                     <div className="text-sm text-gray-500 dark:text-gray-400">
                                       {treatment.nombre} - {treatment.especialidad}
                                     </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {/* Promotion autocomplete suggestions dropdown */}
+                        {activeTab === 'promociones' && showPromotionCodigoSuggestions && promotionCodigoSuggestions.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                            {promotionCodigoSuggestions.map((suggestion, index) => {
+                              const promotion = promotions.find(p => p.codigo === suggestion);
+                              return (
+                                <div
+                                  key={index}
+                                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                                  onClick={() => handlePromotionCodigoSelect(suggestion)}
+                                >
+                                  <div className="font-medium">{suggestion}</div>
+                                  {promotion && (
+                                    <div className="text-xs text-gray-500">{promotion.nombre}</div>
                                   )}
                                 </div>
                               );
