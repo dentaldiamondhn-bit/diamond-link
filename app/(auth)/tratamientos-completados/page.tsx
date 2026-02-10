@@ -35,7 +35,7 @@ export default function TratamientosCompletadosPage() {
   // Initialize state from preferences or defaults
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(pagePrefs?.viewMode || 'grid');
   const [recordsPerPagePref, setRecordsPerPagePref] = useState(pagePrefs?.recordsPerPage || 25);
-  const [sortBy, setSortBy] = useState<'paciente' | 'fecha' | 'doctor' | 'total' | 'estado'>(pagePrefs?.sortBy || 'fecha');
+  const [sortBy, setSortBy] = useState<'paciente' | 'fecha' | 'doctor' | 'total' | 'estado' | 'tratamientos'>(pagePrefs?.sortBy || 'fecha');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(pagePrefs?.sortOrder || 'desc');
   
   // Payment management state
