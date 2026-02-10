@@ -50,6 +50,10 @@ export default function TratamientosCompletadosPage() {
   const [deleteSuccess, setDeleteSuccess] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   
+  // Delete treatment modal state
+  const [treatmentToDelete, setTreatmentToDelete] = useState<{id: string, patientName: string, treatmentCount: number} | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   const pacienteId = searchParams.get('paciente_id');
 
   // Function to check if a specific patient has bypass activated (same as pacientes page)
@@ -364,6 +368,56 @@ export default function TratamientosCompletadosPage() {
       };
       setPaymentToDelete(paymentDetails);
       setShowDeleteModal(true);
+    }
+  };
+
+  // Delete completed treatment function
+  const openDeleteTreatmentModal = (treatment: any) => {
+    setTreatmentToDelete({
+      id: treatment.id,
+      patientName: treatment.paciente?.nombre_completo || 'Paciente Desconocido',
+      treatmentCount: treatment.tratamientos_realizados?.length || 0
+    });
+    setDeleteError(null);
+  };
+
+  const closeDeleteTreatmentModal = () => {
+    setTreatmentToDelete(null);
+    setDeleteError(null);
+  };
+
+  const deleteCompletedTreatment = async () => {
+    if (!treatmentToDelete) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/tratamientos-completados/${treatmentToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al eliminar tratamiento');
+      }
+
+      // Show success message
+      alert(`Tratamiento completado eliminado exitosamente.\n\nDetalles:\n- ${result.details.itemsDeleted} items eliminados\n- ${result.details.signatureRemoved ? 'Firma eliminada' : 'No había firma'}`);
+      
+      // Close modal and refresh treatments
+      closeDeleteTreatmentModal();
+      await loadCompletedTreatments();
+      
+    } catch (error) {
+      console.error('Error deleting treatment:', error);
+      setDeleteError(error instanceof Error ? error.message : 'Error al eliminar tratamiento');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -858,6 +912,13 @@ export default function TratamientosCompletadosPage() {
                           <i className="fas fa-dollar-sign mr-2"></i>
                           Pagos
                         </button>
+                        <button
+                          onClick={() => openDeleteTreatmentModal(treatment)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        >
+                          <i className="fas fa-trash mr-2"></i>
+                          Eliminar
+                        </button>
                         <Link
                           href={`/tratamientos-completados/${treatment.id}/view`}
                           className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -1012,14 +1073,23 @@ export default function TratamientosCompletadosPage() {
                             <button
                               onClick={() => openPaymentModal(treatment)}
                               className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                              title="Gestionar Pagos"
                             >
                               <i className="fas fa-dollar-sign"></i>
+                            </button>
+                            <button
+                              onClick={() => openDeleteTreatmentModal(treatment)}
+                              className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                              title="Eliminar Tratamiento"
+                            >
+                              <i className="fas fa-trash"></i>
                             </button>
                             <Link
                               href={`/tratamientos-completados/${treatment.id}/view`}
                               className="text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-300"
+                              title="Ver Detalles"
                             >
-                              Ver
+                              <i className="fas fa-eye"></i>
                             </Link>
                           </div>
                         </td>
@@ -1451,6 +1521,95 @@ export default function TratamientosCompletadosPage() {
                       </button>
                     )}
                   </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Treatment Confirmation Modal */}
+      {treatmentToDelete && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 sm:mx-0 sm:h-10 sm:w-10">
+                    <i className={`fas ${isDeleting ? 'fa-spinner fa-spin' : 'fa-exclamation-triangle'} text-red-600 dark:text-red-400`}></i>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                      {isDeleting ? 'Eliminando Tratamiento...' : 'Eliminar Tratamiento Completado'}
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {isDeleting 
+                          ? 'Por favor espere mientras se elimina el tratamiento y todos sus datos relacionados...'
+                          : `¿Está seguro de que desea eliminar el tratamiento completado de ${treatmentToDelete.patientName}?`
+                        }
+                      </p>
+                      {!isDeleting && (
+                        <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                            <i className="fas fa-exclamation-triangle mr-1"></i>
+                            Esta acción eliminará permanentemente:
+                          </p>
+                          <ul className="text-xs text-amber-700 dark:text-amber-300 mt-1 ml-4 list-disc">
+                            <li>El tratamiento completado ({treatmentToDelete.treatmentCount} items)</li>
+                            <li>Todos los items de tratamiento asociados</li>
+                            <li>Los pagos relacionados (si existen)</li>
+                            <li>La firma digital del paciente (si existe)</li>
+                            <li>Se ajustará el contador de veces_realizado en los tratamientos originales</li>
+                          </ul>
+                          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium mt-2">
+                            Esta acción no se puede deshacer.
+                          </p>
+                        </div>
+                      )}
+                      {deleteError && (
+                        <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                          <p className="text-sm text-red-800 dark:text-red-200">
+                            <i className="fas fa-exclamation-circle mr-1"></i>
+                            Error: {deleteError}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                {!isDeleting ? (
+                  <>
+                    <button 
+                      type="button" 
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm" 
+                      onClick={deleteCompletedTreatment}
+                      disabled={isDeleting}
+                    >
+                      <i className="fas fa-trash mr-2"></i>
+                      Eliminar Tratamiento
+                    </button>
+                    <button 
+                      type="button" 
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" 
+                      onClick={closeDeleteTreatmentModal}
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <div className="w-full text-center">
+                    <div className="inline-flex items-center text-red-600 dark:text-red-400">
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Eliminando tratamiento...
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
