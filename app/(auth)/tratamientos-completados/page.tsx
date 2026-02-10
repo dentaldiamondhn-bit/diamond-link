@@ -681,7 +681,7 @@ export default function TratamientosCompletadosPage() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-6">
         {currentTreatments.length === 0 ? (
           <div className="text-center py-12">
             <i className="fas fa-clipboard-check text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
@@ -935,7 +935,8 @@ export default function TratamientosCompletadosPage() {
             ) : (
               /* List View */
               <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -956,7 +957,7 @@ export default function TratamientosCompletadosPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Estado
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Acciones
                       </th>
                     </tr>
@@ -1068,28 +1069,31 @@ export default function TratamientosCompletadosPage() {
                             {getPaymentStatusText(treatment)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+                          <div className="flex justify-end space-x-2">
                             <button
                               onClick={() => openPaymentModal(treatment)}
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                              className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                               title="Gestionar Pagos"
                             >
-                              <i className="fas fa-dollar-sign"></i>
+                              <i className="fas fa-dollar-sign text-xs"></i>
+                              <span className="text-xs">Pagos</span>
                             </button>
                             <button
                               onClick={() => openDeleteTreatmentModal(treatment)}
-                              className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               title="Eliminar Tratamiento"
                             >
-                              <i className="fas fa-trash"></i>
+                              <i className="fas fa-trash text-xs"></i>
+                              <span className="text-xs">Eliminar</span>
                             </button>
                             <Link
                               href={`/tratamientos-completados/${treatment.id}/view`}
-                              className="text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-300"
+                              className="text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
                               title="Ver Detalles"
                             >
-                              <i className="fas fa-eye"></i>
+                              <i className="fas fa-eye text-xs"></i>
+                              <span className="text-xs">Ver</span>
                             </Link>
                           </div>
                         </td>
@@ -1098,6 +1102,7 @@ export default function TratamientosCompletadosPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
 
