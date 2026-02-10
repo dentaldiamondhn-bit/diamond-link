@@ -27,15 +27,3 @@ CREATE INDEX IF NOT EXISTS idx_paquetes_codigo ON paquetes(codigo);
 CREATE INDEX IF NOT EXISTS idx_paquetes_activo ON paquetes(activo);
 CREATE INDEX IF NOT EXISTS idx_paquetes_tratamientos_paquete_id ON paquetes_tratamientos(paquete_id);
 CREATE INDEX IF NOT EXISTS idx_paquetes_tratamientos_tratamiento_id ON paquetes_tratamientos(tratamiento_id);
-
--- Insert sample data
-INSERT INTO paquetes (codigo, nombre, descripcion, precio_total, moneda, max_pacientes) VALUES
-('B001', 'Paquete Familiar Básico', 'Incluye limpieza general, revisión y fluorización para toda la familia', 5000.00, 'HNL', 4),
-('B002', 'Paquete Ortodóntico Infantil', 'Tratamiento completo de ortodoncia para niños con controles mensuales', 12000.00, 'HNL', 1),
-('B003', 'Paquete de Blanqueamiento', 'Sesión de blanqueamiento dental con kit profesional', 1500.00, 'HNL', 1);
-
--- Insert sample treatments for packages
-INSERT INTO paquetes_tratamientos (paquete_id, tratamiento_id, cantidad) VALUES
-(1, 1, 1), -- Paquete Familiar -> Limpieza general
-(2, 2, 12), -- Paquete Ortodóntico -> Tratamiento completo
-(3, 3, 1); -- Paquete Blanqueamiento -> Sesión de blanqueamiento

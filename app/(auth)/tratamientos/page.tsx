@@ -14,8 +14,6 @@ import { CompletedTreatmentService } from '../../../services/completedTreatmentS
 import type { CompletedTreatment, TreatmentItem } from '../../../services/completedTreatmentService';
 import { TreatmentService } from '../../../services/treatmentService';
 import LoadingAnimation from '../../../components/LoadingAnimation';
-import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
-import HistoricalBadge from '../../../components/HistoricalBadge';
 import { usePagePreferences } from '../../../hooks/useUserPreferences';
 import { supabase } from '../../../lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -69,6 +67,7 @@ export default function TratamientosPage() {
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [recordsPerPagePref, setRecordsPerPagePref] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<'nombre' | 'especialidad' | 'precio' | 'veces_realizado'>('nombre');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
@@ -83,29 +82,8 @@ export default function TratamientosPage() {
   const [promotionCodigoSuggestions, setPromotionCodigoSuggestions] = useState<string[]>([]);
   const [showPromotionCodigoSuggestions, setShowPromotionCodigoSuggestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [treatmentFormData, setTreatmentFormData] = useState<Partial<Treatment>>({
-    codigo: '',
-    nombre: '',
-    especialidad: '',
-    precio: 0,
-    moneda: 'HNL', // Default currency
-    notas: '',
-    veces_realizado: 0, // Start counter at 0 for new treatments
-    activo: true
-  });
-  const [promotionFormData, setPromotionFormData] = useState<Partial<Promotion>>({
-    codigo: '',
-    nombre: '',
-    descuento: 0,
-    precio_original: 0,
-    precio_promocional: 0,
-    moneda: 'HNL', // Default currency
-    fecha_inicio: '',
-    fecha_fin: '',
-    activo: true,
-    veces_realizado: 0, // Reset counter to 0 for new promotions
-  });
   const router = useRouter();
+  const { preferences: pagePrefs, loading: prefsLoading, updatePreferences: updatePagePrefs } = usePagePreferences('tratamientos');
 
   // List of dental specialties
   const specialties = [
@@ -187,7 +165,6 @@ export default function TratamientosPage() {
       }
       if (pagePrefs.recordsPerPage && pagePrefs.recordsPerPage !== recordsPerPagePref) {
         setRecordsPerPagePref(pagePrefs.recordsPerPage);
-        setRecordsPerPage(pagePrefs.recordsPerPage);
       }
       if (pagePrefs.sortBy && pagePrefs.sortBy !== sortBy) {
         setSortBy(pagePrefs.sortBy);
@@ -210,7 +187,6 @@ export default function TratamientosPage() {
     if (!prefsLoading && recordsPerPagePref) {
       const timeoutId = setTimeout(() => {
         updatePagePrefs({ recordsPerPage: recordsPerPagePref });
-        setRecordsPerPage(recordsPerPagePref);
       }, 500);
       return () => clearTimeout(timeoutId);
     }
@@ -347,7 +323,7 @@ export default function TratamientosPage() {
   };
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, recordsPerPage, activeTab]);
+  }, [searchTerm, recordsPerPagePref, activeTab]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -608,7 +584,8 @@ export default function TratamientosPage() {
         moneda: promotion.moneda,
         fecha_inicio: promotion.fecha_inicio,
         fecha_fin: promotion.fecha_fin,
-        activo: promotion.activo
+        activo: promotion.activo,
+        veces_realizado: promotion.veces_realizado
       });
     }
     setShowPromotionCodigoSuggestions(false);
@@ -747,7 +724,6 @@ export default function TratamientosPage() {
           veces_realizado: 0, // Reset counter to 0 for new promotions
         });
         setShowAddModal(false);
-      };
       }
       
       if (activeTab === 'paquetes') {
@@ -851,7 +827,7 @@ export default function TratamientosPage() {
       }
     } finally {
       setIsSubmitting(false);
-    };
+    }
   };
 
   const confirmDelete = async () => {
@@ -1475,18 +1451,29 @@ export default function TratamientosPage() {
                           required
                           readOnly={
                             (activeTab === 'tratamientos' && !selectedTreatment && treatmentFormData.especialidad !== '') ||
-                            (activeTab === 'promociones' && !selectedPromotion)
+                            (activeTab === 'promociones' && !selectedPromotion) ||
+                            (activeTab === 'paquetes' && !selectedPaquete)
                           }
                           className={`mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
                             (activeTab === 'tratamientos' && !selectedTreatment && treatmentFormData.especialidad !== '') ||
-                            (activeTab === 'promociones' && !selectedPromotion)
+                            (activeTab === 'promociones' && !selectedPromotion) ||
+                            (activeTab === 'paquetes' && !selectedPaquete)
                               ? 'bg-gray-100 dark:bg-gray-600' : ''
                           }`}
-                          value={activeTab === 'tratamientos' ? (treatmentFormData.codigo || '') : (promotionFormData.codigo || '')}
-                          onChange={(e) => activeTab === 'tratamientos' 
-                            ? handleCodigoChange(e.target.value)
-                            : handlePromotionCodigoChange(e.target.value)
+                          value={
+                            activeTab === 'tratamientos' ? (treatmentFormData.codigo || '') : 
+                            activeTab === 'promociones' ? (promotionFormData.codigo || '') :
+                            (paqueteFormData.codigo || '')
                           }
+                          onChange={(e) => {
+                            if (activeTab === 'tratamientos') {
+                              handleCodigoChange(e.target.value);
+                            } else if (activeTab === 'promociones') {
+                              handlePromotionCodigoChange(e.target.value);
+                            } else if (activeTab === 'paquetes') {
+                              setPaqueteFormData({ ...paqueteFormData, codigo: e.target.value });
+                            }
+                          }}
                           onFocus={() => {
                             if (activeTab === 'tratamientos' && treatmentFormData.codigo && treatmentFormData.codigo.length >= 2) {
                               setShowCodigoSuggestions(true);
@@ -1503,6 +1490,8 @@ export default function TratamientosPage() {
                               ? "Selecciona una especialidad para generar código" 
                               : activeTab === 'promociones'
                               ? "Escribe código de promoción o busca existente"
+                              : activeTab === 'paquetes'
+                              ? "Código generado automáticamente para nuevos paquetes"
                               : ""
                           }
                         />
@@ -1559,11 +1548,20 @@ export default function TratamientosPage() {
                         id="nombre"
                         required
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        value={activeTab === 'tratamientos' ? (treatmentFormData.nombre || '') : (promotionFormData.nombre || '')}
-                        onChange={(e) => activeTab === 'tratamientos' 
-                          ? setTreatmentFormData({ ...treatmentFormData, nombre: e.target.value })
-                          : setPromotionFormData({ ...promotionFormData, nombre: e.target.value })
-                        }
+                        value={
+                            activeTab === 'tratamientos' ? (treatmentFormData.nombre || '') : 
+                            activeTab === 'promociones' ? (promotionFormData.nombre || '') :
+                            (paqueteFormData.nombre || '')
+                          }
+                          onChange={(e) => {
+                            if (activeTab === 'tratamientos') {
+                              setTreatmentFormData({ ...treatmentFormData, nombre: e.target.value });
+                            } else if (activeTab === 'promociones') {
+                              setPromotionFormData({ ...promotionFormData, nombre: e.target.value });
+                            } else if (activeTab === 'paquetes') {
+                              setPaqueteFormData({ ...paqueteFormData, nombre: e.target.value });
+                            }
+                          }}
                       />
                     </div>
                     {activeTab === 'tratamientos' ? (
@@ -1906,11 +1904,20 @@ export default function TratamientosPage() {
                         type="checkbox"
                         id="activo"
                         className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
-                        checked={activeTab === 'tratamientos' ? treatmentFormData.activo : promotionFormData.activo}
-                        onChange={(e) => activeTab === 'tratamientos' 
-                          ? setTreatmentFormData({ ...treatmentFormData, activo: e.target.checked })
-                          : setPromotionFormData({ ...promotionFormData, activo: e.target.checked })
-                        }
+                        checked={
+                            activeTab === 'tratamientos' ? treatmentFormData.activo : 
+                            activeTab === 'promociones' ? promotionFormData.activo :
+                            paqueteFormData.activo
+                          }
+                        onChange={(e) => {
+                            if (activeTab === 'tratamientos') {
+                              setTreatmentFormData({ ...treatmentFormData, activo: e.target.checked });
+                            } else if (activeTab === 'promociones') {
+                              setPromotionFormData({ ...promotionFormData, activo: e.target.checked });
+                            } else if (activeTab === 'paquetes') {
+                              setPaqueteFormData({ ...paqueteFormData, activo: e.target.checked });
+                            }
+                          }}
                       />
                       <label htmlFor="activo" className="ml-2 block text-sm text-gray-900 dark:text-white">
                         Activo
