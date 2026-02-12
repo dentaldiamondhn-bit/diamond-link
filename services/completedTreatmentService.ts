@@ -620,15 +620,19 @@ export class CompletedTreatmentService {
 
   static async getCompletedTreatmentsByDoctor(doctorName: string): Promise<CompletedTreatment[]> {
     try {
+      // Join with treatment items to get doctor information
       const { data, error } = await supabase
         .from('tratamientos_completados')
         .select(`
           *,
           tratamientos_realizados (*),
           paciente:patients (*),
-          paciente_beneficiario:patients (*)
+          paciente_beneficiario:patients (*),
+          vista_tratamientos_realizados_detalles!inner (
+            doctor_name
+          )
         `)
-        .eq('doctor_name', doctorName)
+        .eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName)
         .order('fecha_cita', { ascending: false });
 
       if (error) {
@@ -645,10 +649,16 @@ export class CompletedTreatmentService {
 
   static async getDoctorRevenue(doctorName: string): Promise<number> {
     try {
+      // Join with treatment items to get doctor information
       const { data, error } = await supabase
         .from('tratamientos_completados')
-        .select('total_final')
-        .eq('doctor_name', doctorName)
+        .select(`
+          total_final,
+          vista_tratamientos_realizados_detalles!inner (
+            doctor_name
+          )
+        `)
+        .eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName)
         .eq('estado', 'pagado');
 
       if (error) {
@@ -665,10 +675,16 @@ export class CompletedTreatmentService {
 
   static async getDoctorAverageRevenue(doctorName: string): Promise<number> {
     try {
+      // Join with treatment items to get doctor information
       const { data, error } = await supabase
         .from('tratamientos_completados')
-        .select('total_final')
-        .eq('doctor_name', doctorName)
+        .select(`
+          total_final,
+          vista_tratamientos_realizados_detalles!inner (
+            doctor_name
+          )
+        `)
+        .eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName)
         .eq('estado', 'pagado');
 
       if (error) {
