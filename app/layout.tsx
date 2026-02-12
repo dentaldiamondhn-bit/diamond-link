@@ -7,11 +7,20 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata = {
   title: 'Diamond Link',
   description: 'Dental clinic management system',
+  manifest: '/manifest.json',
   icons: {
     icon: '/Logo.svg',
     shortcut: '/Logo.svg',
     apple: '/Logo.svg',
   },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#14b8a6',
 }
 
 export default function RootLayout({
@@ -23,6 +32,15 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+          <meta name="theme-color" content="#14b8a6" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <meta name="apple-mobile-web-app-title" content="Diamond Link" />
+          <meta name="format-detection" content="telephone=no" />
+          <meta name="mobile-web-app-capable" content="yes" />
+          <meta name="application-name" content="Diamond Link" />
+          <link rel="manifest" href="/manifest.json" />
           <link 
             rel="stylesheet" 
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"

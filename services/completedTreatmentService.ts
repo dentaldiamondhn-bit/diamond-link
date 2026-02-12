@@ -77,6 +77,7 @@ export class CompletedTreatmentService {
   static async getAllCompletedTreatments(): Promise<CompletedTreatment[]> {
     try {
       // Use single query with joins to avoid N+1 performance issue
+      // Add reasonable limit to prevent browser memory issues
       const { data, error } = await supabase
         .from('tratamientos_completados')
         .select(`
@@ -104,7 +105,8 @@ export class CompletedTreatmentService {
             creado_en
           )
         `)
-        .order('fecha_cita', { ascending: false });
+        .order('fecha_cita', { ascending: false })
+        .limit(200); // Reasonable limit to prevent browser memory issues
 
       if (error) {
         console.error('Error fetching completed treatments:', error);
@@ -119,11 +121,25 @@ export class CompletedTreatmentService {
         return {
           id: treatment.id,
           paciente_id: treatment.paciente_id,
+          paciente_beneficiario_id: undefined,
+          tipo_participacion: 'individual' as const,
+          tratamiento_padre_id: undefined,
           fecha_cita: treatment.fecha_cita,
-          total_final: treatment.total_final,
+          total_original: treatment.total_final || 0,
+          total_descuento: 0,
+          total_final: treatment.total_final || 0,
+          moneda: treatment.moneda || 'HNL',
+          tipo_descuento: 'ninguno' as const,
+          valor_descuento: 0,
+          notas_doctor: undefined,
+          firma_paciente_url: undefined,
+          especialidad: undefined,
+          estado: treatment.estado || 'pendiente_firma',
           monto_pagado: treatment.monto_pagado,
-          moneda: treatment.moneda,
-          estado: treatment.estado,
+          saldo_pendiente: (treatment.total_final || 0) - (treatment.monto_pagado || 0),
+          estado_pago: treatment.estado === 'pagado' ? 'pagado' as const : 'pendiente' as const,
+          creado_en: treatment.fecha_cita,
+          actualizado_en: treatment.fecha_cita,
           paciente: treatment.patients || null,
           paciente_beneficiario: null,
           tratamientos_realizados: treatmentItems
