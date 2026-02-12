@@ -12,6 +12,11 @@ import { EventModal } from '../../../components/calendar/EventModal';
 import { CalendarEvent } from '../../../types/calendar';
 import { useEventModal } from '../../../contexts/EventModalContext';
 
+// Currency formatting utility for HNL
+const formatHNL = (amount: number) => {
+  return `L ${amount.toLocaleString('es-HN', { minimumFractionDigits: 2 })}`;
+};
+
 export default function DashboardPage() {
   const { user } = useUser();
   const { userRole, permissions, hasPermission } = useRoleBasedAccess();
@@ -80,6 +85,9 @@ export default function DashboardPage() {
         const doctorName = user?.fullName || '';
         
         // Fetch role-specific data
+        console.log('Dashboard userRole:', userRole);
+        console.log('Dashboard userName:', user?.fullName);
+        
         if (userRole === 'doctor') {
           // Fetch doctor's patients and stats
           const doctorPatients = await PatientService.getPatientsByDoctor(doctorName);
@@ -196,7 +204,7 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-sm text-green-600 dark:text-green-400">
                     {averageRevenue > 0 ? 
-                      `Promedio: $${averageRevenue.toLocaleString()}` : 
+                      `Promedio: ${formatHNL(averageRevenue)}` : 
                       'Sin datos'
                     }
                   </p>
@@ -204,7 +212,7 @@ export default function DashboardPage() {
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingresos Generados</h3>
                   <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-                    ${loading ? '...' : doctorRevenue.toLocaleString()}
+                    {loading ? '...' : formatHNL(doctorRevenue)}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Tratamientos pagados
