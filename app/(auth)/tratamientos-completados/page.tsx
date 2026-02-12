@@ -212,10 +212,10 @@ export default function TratamientosCompletadosPage() {
       
       setCompletedTreatments(completedTreatmentsData || []);
       
-      // Load patient-specific historical mode settings
-      if (completedTreatmentsData && completedTreatmentsData.length > 0) {
-        await loadPatientSettingsForTreatments(completedTreatmentsData);
-      }
+      // Skip patient settings loading for performance - can be loaded on-demand later
+      // if (completedTreatmentsData && completedTreatmentsData.length > 0) {
+      //   await loadPatientSettingsForTreatments(completedTreatmentsData);
+      // }
     } catch (error) {
       console.error('Error loading completed treatments:', error);
       setCompletedTreatments([]);

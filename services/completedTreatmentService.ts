@@ -76,10 +76,34 @@ export class CompletedTreatmentService {
 
   static async getAllCompletedTreatments(): Promise<CompletedTreatment[]> {
     try {
-      // Fetch all completed treatments without limit
+      // Use single query with joins to avoid N+1 performance issue
       const { data, error } = await supabase
         .from('tratamientos_completados')
-        .select('*')
+        .select(`
+          id,
+          paciente_id,
+          fecha_cita,
+          total_final,
+          monto_pagado,
+          moneda,
+          estado,
+          patients!left (
+            paciente_id,
+            nombre_completo,
+            numero_identidad,
+            telefono,
+            doctor
+          ),
+          vista_tratamientos_realizados_detalles (
+            id,
+            tratamiento_completado_id,
+            nombre_tratamiento,
+            doctor_name,
+            precio_final,
+            cantidad,
+            creado_en
+          )
+        `)
         .order('fecha_cita', { ascending: false });
 
       if (error) {
@@ -87,52 +111,24 @@ export class CompletedTreatmentService {
         throw error;
       }
 
-      // Fetch treatment items and patient data for each treatment
-      const treatmentsWithDetails = await Promise.all(
-        (data || []).map(async (treatment: any) => {
-          // Fetch treatment items
-          const { data: items, error: itemsError } = await supabase
-            .from('vista_tratamientos_realizados_detalles')
-            .select('*')
-            .eq('tratamiento_completado_id', treatment.id)
-            .order('creado_en', { ascending: true });
-
-          // Fetch patient data
-          let patientData = null;
-          if (treatment.paciente_id) {
-            const { data: patient, error: patientError } = await supabase
-              .from('patients')
-              .select('*')
-              .eq('paciente_id', treatment.paciente_id)
-              .single();
-            
-            if (!patientError && patient) {
-              patientData = patient;
-            } else {
-              console.error('Error fetching patient data:', patientError);
-            }
-          }
-
-          if (itemsError) {
-            console.error('Error fetching treatment items:', itemsError);
-            return { 
-              ...treatment, 
-              tratamientos_realizados: [],
-              paciente: patientData,
-              paciente_beneficiario: null
-            };
-          }
-
-          return {
-            ...treatment,
-            tratamientos_realizados: items || [],
-            paciente: patientData,
-            paciente_beneficiario: null
-          };
-        })
-      );
-
-      return treatmentsWithDetails;
+      // Process the joined data efficiently
+      return (data || []).map((treatment: any) => {
+        // Group treatment items by treatment
+        const treatmentItems = treatment.vista_tratamientos_realizados_detalles || [];
+        
+        return {
+          id: treatment.id,
+          paciente_id: treatment.paciente_id,
+          fecha_cita: treatment.fecha_cita,
+          total_final: treatment.total_final,
+          monto_pagado: treatment.monto_pagado,
+          moneda: treatment.moneda,
+          estado: treatment.estado,
+          paciente: treatment.patients || null,
+          paciente_beneficiario: null,
+          tratamientos_realizados: treatmentItems
+        };
+      });
     } catch (error) {
       console.error('Error fetching completed treatments:', error);
       return [];
