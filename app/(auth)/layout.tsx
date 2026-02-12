@@ -207,9 +207,9 @@ export default function AuthLayout({
                 </div>
                 
                 {/* Right side - User Info and Actions */}
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                   {/* Header Actions - Left of User Info */}
-                  <div className="flex items-center space-x-3">
+                  <div className="hidden sm:flex items-center space-x-3">
                     {/* Tutorial Button */}
                     <TutorialButton />
                     
@@ -220,31 +220,37 @@ export default function AuthLayout({
                     <NotificationDropdown />
                   </div>
                   
+                  {/* Mobile Actions */}
+                  <div className="flex sm:hidden items-center space-x-2">
+                    <DarkModeToggle />
+                    <NotificationDropdown />
+                  </div>
+                  
                   {/* User Info */}
-                  <div className="flex items-center space-x-3">
-                    {/* User Name and Email */}
-                    <div className="text-right">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    {/* User Name and Email - Hidden on mobile */}
+                    <div className="hidden sm:block text-right">
                       <div className="flex items-center space-x-2">
-                        <h2 className="text-lg font-semibold text-gray-900">
+                        <h2 className="text-sm lg:text-lg font-semibold text-gray-900 truncate max-w-[100px] lg:max-w-none">
                           {user?.firstName || 'Usuario'} {user?.lastName || ''}
                         </h2>
                         {/* Role Badge */}
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${roleBadgeInfo.bgColor} ${roleBadgeInfo.textColor} ${roleBadgeInfo.borderColor} border`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleBadgeInfo.bgColor} ${roleBadgeInfo.textColor} ${roleBadgeInfo.borderColor} border`}>
                           <i className={`${roleBadgeInfo.icon} mr-1`}></i>
                           {roleBadgeInfo.label}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs text-gray-600 truncate max-w-[120px] lg:max-w-none">
                         {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
                       </p>
                     </div>
                     
                     {/* Clerk User Avatar */}
-                    <div className="relative">
+                    <div className="relative flex-shrink-0">
                       <UserButton 
                         appearance={{
                           elements: {
-                            avatarBox: "w-10 h-10 shadow-md",
+                            avatarBox: "w-8 h-8 lg:w-10 lg:h-10 shadow-md",
                             userButton: "hover:bg-gray-100 rounded-lg transition-colors"
                           }
                         }}

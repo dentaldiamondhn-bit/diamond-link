@@ -112,13 +112,102 @@
 @media (max-width: 768px) {
   .login-container {
     flex-direction: column;
+    min-height: 100vh;
   }
   
-  .login-left, .login-right {
-    padding: 2rem 1rem;
+  .login-left {
+    flex: none;
+    min-height: auto;
+    padding: 3rem 1rem 2rem;
+    text-align: center;
+  }
+  
+  .login-right {
+    flex: 1;
+    padding: 1rem;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   .login-box {
     padding: 1.5rem;
+    max-width: 100%;
+    margin: 0;
+  }
+  
+  .login-logo {
+    max-width: 150px;
+    height: auto;
+    margin-bottom: 1rem;
+  }
+  
+  .logo-container {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-left {
+    padding: 2rem 1rem 1.5rem;
+  }
+  
+  .login-right {
+    padding: 1rem 0.5rem;
+  }
+  
+  .login-box {
+    padding: 1rem;
+    border-radius: 8px;
+  }
+  
+  .login-logo {
+    max-width: 120px;
+  }
+}
+
+/* Small mobile improvements */
+@media (max-width: 360px) {
+  .login-left {
+    padding: 1.5rem 0.75rem 1rem;
+  }
+  
+  .login-right {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .login-box {
+    padding: 0.75rem;
+  }
+}
+
+/* Prevent horizontal overflow */
+.login-container {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.login-left, .login-right {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Form field improvements for mobile */
+@media (max-width: 768px) {
+  .cl-formFieldInput {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 0.875rem 1rem !important;
+  }
+  
+  .cl-formButtonPrimary {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 0.875rem 1rem !important;
+    min-height: 48px; /* Touch target size */
+  }
+  
+  .cl-socialButtonsBlockButton {
+    min-height: 48px; /* Touch target size */
+    font-size: 16px !important;
   }
 }
