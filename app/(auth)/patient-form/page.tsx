@@ -728,30 +728,30 @@ export default function PatientForm() {
         if (form) {
           // Personal Information
           const nameInput = form.querySelector('#nombre_completo') as HTMLInputElement;
-          if (nameInput) nameInput.value = patient.nombre_completo;
+          if (nameInput) nameInput.value = patient?.nombre_completo || '';
           
           const idTypeSelect = form.querySelector('#tipo_identificacion') as HTMLSelectElement;
-          if (idTypeSelect) idTypeSelect.value = patient.tipo_identificacion;
+          if (idTypeSelect) idTypeSelect.value = patient?.tipo_identificacion || '';
           
           const idNumberInput = form.querySelector('#numero_identidad') as HTMLInputElement;
           if (idNumberInput) {
-            const idValue = patient.numero_identidad || '';
+            const idValue = patient?.numero_identidad || '';
             idNumberInput.value = idValue;
             setCurrentIdNumber(idValue); // Set current ID for validation
             setOriginalIdNumber(idValue); // Store original ID for smart validation
           }
           
           const birthDateInput = form.querySelector('#fecha_nacimiento') as HTMLInputElement;
-          if (birthDateInput) birthDateInput.value = patient.fecha_nacimiento || '';
+          if (birthDateInput) birthDateInput.value = patient?.fecha_nacimiento || '';
           
           const ageInput = form.querySelector('#edad') as HTMLInputElement;
-          if (ageInput) ageInput.value = patient.edad?.toString() || '';
+          if (ageInput) ageInput.value = patient?.edad?.toString() || '';
           
           const sexSelect = form.querySelector('#sexo') as HTMLSelectElement;
-          if (sexSelect) sexSelect.value = patient.sexo;
+          if (sexSelect) sexSelect.value = patient?.sexo || '';
           
           const bloodTypeSelect = form.querySelector('#tipo_sangre') as HTMLSelectElement;
-          if (bloodTypeSelect) bloodTypeSelect.value = patient.tipo_sangre;
+          if (bloodTypeSelect) bloodTypeSelect.value = patient?.tipo_sangre || '';
           
           const phoneInput = form.querySelector('#telefono') as HTMLInputElement;
           if (phoneInput) phoneInput.value = patient.telefono || '';
@@ -1502,7 +1502,7 @@ export default function PatientForm() {
             required 
             className={`input text-gray-900 dark:text-white ${getFieldStyle('numero_identidad')}`} 
             placeholder="Ingrese el número de identificación"
-            value={currentIdNumber}
+            value={currentIdNumber || ''}
             onChange={(e) => {
               handleIDNumberChange(e);
               updateFieldValidation('numero_identidad', e.target.value);
