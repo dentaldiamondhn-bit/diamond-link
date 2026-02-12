@@ -243,10 +243,16 @@ export default function TratamientosCompletadosPage() {
       }
     }
     
-    // Then filter by search term
+    // Then filter by search term - handle null paciente data
+    if (!searchTerm) {
+      return true; // Show all if no search term
+    }
+    
     return treatment.paciente?.nombre_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
            treatment.paciente?.numero_identidad?.toLowerCase().includes(searchTerm.toLowerCase()) ||
            treatment.paciente?.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           treatment.paciente_id?.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by paciente_id
+           treatment.id?.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by treatment id
            treatment.tratamientos_realizados?.some(tr => 
              tr.nombre_tratamiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
              tr.codigo_tratamiento.toLowerCase().includes(searchTerm.toLowerCase())

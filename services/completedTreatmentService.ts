@@ -76,68 +76,33 @@ export class CompletedTreatmentService {
 
   static async getAllCompletedTreatments(): Promise<CompletedTreatment[]> {
     try {
+      // Select with patient data for categorization
       const { data, error } = await supabase
         .from('tratamientos_completados')
-        .select('*')
-        .order('fecha_cita', { ascending: false });
+        .select(`
+          *,
+          patients!left (
+            *
+          )
+        `)
+        .order('fecha_cita', { ascending: false })
+        .limit(100); // Limit to 100 for performance
 
       if (error) {
         console.error('Error fetching completed treatments:', error);
         throw error;
       }
 
-      // Fetch treatment items for each completed treatment
-      const treatmentsWithItems = await Promise.all(
-        (data || []).map(async (treatment: any) => {
-          const { data: items, error: itemsError } = await supabase
-            .from('vista_tratamientos_realizados_detalles')
-            .select('*')
-            .eq('tratamiento_completado_id', treatment.id)
-            .order('creado_en', { ascending: true });
-
-          // Fetch patient data directly from patients table
-          let patientData = {};
-          if (treatment.paciente_id) {
-            const { data: patient, error: patientError } = await supabase
-              .from('patients')
-              .select('*')
-              .eq('paciente_id', treatment.paciente_id)
-              .single();
-            
-            if (!patientError && patient) {
-              patientData = patient;
-            } else {
-              console.error('Error fetching patient data:', patientError);
-            }
-          }
-
-          if (itemsError) {
-            console.error('Error fetching treatment items:', itemsError);
-            return { 
-              ...treatment, 
-              tratamientos_realizados: [],
-              paciente: patientData
-            };
-          }
-
-          return {
-            ...treatment,
-            tratamientos_realizados: items || [],
-            paciente: patientData,
-            paciente_beneficiario: treatment.beneficiario_nombre_completo ? {
-              nombre_completo: treatment.beneficiario_nombre_completo,
-              numero_identidad: treatment.beneficiario_numero_identidad,
-              telefono: treatment.beneficiario_telefono,
-              email: treatment.beneficiario_email
-            } : null
-          };
-        })
-      );
-
-      return treatmentsWithItems;
+      // Return data with patient info for categorization
+      return (data || []).map((treatment: any) => ({
+        ...treatment,
+        tratamientos_realizados: [],
+        paciente: treatment.patients || null,
+        paciente_beneficiario: null
+      }));
     } catch (error) {
-      console.error('Unexpected error fetching completed treatments:', error);
-      throw error;
+      console.error('Error fetching completed treatments:', error);
+      return [];
     }
   }
 
