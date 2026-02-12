@@ -211,7 +211,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingresos Generados</h3>
-                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
+                  <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">
                     {loading ? '...' : formatHNL(doctorRevenue)}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
