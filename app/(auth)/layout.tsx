@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { UserButton } from '@clerk/nextjs';
@@ -51,6 +52,7 @@ export default function AuthLayout({
   const { user } = useUser();
   const { userRole } = useRoleBasedAccess();
   const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   if (!user) {
     return <div>Loading...</div>;
@@ -102,52 +104,74 @@ export default function AuthLayout({
         <HistoricalModeProvider>
           <BellNotificationProvider>
             <EventModalProvider>
-              <div className="flex h-screen bg-gray-100">
-          {/* Role-based Sidebar */}
-          <div className="flex-shrink-0">
-            {userRole === 'admin' && <AdminSidebar />}
-            {userRole === 'doctor' && <DoctorSidebar />}
-            {userRole === 'staff' && <StaffSidebar />}
-            
-            {/* Fallback sidebar if role detection fails */}
-            {(!userRole || !['admin', 'doctor', 'staff'].includes(userRole)) && (
-              <div className="w-64 bg-gray-900 text-white flex flex-col h-full">
-                <div className="p-6 border-b border-gray-700">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-yellow-600 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-exclamation-triangle text-white"></i>
-                    </div>
-                    <div>
-                      <h1 className="text-xl font-bold text-white">Unknown Role</h1>
-                      <p className="text-xs text-gray-400">{userRole || 'undefined'}</p>
-                    </div>
+              <div className="flex h-screen bg-gray-100 relative">
+                {/* Mobile Menu Button */}
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-lg"
+                >
+                  <i className={`fas ${sidebarOpen ? 'fa-times' : 'fa-bars'}`}></i>
+                </button>
+
+                {/* Mobile Overlay */}
+                {sidebarOpen && (
+                  <div
+                    className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+                    onClick={() => setSidebarOpen(false)}
+                  />
+                )}
+
+                {/* Role-based Sidebar */}
+                <div className={`
+                  ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+                  lg:translate-x-0 fixed lg:relative lg:flex-shrink-0 
+                  transition-transform duration-300 ease-in-out z-50 lg:z-auto
+                `}>
+                  <div className="w-64 lg:w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
+                    {userRole === 'admin' && <AdminSidebar />}
+                    {userRole === 'doctor' && <DoctorSidebar />}
+                    {userRole === 'staff' && <StaffSidebar />}
+                    
+                    {/* Fallback sidebar if role detection fails */}
+                    {(!userRole || !['admin', 'doctor', 'staff'].includes(userRole)) && (
+                      <div className="w-64 bg-gray-900 text-white flex flex-col h-full">
+                        <div className="p-6 border-b border-gray-700">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-yellow-600 rounded-lg flex items-center justify-center">
+                              <i className="fas fa-exclamation-triangle text-white"></i>
+                            </div>
+                            <div>
+                              <h1 className="text-xl font-bold text-white">Unknown Role</h1>
+                              <p className="text-xs text-gray-400">{userRole || 'undefined'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
           {/* Main Content */}
-          <div className="flex-1 overflow-auto flex flex-col">
+          <div className="flex-1 lg:ml-0 overflow-auto flex flex-col">
             {/* Header with User Info */}
-            <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+            <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4">
               <div className="flex items-center justify-between">
                 {/* Left side - Page Title */}
                 <div className="flex items-center">
                   {pathname === '/reports' && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                       📊 Reportes y Análisis
                     </h1>
                   )}
                   {pathname === '/pacientes' && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                       <i className="fas fa-user-injured mr-2"></i>
                       Todos los Pacientes
                     </h1>
                   )}
                   {pathname === '/tratamientos' && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                       <i className="fas fa-procedures mr-2"></i>
-                      Tratamientos y Promociones
+                      Tratamientos
                     </h1>
                   )}
                   {pathname === '/tratamientos-completados' && (
