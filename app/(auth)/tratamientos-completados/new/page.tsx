@@ -1639,55 +1639,11 @@ function NuevoTratamientoCompletadoWithModal() {
           // TODO: Add to local treatments state if needed
         }
       } else {
-        // Handle paquetes
-        if (selectedTreatments.length > 0 && selectedTreatments[0].id?.toString().startsWith('P')) {
-          // This is a paquete - create completed treatment for the paquete
-          const paqueteData = selectedTreatments[0];
-          const treatmentData = {
-            paciente_id: pacienteId!,
-            fecha_cita: treatmentDate,
-            total_original: paqueteData.precio_total,
-            total_descuento: 0,
-            total_final: paqueteData.precio_total,
-            moneda: paqueteData.moneda || 'HNL' as Currency,
-            tipo_descuento: 'ninguno' as const,
-            valor_descuento: 0,
-            notas_doctor: doctorNotes,
-            firma_paciente_url: shouldRequireSignature ? patientSignature : null,
-            is_historical: recordCategoryInfo?.isHistorical || false,
-            especialidad: null,
-            estado: 'pagado' as const,
-            tratamientos_realizados: [{
-              tratamiento_id: 0, // Use 0 for paquetes or create a special treatment type
-              nombre_tratamiento: paqueteData.nombre,
-              codigo_tratamiento: paqueteData.codigo,
-              precio_original: paqueteData.precio_total,
-              precio_final: paqueteData.precio_total,
-              moneda: paqueteData.moneda || 'HNL' as Currency,
-              cantidad: 1,
-              notas: `Paquete: ${paqueteData.descripcion}`,
-              doctor_id: null,
-              doctor_name: null
-            }]
-          };
-          
-          await CompletedTreatmentService.createCompletedTreatment(treatmentData);
-          
-          // Increment paquete counter
-          try {
-            await TreatmentService.incrementPaqueteCounter(paqueteData.id);
-          } catch (error) {
-            console.error(`Error incrementing counter for paquete ${paqueteData.id}:`, error);
-          }
-          
-          alert('Paquete guardado exitosamente');
+        // Handle promotions
+        if (isEdit && promotionData.id) {
+          await TreatmentService.updatePromotion(promotionData.id, promotionData);
         } else {
-          // Regular promotion handling
-          if (isEdit && promotionData.id) {
-            await TreatmentService.updatePromotion(promotionData.id, promotionData);
-          } else {
-            await TreatmentService.createPromotion(promotionData);
-          }
+          await TreatmentService.createPromotion(promotionData);
         }
       }
       

@@ -76,28 +76,23 @@ export class CompletedTreatmentService {
 
   static async getAllCompletedTreatments(): Promise<CompletedTreatment[]> {
     try {
-      // Select with patient data for categorization
+      // Use simple query to avoid memory issues
       const { data, error } = await supabase
         .from('tratamientos_completados')
-        .select(`
-          *,
-          patients!left (
-            *
-          )
-        `)
+        .select('*')
         .order('fecha_cita', { ascending: false })
-        .limit(100); // Limit to 100 for performance
+        .limit(50); // Reduce limit to avoid memory issues
 
       if (error) {
         console.error('Error fetching completed treatments:', error);
         throw error;
       }
 
-      // Return data with patient info for categorization
+      // Return basic data to avoid memory issues
       return (data || []).map((treatment: any) => ({
         ...treatment,
         tratamientos_realizados: [],
-        paciente: treatment.patients || null,
+        paciente: null,
         paciente_beneficiario: null
       }));
     } catch (error) {
