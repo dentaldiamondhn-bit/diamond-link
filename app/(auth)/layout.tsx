@@ -108,9 +108,14 @@ export default function AuthLayout({
                 {/* Mobile Menu Button */}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-lg"
+                  className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 active:scale-95 group"
+                  aria-label="Toggle menu"
                 >
-                  <i className={`fas ${sidebarOpen ? 'fa-times' : 'fa-bars'}`}></i>
+                  <div className="relative w-6 h-5 flex flex-col justify-center items-center">
+                    <span className={`absolute h-0.5 w-6 bg-current rounded-full transition-all duration-300 ${sidebarOpen ? 'rotate-45 translate-y-0' : '-translate-y-2'}`}></span>
+                    <span className={`h-0.5 w-6 bg-current rounded-full transition-all duration-300 ${sidebarOpen ? 'opacity-0' : 'opacity-100'}`}></span>
+                    <span className={`absolute h-0.5 w-6 bg-current rounded-full transition-all duration-300 ${sidebarOpen ? '-rotate-45 translate-y-0' : 'translate-y-2'}`}></span>
+                  </div>
                 </button>
 
                 {/* Mobile Overlay */}

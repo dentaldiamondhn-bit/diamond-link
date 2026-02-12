@@ -1565,21 +1565,23 @@ export default function PatientForm() {
               )}
 
               <label htmlFor="rep_celular" className="block mb-1 font-medium mt-2">Teléfono del Representante:</label>
-              <div className="flex gap-0">
-                <select 
-                  id="codigoPaisRepresentante" 
-                  value={selectedLegalRepCountry}
-                  onChange={(e) => setSelectedLegalRepCountry(e.target.value)}
-                  className="px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                >
-                  {countries.map(country => (
-                    <option key={country.code} value={country.code}>
-                      {country.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="px-3 py-2 border border-gray-300 bg-transparent text-gray-700 font-medium flex items-center">
-                  +{selectedLegalRepCountry}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <select 
+                    id="codigoPaisRepresentante" 
+                    value={selectedLegalRepCountry}
+                    onChange={(e) => setSelectedLegalRepCountry(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent flex-1"
+                  >
+                    {countries.map(country => (
+                      <option key={country.code} value={country.code}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="px-3 py-2 border border-gray-300 bg-transparent text-gray-700 font-medium flex items-center rounded-lg">
+                    +{selectedLegalRepCountry}
+                  </div>
                 </div>
                 <input 
                   type="text" 
@@ -1587,7 +1589,7 @@ export default function PatientForm() {
                   name="rep_celular" 
                   placeholder={getPhonePlaceholder(selectedLegalRepCountry)}
                   maxLength={getPhonePlaceholder(selectedLegalRepCountry).length}
-                  className="flex-1 px-3 py-2 border-l-0 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900" 
                   onChange={(e) => handlePhoneChange(e, selectedLegalRepCountry)}
                 />
               </div>
@@ -1637,28 +1639,30 @@ export default function PatientForm() {
           </select>
 
           <label htmlFor="telefono" className="block mb-1 font-medium mt-4">Teléfono:</label>
-          <div className="flex gap-2">
-            <select
-              value={selectedPhoneCountry || ''}
-              onChange={(e) => setSelectedPhoneCountry(e.target.value)}
-              name="codigopais"
-              className="px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            >
-              {countries.map(country => (
-                <option key={country.code} value={country.code}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
-            <div className="px-3 py-2 border border-gray-300 bg-transparent text-gray-700 font-medium flex items-center">
-              +{selectedPhoneCountry}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <select
+                value={selectedPhoneCountry || ''}
+                onChange={(e) => setSelectedPhoneCountry(e.target.value)}
+                name="codigopais"
+                className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent flex-1"
+              >
+                {countries.map(country => (
+                  <option key={country.code} value={country.code}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+              <div className="px-3 py-2 border border-gray-300 bg-transparent text-gray-700 font-medium flex items-center rounded-lg">
+                +{selectedPhoneCountry}
+              </div>
             </div>
             <input 
               type="text" 
               id="telefono" 
               name="telefono" 
               placeholder={getPhonePlaceholder(selectedPhoneCountry)} 
-              className="flex-1 px-3 py-2 border-l-0 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900" 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900" 
               onChange={(e) => handlePhoneChange(e, selectedPhoneCountry)}
             />
           </div>
@@ -1701,27 +1705,29 @@ export default function PatientForm() {
           }} />
 
           <label htmlFor="contacto_telefono" className="block mb-1 font-medium mt-4">Teléfono de emergencia:</label>
-          <div className="flex gap-2">
-            <select
-              value={selectedEmergencyCountry}
-              onChange={(e) => setSelectedEmergencyCountry(e.target.value)}
-              className="px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            >
-              {countries.map(country => (
-                <option key={country.code} value={country.code}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
-            <div className="px-3 py-2 border border-gray-300 bg-transparent text-gray-700 font-medium flex items-center">
-              +{selectedEmergencyCountry}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <select
+                value={selectedEmergencyCountry}
+                onChange={(e) => setSelectedEmergencyCountry(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent flex-1"
+              >
+                {countries.map(country => (
+                  <option key={country.code} value={country.code}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+              <div className="px-3 py-2 border border-gray-300 bg-transparent text-gray-700 font-medium flex items-center rounded-lg">
+                +{selectedEmergencyCountry}
+              </div>
             </div>
             <input 
               type="text" 
               id="contacto_telefono" 
               name="contacto_telefono" 
               placeholder={getPhonePlaceholder(selectedEmergencyCountry)} 
-              className={`flex-1 px-3 py-2 border-l-0 rounded-r-lg focus:outline-none focus:ring-2 focus:border-transparent text-gray-900 dark:text-white ${getFieldStyle('contacto_telefono')}`} 
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900 ${getFieldStyle('contacto_telefono')}`} 
               onChange={(e) => {
                 handlePhoneChange(e, selectedEmergencyCountry);
                 updateFieldValidation('contacto_telefono', e.target.value);
