@@ -21,11 +21,14 @@ export default function Page() {
             priority
           />
         </div>
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6">Sistema de Gestión Dental</h1>
-        <h2 className="text-xl sm:text-2xl mb-3 sm:mb-4">Bienvenido de Vuelta</h2>
-        <p className="text-sm sm:text-base mb-6 sm:mb-8 max-w-md">
-          Inicie sesión para acceder al sistema de gestión dental y administrar sus pacientes, citas y más.
-        </p>
+        {/* Desktop-only text content */}
+        <div className="hidden lg:block">
+          <h1 className="text-4xl font-bold mb-6">Sistema de Gestión Dental</h1>
+          <h2 className="text-2xl mb-4">Bienvenido de Vuelta</h2>
+          <p className="mb-8 max-w-md">
+            Inicie sesión para acceder al sistema de gestión dental y administrar sus pacientes, citas y más.
+          </p>
+        </div>
       </div>
       
       {/* Right Side - Sign In Form */}

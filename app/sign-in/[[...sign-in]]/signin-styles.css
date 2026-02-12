@@ -118,43 +118,55 @@
   .login-left {
     flex: none;
     min-height: auto;
-    padding: 3rem 1rem 2rem;
+    padding: 1.5rem 1rem 1rem;
     text-align: center;
+    background: linear-gradient(135deg, #0a4d4a 0%, #0d6d69 100%) !important;
   }
   
   .login-right {
     flex: 1;
     padding: 1rem;
-    min-height: 100vh;
+    min-height: 70vh;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding-top: 2rem;
   }
   
   .login-box {
     padding: 1.5rem;
     max-width: 100%;
     margin: 0;
+    width: 100%;
   }
   
   .login-logo {
-    max-width: 150px;
+    max-width: 100px;
     height: auto;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
   }
   
   .logo-container {
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  /* Hide text content on mobile, show only logo */
+  .login-left h1,
+  .login-left h2,
+  .login-left p {
+    display: none;
   }
 }
 
 @media (max-width: 480px) {
   .login-left {
-    padding: 2rem 1rem 1.5rem;
+    padding: 1rem 0.75rem 0.75rem;
   }
   
   .login-right {
-    padding: 1rem 0.5rem;
+    padding: 0.75rem 0.5rem;
+    min-height: 75vh;
+    padding-top: 1.5rem;
   }
   
   .login-box {
@@ -163,22 +175,28 @@
   }
   
   .login-logo {
-    max-width: 120px;
+    max-width: 80px;
   }
 }
 
 /* Small mobile improvements */
 @media (max-width: 360px) {
   .login-left {
-    padding: 1.5rem 0.75rem 1rem;
+    padding: 0.75rem 0.5rem 0.5rem;
   }
   
   .login-right {
-    padding: 0.75rem 0.5rem;
+    padding: 0.5rem;
+    min-height: 80vh;
+    padding-top: 1rem;
   }
   
   .login-box {
     padding: 0.75rem;
+  }
+  
+  .login-logo {
+    max-width: 70px;
   }
 }
 
