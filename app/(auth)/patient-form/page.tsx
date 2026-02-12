@@ -1490,7 +1490,7 @@ export default function PatientForm() {
           {tipoIdentificacion === 'OTRO' && (
             <>
               <label htmlFor="otro_tipo_identificacion" className="block mb-1 font-medium mt-2">Especifique el tipo de identificación:</label>
-              <input type="text" id="otro_tipo_identificacion" name="otro_tipo_identificacion" className="input" value={otroTipoIdentificacion} onChange={(e) => setOtroTipoIdentificacion(e.target.value)} />
+              <input type="text" id="otro_tipo_identificacion" name="otro_tipo_identificacion" className="input" value={otroTipoIdentificacion || ''} onChange={(e) => setOtroTipoIdentificacion(e.target.value)} />
             </>
           )}
 
@@ -1540,14 +1540,14 @@ export default function PatientForm() {
           {edad !== '' && edad < 18 && (
             <div className="p-4 bg-gray-50 rounded border border-gray-300 mt-4">
               <label htmlFor="representante_legal" className="block mb-1 font-medium">Representante Legal:</label>
-              <input type="text" id="representante_legal" name="representante_legal" className="input" value={representanteLegal} onChange={(e) => setRepresentanteLegal(e.target.value)} />
+              <input type="text" id="representante_legal" name="representante_legal" className="input" value={representanteLegal || ''} onChange={(e) => setRepresentanteLegal(e.target.value)} />
 
               <label htmlFor="parentesco" className="block mb-1 font-medium mt-2">Parentesco:</label>
               <select
                 id="parentesco"
                 name="parentesco"
                 className="input"
-                value={parentesco}
+                value={parentesco || ''}
                 onChange={e => setParentesco(e.target.value)}
               >
                 <option value="">Seleccionar</option>
@@ -1560,7 +1560,7 @@ export default function PatientForm() {
               {parentesco === 'otro' && (
                 <>
                   <label htmlFor="otro_parentesco" className="block mb-1 font-medium mt-2">Especifique el parentesco:</label>
-                  <input type="text" id="otro_parentesco" name="otro_parentesco" className="input" value={otroParentesco} onChange={(e) => setOtroParentesco(e.target.value)} />
+                  <input type="text" id="otro_parentesco" name="otro_parentesco" className="input" value={otroParentesco || ''} onChange={(e) => setOtroParentesco(e.target.value)} />
                 </>
               )}
 
@@ -1600,7 +1600,7 @@ export default function PatientForm() {
             name="sexo"
             required
             className={`input text-gray-900 dark:text-white ${getFieldStyle('sexo')}`}
-            value={sexo}
+            value={sexo || ''}
             onChange={e => {
               setSexo(e.target.value);
               updateFieldValidation('sexo', e.target.value);
@@ -1615,12 +1615,12 @@ export default function PatientForm() {
           {sexo === 'otro' && (
             <>
               <label htmlFor="otro_genero" className="block mb-1 font-medium mt-2">Especifique el sexo:</label>
-              <input type="text" id="otro_genero" name="otro_genero" className="input" value={otroGenero} onChange={(e) => setOtroGenero(e.target.value)} />
+              <input type="text" id="otro_genero" name="otro_genero" className="input" value={otroGenero || ''} onChange={(e) => setOtroGenero(e.target.value)} />
             </>
           )}
 
           <label htmlFor="tipo_sangre" className="block mb-1 font-medium mt-4">Tipo de sangre:</label>
-          <select id="tipo_sangre" name="tipo_sangre" required className={`input text-gray-900 dark:text-white ${getFieldStyle('tipo_sangre')}`} value={tipoSangre} onChange={(e) => {
+          <select id="tipo_sangre" name="tipo_sangre" required className={`input text-gray-900 dark:text-white ${getFieldStyle('tipo_sangre')}`} value={tipoSangre || ''} onChange={(e) => {
             setTipoSangre(e.target.value);
             updateFieldValidation('tipo_sangre', e.target.value);
           }}>
@@ -1639,7 +1639,7 @@ export default function PatientForm() {
           <label htmlFor="telefono" className="block mb-1 font-medium mt-4">Teléfono:</label>
           <div className="flex gap-2">
             <select
-              value={selectedPhoneCountry}
+              value={selectedPhoneCountry || ''}
               onChange={(e) => setSelectedPhoneCountry(e.target.value)}
               name="codigopais"
               className="px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -1664,13 +1664,13 @@ export default function PatientForm() {
           </div>
 
           <label htmlFor="direccion" className="block mb-1 font-medium mt-4">Dirección:</label>
-          <input type="text" id="direccion" name="direccion" required className={`input text-gray-900 dark:text-white ${getFieldStyle('direccion')}`} value={direccion} onChange={(e) => {
+          <input type="text" id="direccion" name="direccion" required className={`input text-gray-900 dark:text-white ${getFieldStyle('direccion')}`} value={direccion || ''} onChange={(e) => {
             setDireccion(e.target.value);
             updateFieldValidation('direccion', e.target.value);
           }} />
 
           <label htmlFor="escolaridad" className="block mb-1 font-medium mt-4">Escolaridad:</label>
-          <input type="text" id="escolaridad" name="escolaridad" required className={`input text-gray-900 dark:text-white ${getFieldStyle('escolaridad')}`} value={escolaridad} onChange={(e) => {
+          <input type="text" id="escolaridad" name="escolaridad" required className={`input text-gray-900 dark:text-white ${getFieldStyle('escolaridad')}`} value={escolaridad || ''} onChange={(e) => {
             setEscolaridad(e.target.value);
             updateFieldValidation('escolaridad', e.target.value);
           }} />
@@ -1689,13 +1689,13 @@ export default function PatientForm() {
           </select>
 
           <label htmlFor="email" className="block mb-1 font-medium mt-4">Correo electrónico:</label>
-          <input type="email" id="email" name="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input type="email" id="email" name="email" className="input" value={email || ''} onChange={(e) => setEmail(e.target.value)} />
 
           <label htmlFor="trabajo" className="block mb-1 font-medium mt-4">Lugar de trabajo:</label>
-          <input type="text" id="trabajo" name="trabajo" className="input" value={trabajo} onChange={(e) => setTrabajo(e.target.value)} />
+          <input type="text" id="trabajo" name="trabajo" className="input" value={trabajo || ''} onChange={(e) => setTrabajo(e.target.value)} />
 
           <label htmlFor="contacto_emergencia" className="block mb-1 font-medium mt-4">Contacto de emergencia:</label>
-          <input type="text" id="contacto_emergencia" name="contacto_emergencia" required className={`input text-gray-900 dark:text-white ${getFieldStyle('contacto_emergencia')}`} value={contactoEmergencia} onChange={(e) => {
+          <input type="text" id="contacto_emergencia" name="contacto_emergencia" required className={`input text-gray-900 dark:text-white ${getFieldStyle('contacto_emergencia')}`} value={contactoEmergencia || ''} onChange={(e) => {
             setContactoEmergencia(e.target.value);
             updateFieldValidation('contacto_emergencia', e.target.value);
           }} />

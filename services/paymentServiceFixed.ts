@@ -143,7 +143,7 @@ export class PaymentService {
   }
 
   static getPaymentMethods(): string[] {
-    return ['efectivo', 'tarjeta_credito', 'tarjeta_debito', 'transferencia', 'cheque', 'deposito_bancario', 'paypal', 'otro'];
+    return ['efectivo', 'tarjeta_credito', 'tarjeta_debito', 'transferencia', 'cheque', 'deposito_bancario', 'otro'];
   }
 
   static formatPaymentMethod(method: string): string {
@@ -153,8 +153,7 @@ export class PaymentService {
       'tarjeta_debito': 'Tarjeta de Débito',
       'transferencia': 'Transferencia',
       'cheque': 'Cheque',
-      'deposito_bancario': 'Depósito Bancario',
-      'paypal': 'PayPal',
+      'deposito_bancario': 'Extra BAC 6meses',
       'otro': 'Otro'
     };
     return methods[method] || method;

@@ -76,25 +76,63 @@ export class CompletedTreatmentService {
 
   static async getAllCompletedTreatments(): Promise<CompletedTreatment[]> {
     try {
-      // Use simple query to avoid memory issues
+      // Fetch all completed treatments without limit
       const { data, error } = await supabase
         .from('tratamientos_completados')
         .select('*')
-        .order('fecha_cita', { ascending: false })
-        .limit(50); // Reduce limit to avoid memory issues
+        .order('fecha_cita', { ascending: false });
 
       if (error) {
         console.error('Error fetching completed treatments:', error);
         throw error;
       }
 
-      // Return basic data to avoid memory issues
-      return (data || []).map((treatment: any) => ({
-        ...treatment,
-        tratamientos_realizados: [],
-        paciente: null,
-        paciente_beneficiario: null
-      }));
+      // Fetch treatment items and patient data for each treatment
+      const treatmentsWithDetails = await Promise.all(
+        (data || []).map(async (treatment: any) => {
+          // Fetch treatment items
+          const { data: items, error: itemsError } = await supabase
+            .from('vista_tratamientos_realizados_detalles')
+            .select('*')
+            .eq('tratamiento_completado_id', treatment.id)
+            .order('creado_en', { ascending: true });
+
+          // Fetch patient data
+          let patientData = null;
+          if (treatment.paciente_id) {
+            const { data: patient, error: patientError } = await supabase
+              .from('patients')
+              .select('*')
+              .eq('paciente_id', treatment.paciente_id)
+              .single();
+            
+            if (!patientError && patient) {
+              patientData = patient;
+            } else {
+              console.error('Error fetching patient data:', patientError);
+            }
+          }
+
+          if (itemsError) {
+            console.error('Error fetching treatment items:', itemsError);
+            return { 
+              ...treatment, 
+              tratamientos_realizados: [],
+              paciente: patientData,
+              paciente_beneficiario: null
+            };
+          }
+
+          return {
+            ...treatment,
+            tratamientos_realizados: items || [],
+            paciente: patientData,
+            paciente_beneficiario: null
+          };
+        })
+      );
+
+      return treatmentsWithDetails;
     } catch (error) {
       console.error('Error fetching completed treatments:', error);
       return [];
