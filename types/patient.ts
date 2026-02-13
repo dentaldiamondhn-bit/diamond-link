@@ -102,17 +102,6 @@ export interface Patient {
   cambio_cepillo: string;
   hilo_dental: 'no' | 'si';
   enjuague_bucal: 'no' | 'si';
-  necesita_ortodoncia: 'no' | 'si' | 'en_tratamiento';
-  detalles_ortodoncia?: string;
-  relacion_molar?: 'clase1' | 'clase2_div1' | 'clase2_div2' | 'clase3';
-  relacion_canina?: 'clase1' | 'clase2' | 'clase3';
-  tipo_mordida?: 'normal' | 'abierta' | 'cruzada' | 'bordeaborde' | 'profunda';
-  apiñamiento?: 'ninguno' | 'leve' | 'medio' | 'grave';
-  espacios?: 'ninguno' | 'diastemas' | 'exodonciaprevias';
-  lineamedia?: 'centrada' | 'desviada_derecha' | 'desviada_izquierda';
-  diagnostico?: string;
-  tipo_aparatologia?: 'brackets_metalicos' | 'brackets_esteticos' | 'ortodoncia_lingual' | 'alineadores_invisalign' | 'aparato_removible' | 'expansor_palatino' | 'retenedores' | 'aparato_funcional' | 'otro';
-  otro_aparatologia?: string;
   tratamiento?: string;
   documentos?: string[];
   observaciones_plan?: string;

@@ -127,8 +127,8 @@ export async function updatePatient(patientId: string, formData: FormData) {
       'ejercicio_tipo', 'dieta', 'dieta_tipo', 'sueño_horas', 'sueño_calidad',
       'estres', 'estres_nivel', 'antecedentes_familiares', 'antecedentes_personales',
       'ultima_visita', 'ultima_limpieza', 'f_cepillado', 'hilo_dental', 'enjuague_bucal',
-      'protesis', 'sensibilidad', 'bruxismo', 'necesita_ortodoncia', 'vacunas',
-      'observaciones_medicas', 'motivo_consulta', 'diagnostico', 'plan_tratamiento',
+      'protesis', 'sensibilidad', 'bruxismo', 'vacunas',
+      'observaciones_medicas', 'motivo_consulta', 'plan_tratamiento',
       'proximo_control', 'notas_odontologo', 'tratamiento', 'observaciones_plan',
       // Missing fields that were not being saved
       'medico_cabecera', 'doctor', 'fecha_inicio', 'seguro', 'poliza', 'contacto',
@@ -138,10 +138,6 @@ export async function updatePatient(patientId: string, formData: FormData) {
       // Evaluación Odontológica fields that were missing
       'encias', 'dolor', 'dolor_cabeza', 'chasquidos', 'dolor_oido', 'ortodoncia',
       'orto_finalizado', 'sensibilidad', 'tipo_sensibilidad',
-      // Plan de Tratamiento fields
-      'tipo_aparatologia', 'otro_aparatologia',
-      // Examen Intraoral fields
-      'oclusion', 'relacion_molar', 'relacion_canina', 'tipo_mordida', 'apiñamiento', 'espacios', 'lineamedia',
       // Additional fields from create action that were missing
       'morder', 'hielo', 'boca', 'refrescos', 'dulces', 'pegajosos', 'azucarados',
       'obs', 'visitas_dentista', 'obsgen', 'motivo', 'historial',
@@ -149,8 +145,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
       'chasquidos_mandibulares', 'dolor_oido_detalle', 'suction_digital',
       'protesis_tipo', 'protesis_nocturno', 'tipo_bruxismo', 'orto_motivo_no_finalizado',
       'ultima_limpieza', 'tipocepillo', 'pastadental', 'cambio_cepillo',
-      'hilo_dental', 'enjuague_bucal', 'necesita_ortodoncia', 'detalles_ortodoncia',
-      'diagnostico', 'tratamiento', 'observaciones_plan'
+      'hilo_dental', 'enjuague_bucal', 'tratamiento', 'observaciones_plan'
     ];
     
     // Main select fields that should always be saved (even if empty or "no")
@@ -158,7 +153,6 @@ export async function updatePatient(patientId: string, formData: FormData) {
       'fuma', 'alcohol', 'drogas', 'cafe', 'objetos',
       'encias', 'dolor', 'dolor_cabeza', 'chasquidos', 'dolor_oido', 'ortodoncia',
       'orto_finalizado', 'sensibilidad', 'tipo_sensibilidad',
-      'tipo_aparatologia', 'otro_aparatologia',
       // Additional conditional fields
       'morder', 'hielo', 'boca', 'refrescos', 'dulces', 'pegajosos', 'azucarados',
       'obs', 'visitas_dentista', 'obsgen', 'motivo', 'historial',
@@ -166,9 +160,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
       'chasquidos_mandibulares', 'dolor_oido_detalle', 'suction_digital',
       'protesis_tipo', 'protesis_nocturno', 'tipo_bruxismo', 'orto_motivo_no_finalizado',
       // Additional fields that should always be saved
-      'hilo_dental', 'enjuague_bucal', 'necesita_ortodoncia',
-      // Examen Intraoral fields that should always be saved
-      'apiñamiento', 'apiÃ±amiento', 'tipo_droga'
+      'hilo_dental', 'enjuague_bucal', 'tipo_droga'
     ];
     
     // Debug: Log all form data keys to see what's being submitted
@@ -177,28 +169,11 @@ export async function updatePatient(patientId: string, formData: FormData) {
       console.log(`  ${key}: ${value}`);
     }
     
-    // Debug: Try different ways to access the apiñamiento field
-    console.log('🔍 Testing apiñamiento field access:');
-    console.log('  formData.get("apiñamiento"):', formData.get('apiñamiento'));
-    console.log('  formData.get("apinamiento"):', formData.get('apinamiento')); // without ñ
-    console.log('  formData.get("apin\u00f1amiento"):', formData.get('apin\u00f1amiento')); // Unicode escape
-    
     // Process main select fields - always save them, but validate enum fields
     mainSelectFields.forEach(field => {
       let value = formData.get(field) as string;
       
-      // Special handling for encoded apiñamiento field
-      if (field === 'apiÃ±amiento') {
-        value = formData.get('apiÃ±amiento') as string;
-        if (value !== null) {
-          console.log('🔍 Found encoded apiñamiento field, mapping to correct field name');
-          (patientData as any)['apiñamiento'] = value.trim();
-        }
-      } else if (field === 'apiñamiento') {
-        console.log('🔍 apiñamiento field value:', value);
-      }
-      
-      if (value !== null && field !== 'apiÃ±amiento') {
+      if (value !== null) {
         (patientData as any)[field] = value.trim();
       }
     });
@@ -216,7 +191,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
     const requiredEnumFields = [
       'fuma', 'alcohol', 'drogas', 'cafe', 'objetos',
       'encias', 'dolor', 'dolor_cabeza', 'chasquidos', 'dolor_oido', 'ortodoncia',
-      'sensibilidad', 'bruxismo', 'hilo_dental', 'enjuague_bucal', 'necesita_ortodoncia'
+      'sensibilidad', 'bruxismo', 'hilo_dental', 'enjuague_bucal'
     ];
     
     requiredEnumFields.forEach(field => {
@@ -304,7 +279,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
     });
     
     // Check for potential constraint violations before update
-    const enumFields = ['fuma', 'alcohol', 'drogas', 'cafe', 'objetos', 'encias', 'dolor', 'dolor_cabeza', 'chasquidos', 'dolor_oido', 'ortodoncia', 'sensibilidad', 'bruxismo', 'hilo_dental', 'enjuague_bucal', 'necesita_ortodoncia'];
+    const enumFields = ['fuma', 'alcohol', 'drogas', 'cafe', 'objetos', 'encias', 'dolor', 'dolor_cabeza', 'chasquidos', 'dolor_oido', 'ortodoncia', 'sensibilidad', 'bruxismo', 'hilo_dental', 'enjuague_bucal'];
     enumFields.forEach(field => {
       const value = (patientData as any)[field];
       if (value && value !== 'no' && value !== 'si' && value !== 'en_tratamiento') {

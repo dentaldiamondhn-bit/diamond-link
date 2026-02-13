@@ -447,7 +447,6 @@ export default function PatientForm() {
   const [protesisTipo, setProtesisTipo] = useState('');
   const [protesisNocturno, setProtesisNocturno] = useState('');
   const [tipoBruxismo, setTipoBruxismo] = useState('');
-  const [ortodonciaMotivoNoFinalizado, setOrtodonciaMotivoNoFinalizado] = useState('');
   
   // Additional Evaluación Odontológica state variables
   const [ultimaLimpieza, setUltimaLimpieza] = useState('');
@@ -457,7 +456,9 @@ export default function PatientForm() {
   const [cambioCepillo, setCambioCepillo] = useState('');
   const [hiloDental, setHiloDental] = useState('');
   const [enjuagueBucal, setEnjuagueBucal] = useState('');
-  const [detallesOrtodoncia, setDetallesOrtodoncia] = useState('');
+  const [ortodoncia, setOrtodoncia] = useState('');
+  const [finalizoTratamiento, setFinalizoTratamiento] = useState('');
+  const [ortodonciaMotivoNoFinalizado, setOrtodonciaMotivoNoFinalizado] = useState('');
 
   // Fetch doctors from database
   useEffect(() => {
@@ -481,24 +482,12 @@ export default function PatientForm() {
   const [dolorCabeza, setDolorCabeza] = useState('');
   const [chasquidos, setChasquidos] = useState('');
   const [dolorOido, setDolorOido] = useState('');
-  const [ortodoncia, setOrtodoncia] = useState('');
-  const [finalizoTratamiento, setFinalizoTratamiento] = useState('');
   const [protesis, setProtesis] = useState('');
   const [bruxismo, setBruxismo] = useState('');
-  const [necesitaOrtodoncia, setNecesitaOrtodoncia] = useState('');
   const [sensibilidad, setSensibilidad] = useState('');
   const [tipoSensibilidad, setTipoSensibilidad] = useState('');
   
   // Examen Intraoral state variables
-  const [oclusion, setOclusion] = useState('');
-  const [relacionMolar, setRelacionMolar] = useState('');
-  const [relacionCanina, setRelacionCanina] = useState('');
-  const [tipoMordida, setTipoMordida] = useState('');
-  const [apiñamiento, setApiñamiento] = useState('');
-  const [espacios, setEspacios] = useState('');
-  const [lineamedia, setLineamedia] = useState('');
-  const [tipoAparatologia, setTipoAparatologia] = useState('');
-  const [otroAparatologia, setOtroAparatologia] = useState('');
   const [diagnostico, setDiagnostico] = useState('');
 
   // Calculate age from birthdate
@@ -655,11 +644,8 @@ export default function PatientForm() {
       setDolorCabeza(patient.dolor_cabeza);
       setChasquidos(patient.chasquidos);
       setDolorOido(patient.dolor_oido);
-      setOrtodoncia(patient.ortodoncia);
-      setFinalizoTratamiento(patient.orto_finalizado || '');
       setProtesis(patient.protesis);
       setBruxismo(patient.bruxismo);
-      setNecesitaOrtodoncia(patient.necesita_ortodoncia);
       setSensibilidad(patient.sensibilidad);
       setTipoSensibilidad(patient.tipo_sensibilidad || '');
       
@@ -700,7 +686,6 @@ export default function PatientForm() {
       setProtesisTipo(patient.protesis_tipo || '');
       setProtesisNocturno(patient.protesis_nocturno || '');
       setTipoBruxismo(patient.tipo_bruxismo || '');
-      setOrtodonciaMotivoNoFinalizado(patient.orto_motivo_no_finalizado || '');
       setUltimaLimpieza(patient.ultima_limpieza || '');
       setFCepillado(patient.f_cepillado?.toString() || '');
       setTipocepillo(patient.tipocepillo || '');
@@ -708,18 +693,9 @@ export default function PatientForm() {
       setCambioCepillo(patient.cambio_cepillo || '');
       setHiloDental(patient.hilo_dental || '');
       setEnjuagueBucal(patient.enjuague_bucal || '');
-      setDetallesOrtodoncia(patient.detalles_ortodoncia || '');
-      
-      // Set Examen Intraoral states
-      setOclusion(patient.oclusion || '');
-      setRelacionMolar(patient.relacion_molar || '');
-      setRelacionCanina(patient.relacion_canina || '');
-      setTipoMordida(patient.tipo_mordida || '');
-      setApiñamiento(patient.apiñamiento || '');
-      setEspacios(patient.espacios || '');
-      setLineamedia(patient.lineamedia || '');
-      setTipoAparatologia(patient.tipo_aparatologia || '');
-      setOtroAparatologia(patient.otro_aparatologia || '');
+      setOrtodoncia(patient.ortodoncia || '');
+      setFinalizoTratamiento(patient.orto_finalizado || '');
+      setOrtodonciaMotivoNoFinalizado(patient.orto_motivo_no_finalizado || '');
       setDiagnostico(patient.diagnostico || '');
       
       // Populate form inputs after a small delay to ensure DOM is ready
@@ -860,12 +836,6 @@ export default function PatientForm() {
           const dolorOidoSelect = form.querySelector('#dolorOidoSelect') as HTMLSelectElement;
           if (dolorOidoSelect) dolorOidoSelect.value = patient.dolor_oido;
           
-          const ortodonciaSelect = form.querySelector('#ortodonciaSelect') as HTMLSelectElement;
-          if (ortodonciaSelect) ortodonciaSelect.value = patient.ortodoncia;
-          
-          const finalizoTratamientoSelect = form.querySelector('#finalizoTratamientoSelect') as HTMLSelectElement;
-          if (finalizoTratamientoSelect) finalizoTratamientoSelect.value = patient.orto_finalizado || '';
-          
           // Textareas for conditional fields
           const sangradoEnciaTextarea = form.querySelector('#sangrado_encia') as HTMLTextAreaElement;
           if (sangradoEnciaTextarea) sangradoEnciaTextarea.value = patient.sangrado_encia || '';
@@ -881,9 +851,6 @@ export default function PatientForm() {
           
           const dolorOidoDetalleTextarea = form.querySelector('#dolor_oido_detalle') as HTMLTextAreaElement;
           if (dolorOidoDetalleTextarea) dolorOidoDetalleTextarea.value = patient.dolor_oido_detalle || '';
-          
-          const ortoMotivoNoFinalizadoTextarea = form.querySelector('#orto_motivo_no_finalizado') as HTMLTextAreaElement;
-          if (ortoMotivoNoFinalizadoTextarea) ortoMotivoNoFinalizadoTextarea.value = patient.orto_motivo_no_finalizado || '';
           
           // Other fields
           const fCepilladoInput = form.querySelector('#f_cepillado') as HTMLInputElement;
@@ -903,9 +870,6 @@ export default function PatientForm() {
           
           const bruxismoSelect = form.querySelector('#bruxismo') as HTMLSelectElement;
           if (bruxismoSelect) bruxismoSelect.value = patient.bruxismo;
-          
-          const necesitaOrtodonciaSelect = form.querySelector('#necesita_ortodoncia') as HTMLSelectElement;
-          if (necesitaOrtodonciaSelect) necesitaOrtodonciaSelect.value = patient.necesita_ortodoncia;
           
           // Additional fields that were missing
           const escolaridadSelect = form.querySelector('#escolaridad') as HTMLSelectElement;
@@ -2413,135 +2377,8 @@ export default function PatientForm() {
             <option value="si">Si</option>
           </select>
 
-          <label htmlFor="necesita_ortodoncia" className="block mb-1 font-medium mt-4">¿Desea Ortodoncia?</label>
-          <select
-            id="necesita_ortodoncia"
-            name="necesita_ortodoncia"
-            required
-            className="input"
-            value={necesitaOrtodoncia}
-            onChange={e => setNecesitaOrtodoncia(e.target.value)}
-          >
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Si</option>
-            <option value="en_tratamiento">En tratamiento</option>
-          </select>
-
-          {(necesitaOrtodoncia === 'si' || necesitaOrtodoncia === 'en_tratamiento') && (
-            <>
-              <label htmlFor="detalles_ortodoncia_text" className="block mb-1 font-medium mt-2">Diagnóstico Ortodóntico:</label>
-              <textarea id="detalles_ortodoncia_text" name="detalles_ortodoncia" className="textarea" rows={3} value={detallesOrtodoncia} onChange={(e) => setDetallesOrtodoncia(e.target.value)} />
-            </>
-          )}
         </section>
 
-        {/* Examen Intraoral */}
-        {necesitaOrtodoncia === 'si' && (
-          <section>
-          <h3 className="text-lg font-semibold mt-8 mb-4 border-b border-teal-300 pb-1">Examen Intraoral</h3>
-
-          <label htmlFor="oclusion" className="block mb-1 font-medium">Oclusión:</label>
-          <select id="oclusion" name="oclusion" className="input" value={oclusion} onChange={(e) => setOclusion(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="clase1">Clase I</option>
-            <option value="clase2_div1">Clase II División 1</option>
-            <option value="clase2_div2">Clase II División 2</option>
-            <option value="clase3">Clase III</option>
-          </select>
-
-          <label htmlFor="relacion_molar" className="block mb-1 font-medium mt-4">Relación molar:</label>
-          <select id="relacion_molar" name="relacion_molar" className="input" value={relacionMolar} onChange={(e) => setRelacionMolar(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="clase1">Clase I</option>
-            <option value="clase2_div1">Clase II División 1</option>
-            <option value="clase2_div2">Clase II División 2</option>
-            <option value="clase3">Clase III</option>
-          </select>
-
-          <label htmlFor="relacion_canina" className="block mb-1 font-medium mt-4">Relación canina:</label>
-          <select id="relacion_canina" name="relacion_canina" className="input" value={relacionCanina} onChange={(e) => setRelacionCanina(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="clase1">Clase I</option>
-            <option value="clase2">Clase II</option>
-            <option value="clase3">Clase III</option>
-          </select>
-
-          <label htmlFor="tipo_mordida" className="block mb-1 font-medium mt-4">Tipo de mordida:</label>
-          <select id="tipo_mordida" name="tipo_mordida" className="input" value={tipoMordida} onChange={(e) => setTipoMordida(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="normal">Normal</option>
-            <option value="abierta">Abierta</option>
-            <option value="cruzada">Cruzada</option>
-            <option value="bordeaborde">Borde a borde</option>
-            <option value="profunda">Profunda</option>
-          </select>
-
-          <label htmlFor="apiñamiento" className="block mb-1 font-medium mt-4">Apiñamiento:</label>
-          <select id="apiñamiento" name="apiñamiento" className="input" value={apiñamiento} onChange={(e) => setApiñamiento(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="ninguno">Ninguno</option>
-            <option value="leve">Leve</option>
-            <option value="medio">Moderado</option>
-            <option value="grave">Severo</option>
-          </select>
-
-          <label htmlFor="espacios" className="block mb-1 font-medium mt-4">Espacio:</label>
-          <select id="espacios" name="espacios" className="input" value={espacios} onChange={(e) => setEspacios(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="ninguno">Ninguno</option>
-            <option value="diastemas">Diastemas</option>
-            <option value="exodonciaprevias">Exodoncias previas</option>
-          </select>
-
-          <label htmlFor="lineamedia" className="block mb-1 font-medium mt-4">Línea media dental:</label>
-          <select id="lineamedia" name="lineamedia" className="input" value={lineamedia} onChange={(e) => setLineamedia(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="centrada">Centrada</option>
-            <option value="desviada_derecha">Desviada a la derecha</option>
-            <option value="desviada_izquierda">Desviada a la izquierda</option>
-          </select>
-        </section>
-        )}
-
-        {/* Plan de Tratamiento */}
-        {necesitaOrtodoncia === 'si' && (
-          <section>
-          <h2 className="text-xl font-semibold mb-4 border-b-2 border-teal-300 pb-2">Plan de Tratamiento</h2>
-
-          <label htmlFor="diagnostico" className="block mb-1 font-medium">Diagnóstico:</label>
-          <textarea id="diagnostico" name="diagnostico" className="textarea" value={diagnostico} onChange={(e) => setDiagnostico(e.target.value)} />
-
-          <label htmlFor="tipo_aparatologia_select" className="block mb-1 font-medium mt-4">Seleccione el tipo de aparatología:</label>
-          <select id="tipo_aparatologia_select" name="tipo_aparatologia" className="input" value={tipoAparatologia} onChange={(e) => setTipoAparatologia(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="brackets_metalicos">Brackets Metálicos</option>
-            <option value="brackets_esteticos">Brackets Estéticos</option>
-            <option value="ortodoncia_lingual">Ortodoncia Lingual</option>
-            <option value="alineadores_invisalign">Alineadores (Invisalign)</option>
-            <option value="aparato_removible">Aparato Removible</option>
-            <option value="expansor_palatino">Expansor Palatino</option>
-            <option value="retenedores">Retenedores</option>
-            <option value="aparato_funcional">Aparato Funcional</option>
-            <option value="otro">Otro (especificar)</option>
-          </select>
-
-          {tipoAparatologia === 'otro' && (
-            <label htmlFor="otro_aparatologia" className="block mb-1 font-medium mt-4">Especificar otro tipo:</label>
-          )}
-          {tipoAparatologia === 'otro' && (
-            <input type="text" id="otro_aparatologia" name="otro_aparatologia" className="input" value={otroAparatologia} onChange={(e) => setOtroAparatologia(e.target.value)} placeholder="Especificar tipo de aparatología" />
-          )}
-
-          <label htmlFor="tratamiento" className="block mb-1 font-medium mt-4">Tratamiento propuesto:</label>
-          <textarea id="tratamiento" name="tratamiento" className="textarea" style={{ minHeight: '100px' }} value={tratamiento} onChange={(e) => setTratamiento(e.target.value)} />
-
-          <label htmlFor="observaciones_plan" className="block mb-1 font-medium mt-4">Observaciones:</label>
-          <textarea id="observaciones_plan" name="observaciones_plan" className="textarea" value={observacionesPlan} onChange={(e) => setObservacionesPlan(e.target.value)} />
-        </section>
-        )}
-
-        {/* Always Visible Sections - Inside Form but Outside Conditional Logic */}
         <div className="mt-8">
           <div className="flex items-center space-x-2">
             <input type="checkbox" id="confirm_info" name="confirm_info" required />
