@@ -306,7 +306,7 @@ export default function PatientPreviewPage() {
         <div className="mt-8 flex flex-wrap gap-4 justify-center">
           {/* Edit Patient Button */}
           <button
-            onClick={() => router.push(`/patient-form?id=${params.id}`)}
+            onClick={() => router.push(`/patient-form?id=${params.id as string}`)}
             className="btn bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition flex items-center gap-2"
           >
             <i className="fas fa-edit"></i>
@@ -700,69 +700,65 @@ export default function PatientPreviewPage() {
               </div>
             )}
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Hielo:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.hielo}</p>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Prótesis:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.protesis}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Boca:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.boca}</p>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Prótesis tipo:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.protesis_tipo}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Refrescos:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.refrescos}</p>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Uso nocturno de protesis:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.protesis_nocturno}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Dulces:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.dulces}</p>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Sensibilidad:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.sensibilidad}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Pegajosos:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.pegajosos}</p>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de sensibilidad:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.tipo_sensibilidad}</p>
             </div>
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Azucarados:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.azucarados}</p>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Bruxismo:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.bruxismo}</p>
             </div>
-            {patient.obs && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.obs}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Oral Hygiene */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i className="fas fa-toothbrush mr-2"></i>
-            Higiene Oral
-          </h3>
-          <div className="space-y-3">
-            {patient.visitas_dentista && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Visitas al dentista:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.visitas_dentista}</p>
-              </div>
-            )}
-            {patient.obsgen && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones generales:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.obsgen}</p>
-              </div>
-            )}
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Frecuencia de cepillado:</span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de bruxismo:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.tipo_bruxismo}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Higiene Oral - Cepillado:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.f_cepillado} veces al día</p>
             </div>
-            {patient.tipocepillo && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de cepillo:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.tipocepillo}</p>
-              </div>
-            )}
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Pasta dental:</span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Higiene Oral - Hilo Dental:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.hilo_dental}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Enjuague bucal:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.enjuague_bucal}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Dolor de cabeza:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_cabeza}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Detalles del dolor de cabeza:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_cabeza_detalle}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Chasquidos mandibulares:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.chasquidos_mandibulares}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Dolor de oído frecuente:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_oido}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Detalles del dolor de oído:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_oido_detalle}</p>
+            </div>
               <p className="text-gray-600 dark:text-gray-400">{patient.pastadental}</p>
             </div>
             <div>
@@ -780,44 +776,13 @@ export default function PatientPreviewPage() {
           </div>
         </div>
 
-        {/* Dental Examination - Show only if necesita_ortodoncia is not 'no' */}
-        {(patient.necesita_ortodoncia !== 'no' && patient.necesita_ortodoncia !== undefined) && (
+        {/* Dental Examination */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
             <i className="fas fa-search mr-2"></i>
             Examen Dental
           </h3>
           <div className="space-y-3">
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Motivo de consulta:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.motivo}</p>
-            </div>
-            {patient.historial && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Historial:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.historial}</p>
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Encías:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.encias}</p>
-            </div>
-            {patient.sangrado_encia && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Sangrado de encías:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.sangrado_encia}</p>
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Dolor:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.dolor}</p>
-            </div>
-            {patient.dolor_masticar && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Dolor al masticar:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.dolor_masticar}</p>
-              </div>
-            )}
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-300">Dolor de cabeza:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.dolor_cabeza}</p>
@@ -852,107 +817,18 @@ export default function PatientPreviewPage() {
               <span className="font-medium text-gray-700 dark:text-gray-300">Succión digital:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.suction_digital}</p>
             </div>
-          </div>
-        </div>
-        )}
-
-        {/* Treatment Plan - Show only if necesita_ortodoncia is not 'no' */}
-        {(patient.necesita_ortodoncia !== 'no' && patient.necesita_ortodoncia !== undefined) && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i className="fas fa-notes-medical mr-2"></i>
-            Plan de Tratamiento
-          </h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+              <i className="fas fa-notes-medical mr-2"></i>
+              Plan de Tratamiento
+            </h3>
+          
           <div className="space-y-3">
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Necesita ortodoncia:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.necesita_ortodoncia}</p>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones:</span>
+              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">{patient.observaciones_plan}</p>
             </div>
-            {patient.detalles_ortodoncia && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Detalles de ortodoncia:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.detalles_ortodoncia}</p>
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Sensibilidad:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.sensibilidad}</p>
-            </div>
-            {patient.tipo_sensibilidad && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de sensibilidad:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_sensibilidad}</p>
-              </div>
-            )}
-            {patient.relacion_molar && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Relación molar:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.relacion_molar}</p>
-              </div>
-            )}
-            {patient.relacion_canina && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Relación canina:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.relacion_canina}</p>
-              </div>
-            )}
-            {patient.tipo_mordida && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de mordida:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_mordida}</p>
-              </div>
-            )}
-            {patient.apiñamiento && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Apiñamiento:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.apiñamiento}</p>
-              </div>
-            )}
-            {patient.espacios && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Espacios:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.espacios}</p>
-              </div>
-            )}
-            {patient.lineamedia && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Línea media:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.lineamedia}</p>
-              </div>
-            )}
-            {patient.diagnostico && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Diagnóstico:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.diagnostico}</p>
-              </div>
-            )}
-            {patient.tipo_aparatologia && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de aparatología:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_aparatologia}</p>
-              </div>
-            )}
-            {patient.otro_aparatologia && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Otra aparatología:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.otro_aparatologia}</p>
-              </div>
-            )}
-            {patient.tratamiento && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Tratamiento:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.tratamiento}</p>
-              </div>
-            )}
-            {patient.observaciones_plan && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones del plan:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.observaciones_plan}</p>
-              </div>
-            )}
           </div>
         </div>
-        )}
 
         {/* Evaluación Odontológica */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
@@ -1041,10 +917,12 @@ export default function PatientPreviewPage() {
                 <p className="text-gray-600 dark:text-gray-400">{patient.orto_motivo_no_finalizado}</p>
               </div>
             )}
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Prótesis:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.protesis}</p>
-            </div>
+            {patient.protesis && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Prótesis:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.protesis}</p>
+              </div>
+            )}
             {patient.protesis_tipo && (
               <div>
                 <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de prótesis:</span>
