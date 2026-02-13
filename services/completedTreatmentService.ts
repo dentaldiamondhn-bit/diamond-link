@@ -77,7 +77,6 @@ export class CompletedTreatmentService {
   static async getAllCompletedTreatments(): Promise<CompletedTreatment[]> {
     try {
       // Use single query with joins to avoid N+1 performance issue
-      // Add reasonable limit to prevent browser memory issues
       const { data, error } = await supabase
         .from('tratamientos_completados')
         .select(`
@@ -105,8 +104,7 @@ export class CompletedTreatmentService {
             creado_en
           )
         `)
-        .order('fecha_cita', { ascending: false })
-        .limit(200); // Reasonable limit to prevent browser memory issues
+        .order('fecha_cita', { ascending: false });
 
       if (error) {
         console.error('Error fetching completed treatments:', error);
