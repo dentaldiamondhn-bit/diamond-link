@@ -2313,6 +2313,8 @@ export default function PatientForm() {
               <select id="protesis_tipo" name="protesis_tipo" className="input" value={protesisTipo} onChange={(e) => setProtesisTipo(e.target.value)}>
                 <option value="">Seleccionar</option>
                 <option value="Removible">Removible</option>
+                <option value="Parcial Removible">Parcial Removible</option>
+                <option value="Total">Total</option>
                 <option value="Fija">Fija</option>
                 <option value="Implante">Implante</option>
               </select>

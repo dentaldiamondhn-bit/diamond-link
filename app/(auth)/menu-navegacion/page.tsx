@@ -809,6 +809,13 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
       href: `/presupuestos?id=${validPacienteId}`
     },
     {
+      id: 'reportes',
+      icon: 'fas fa-chart-bar',
+      title: 'Reportes',
+      description: 'Vea estadísticas y análisis de rendimiento de tratamientos y pacientes.',
+      href: `/reports`
+    },
+    {
       id: 'preformas',
       icon: 'fas fa-check-circle',
       title: 'Tratamientos Completados',
@@ -1000,6 +1007,7 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
                      item.id === 'consentimientos' ? 'Consentimientos' :
                      item.id === 'presupuesto' ? 'Ir a Presupuestos' :
                      item.id === 'preformas' ? 'Ver Tratamientos' :
+                     item.id === 'reportes' ? 'Ver Reportes' :
                      item.id === 'gestion-documental' ? 'Ir a Documentos' : 'Ir'}
                   </Link>
                   {item.id === 'consentimientos' && (

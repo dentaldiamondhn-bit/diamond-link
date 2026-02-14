@@ -89,7 +89,7 @@ export interface Patient {
   orto_finalizado?: 'no' | 'si';
   orto_motivo_no_finalizado?: string;
   protesis: 'no' | 'si';
-  protesis_tipo?: 'Removible' | 'Fija' | 'Implante';
+  protesis_tipo?: 'Removible' | 'Fija' | 'Implante' | 'Parcial Removible' | 'Total';
   protesis_nocturno?: 'no' | 'si';
   sensibilidad: 'no' | 'si';
   tipo_sensibilidad?: string;

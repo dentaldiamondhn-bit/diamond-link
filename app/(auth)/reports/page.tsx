@@ -113,7 +113,7 @@ export default function ReportsPage() {
       }, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [currentStartDate, currentEndDate, activeTab, prefsLoading, user]);
+  }, [currentStartDate, currentEndDate, activeTab, prefsLoading, user, tabDateRanges]);
 
   // Update current date range when tab changes
   useEffect(() => {
@@ -156,7 +156,7 @@ export default function ReportsPage() {
         end = now.toISOString();
       }
 
-      // Load all data in parallel
+      // Load all data in parallel with doctor filter
       const [
         reportDataResult,
         doctorPerformanceResult,
@@ -165,12 +165,12 @@ export default function ReportsPage() {
         patientDemographicsResult,
         revenueStatsResult
       ] = await Promise.all([
-        ReportsService.getReportData(timeRange, start, end),
-        ReportsService.getDoctorPerformance(start, end),
-        ReportsService.getTreatmentTypes(start, end),
-        ReportsService.getPatientStats(start, end),
-        ReportsService.getPatientDemographics(),
-        ReportsService.getRevenueStats(start, end)
+        ReportsService.getReportData(timeRange, start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+        ReportsService.getDoctorPerformance(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+        ReportsService.getTreatmentTypes(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+        ReportsService.getPatientStats(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+        ReportsService.getPatientDemographics(userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+        ReportsService.getRevenueStats(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined)
       ]);
 
       setReportData(reportDataResult);
@@ -190,17 +190,10 @@ export default function ReportsPage() {
 
   // Load data when component mounts or when filters change
   useEffect(() => {
-    if (user && userRole === 'admin') {
+    if (user && (userRole === 'admin' || userRole === 'doctor')) {
       loadReportData();
     }
   }, [user, userRole, timeRange, currentStartDate, currentEndDate]);
-
-  // Redirect non-admin users
-  useEffect(() => {
-    if (isLoaded && userRole !== 'admin') {
-      router.push('/dashboard');
-    }
-  }, [userRole, isLoaded, router]);
 
   // Show loading while checking role or loading data
   if (!isLoaded || loading) {
@@ -241,8 +234,8 @@ export default function ReportsPage() {
     );
   }
 
-  // Show access denied if not admin
-  if (userRole !== 'admin') {
+  // Show access denied if not admin or doctor
+  if (userRole !== 'admin' && userRole !== 'doctor') {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -369,7 +362,7 @@ export default function ReportsPage() {
             <nav className="flex space-x-8 px-6">
               {[
                 { id: 'overview', label: 'Resumen General' },
-                { id: 'doctors', label: 'Doctores' },
+                ...(userRole === 'admin' ? [{ id: 'doctors', label: 'Doctores' }] : []),
                 { id: 'patients', label: 'Pacientes' },
                 { id: 'treatments', label: 'Tratamientos' },
                 { id: 'promotions', label: 'Descuentos y Promociones' }
@@ -489,7 +482,7 @@ export default function ReportsPage() {
               </div>
             )}
 
-            {activeTab === 'doctors' && (
+            {activeTab === 'doctors' && userRole === 'admin' && (
               <div className="space-y-6">
                 {/* Doctor Treatments Chart */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">

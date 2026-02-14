@@ -35,15 +35,31 @@ export interface BudgetData {
 }
 
 export class ReportsService {
-  static async getReportData(timeRange: 'daily' | 'weekly' | 'monthly' | 'yearly', startDate?: string, endDate?: string): Promise<ReportData[]> {
+  static async getReportData(timeRange: 'daily' | 'weekly' | 'monthly' | 'yearly', startDate?: string, endDate?: string, doctorEmail?: string): Promise<ReportData[]> {
     try {
-      // Get completed treatments grouped by date
-      const { data: treatments, error } = await supabase
+      // Get completed treatments grouped by date, filtered by doctor if specified
+      let query = supabase
         .from('tratamientos_completados')
-        .select('fecha_cita, total_final, paciente_id, doctor_name')
+        .select('fecha_cita, total_final, paciente_id, doctor_name, patients!inner(doctor)')
         .gte('fecha_cita', startDate || this.getDateRangeStart(timeRange))
         .lte('fecha_cita', endDate || new Date().toISOString())
         .order('fecha_cita', { ascending: true });
+
+      // Add doctor filter if specified - filter by patients.doctor
+      if (doctorEmail) {
+        // First get the doctor name from the doctors table using user_email
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', doctorEmail)
+          .single();
+        
+        if (doctorData) {
+          query = query.eq('patients.doctor', doctorData.name);
+        }
+      }
+
+      const { data: treatments, error } = await query;
 
       if (error) throw error;
 
@@ -102,10 +118,10 @@ export class ReportsService {
     }
   }
 
-  static async getDoctorPerformance(startDate?: string, endDate?: string): Promise<DoctorPerformance[]> {
+  static async getDoctorPerformance(startDate?: string, endDate?: string, doctorEmail?: string): Promise<DoctorPerformance[]> {
     try {
-      // Get all completed treatments details from tratamientos_realizados
-      const { data: treatments, error } = await supabase
+      // Get all completed treatments details from tratamientos_realizados, filtered by doctor if specified
+      let query = supabase
         .from('tratamientos_realizados')
         .select(`
           paciente_id, 
@@ -117,6 +133,21 @@ export class ReportsService {
           cantidad,
           notas
         `);
+
+      // Add doctor filter if specified - get doctor name from doctors table
+      if (doctorEmail) {
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', doctorEmail)
+          .single();
+        
+        if (doctorData) {
+          query = query.eq('doctor_name', doctorData.name);
+        }
+      }
+
+      const { data: treatments, error } = await query;
 
       if (error) throw error;
 
@@ -217,22 +248,49 @@ export class ReportsService {
     }
   }
 
-  static async getTreatmentTypes(startDate?: string, endDate?: string): Promise<TreatmentType[]> {
+  static async getTreatmentTypes(startDate?: string, endDate?: string, doctorEmail?: string): Promise<TreatmentType[]> {
     try {
-      // For now, let's get basic treatment stats without the complex join
-      // We'll use a simpler approach based on completed treatments
-      const { data, error } = await supabase
+      // Get treatment types from completed treatments using the view, filtered by doctor if specified
+      let query = supabase
         .from('tratamientos_completados')
-        .select('total_final, fecha_cita')
-        .gte('fecha_cita', startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString())
+        .select(`
+          vista_tratamientos_realizados_detalles!inner (
+            nombre_tratamiento,
+            precio_final
+          ),
+          patients!inner(doctor)
+        `)
+        .gte('fecha_cita', startDate || this.getDateRangeStart('monthly'))
         .lte('fecha_cita', endDate || new Date().toISOString());
+
+      // Add doctor filter if specified - filter by patients.doctor
+      if (doctorEmail) {
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', doctorEmail)
+          .single();
+        
+        if (doctorData) {
+          query = query.eq('patients.doctor', doctorData.name);
+        }
+      }
+
+      const { data: treatments, error } = await query;
 
       if (error) throw error;
 
       // Since we can't get treatment names easily, let's return generic categories
       // This can be enhanced later once we understand the table structure better
-      const totalTreatments = data?.length || 0;
-      const totalRevenue = data?.reduce((sum, item) => sum + (item.total_final || 0), 0) || 0;
+      const totalTreatments = treatments?.length || 0;
+      const totalRevenue = treatments?.reduce((sum, item) => {
+        // Extract precio_final from the nested vista_tratamientos_realizados_detalles
+        const treatmentDetails = item.vista_tratamientos_realizados_detalles;
+        if (treatmentDetails && Array.isArray(treatmentDetails)) {
+          return sum + treatmentDetails.reduce((detailSum, detail) => detailSum + (detail.precio_final || 0), 0);
+        }
+        return sum;
+      }, 0) || 0;
 
       // Return generic treatment types for now
       const treatmentTypes: TreatmentType[] = [
@@ -270,23 +328,51 @@ export class ReportsService {
     }
   }
 
-  static async getPatientStats(startDate?: string, endDate?: string) {
+  static async getPatientStats(startDate?: string, endDate?: string, doctorEmail?: string): Promise<any> {
     try {
-      // Get total patient count from patients table (like dashboard)
-      const { data: allPatients, error: allPatientsError } = await supabase
+      // Get total patient count from patients table (like dashboard), filtered by doctor if specified
+      let patientsQuery = supabase
         .from('patients')
         .select('paciente_id');
 
+      // Add doctor filter to patients if specified
+      if (doctorEmail) {
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', doctorEmail)
+          .single();
+        
+        if (doctorData) {
+          patientsQuery = patientsQuery.eq('doctor', doctorData.name);
+        }
+      }
+
+      const { data: allPatients, error: allPatientsError } = await patientsQuery;
+
       if (allPatientsError) throw allPatientsError;
 
-      // Get completed treatments in date range for new vs returning analysis
-      const { data: completedTreatments, error: completedError } = await supabase
+      // Get completed treatments in date range for new vs returning analysis, filtered by doctor if specified
+      let treatmentsQuery = supabase
         .from('tratamientos_completados')
-        .select('paciente_id, fecha_cita')
+        .select('paciente_id, fecha_cita, patients!inner(doctor)')
         .gte('fecha_cita', startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString())
         .lte('fecha_cita', endDate || new Date().toISOString());
 
-      if (completedError) throw completedError;
+      // Add doctor filter to treatments if specified
+      if (doctorEmail) {
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', doctorEmail)
+          .single();
+        
+        if (doctorData) {
+          treatmentsQuery = treatmentsQuery.eq('patients.doctor', doctorData.name);
+        }
+      }
+
+      const { data: completedTreatments, error: completedError } = await treatmentsQuery;
 
       // Total patients from patients table (matches dashboard)
       const totalPatients = allPatients?.length || 0;
@@ -313,11 +399,26 @@ export class ReportsService {
     }
   }
 
-  static async getPatientDemographics() {
+  static async getPatientDemographics(doctorEmail?: string) {
     try {
-      const { data: patients, error } = await supabase
+      let query = supabase
         .from('patients')
         .select('edad, sexo');
+
+      // Add doctor filter if specified
+      if (doctorEmail) {
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', doctorEmail)
+          .single();
+        
+        if (doctorData) {
+          query = query.eq('doctor', doctorData.name);
+        }
+      }
+
+      const { data: patients, error } = await query;
 
       if (error) throw error;
 
@@ -382,20 +483,33 @@ export class ReportsService {
     }
   }
 
-  static async getRevenueStats(startDate?: string, endDate?: string) {
+  static async getRevenueStats(startDate?: string, endDate?: string, doctorEmail?: string): Promise<any> {
     try {
       // If custom dates are provided, use them exactly as provided
       // Only use defaults if no dates are specified
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('tratamientos_completados')
-        .select('total_final, fecha_cita')
+        .select('total_final, fecha_cita, patients!inner(doctor)')
         .gte('fecha_cita', queryStartDate)
         .lte('fecha_cita', queryEndDate);
 
-      if (error) throw error;
+      // Add doctor filter if specified
+      if (doctorEmail) {
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', doctorEmail)
+          .single();
+        
+        if (doctorData) {
+          query = query.eq('patients.doctor', doctorData.name);
+        }
+      }
+
+      const { data, error } = await query;
       
       const totalRevenue = data?.reduce((sum, item) => sum + (item.total_final || 0), 0) || 0;
       const totalTreatments = data?.length || 0;

@@ -267,10 +267,6 @@ export class ExportService {
             <span class="field-label">Higiene Oral - Hilo Dental:</span>
             <span class="field-value">${patient.hilo_dental}</span>
         </div>
-        <div class="field">
-            <span class="field-label">Ortodoncia:</span>
-            <span class="field-value">${patient.ortodoncia}</span>
-        </div>
     </div>
 
     ${patient.firma_digital ? `
