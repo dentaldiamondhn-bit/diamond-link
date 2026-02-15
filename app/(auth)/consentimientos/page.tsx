@@ -200,7 +200,7 @@ function ConsentimientosContent() {
   };
 
   const getTypeColor = (type: string) => {
-    switch (type) {
+    switch (type.toLowerCase()) {
       case 'ortodoncia': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'implantes': return 'bg-green-100 text-green-800 border-green-200';
       case 'blanqueamiento': return 'bg-purple-100 text-purple-800 border-purple-200';
@@ -214,7 +214,7 @@ function ConsentimientosContent() {
   };
 
   const getTypeIcon = (type: string) => {
-    switch (type) {
+    switch (type.toLowerCase()) {
       case 'ortodoncia': return 'fa-teeth';
       case 'implantes': return 'fa-tooth';
       case 'blanqueamiento': return 'fa-sparkles';
@@ -519,23 +519,13 @@ function ConsentimientosContent() {
                     }) : 'N/A'}
                   </div>
                   <div className="flex space-x-2">
-                    {consentimiento.tipo === 'otros' && pacienteId ? (
-                      <Link
-                        href={`/consentimientos/${consentimiento.id}/preview?paciente_id=${pacienteId}`}
-                        className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-teal-500 to-cyan-700 text-white text-xs font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                      >
-                        <i className="fas fa-eye mr-1"></i>
-                        Ver
-                      </Link>
-                    ) : (
-                      <Link
-                        href={`/consentimientos/${consentimiento.id}/preview`}
-                        className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-teal-500 to-cyan-700 text-white text-xs font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                      >
-                        <i className="fas fa-eye mr-1"></i>
-                        Ver
-                      </Link>
-                    )}
+                    <Link
+                      href={`/consentimientos/${consentimiento.id}/preview${pacienteId ? `?paciente_id=${pacienteId}` : ''}`}
+                      className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-teal-500 to-cyan-700 text-white text-xs font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    >
+                      <i className="fas fa-eye mr-1"></i>
+                      Ver
+                    </Link>
                     <button 
                       onClick={() => handleDelete(consentimiento)}
                       className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-red-400 to-red-700 text-white text-xs font-medium rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl"
@@ -621,7 +611,7 @@ function ConsentimientosContent() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Link
-                        href={`/consentimientos/${consentimiento.id}/preview`}
+                        href={`/consentimientos/${consentimiento.id}/preview${pacienteId ? `?paciente_id=${pacienteId}` : ''}`}
                         className="text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-300"
                       >
                         Ver detalles

@@ -206,6 +206,17 @@ export default function ConsentimientoPreview() {
     }
   };
 
+  const processTemplateContent = (content: string, patient: Patient) => {
+    if (!content || !patient) return content;
+    
+    return content
+      .replace(/\{\{PATIENT_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.nombre_completo || '_________________________'}</span>`)
+      .replace(/\{\{PATIENT_ID\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.numero_identidad || '_____________________'}</span>`)
+      .replace(/\{\{PATIENT_ADDRESS\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.direccion || '__________________________________________'}</span>`)
+      .replace(/\{\{DOCTOR_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.doctor || '_________________________'}</span>`)
+      .replace(/\n/g, '<br>');
+  };
+
   const createPrintableContent = (consentimiento: any, patient: Patient) => {
     return `
       <!DOCTYPE html>
@@ -431,67 +442,13 @@ export default function ConsentimientoPreview() {
           
           <h2 className="text-xl font-bold text-center mb-8">CONSENTIMIENTO INFORMADO</h2>
           
-          <div className="space-y-6 text-base leading-relaxed">
-            <p className="text-justify">
-              Yo, <span className="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">
-                {patient?.nombre_completo || '_________________________'}
-              </span> con el documento de identidad 
-              <span className="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">
-                {patient?.numero_identidad || '_____________________'}
-              </span>
-            </p>
-            
-            <p className="text-justify">
-              y que resido en el domicilio
-              <span className="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">
-                {patient?.direccion || '__________________________________________'}
-              </span>
-              por medio del presente documento hago constar lo siguiente.
-            </p>
-            
-            <div className="space-y-4 ml-6">
-              <div className="flex items-start">
-                <span className="text-teal-600 dark:text-teal-400 mr-3">•</span>
-                <p className="text-justify">
-                  Que he acudido a la clínica Dental Diamond donde he sido atendido por 
-                  <span className="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">
-                    {patient?.doctor || '_________________________'}
-                  </span>
-                </p>
-              </div>
-              
-              <div className="flex items-start">
-                <span className="text-teal-600 dark:text-teal-400 mr-3">•</span>
-                <p className="text-justify">
-                  Que se me ha explicado que debo participar en la elaboración de un
-                  diagnostico odontológico el cual incluirá un exámen clínico, un examen
-                  radiográfico de ser necesario y un expediente clínico con mi información
-                  personal. Asi mismo, me ha sido advertido y se me ha explicado claramente
-                  los riesgos de salud que ocurrirían al no cumplir con las recomendaciones
-                  que el odontólogo me proporcione, liberándolo de toda responsabilidad.
-                </p>
-              </div>
-              
-              <div className="flex items-start">
-                <span className="text-teal-600 dark:text-teal-400 mr-3">•</span>
-                <p className="text-justify">
-                  Que entiendo que todos los tratamientos NO son gratuitos, ya que
-                  conllevan un costo el cual será comunicado previamente a realizar
-                  cualquier tratamiento y al llegar a un acuerdo se procederá luego de su
-                  cancelación.
-                </p>
-              </div>
-              
-              <div className="flex items-start">
-                <span className="text-teal-600 dark:text-teal-400 mr-3">•</span>
-                <p className="text-justify">
-                  Autorizo a la clínica antes dicha a la toma de fotografías publicación con
-                  fines demostrativos y educativos para posteriormente publicar en redes
-                  sociales.
-                </p>
-              </div>
-            </div>
-          </div>
+          <div 
+            className="space-y-6 text-base leading-relaxed"
+            dangerouslySetInnerHTML={{ 
+              __html: processTemplateContent(consentimiento.contenido, patient) || 
+                '<p>El contenido del consentimiento no está disponible.</p>' 
+            }}
+          />
 
           {/* Date Section */}
           <div className="mt-4 text-center">

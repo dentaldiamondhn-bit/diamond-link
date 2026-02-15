@@ -6,9 +6,10 @@ import SignaturePad from 'signature_pad';
 interface SignaturePadComponentProps {
   onChange: (signatureData: string | null) => void;
   value?: string | null;
+  disabled?: boolean;
 }
 
-export default function SignaturePadComponent({ onChange, value }: SignaturePadComponentProps) {
+export default function SignaturePadComponent({ onChange, value, disabled = false }: SignaturePadComponentProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signaturePadRef = useRef<SignaturePad | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
@@ -75,27 +76,25 @@ export default function SignaturePadComponent({ onChange, value }: SignaturePadC
   };
 
   return (
-    <div className="w-full">
-      <div className="relative border-2 border-gray-300 rounded-lg bg-white" style={{ minHeight: '200px' }}>
+    <div className={`w-full ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          className={`border-2 border-gray-300 rounded-lg w-full ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
+          style={{ touchAction: 'none', height: '150px' }}
+        />
         {isEmpty && (
           <div className="signature-placeholder absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-gray-400">
             <i className="fas fa-signature text-4xl mb-2 opacity-50"></i>
             <span>Por favor, firme aquí</span>
           </div>
         )}
-        <canvas
-          ref={canvasRef}
-          id="signature-canvas"
-          className="w-full cursor-crosshair"
-          style={{ touchAction: 'none', height: '150px' }}
-        />
       </div>
-      
       <div className="flex justify-between items-center mt-3">
         <button
           type="button"
           onClick={clearSignature}
-          disabled={isEmpty}
+          disabled={disabled || isEmpty}
           className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
           <i className="fas fa-eraser mr-2"></i>

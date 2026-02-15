@@ -232,6 +232,9 @@ export default function ConsentimientoDocument() {
         ]);
       } else {
         // Historical record with no bypass - no signatures required
+        // Set empty strings to indicate no signatures needed
+        patientSignatureUrl = '';
+        doctorSignatureUrl = '';
       }
 
       // Update consentimiento with signature URLs or empty strings
@@ -535,6 +538,7 @@ export default function ConsentimientoDocument() {
                 <SignaturePadComponent
                   onChange={(data) => setSignatureData(data)}
                   value={signatureData}
+                  disabled={!shouldRequireSignature}
                 />
               </div>
               <div className="flex justify-end space-x-4 mt-6">
@@ -575,6 +579,7 @@ export default function ConsentimientoDocument() {
                 <SignaturePadComponent
                   onChange={(data) => setDoctorSignature(data)}
                   value={doctorSignature}
+                  disabled={!shouldRequireSignature}
                 />
               </div>
               <div className="flex justify-end space-x-4 mt-6">
