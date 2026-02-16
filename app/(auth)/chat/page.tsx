@@ -1,7 +1,7 @@
 'use client';
 
-import { ModernChatLayout } from '../../../components/chat/ModernChatLayout';
+import { WhatsAppChatLayout } from '../../../components/chat/WhatsAppChatLayout';
 
 export default function ChatPage() {
-  return <ModernChatLayout />;
+  return <WhatsAppChatLayout />;
 }
