@@ -15,6 +15,7 @@ const doctorNavItems = [
   { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+  { href: '/xray-viewer', label: 'Visor Rayos X', icon: 'fas fa-x-ray' },
   { href: '/reports', label: 'Reportes', icon: 'fas fa-chart-bar' },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
 ];

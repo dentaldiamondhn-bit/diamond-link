@@ -209,6 +209,19 @@ export default function AuthLayout({
                       User Administration
                     </h1>
                   )}
+                  {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (
+                    <div className="flex items-center">
+                      <i className="fas fa-x-ray text-2xl text-teal-600 mr-3"></i>
+                      <div>
+                        <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                          Visor de Rayos X
+                        </h1>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Gestiona y visualiza estudios radiográficos de pacientes
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Right side - User Info and Actions */}

@@ -189,9 +189,10 @@ export default function ConsentimientoDocument() {
     }
   }, [pacienteId, isLoaded]);
 
+  // Handle signature based on record category and bypass mode
+  const shouldRequireSignature = !recordCategoryInfo?.isHistorical || bypassHistoricalMode;
+
   const handleSave = async () => {
-    // Handle signature based on record category and bypass mode
-    const shouldRequireSignature = !recordCategoryInfo?.isHistorical || bypassHistoricalMode;
     
     if (shouldRequireSignature && (!signatureData || !doctorSignature)) {
       alert('Por favor, firme ambos campos antes de guardar');

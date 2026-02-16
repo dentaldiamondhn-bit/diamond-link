@@ -21,28 +21,14 @@ export default function PatientXrayViewPage() {
   const params = useParams();
   const router = useRouter();
   
-  // Try different ways to extract patient ID
-  console.log('Raw params object:', params);
-  console.log('Raw params keys:', Object.keys(params));
-  console.log('Raw params.id:', params.id);
-  console.log('Raw params[patientId]:', params['patientId']);
-  
-  // Extract patient ID - try multiple approaches
+  // Extract patient ID from URL params
   let patientId: string | undefined;
   
   if (params.id) {
     patientId = params.id as string;
-    console.log('Using params.id:', patientId);
   } else if (params['patientId']) {
     patientId = params['patientId'] as string;
-    console.log('Using params[patientId]:', patientId);
-  } else {
-    console.log('No patient ID found in params');
   }
-  
-  console.log('Final extracted patientId:', patientId);
-  console.log('Final patientId type:', typeof patientId);
-  console.log('Final patientId is truthy:', !!patientId);
 
   // Load patient studies
   useEffect(() => {

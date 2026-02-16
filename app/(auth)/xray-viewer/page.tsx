@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { dentalStudyService } from '../../../services/dentalStudyService';
 import { PatientXraySummary } from '../../../types/dental';
@@ -14,8 +14,9 @@ export default function XrayViewerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPatients, setTotalPatients] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(25);
   const router = useRouter();
   
   // Use page preferences for xray viewer
@@ -23,7 +24,6 @@ export default function XrayViewerPage() {
   
   // Initialize state from preferences or defaults
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(pagePrefs?.viewMode || 'grid');
-  const [recordsPerPage, setRecordsPerPage] = useState(pagePrefs?.recordsPerPage || 25);
   const [sortBy, setSortBy] = useState<'nombre' | 'fecha' | 'estudios'>(pagePrefs?.sortBy || 'nombre');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(pagePrefs?.sortOrder || 'asc');
 
@@ -37,33 +37,18 @@ export default function XrayViewerPage() {
     });
   };
 
-  // Simple debounce function
-  const useDebounce = (callback: Function, delay: number) => {
-    const timeoutRef = useRef<NodeJS.Timeout>();
-    
-    return (...args: any[]) => {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => callback(...args), delay);
-    };
-  };
-
-  // Debounced search handler
-  const debouncedSearch = useDebounce((term: string) => {
-    setSearchTerm(term);
-    setCurrentPage(1); // Reset to page 1 when searching
-  }, 500);
-
-  // Load patients with xray data
+  // Load all patients with xray data on mount (for client-side filtering)
   useEffect(() => {
-    const loadPatients = async () => {
+    const loadAllPatients = async () => {
       try {
         setLoading(true);
         setError(null);
         
+        // Load all patients without pagination for client-side filtering
         const { patients: patientsData, total } = await dentalStudyService.getPatientsWithXraySummary(
-          currentPage,
-          recordsPerPage,
-          searchTerm,
+          1,
+          10000, // Get all records
+          '',    // No search filter - get everything
           sortBy,
           sortOrder
         );
@@ -79,16 +64,75 @@ export default function XrayViewerPage() {
     };
 
     if (!prefsLoading) {
-      loadPatients();
+      loadAllPatients();
     }
-  }, [currentPage, recordsPerPage, searchTerm, sortBy, sortOrder, prefsLoading]);
+  }, [sortBy, sortOrder, prefsLoading]);
 
-  // Calculate pagination
+  // Client-side filtering
+  const filteredPatients = patients.filter(patient => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      patient.nombre_completo?.toLowerCase().includes(searchLower) ||
+      patient.numero_identidad?.toLowerCase().includes(searchLower) ||
+      patient.latest_study_type?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Pagination calculations
+  const totalFiltered = filteredPatients.length;
+  const totalPages = Math.ceil(totalFiltered / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
   const endIndex = startIndex + recordsPerPage;
-  const totalPages = Math.ceil(totalPatients / recordsPerPage);
+  const currentPatients = filteredPatients.slice(startIndex, endIndex);
 
-  // Note: No need for client-side filtering since search is now handled server-side
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const getPaginationNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleRecordsPerPageChange = (value: number) => {
+    setRecordsPerPage(value);
+    setCurrentPage(1);
+  };
 
   if (loading) {
     return <LoadingAnimation />;
@@ -122,89 +166,73 @@ export default function XrayViewerPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
-                <i className="fas fa-x-ray mr-3 text-teal-600"></i>
-                Visor de Rayos X
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Gestiona y visualiza estudios radiográficos de pacientes
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
+        {/* Search Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex-1">
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Search Input */}
+              <div className="relative flex-1">
                 <input
                   type="text"
                   placeholder="Buscar por nombre, ID o tipo de estudio..."
-                  onChange={(e) => debouncedSearch(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
                 />
                 <i className="fas fa-search absolute right-3 top-3 text-gray-400"></i>
               </div>
-            </div>
-
-            {/* Sort Controls */}
-            <div className="flex items-center gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'nombre' | 'fecha' | 'estudios')}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="nombre">Nombre</option>
-                <option value="fecha">Fecha</option>
-                <option value="estudios">Estudios</option>
-              </select>
-              <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                title={`Orden ${sortOrder === 'asc' ? 'ascendente' : 'descendente'}`}
-              >
-                <i className={`fas fa-sort-amount-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
-              </button>
+              
+              {/* Sort Controls */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'nombre' | 'fecha' | 'estudios')}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="nombre">Nombre</option>
+                  <option value="fecha">Fecha</option>
+                  <option value="estudios">Estudios</option>
+                </select>
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                  title={`Orden ${sortOrder === 'asc' ? 'ascendente' : 'descendente'}`}
+                >
+                  <i className={`fas fa-sort-amount-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
+                </button>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center justify-end mt-4">
-            {/* View Toggle Button */}
-            <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  viewMode === 'grid'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <i className="fas fa-th-large mr-2"></i>
-                Cuadrícula
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  viewMode === 'list'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <i className="fas fa-list mr-2"></i>
-                Lista
-              </button>
-            </div>
+          {/* View Toggle Button */}
+          <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
+                viewMode === 'grid'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <i className="fas fa-th-large mr-2"></i>
+              Cuadrícula
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
+                viewMode === 'list'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <i className="fas fa-list mr-2"></i>
+              Lista
+            </button>
           </div>
         </div>
 
         {/* Patients Display */}
-        {patients.length === 0 ? (
+        {filteredPatients.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               <i className="fas fa-x-ray text-6xl"></i>
@@ -221,7 +249,7 @@ export default function XrayViewerPage() {
             {/* Grid View */}
             {viewMode === 'grid' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {patients.map((patient) => {
+                {currentPatients.map((patient) => {
                   const patientType = getPatientType(patient);
                   return (
                     <div
@@ -334,7 +362,7 @@ export default function XrayViewerPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {patients.map((patient) => (
+                      {currentPatients.map((patient) => (
                         <tr key={patient.patient_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -386,95 +414,78 @@ export default function XrayViewerPage() {
             )}
 
             {/* Pagination and Records Counter */}
-            {totalPatients > 0 && (
+            {totalFiltered > 0 && (
               <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
-                  {/* Records Counter and Per Page Selector */}
-                  <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                    <div className="text-sm text-gray-700 dark:text-gray-300">
-                      <span className="font-medium">Total Pacientes: {totalPatients}</span>
-                      <span className="mx-2">|</span>
-                      <span>Mostrando: {startIndex + 1}-{Math.min(endIndex, totalPatients)} de {totalPatients}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm text-gray-600 dark:text-gray-400">
-                        Mostrar:
-                      </label>
+                  {/* Records Counter */}
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">Total Pacientes: {totalFiltered}</span>
+                    <span className="mx-2">|</span>
+                    <span>Mostrando: {startIndex + 1}-{Math.min(endIndex, totalFiltered)} de {totalFiltered}</span>
+                  </div>
+
+                  {/* Records Per Page Dropdown */}
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Registros por página:</label>
+                    <div className="relative">
                       <select
                         value={recordsPerPage}
-                        onChange={(e) => setRecordsPerPage(Number(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                        onChange={(e) => handleRecordsPerPageChange(Number(e.target.value))}
+                        className="appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm font-medium text-gray-900 dark:text-white hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 cursor-pointer transition-colors duration-200"
                       >
                         <option value={10}>10</option>
                         <option value={25}>25</option>
                         <option value={50}>50</option>
                         <option value={100}>100</option>
                       </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+                        <i className="fas fa-chevron-down text-xs"></i>
+                      </div>
                     </div>
                   </div>
 
                   {/* Pagination Controls */}
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white"
-                    >
-                      <i className="fas fa-angle-double-left"></i>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white"
-                    >
-                      <i className="fas fa-angle-left"></i>
-                    </button>
-                    
-                    {/* Page Numbers */}
+                  {totalPages > 1 && (
                     <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum;
-                        if (totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
-                        } else {
-                          pageNum = currentPage - 2 + i;
-                        }
-                        
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`px-3 py-1 text-sm border rounded-lg ${
-                              currentPage === pageNum
-                                ? 'bg-teal-600 text-white border-teal-600'
-                                : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-700 dark:text-white'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
+                      {/* Previous Button */}
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      >
+                        <i className="fas fa-chevron-left"></i>
+                      </button>
+
+                      {/* Page Numbers */}
+                      {getPaginationNumbers().map((page, index) => (
+                        <span key={index}>
+                          {page === '...' ? (
+                            <span className="px-3 py-1 text-sm text-gray-500 dark:text-gray-400">...</span>
+                          ) : (
+                            <button
+                              onClick={() => handlePageChange(page as number)}
+                              className={`px-3 py-1 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500 ${
+                                currentPage === page
+                                  ? 'bg-teal-600 text-white border-teal-600'
+                                  : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          )}
+                        </span>
+                      ))}
+
+                      {/* Next Button */}
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      >
+                        <i className="fas fa-chevron-right"></i>
+                      </button>
                     </div>
-                    
-                    <button
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white"
-                    >
-                      <i className="fas fa-angle-right"></i>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white"
-                    >
-                      <i className="fas fa-angle-double-right"></i>
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
