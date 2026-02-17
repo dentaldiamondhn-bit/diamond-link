@@ -145,7 +145,7 @@ export default function UnifiedSidebar() {
                 }`}
                 onClick={() => setActiveGroup(activeGroup === group.id ? null : group.id)}
               >
-                <i className={`fas ${group.icon} w-6 text-center`}></i>
+                <i className={`fas ${typeof group.icon === 'string' ? group.icon : 'fa-circle'} w-6 text-center`}></i>
                 <span className="ml-3">{group.label}</span>
                 <i className={`fas fa-chevron-${activeGroup === group.id ? 'up' : 'down'} ml-auto transition-transform duration-200`}></i>
               </button>
@@ -160,7 +160,11 @@ export default function UnifiedSidebar() {
                         href={item.href}
                         className="flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 whitespace-nowrap"
                       >
-                        <i className={`fas ${item.icon} w-4 mr-3`}></i>
+                        {typeof item.icon === 'string' ? (
+                          <i className={`fas ${item.icon} w-4 mr-3`}></i>
+                        ) : (
+                          <item.icon />
+                        )}
                         {item.label}
                       </Link>
                     ))}

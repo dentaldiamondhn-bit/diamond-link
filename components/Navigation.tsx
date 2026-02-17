@@ -76,7 +76,11 @@ export default function Navigation() {
                       : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   }`}
                 >
-                  {item.icon && <i className={`${item.icon} mr-2`}></i>}
+                  {typeof item.icon === 'string' ? (
+                    <i className={`${item.icon} mr-2`}></i>
+                  ) : (
+                    <item.icon />
+                  )}
                   {item.label}
                 </Link>
               ))}
