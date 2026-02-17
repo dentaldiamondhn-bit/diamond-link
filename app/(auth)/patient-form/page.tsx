@@ -1654,6 +1654,7 @@ export default function PatientForm() {
             <option value="Viudo">Viudo(a)</option>
             <option value="Divorciado">Divorciado(a)</option>
             <option value="Union Libre">Unión Libre</option>
+            <option value="Desconocido">Desconocido</option>
           </select>
 
           <label htmlFor="email" className="block mb-1 font-medium mt-4">Correo electrónico:</label>

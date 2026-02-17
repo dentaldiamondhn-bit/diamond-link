@@ -20,6 +20,8 @@ import { HistoricalModeService } from '@/services/historicalModeService';
 import HistoricalBadge from '@/components/HistoricalBadge';
 import HistoricalBanner from '@/components/HistoricalBanner';
 import Link from 'next/link';
+import AnimatedWallet from '@/components/AnimatedWallet';
+import AnimatedReport from '@/components/AnimatedReport';
 
 export default function MenuNavegacion() {
   const { user } = useUser();
@@ -803,14 +805,14 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
     },
     {
       id: 'presupuesto',
-      icon: 'fas fa-file-invoice-dollar',
+      icon: <AnimatedWallet className="w-4 h-4" />,
       title: 'Presupuestos',
       description: getPresupuestoDescription(),
       href: `/presupuestos?id=${validPacienteId}`
     },
     {
       id: 'reportes',
-      icon: 'fas fa-chart-bar',
+      icon: <AnimatedReport className="w-4 h-4" />,
       title: 'Reportes',
       description: 'Vea estadísticas y análisis de rendimiento de tratamientos y pacientes.',
       href: `/reports`
@@ -977,7 +979,11 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
               <div className="bg-gradient-to-r from-teal-500 to-cyan-500 p-6 text-white">
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white border border-white/30">
-                    <i className={`${item.icon} text-xl`}></i>
+                    {typeof item.icon === 'string' ? (
+                      <i className={`${item.icon} text-xl`}></i>
+                    ) : (
+                      <div className="w-7 h-7 flex items-center justify-center">{item.icon}</div>
+                    )}
                   </div>
                   <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-semibold border border-white/30">
                     Módulo

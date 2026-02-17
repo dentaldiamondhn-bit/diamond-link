@@ -23,7 +23,7 @@ export interface Patient {
   pais_codigo?: string;
   direccion: string;
   escolaridad: string;
-  estado_civil: 'Soltero' | 'Casado' | 'Viudo' | 'Divorciado' | 'Union Libre';
+  estado_civil: 'Soltero' | 'Casado' | 'Viudo' | 'Divorciado' | 'Union Libre' | 'Desconocido';
   email?: string;
   trabajo?: string;
   contacto_emergencia: string;

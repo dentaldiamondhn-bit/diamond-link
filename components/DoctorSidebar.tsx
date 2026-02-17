@@ -7,6 +7,7 @@ import { UserButton } from '@clerk/nextjs';
 import { useUser } from '@clerk/nextjs';
 import GlobalSearch from './GlobalSearch';
 import { TutorialButton } from './TutorialButton';
+import AnimatedReport from './AnimatedReport';
 
 const doctorNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -16,7 +17,7 @@ const doctorNavItems = [
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
   { href: '/xray-viewer', label: 'Visor Rayos X', icon: 'fas fa-x-ray' },
-  { href: '/reports', label: 'Reportes', icon: 'fas fa-chart-bar' },
+  { href: '/reports', label: 'Reportes', icon: <AnimatedReport className="w-4 h-4" /> },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
 ];
 
@@ -52,7 +53,11 @@ export default function DoctorSidebar() {
                       : 'text-blue-200 hover:bg-blue-800 hover:text-white'
                   }`}
                 >
-                  <i className={`${item.icon} w-5 mr-3`}></i>
+                  {typeof item.icon === 'string' ? (
+                    <i className={`${item.icon} w-5 mr-3`}></i>
+                  ) : (
+                    <div className="w-5 mr-3">{item.icon}</div>
+                  )}
                   <span className="font-medium">{item.label}</span>
                 </Link>
                 {/* Global Search Component */}
@@ -73,7 +78,11 @@ export default function DoctorSidebar() {
                   : 'text-blue-200 hover:bg-blue-800 hover:text-white'
               }`}
             >
-              <i className={`${item.icon} w-5 mr-3`}></i>
+              {typeof item.icon === 'string' ? (
+                <i className={`${item.icon} w-5 mr-3`}></i>
+              ) : (
+                <div className="w-5 mr-3">{item.icon}</div>
+              )}
               <span className="font-medium">{item.label}</span>
             </Link>
           );

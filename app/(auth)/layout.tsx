@@ -9,6 +9,8 @@ import { NotificationDropdown } from '@/components/NotificationDropdown';
 import AdminSidebar from '@/components/AdminSidebar';
 import DoctorSidebar from '@/components/DoctorSidebar';
 import StaffSidebar from '@/components/StaffSidebar';
+import AnimatedReport from '@/components/AnimatedReport';
+import AnimatedBurger from '@/components/AnimatedBurger';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { HistoricalModeProvider } from '@/contexts/HistoricalModeContext';
 import { BellNotificationProvider } from '@/contexts/BellNotificationContext';
@@ -111,10 +113,8 @@ export default function AuthLayout({
                   className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 active:scale-95 group"
                   aria-label="Toggle menu"
                 >
-                  <div className="relative w-6 h-5 flex flex-col justify-center items-center">
-                    <span className={`absolute h-0.5 w-6 bg-current rounded-full transition-all duration-300 ${sidebarOpen ? 'rotate-45 translate-y-0' : '-translate-y-2'}`}></span>
-                    <span className={`h-0.5 w-6 bg-current rounded-full transition-all duration-300 ${sidebarOpen ? 'opacity-0' : 'opacity-100'}`}></span>
-                    <span className={`absolute h-0.5 w-6 bg-current rounded-full transition-all duration-300 ${sidebarOpen ? '-rotate-45 translate-y-0' : 'translate-y-2'}`}></span>
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <AnimatedBurger />
                   </div>
                 </button>
 
@@ -163,8 +163,11 @@ export default function AuthLayout({
                 {/* Left side - Page Title */}
                 <div className="flex items-center">
                   {pathname === '/reports' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      📊 Reportes y Análisis
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                      <div className="w-6 h-6 mr-3 flex items-center justify-center">
+                        <AnimatedReport />
+                      </div>
+                      Reportes y Análisis
                     </h1>
                   )}
                   {pathname === '/pacientes' && (
