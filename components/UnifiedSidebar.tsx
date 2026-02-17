@@ -163,7 +163,7 @@ export default function UnifiedSidebar() {
                         {typeof item.icon === 'string' ? (
                           <i className={`fas ${item.icon} w-4 mr-3`}></i>
                         ) : (
-                          <item.icon />
+                          <>{item.icon}</>
                         )}
                         {item.label}
                       </Link>

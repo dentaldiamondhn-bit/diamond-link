@@ -63,7 +63,7 @@ export default function RoleBasedSidebar() {
                     {typeof item.icon === 'string' ? (
                       <i className={`${item.icon} mr-3 w-5`}></i>
                     ) : (
-                      <item.icon />
+                      <>{item.icon}</>
                     )}
                     <span>{item.label}</span>
                   </Link>
@@ -85,7 +85,11 @@ export default function RoleBasedSidebar() {
                     : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                 }`}
               >
-                <i className={`${item.icon} mr-3 w-5`}></i>
+                {typeof item.icon === 'string' ? (
+                  <i className={`${item.icon} mr-3 w-5`}></i>
+                ) : (
+                  <>{item.icon}</>
+                )}
                 <span>{item.label}</span>
               </Link>
             );

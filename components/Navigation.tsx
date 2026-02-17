@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
@@ -79,7 +80,7 @@ export default function Navigation() {
                   {typeof item.icon === 'string' ? (
                     <i className={`${item.icon} mr-2`}></i>
                   ) : (
-                    <item.icon />
+                    <>{item.icon}</>
                   )}
                   {item.label}
                 </Link>
