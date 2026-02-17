@@ -92,7 +92,7 @@ export interface Patient {
   protesis_tipo?: 'Removible' | 'Fija' | 'Implante' | 'Parcial Removible' | 'Total';
   protesis_nocturno?: 'no' | 'si';
   sensibilidad: 'no' | 'si';
-  tipo_sensibilidad?: string;
+  tipo_sensibilidad?: 'dulce' | 'frio' | 'caliente' | 'acido' | 'presion' | 'multiple' | 'desconocido';
   bruxismo: 'no' | 'si';
   tipo_bruxismo?: 'diurno' | 'nocturno' | 'ambos';
   ultima_limpieza?: string;

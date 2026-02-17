@@ -2348,6 +2348,7 @@ export default function PatientForm() {
               <option value="acido">Ácido</option>
               <option value="presion">Presión</option>
               <option value="multiple">Múltiple</option>
+              <option value="desconocido">Desconocido</option>
             </select>
           )}
 
