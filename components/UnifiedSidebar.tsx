@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
+import AnimatedUser from './AnimatedUser';
+import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { DarkModeToggle } from './DarkModeToggle';
@@ -11,8 +14,8 @@ export const NAVIGATION_GROUPS = [
     label: 'Gestión de Pacientes',
     icon: 'fa-users',
     items: [
-      { href: '/patient-form', icon: 'fa-file-medical', label: 'Nueva Historia Clínica' },
-      { href: '/pacientes', icon: 'fa-users', label: 'Lista de Pacientes' },
+      { href: '/patient-form', icon: <AnimatedUser className="w-4 h-4" />, label: 'Nueva Historia Clínica' },
+      { href: '/pacientes', icon: <AnimatedUsers className="w-4 h-4" />, label: 'Lista de Pacientes' },
       { href: '/patient-records', icon: 'fa-notes-medical', label: 'Historias Clínicas' },
     ]
   },
@@ -30,7 +33,7 @@ export const NAVIGATION_GROUPS = [
     icon: 'fa-procedures',
     items: [
       { href: '/tratamientos', icon: 'fa-plus', label: 'Crear Tratamientos' },
-      { href: '/tratamientos-completados', icon: 'fa-check-circle', label: 'Tratamientos Completados' },
+      { href: '/tratamientos-completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" />, label: 'Tratamientos Completados' },
       { href: '/consentimientos', icon: 'fa-file-signature', label: 'Consentimientos' },
     ]
   },
@@ -51,7 +54,7 @@ export const NAVIGATION_GROUPS = [
     icon: 'fa-cog',
     items: [
       { href: '/dashboard/doctors', icon: 'fa-user-md', label: 'Doctores' },
-      { href: '/dashboard/users', icon: 'fa-users-cog', label: 'Usuarios' },
+      { href: '/dashboard/users', icon: <AnimatedUsers className="w-4 h-4" />, label: 'Usuarios' },
       { href: '/dashboard/reports', icon: 'fa-chart-bar', label: 'Reportes' },
       { href: '/dashboard/settings', icon: 'fa-cog', label: 'Configuración' },
     ]

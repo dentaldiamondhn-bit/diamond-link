@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useUserRole, UserRole } from '@/hooks/useUserRole';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
+import AnimatedUsers from '@/components/AnimatedUsers';
 
 interface User {
   id: string;
@@ -565,20 +566,6 @@ export default function UserAdministration() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <div className="flex items-center">
-              <div className="flex-shrink-0 bg-red-100 dark:bg-red-900 rounded-lg p-3">
-                <i className="fas fa-crown text-red-600 dark:text-red-400"></i>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Admins</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {users.filter(u => u.role === 'admin').length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <div className="flex items-center">
               <div className="flex-shrink-0 bg-blue-100 dark:bg-blue-900 rounded-lg p-3">
                 <i className="fas fa-user-md text-blue-600 dark:text-blue-400"></i>
               </div>
@@ -1066,7 +1053,9 @@ export default function UserAdministration() {
 
               {currentUsers.length === 0 && (
                 <div className="text-center py-12">
-                  <i className="fas fa-users-slash text-4xl text-gray-400 mb-4"></i>
+                  <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <AnimatedUsers />
+                  </div>
                   <p className="text-gray-500 dark:text-gray-400">
                     No se encontraron usuarios que coincidan con sus criterios
                   </p>
@@ -1206,7 +1195,9 @@ export default function UserAdministration() {
                   
                   {currentUsers.length === 0 && (
                     <div className="col-span-full text-center py-12">
-                      <i className="fas fa-users-slash text-4xl text-gray-400 mb-4"></i>
+                      <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                        <AnimatedUsers />
+                      </div>
                       <p className="text-gray-500 dark:text-gray-400">
                         No se encontraron usuarios que coincidan con sus criterios
                       </p>

@@ -8,13 +8,15 @@ import { useUser } from '@clerk/nextjs';
 import GlobalSearch from './GlobalSearch';
 import { TutorialButton } from './TutorialButton';
 import AnimatedReport from './AnimatedReport';
+import AnimatedUser from './AnimatedUser';
+import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 
 const doctorNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
   { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
-  { href: '/patient-form', label: 'Nueva Historia', icon: 'fas fa-plus-circle' },
+  { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" /> },
   { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
-  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
+  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
   { href: '/xray-viewer', label: 'Visor Rayos X', icon: 'fas fa-x-ray' },
   { href: '/reports', label: 'Reportes', icon: <AnimatedReport className="w-4 h-4" /> },

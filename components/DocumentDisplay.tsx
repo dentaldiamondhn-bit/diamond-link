@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import AnimatedVer from './AnimatedVer';
 import DocumentPreviewModal from './DocumentPreviewModal';
+import AnimatedRubish from './AnimatedRubish';
 
 interface DocumentDisplayProps {
   documents: string[];
@@ -280,10 +282,9 @@ export function DocumentDisplay({ documents, onRemove, removable = false, patien
                   onClick={() => setPreviewIndex(index)}
                   className="flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-all duration-200 hover:scale-105"
                 >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
+                  <div className="w-5 h-5 mr-1 flex items-center justify-center">
+                    <AnimatedVer />
+                  </div>
                   Ver
                 </button>
                 
@@ -305,9 +306,9 @@ export function DocumentDisplay({ documents, onRemove, removable = false, patien
                       </>
                     ) : (
                       <>
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        <div className="w-4 h-4 mr-1 flex items-center justify-center">
+                          <AnimatedRubish />
+                        </div>
                         Borrar
                       </>
                     )}

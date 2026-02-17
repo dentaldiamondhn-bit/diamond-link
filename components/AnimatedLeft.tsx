@@ -2,13 +2,13 @@
 
 import React, { useEffect, useRef } from 'react';
 import lottie from 'lottie-web';
-import animatedWalletData from '../animated-wallet.json';
+import animatedLeftData from '../animated-left.json';
 
-interface AnimatedWalletProps {
+interface AnimatedLeftProps {
   className?: string;
 }
 
-export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) {
+export default function AnimatedLeft({ className = '' }: AnimatedLeftProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
       renderer: 'svg',
       loop: true,
       autoplay: true,
-      animationData: animatedWalletData,
+      animationData: animatedLeftData,
       rendererSettings: {
         preserveAspectRatio: 'xMidYMid meet',
         progressiveLoad: true,
@@ -29,10 +29,10 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
       }
     });
 
-    // Set appropriate size and color
+    // Set appropriate speed
     animation.setSpeed(0.5);
     
-    // Change all shapes to white color
+    // Change all shapes to white color (for navigation arrows)
     animation.addEventListener('DOMLoaded', () => {
       const svgElement = container.querySelector('svg');
       if (svgElement) {
@@ -58,13 +58,13 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
         // Add CSS to override all colors within this specific animation only
         const style = document.createElement('style');
         style.textContent = `
-          svg[data-wallet-animation] * {
+          svg[data-left-animation] * {
             fill: #ffffff !important;
             stroke: #ffffff !important;
             color: #ffffff !important;
           }
         `;
-        svgElement.setAttribute('data-wallet-animation', 'true');
+        svgElement.setAttribute('data-left-animation', 'true');
         svgElement.appendChild(style);
       }
     });

@@ -55,15 +55,16 @@ export default function AnimatedBurger({ className = '' }: AnimatedBurgerProps) 
           }
         });
         
-        // Add CSS to override all colors
+        // Add CSS to override all colors within this specific animation only
         const style = document.createElement('style');
         style.textContent = `
-          svg * {
+          svg[data-burger-animation] * {
             fill: #ffffff !important;
             stroke: #ffffff !important;
             color: #ffffff !important;
           }
         `;
+        svgElement.setAttribute('data-burger-animation', 'true');
         svgElement.appendChild(style);
       }
     });

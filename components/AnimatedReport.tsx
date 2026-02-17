@@ -55,15 +55,16 @@ export default function AnimatedReport({ className = '' }: AnimatedReportProps) 
           }
         });
         
-        // Add CSS to override all colors
+        // Add CSS to override all colors within this specific animation only
         const style = document.createElement('style');
         style.textContent = `
-          svg * {
+          svg[data-report-animation] * {
             fill: #ffffff !important;
             stroke: #ffffff !important;
             color: #ffffff !important;
           }
         `;
+        svgElement.setAttribute('data-report-animation', 'true');
         svgElement.appendChild(style);
       }
     });

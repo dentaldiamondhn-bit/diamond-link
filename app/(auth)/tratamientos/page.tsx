@@ -10,6 +10,8 @@ import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
+import AnimatedRubish from '@/components/AnimatedRubish';
+import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import type { CompletedTreatment, TreatmentItem } from '../../../services/completedTreatmentService';
 import { TreatmentService } from '../../../services/treatmentService';
@@ -1135,7 +1137,9 @@ export default function TratamientosPage() {
                               className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               title="Eliminar tratamiento"
                             >
-                              <i className="fas fa-trash"></i>
+                              <div className="w-4 h-4 flex items-center justify-center">
+                                <AnimatedRubish />
+                              </div>
                               <span className="text-xs">Eliminar</span>
                             </button>
                           </td>
@@ -1252,7 +1256,9 @@ export default function TratamientosPage() {
                               className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               title="Eliminar promoción"
                             >
-                              <i className="fas fa-trash"></i>
+                              <div className="w-4 h-4 flex items-center justify-center">
+                                <AnimatedRubish />
+                              </div>
                               <span className="text-xs">Eliminar</span>
                             </button>
                           </td>
@@ -1362,7 +1368,9 @@ export default function TratamientosPage() {
                                 className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                 title="Eliminar paquete"
                               >
-                                <i className="fas fa-trash"></i>
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <AnimatedRubish />
+                                </div>
                                 <span className="text-xs">Eliminar</span>
                               </button>
                             </td>
@@ -2084,7 +2092,9 @@ export default function TratamientosPage() {
                           <td className="p-2">
                             {usage.phone && (
                               <a href={createWhatsAppUrl(usage.phone, usage.countryCode)} target="_blank" className="text-teal-600">
-                                <i className="fab fa-whatsapp mr-1"></i>{formatPhoneDisplay(usage.phone, usage.countryCode)}
+                                <div className="w-4 h-4 inline-flex items-center justify-center mr-1">
+                                  <AnimatedWhatsApp />
+                                </div>{formatPhoneDisplay(usage.phone, usage.countryCode)}
                               </a>
                             )}
                           </td>

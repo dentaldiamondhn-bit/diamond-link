@@ -4,27 +4,29 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRoleBasedAccess } from '../hooks/useRoleBasedAccess';
+import AnimatedUser from './AnimatedUser';
+import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 import GlobalSearch from './GlobalSearch';
 
 interface SidebarItem {
   href: string;
   label: string;
-  icon: string;
+  icon: string | React.ReactNode;
   permission: keyof import('../hooks/useRoleBasedAccess').RolePermissions;
 }
 
 const sidebarItems: SidebarItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt', permission: 'canViewDashboard' },
   { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured', permission: 'canViewPatients' },
-  { href: '/patient-form', label: 'Nueva Historia', icon: 'fas fa-plus-circle', permission: 'canCreatePatients' },
+  { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" />, permission: 'canCreatePatients' },
   { href: '/patient-preview', label: 'Vista Paciente', icon: 'fas fa-eye', permission: 'canViewPatientPreview' },
   { href: '/odontogram', label: 'Odontograma', icon: 'fas fa-teeth', permission: 'canViewOdontogram' },
   { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth', permission: 'canViewTreatments' },
-  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle', permission: 'canViewCompletedTreatments' },
+  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" />, permission: 'canViewCompletedTreatments' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract', permission: 'canViewConsentimientos' },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar', permission: 'canViewCalendar' },
   { href: '/doctores', label: 'Doctores', icon: 'fas fa-user-md', permission: 'canManageDoctores' },
-  { href: '/admin/users', label: 'Usuarios', icon: 'fas fa-users', permission: 'canManageUsers' },
+  { href: '/admin/users', label: 'Usuarios', icon: <AnimatedUsers className="w-4 h-4" />, permission: 'canManageUsers' },
 ];
 
 export default function RoleBasedSidebar() {

@@ -19,6 +19,8 @@ import { EventModal } from '@/components/calendar/EventModal';
 import { TutorialProvider } from '@/contexts/TutorialContext';
 import { TutorialModal } from '@/components/TutorialModal';
 import { TutorialButton } from '@/components/TutorialButton';
+import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
+import AnimatedUsers from '@/components/AnimatedUsers';
 import { usePathname } from 'next/navigation';
 
 // Force dynamic rendering for this layout
@@ -183,8 +185,10 @@ export default function AuthLayout({
                     </h1>
                   )}
                   {pathname === '/tratamientos-completados' && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-check-circle mr-2"></i>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                      <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                        <AnimatedTratamientosCompletados />
+                      </div>
                       Tratamientos Completados
                     </h1>
                   )}
@@ -207,8 +211,10 @@ export default function AuthLayout({
                     </h1>
                   )}
                   {pathname.startsWith('/admin/users') && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-users-cog mr-2 text-teal-600"></i>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                      <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                        <AnimatedUsers />
+                      </div>
                       User Administration
                     </h1>
                   )}

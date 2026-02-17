@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { PatientService } from '../../../services/patientService';
 import { Patient } from '../../../types/patient';
 import Link from 'next/link';
-import { createWhatsAppUrl, formatPhoneDisplay } from '../../../utils/phoneUtils';
+import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
+import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { getPatientType } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
@@ -536,7 +537,9 @@ export default function PacientesPage() {
                         rel="noopener noreferrer"
                         className="text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline flex items-center gap-1"
                       >
-                        <i className="fab fa-whatsapp text-xs"></i>
+                        <div className="w-4 h-4 flex items-center justify-center">
+                          <AnimatedWhatsApp />
+                        </div>
                         {formatPhoneDisplay(displayPatient.telefono, displayPatient.codigopais)}
                       </a>
                     ) : (
@@ -696,7 +699,9 @@ export default function PacientesPage() {
                           rel="noopener noreferrer"
                           className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 underline flex items-center gap-1"
                         >
-                          <i className="fab fa-whatsapp text-xs"></i>
+                          <div className="w-4 h-4 flex items-center justify-center">
+                            <AnimatedWhatsApp />
+                          </div>
                           {formatPhoneDisplay(patient.telefono, patient.codigopais)}
                         </a>
                       ) : (

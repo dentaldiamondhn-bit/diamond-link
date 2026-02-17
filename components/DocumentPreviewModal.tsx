@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import AnimatedLeft from './AnimatedLeft';
+import AnimatedRight from './AnimatedRight';
 
 interface DocumentPreviewModalProps {
   documents: string[];
@@ -84,9 +86,9 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
             onClick={goToPrevious}
             className="absolute left-4 z-10 p-3 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 transition-all duration-200"
           >
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <div className="w-8 h-8 flex items-center justify-center">
+              <AnimatedLeft />
+            </div>
           </button>
         )}
 
@@ -97,9 +99,9 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
             onClick={goToNext}
             className="absolute right-4 z-10 p-3 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 transition-all duration-200"
           >
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+            <div className="w-8 h-8 flex items-center justify-center">
+              <AnimatedRight />
+            </div>
           </button>
         )}
 

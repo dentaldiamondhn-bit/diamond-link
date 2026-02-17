@@ -9,6 +9,7 @@ import { Patient } from '../../../../types/patient';
 import { AVAILABLE_DOCTORS, getDoctorById, Doctor } from '../../../../config/doctors';
 import { getRecordCategoryInfoSync, generateTranscriptionMetadata } from '../../../../utils/recordCategoryUtils';
 import { useHistoricalMode } from '../../../../contexts/HistoricalModeContext';
+import AnimatedRubish from '@/components/AnimatedRubish';
 import { getPatientType } from '../../../../utils/patientTypeUtils';
 import { supabase } from '../../../../lib/supabase';
 import { useUser } from '@clerk/nextjs';
@@ -1316,7 +1317,9 @@ function NuevoTratamientoCompletadoPage() {
                   onClick={() => setShowBeneficiaryModal(false)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
-                  <i className="fas fa-times text-xl"></i>
+                  <div className="w-5 h-5 flex items-center justify-center">
+                    <AnimatedRubish />
+                  </div>
                 </button>
               </div>
 
@@ -1477,7 +1480,9 @@ function NuevoTratamientoCompletadoPage() {
                             onClick={() => removeBeneficiary(beneficiary.paciente_id)}
                             className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                           >
-                            <i className="fas fa-times"></i>
+                            <div className="w-4 h-4 flex items-center justify-center">
+                              <AnimatedRubish />
+                            </div>
                           </button>
                         </div>
                       </div>

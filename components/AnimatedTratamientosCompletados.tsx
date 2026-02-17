@@ -2,13 +2,13 @@
 
 import React, { useEffect, useRef } from 'react';
 import lottie from 'lottie-web';
-import animatedWalletData from '../animated-wallet.json';
+import animatedTratamientosCompletadosData from '../animated-tratamientoscompletados.json';
 
-interface AnimatedWalletProps {
+interface AnimatedTratamientosCompletadosProps {
   className?: string;
 }
 
-export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) {
+export default function AnimatedTratamientosCompletados({ className = '' }: AnimatedTratamientosCompletadosProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
       renderer: 'svg',
       loop: true,
       autoplay: true,
-      animationData: animatedWalletData,
+      animationData: animatedTratamientosCompletadosData,
       rendererSettings: {
         preserveAspectRatio: 'xMidYMid meet',
         progressiveLoad: true,
@@ -29,10 +29,10 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
       }
     });
 
-    // Set appropriate size and color
+    // Set appropriate speed
     animation.setSpeed(0.5);
     
-    // Change all shapes to white color
+    // Change all shapes to white color (for sidebar usage)
     animation.addEventListener('DOMLoaded', () => {
       const svgElement = container.querySelector('svg');
       if (svgElement) {
@@ -58,13 +58,13 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
         // Add CSS to override all colors within this specific animation only
         const style = document.createElement('style');
         style.textContent = `
-          svg[data-wallet-animation] * {
+          svg[data-tratamientoscompletados-animation] * {
             fill: #ffffff !important;
             stroke: #ffffff !important;
             color: #ffffff !important;
           }
         `;
-        svgElement.setAttribute('data-wallet-animation', 'true');
+        svgElement.setAttribute('data-tratamientoscompletados-animation', 'true');
         svgElement.appendChild(style);
       }
     });

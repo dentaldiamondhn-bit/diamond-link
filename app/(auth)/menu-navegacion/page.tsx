@@ -22,6 +22,7 @@ import HistoricalBanner from '@/components/HistoricalBanner';
 import Link from 'next/link';
 import AnimatedWallet from '@/components/AnimatedWallet';
 import AnimatedReport from '@/components/AnimatedReport';
+import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 
 export default function MenuNavegacion() {
   const { user } = useUser();
@@ -944,7 +945,9 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
                         rel="noopener noreferrer"
                         className="text-white hover:text-teal-100 transition-colors duration-200 flex items-center gap-2"
                       >
-                        <i className="fab fa-whatsapp"></i>
+                        <div className="w-5 h-5 flex items-center justify-center">
+                          <AnimatedWhatsApp />
+                        </div>
                         {formatPhoneDisplay(patient.telefono, patient.codigopais)}
                       </a>
                     ) : (

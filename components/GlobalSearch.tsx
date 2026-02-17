@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { TutorialButton } from './TutorialButton';
+import AnimatedUser from './AnimatedUser';
+import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 import { PatientService } from '../services/patientService';
 import { OdontogramService } from '../services/odontogramService';
 import { consentimientoService } from '../services/consentimientoService';
@@ -131,9 +134,9 @@ export default function GlobalSearch() {
       { title: 'Pacientes', description: 'Gestión de pacientes', href: '/pacientes', category: 'Navegación' },
       { title: 'Calendario', description: 'Citas y eventos', href: '/calendario', category: 'Navegación' },
       { title: 'Tratamientos', description: 'Catálogo de tratamientos', href: '/tratamientos', category: 'Navegación' },
-      { title: 'Tratamientos Completados', description: 'Historial de tratamientos', href: '/tratamientos-completados', category: 'Navegación' },
+      { title: 'Tratamientos Completados', description: 'Historial de tratamientos', href: '/tratamientos-completados', category: 'Navegación', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
       { title: 'Odontograma', description: 'Diagrama dental', href: '/odontogram', category: 'Herramientas' },
-      { title: 'Nueva Historia Clínica', description: 'Formulario de paciente', href: '/patient-form', category: 'Formularios' },
+      { title: 'Nueva Historia Clínica', description: 'Formulario de paciente', href: '/patient-form', category: 'Formularios', icon: <AnimatedUser className="w-4 h-4" /> },
       { title: 'Historial de Pacientes', description: 'Registros médicos', href: '/patient-records', category: 'Registros' },
       { title: 'Menú de Navegación', description: 'Navegación rápida', href: '/menu-navegacion', category: 'Navegación' },
       { title: 'Promociones', description: 'Ofertas y promociones', href: '/promociones', category: 'Promociones' },

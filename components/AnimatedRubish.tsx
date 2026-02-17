@@ -2,13 +2,13 @@
 
 import React, { useEffect, useRef } from 'react';
 import lottie from 'lottie-web';
-import animatedWalletData from '../animated-wallet.json';
+import animatedRubishData from '../animated-rubish.json';
 
-interface AnimatedWalletProps {
+interface AnimatedRubishProps {
   className?: string;
 }
 
-export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) {
+export default function AnimatedRubish({ className = '' }: AnimatedRubishProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
       renderer: 'svg',
       loop: true,
       autoplay: true,
-      animationData: animatedWalletData,
+      animationData: animatedRubishData,
       rendererSettings: {
         preserveAspectRatio: 'xMidYMid meet',
         progressiveLoad: true,
@@ -29,42 +29,42 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
       }
     });
 
-    // Set appropriate size and color
+    // Set appropriate speed
     animation.setSpeed(0.5);
     
-    // Change all shapes to white color
+    // Change all shapes to red color (for delete/remove actions)
     animation.addEventListener('DOMLoaded', () => {
       const svgElement = container.querySelector('svg');
       if (svgElement) {
         // Target all possible SVG elements
         const allElements = svgElement.querySelectorAll('*');
         allElements.forEach(element => {
-          // Set fill and stroke to white
-          (element as SVGElement).style.fill = '#ffffff';
-          (element as SVGElement).style.stroke = '#ffffff';
-          (element as SVGElement).style.color = '#ffffff';
+          // Set fill and stroke to red
+          (element as SVGElement).style.fill = '#DC2626';
+          (element as SVGElement).style.stroke = '#DC2626';
+          (element as SVGElement).style.color = '#DC2626';
           
           // Override any inline styles
-          element.setAttribute('fill', '#ffffff');
-          element.setAttribute('stroke', '#ffffff');
-          element.setAttribute('color', '#ffffff');
+          element.setAttribute('fill', '#DC2626');
+          element.setAttribute('stroke', '#DC2626');
+          element.setAttribute('color', '#DC2626');
           
           // Override style attribute
           if (element.getAttribute('style')) {
-            element.setAttribute('style', element.getAttribute('style')?.replace(/#[0-9a-fA-F]{3,6}/g, '#ffffff') || 'fill:#ffffff;stroke:#ffffff;color:#ffffff;');
+            element.setAttribute('style', element.getAttribute('style')?.replace(/#[0-9a-fA-F]{3,6}/g, '#DC2626') || 'fill:#DC2626;stroke:#DC2626;color:#DC2626;');
           }
         });
         
         // Add CSS to override all colors within this specific animation only
         const style = document.createElement('style');
         style.textContent = `
-          svg[data-wallet-animation] * {
-            fill: #ffffff !important;
-            stroke: #ffffff !important;
-            color: #ffffff !important;
+          svg[data-rubish-animation] * {
+            fill: #DC2626 !important;
+            stroke: #DC2626 !important;
+            color: #DC2626 !important;
           }
         `;
-        svgElement.setAttribute('data-wallet-animation', 'true');
+        svgElement.setAttribute('data-rubish-animation', 'true');
         svgElement.appendChild(style);
       }
     });

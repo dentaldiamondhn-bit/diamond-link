@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { PatientService } from '@/services/patientService';
 import { Patient } from '@/types/patient';
+import AnimatedRubish from '@/components/AnimatedRubish';
+import { supabase } from '@/lib/supabase';
 
 interface PeriodontalStudy {
   id: number;
@@ -844,22 +846,6 @@ export default function EstudioPeriodontal() {
                                         
                                         setSavedStudies(prev => prev.filter(s => s.id !== study.id));
                                         alert('Estudio eliminado correctamente');
-                                      } catch (error) {
-                                        console.error('Error deleting study:', error);
-                                        alert('Error al eliminar estudio: ' + (error as Error).message);
-                                      }
-                                    }
-                                  }}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Eliminar"
-                                >
-                                  <i className="fas fa-trash"></i>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
                     </tbody>
                   </table>
                 </div>

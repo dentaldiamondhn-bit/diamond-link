@@ -2,13 +2,13 @@
 
 import React, { useEffect, useRef } from 'react';
 import lottie from 'lottie-web';
-import animatedWalletData from '../animated-wallet.json';
+import animatedWhatsAppData from '../animated-whatsapp.json';
 
-interface AnimatedWalletProps {
+interface AnimatedWhatsAppProps {
   className?: string;
 }
 
-export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) {
+export default function AnimatedWhatsApp({ className = '' }: AnimatedWhatsAppProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
       renderer: 'svg',
       loop: true,
       autoplay: true,
-      animationData: animatedWalletData,
+      animationData: animatedWhatsAppData,
       rendererSettings: {
         preserveAspectRatio: 'xMidYMid meet',
         progressiveLoad: true,
@@ -29,42 +29,42 @@ export default function AnimatedWallet({ className = '' }: AnimatedWalletProps) 
       }
     });
 
-    // Set appropriate size and color
+    // Set appropriate speed
     animation.setSpeed(0.5);
     
-    // Change all shapes to white color
+    // Change all shapes to WhatsApp green color
     animation.addEventListener('DOMLoaded', () => {
       const svgElement = container.querySelector('svg');
       if (svgElement) {
         // Target all possible SVG elements
         const allElements = svgElement.querySelectorAll('*');
         allElements.forEach(element => {
-          // Set fill and stroke to white
-          (element as SVGElement).style.fill = '#ffffff';
-          (element as SVGElement).style.stroke = '#ffffff';
-          (element as SVGElement).style.color = '#ffffff';
+          // Set fill and stroke to WhatsApp green
+          (element as SVGElement).style.fill = '#25D366';
+          (element as SVGElement).style.stroke = '#25D366';
+          (element as SVGElement).style.color = '#25D366';
           
           // Override any inline styles
-          element.setAttribute('fill', '#ffffff');
-          element.setAttribute('stroke', '#ffffff');
-          element.setAttribute('color', '#ffffff');
+          element.setAttribute('fill', '#25D366');
+          element.setAttribute('stroke', '#25D366');
+          element.setAttribute('color', '#25D366');
           
           // Override style attribute
           if (element.getAttribute('style')) {
-            element.setAttribute('style', element.getAttribute('style')?.replace(/#[0-9a-fA-F]{3,6}/g, '#ffffff') || 'fill:#ffffff;stroke:#ffffff;color:#ffffff;');
+            element.setAttribute('style', element.getAttribute('style')?.replace(/#[0-9a-fA-F]{3,6}/g, '#25D366') || 'fill:#25D366;stroke:#25D366;color:#25D366;');
           }
         });
         
         // Add CSS to override all colors within this specific animation only
         const style = document.createElement('style');
         style.textContent = `
-          svg[data-wallet-animation] * {
-            fill: #ffffff !important;
-            stroke: #ffffff !important;
-            color: #ffffff !important;
+          svg[data-whatsapp-animation] * {
+            fill: #25D366 !important;
+            stroke: #25D366 !important;
+            color: #25D366 !important;
           }
         `;
-        svgElement.setAttribute('data-wallet-animation', 'true');
+        svgElement.setAttribute('data-whatsapp-animation', 'true');
         svgElement.appendChild(style);
       }
     });

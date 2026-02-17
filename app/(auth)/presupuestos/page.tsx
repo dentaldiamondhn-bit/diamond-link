@@ -10,6 +10,8 @@ import { Patient } from '@/types/patient';
 import { Quote, QuoteItem } from '@/types/quote';
 import { Treatment } from '@/types/treatment';
 import { Odontogram, DienteData } from '@/types/odontogram';
+import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
+import AnimatedRubish from '@/components/AnimatedRubish';
 
 // Define Promotion interface
 interface Promotion {
@@ -680,7 +682,9 @@ export default function PresupuestosPage() {
                           className="flex items-center text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors"
                           title="Enviar mensaje por WhatsApp"
                         >
-                          <i className="fas fa-phone mr-2"></i>
+                          <div className="w-5 h-5 mr-2 flex items-center justify-center">
+                            <AnimatedWhatsApp />
+                          </div>
                           <span>
                             {currentPatient.codigopais && currentPatient.codigopais !== '+504' 
                               ? `${currentPatient.codigopais} ${currentPatient.telefono}`
@@ -918,7 +922,9 @@ export default function PresupuestosPage() {
                         disabled={newQuote.items.length === 1}
                         className="p-2 text-red-600 hover:text-red-800 disabled:opacity-50"
                       >
-                        <i className="fas fa-trash"></i>
+                        <div className="w-4 h-4 flex items-center justify-center">
+                          <AnimatedRubish />
+                        </div>
                       </button>
                     </div>
                   ))}

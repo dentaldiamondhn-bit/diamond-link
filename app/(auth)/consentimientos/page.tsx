@@ -8,6 +8,7 @@ import { PatientService } from '../../../services/patientService';
 import { createWhatsAppUrl, formatPhoneDisplay } from '../../../utils/phoneUtils';
 import { getPatientType } from '../../../utils/patientTypeUtils';
 import { CONSENT_TEMPLATES, getConsentTemplate } from '../../../utils/consentTemplates';
+import AnimatedRubish from '../../../components/AnimatedRubish';
 
 function ConsentimientosContent() {
   const [consentimientos, setConsentimientos] = useState<any[]>([]);
@@ -530,7 +531,9 @@ function ConsentimientosContent() {
                       onClick={() => handleDelete(consentimiento)}
                       className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-red-400 to-red-700 text-white text-xs font-medium rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl"
                     >
-                      <i className="fas fa-trash mr-1"></i>
+                      <div className="w-4 h-4 mr-1 flex items-center justify-center">
+                        <AnimatedRubish />
+                      </div>
                       Eliminar
                     </button>
                   </div>

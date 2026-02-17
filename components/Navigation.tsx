@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
+import AnimatedUser from './AnimatedUser';
+import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 
 interface NavItem {
   href: string;
   label: string;
-  icon?: string;
+  icon?: string | React.ReactNode;
 }
 
 const roleBasedNavItems: Record<string, NavItem[]> = {
@@ -15,11 +17,11 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
     { href: '/admin/users', label: 'Usuarios', icon: 'fas fa-users' },
     { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
-    { href: '/patient-form', label: 'Nueva Historia', icon: 'fas fa-plus-circle' },
+    { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" /> },
     { href: '/patient-preview', label: 'Vista Paciente', icon: 'fas fa-eye' },
     { href: '/odontogram', label: 'Odontograma', icon: 'fas fa-teeth' },
     { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
-    { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
+    { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
     { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
@@ -27,9 +29,10 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
   doctor: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
     { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
-    { href: '/patient-form', label: 'Nueva Historia', icon: 'fas fa-plus-circle' },
+    { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" /> },
     { href: '/odontogram', label: 'Odontograma', icon: 'fas fa-teeth' },
     { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
+    { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
     { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
@@ -37,7 +40,7 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
   staff: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
     { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
-    { href: '/tratamientos-completados', label: 'Tratamientos', icon: 'fas fa-check-circle' },
+    { href: '/tratamientos-completados', label: 'Tratamientos', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
     { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
   ],

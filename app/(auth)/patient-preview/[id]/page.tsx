@@ -14,6 +14,8 @@ import { createWhatsAppUrl, formatPhoneDisplay, parsePhoneNumber } from '@/utils
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/nextjs';
 import HistoricalBanner from '@/components/HistoricalBanner';
+import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
+import AnimatedUser from '@/components/AnimatedUser';
 import DocumentDisplay from '@/components/DocumentDisplay';
 
 // Isolated component to prevent authentication conflicts
@@ -364,7 +366,9 @@ export default function PatientPreviewPage() {
           </div>
           <div className="text-right">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${patientType?.colors?.badge || 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200'}`}>
-              <i className="fas fa-user mr-2"></i>
+              <div className="w-4 h-4 mr-2 flex items-center justify-center">
+                <AnimatedUser />
+              </div>
               {patientType?.label || 'Adulto'} • Paciente #{patient.paciente_id}
             </span>
           </div>
@@ -393,7 +397,9 @@ export default function PatientPreviewPage() {
         {/* Personal Information */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i className="fas fa-user mr-2"></i>
+            <div className="w-5 h-5 mr-2 flex items-center justify-center">
+              <AnimatedUser />
+            </div>
             Información Personal
           </h3>
           <div className="space-y-3">
@@ -435,7 +441,9 @@ export default function PatientPreviewPage() {
             {((patient.edad && patient.edad < 18) || patient.representante_legal) && (
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
                 <h4 className="text-md font-semibold text-gray-800 dark:text-white mb-3">
-                  <i className="fas fa-user-shield mr-2"></i>
+                  <div className="w-5 h-5 mr-2 flex items-center justify-center">
+                    <AnimatedUser />
+                  </div>
                   Representante Legal
                 </h4>
                 <div className="space-y-2">
@@ -462,7 +470,9 @@ export default function PatientPreviewPage() {
                           className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
                           title="Enviar mensaje de WhatsApp"
                         >
-                          <i className="fab fa-whatsapp text-lg"></i>
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            <AnimatedWhatsApp />
+                          </div>
                         </a>
                         <a
                           href={createWhatsAppUrl(patient.rep_celular, patient.rep_pais_codigo || '504')}
@@ -500,7 +510,9 @@ export default function PatientPreviewPage() {
                     className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
                     title="Enviar mensaje de WhatsApp"
                   >
-                    <i className="fab fa-whatsapp text-lg"></i>
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      <AnimatedWhatsApp />
+                    </div>
                   </a>
                   <a
                     href={createWhatsAppUrl(patient.telefono, patient.pais_codigo || '504')}
@@ -541,7 +553,9 @@ export default function PatientPreviewPage() {
                     className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
                     title="Enviar mensaje de WhatsApp"
                   >
-                    <i className="fab fa-whatsapp text-lg"></i>
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      <AnimatedWhatsApp />
+                    </div>
                   </a>
                   <a
                     href={createWhatsAppUrl(patient.contacto_telefono, patient.contacto_pais_codigo || '504')}

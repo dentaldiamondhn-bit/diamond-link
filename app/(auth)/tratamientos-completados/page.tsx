@@ -16,7 +16,8 @@ import type { Payment, PaymentSummary } from '../../../services/paymentServiceFi
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
 import HistoricalBadge from '../../../components/HistoricalBadge';
-import { usePagePreferences } from '../../../hooks/useUserPreferences';
+import { usePagePreferences } from '@/hooks/useUserPreferences';
+import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '../../../lib/supabase';
 
 export default function TratamientosCompletadosPage() {
@@ -926,7 +927,9 @@ export default function TratamientosCompletadosPage() {
                           onClick={() => openDeleteTreatmentModal(treatment)}
                           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                         >
-                          <i className="fas fa-trash mr-2"></i>
+                          <div className="w-4 h-4 mr-2 flex items-center justify-center">
+                            <AnimatedRubish />
+                          </div>
                           Eliminar
                         </button>
                         <Link
@@ -1094,7 +1097,9 @@ export default function TratamientosCompletadosPage() {
                               className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               title="Eliminar Tratamiento"
                             >
-                              <i className="fas fa-trash text-xs"></i>
+                              <div className="w-4 h-4 flex items-center justify-center">
+                                <AnimatedRubish />
+                              </div>
                               <span className="text-xs">Eliminar</span>
                             </button>
                             <Link
@@ -1434,7 +1439,9 @@ export default function TratamientosCompletadosPage() {
                                 onClick={() => deletePayment(payment.id)}
                                 className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm"
                               >
-                                <i className="fas fa-trash"></i>
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <AnimatedRubish />
+                                </div>
                               </button>
                             </div>
                           ))}
@@ -1607,7 +1614,9 @@ export default function TratamientosCompletadosPage() {
                       onClick={deleteCompletedTreatment}
                       disabled={isDeleting}
                     >
-                      <i className="fas fa-trash mr-2"></i>
+                      <div className="w-4 h-4 mr-2 flex items-center justify-center">
+                        <AnimatedRubish />
+                      </div>
                       Eliminar Tratamiento
                     </button>
                     <button 

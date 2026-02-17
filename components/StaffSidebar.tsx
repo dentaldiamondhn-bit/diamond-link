@@ -7,13 +7,15 @@ import { UserButton } from '@clerk/nextjs';
 import { useUser } from '@clerk/nextjs';
 import GlobalSearch from './GlobalSearch';
 import { TutorialButton } from './TutorialButton';
+import AnimatedUser from './AnimatedUser';
+import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 
 const staffNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
   { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
-  { href: '/patient-form', label: 'Nueva Historia', icon: 'fas fa-plus-circle' },
+  { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" /> },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-signature' },
-  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
+  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
 ];
 
