@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useRoleBasedAccess } from '../hooks/useRoleBasedAccess';
 import AnimatedUser from './AnimatedUser';
 import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
+import AnimatedUsers from './AnimatedUsers';
 import GlobalSearch from './GlobalSearch';
 
 interface SidebarItem {

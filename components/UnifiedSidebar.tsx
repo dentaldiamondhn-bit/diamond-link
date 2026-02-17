@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AnimatedUser from './AnimatedUser';
 import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
+import AnimatedUsers from './AnimatedUsers';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { DarkModeToggle } from './DarkModeToggle';
