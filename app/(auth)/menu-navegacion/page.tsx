@@ -23,6 +23,7 @@ import Link from 'next/link';
 import AnimatedWallet from '@/components/AnimatedWallet';
 import AnimatedReport from '@/components/AnimatedReport';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
+import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
 
 export default function MenuNavegacion() {
   const { user } = useUser();
@@ -820,7 +821,7 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
     },
     {
       id: 'preformas',
-      icon: 'fas fa-check-circle',
+      icon: <AnimatedTratamientosCompletados className="w-8 h-8" />,
       title: 'Tratamientos Completados',
       description: getTreatmentStatsDescription(),
       href: `/tratamientos-completados?paciente_id=${validPacienteId}`
