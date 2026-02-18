@@ -51,7 +51,11 @@ export default function StaffSidebar() {
                       : 'text-green-200 hover:bg-green-800 hover:text-white'
                   }`}
                 >
-                  <i className={`${item.icon} w-5 mr-3`}></i>
+                  {typeof item.icon === 'string' ? (
+                    <i className={`${item.icon} w-5 mr-3`}></i>
+                  ) : (
+                    <div className="w-5 mr-3">{item.icon}</div>
+                  )}
                   <span className="font-medium">{item.label}</span>
                 </Link>
                 {/* Global Search Component */}
@@ -72,7 +76,11 @@ export default function StaffSidebar() {
                   : 'text-green-200 hover:bg-green-800 hover:text-white'
               }`}
             >
-              <i className={`${item.icon} w-5 mr-3`}></i>
+              {typeof item.icon === 'string' ? (
+                <i className={`${item.icon} w-5 mr-3`}></i>
+              ) : (
+                <div className="w-5 mr-3">{item.icon}</div>
+              )}
               <span className="font-medium">{item.label}</span>
             </Link>
           );
