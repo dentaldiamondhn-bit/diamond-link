@@ -279,7 +279,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
     });
     
     // Check for potential constraint violations before update
-    const enumFields = ['fuma', 'alcohol', 'drogas', 'cafe', 'objetos', 'encias', 'dolor', 'dolor_cabeza', 'chasquidos', 'dolor_oido', 'ortodoncia', 'sensibilidad', 'bruxismo', 'hilo_dental', 'enjuague_bucal'];
+    const enumFields = ['fuma', 'alcohol', 'drogas', 'cafe', 'objetos', 'encias', 'dolor', 'dolor_cabeza', 'chasquidos', 'dolor_oido', 'ortodoncia', 'sensibilidad', 'bruxismo', 'hilo_dental', 'enjuague_bucal', 'reaccion_adversa_anestesico', 'experiencia_odontologica_traumatica'];
     enumFields.forEach(field => {
       const value = (patientData as any)[field];
       if (value && value !== 'no' && value !== 'si' && value !== 'en_tratamiento') {
