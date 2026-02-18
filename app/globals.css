@@ -23,6 +23,21 @@ body {
     -webkit-touch-callout: none;
   }
   
+  /* Allow orientation changes and prevent lock */
+  @media screen and (orientation: landscape) {
+    html, body {
+      transform: rotate(0deg);
+      transform-origin: center center;
+    }
+  }
+  
+  @media screen and (orientation: portrait) {
+    html, body {
+      transform: rotate(0deg);
+      transform-origin: center center;
+    }
+  }
+  
   /* Prevent zoom on input focus but allow user interaction */
   input, textarea, select {
     font-size: 16px !important;
