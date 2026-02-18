@@ -72,8 +72,7 @@ export const NAVIGATION_GROUPS = [
 ];
 
 export default function UnifiedSidebar() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [forceOpen, setForceOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const pathname = usePathname();
 
@@ -85,38 +84,14 @@ export default function UnifiedSidebar() {
     setActiveGroup(currentGroup?.id || null);
   }, [pathname]);
 
-  // Handle clicks outside sidebar to prevent auto-hide
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const sidebar = document.querySelector('.sidebar-container');
-      const toggleButton = document.querySelector('[data-sidebar-toggle]');
-      
-      if (sidebar && toggleButton && 
-          !sidebar.contains(event.target as Node) && 
-          !toggleButton.contains(event.target as Node)) {
-        // Don't auto-hide if clicking on sidebar content or toggle button
-        setForceOpen(true);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, []);
-
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
-    setForceOpen(false); // Reset force open when manually toggling
   };
 
   return (
     <div
-      className={`sidebar-container ${
-        isSidebarOpen || forceOpen ? 'w-64' : 'w-20'
+      className={`${
+        isSidebarOpen ? 'w-64' : 'w-20'
       } text-white transition-all duration-300 ease-in-out flex flex-col fixed top-0 left-0 bottom-0 z-40`}
       style={{
         background: 'linear-gradient(135deg, #0d9488 0%, #06b6d4 100%) !important',
@@ -136,7 +111,6 @@ export default function UnifiedSidebar() {
         )}
         <button
           onClick={toggleSidebar}
-          data-sidebar-toggle
           className="p-2 rounded-lg hover:bg-white/10"
         >
           <i className={`fas fa-${isSidebarOpen ? 'times' : 'bars'}`}></i>

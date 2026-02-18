@@ -107,10 +107,6 @@ export interface Patient {
   observaciones_plan?: string;
   firma_digital?: string;
   is_historical?: boolean;
-  // New dental evaluation fields
-  reaccion_adversa_anestesico?: 'no' | 'si';
-  experiencia_odontologica_traumatica?: 'no' | 'si';
-  observaciones_generales?: string;
   matchedFields?: string[];
   score?: number;
 }

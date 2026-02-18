@@ -457,11 +457,6 @@ export default function PatientForm() {
   const [hiloDental, setHiloDental] = useState('');
   const [enjuagueBucal, setEnjuagueBucal] = useState('');
   const [ortodoncia, setOrtodoncia] = useState('');
-  
-  // New dental evaluation fields
-  const [reaccionAdversaAnestesico, setReaccionAdversaAnestesico] = useState('');
-  const [experienciaOdontologicaTraumatica, setExperienciaOdontologicaTraumatica] = useState('');
-  const [observacionesGenerales, setObservacionesGenerales] = useState('');
   const [finalizoTratamiento, setFinalizoTratamiento] = useState('');
   const [ortodonciaMotivoNoFinalizado, setOrtodonciaMotivoNoFinalizado] = useState('');
 
@@ -702,9 +697,6 @@ export default function PatientForm() {
       setFinalizoTratamiento(patient.orto_finalizado || '');
       setOrtodonciaMotivoNoFinalizado(patient.orto_motivo_no_finalizado || '');
       setDiagnostico(patient.diagnostico || '');
-      setReaccionAdversaAnestesico(patient.reaccion_adversa_anestesico || '');
-      setExperienciaOdontologicaTraumatica(patient.experiencia_odontologica_traumatica || '');
-      setObservacionesGenerales(patient.observaciones_generales || '');
       
       // Populate form inputs after a small delay to ensure DOM is ready
       setTimeout(() => {
@@ -991,15 +983,6 @@ export default function PatientForm() {
           
           const cambioCepilloSelect = form.querySelector('#cambio_cepillo') as HTMLSelectElement;
           if (cambioCepilloSelect) cambioCepilloSelect.value = patient.cambio_cepillo;
-          
-          const reaccionAdversaAnestesicoSelect = form.querySelector('#reaccion_adversa_anestesico') as HTMLSelectElement;
-          if (reaccionAdversaAnestesicoSelect) reaccionAdversaAnestesicoSelect.value = patient.reaccion_adversa_anestesico || '';
-          
-          const experienciaOdontologicaTraumaticaSelect = form.querySelector('#experiencia_odontologica_traumatica') as HTMLSelectElement;
-          if (experienciaOdontologicaTraumaticaSelect) experienciaOdontologicaTraumaticaSelect.value = patient.experiencia_odontologica_traumatica || '';
-          
-          const observacionesGeneralesInput = form.querySelector('#observaciones_generales') as HTMLInputElement;
-          if (observacionesGeneralesInput) observacionesGeneralesInput.value = patient.observaciones_generales || '';
           
           const enjuagueBucalSelect = form.querySelector('#enjuague_bucal') as HTMLSelectElement;
           if (enjuagueBucalSelect) enjuagueBucalSelect.value = patient.enjuague_bucal;
@@ -2311,57 +2294,6 @@ export default function PatientForm() {
             </>
           )}
 
-          <label htmlFor="reaccion_adversa_anestesico" className="block mb-1 font-medium mt-4">Reacción adversa al Anestésico:</label>
-          <select
-            id="reaccion_adversa_anestesico"
-            name="reaccion_adversa_anestesico"
-            required
-            className="input"
-            value={reaccionAdversaAnestesico}
-            onChange={e => setReaccionAdversaAnestesico(e.target.value)}
-          >
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Si</option>
-          </select>
-
-          <label htmlFor="experiencia_odontologica_traumatica" className="block mb-1 font-medium mt-4">Ha Tenido Experiencia Odontológica Traumatica:</label>
-          <select
-            id="experiencia_odontologica_traumatica"
-            name="experiencia_odontologica_traumatica"
-            required
-            className="input"
-            value={experienciaOdontologicaTraumatica}
-            onChange={e => setExperienciaOdontologicaTraumatica(e.target.value)}
-          >
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Si</option>
-          </select>
-
-          <label htmlFor="experiencia_odontologica_traumatica" className="block mb-1 font-medium mt-4">Ha Tenido Experiencia Odontológica Traumatica:</label>
-          <select
-            id="experiencia_odontologica_traumatica"
-            name="experiencia_odontologica_traumatica"
-            required
-            className="input"
-            value={experienciaOdontologicaTraumatica}
-            onChange={e => setExperienciaOdontologicaTraumatica(e.target.value)}
-          >
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Si</option>
-          </select>
-
-          <label htmlFor="observaciones_generales" className="block mb-1 font-medium mt-4">Observaciones Generales:</label>
-          <textarea 
-            id="observaciones_generales" 
-            name="observaciones_generales" 
-            className="textarea" 
-            value={observacionesGenerales} 
-            onChange={(e) => setObservacionesGenerales(e.target.value)} 
-          />
-
           <label htmlFor="protesisSelect" className="block mb-1 font-medium mt-4">Uso de Prótesis:</label>
           <select
             id="protesisSelect"
@@ -2451,7 +2383,8 @@ export default function PatientForm() {
 
         </section>
 
-        {/* Signature Section */}
+        <div className="mt-8">
+          {/* Signature Section */}
           {recordCategoryInfo?.isHistorical && !bypassHistoricalMode ? (
             <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-center space-x-2">
