@@ -624,6 +624,52 @@ export default function PatientPreviewPage() {
           </div>
         </div>
 
+        {/* Dental Evaluation Information */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            <i className="fas fa-tooth mr-2"></i>
+            Evaluación Odontológica
+          </h3>
+          <div className="space-y-3">
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Reacción adversa al anestésico:</span>
+              <p className="text-gray-600 dark:text-gray-400">
+                {patient.reaccion_adversa_anestesico === 'no' ? 'No' : 
+                 patient.reaccion_adversa_anestesico === 'si' ? 'Sí' : 
+                 patient.reaccion_adversa_anestesico === 'no_aplicada' ? 'No Aplicada' : 
+                 'No especificado'}
+              </p>
+            </div>
+            {patient.tipo_reaccion && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de reacción:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_reaccion}</p>
+              </div>
+            )}
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Ha tenido experiencia odontológica traumática:</span>
+              <p className="text-gray-600 dark:text-gray-400">
+                {patient.experiencia_traumatica === 'no' ? 'No' : 
+                 patient.experiencia_traumatica === 'si' ? 'Sí' : 
+                 patient.experiencia_traumatica === 'es_1ra_consulta' ? 'Es 1ra Consulta' : 
+                 'No especificado'}
+              </p>
+            </div>
+            {patient.que_sucedio && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">¿Qué sucedió?:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.que_sucedio}</p>
+              </div>
+            )}
+            {patient.observaciones_generales && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones Generales:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.observaciones_generales}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Habits Information */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
