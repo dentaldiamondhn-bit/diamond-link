@@ -465,6 +465,9 @@ export default function PatientForm() {
   const [queSucedio, setQueSucedio] = useState('');
   const [finalizoTratamiento, setFinalizoTratamiento] = useState('');
   const [ortodonciaMotivoNoFinalizado, setOrtodonciaMotivoNoFinalizado] = useState('');
+  
+  // Observaciones Generales field
+  const [observacionesGenerales, setObservacionesGenerales] = useState('');
 
   // Fetch doctors from database
   useEffect(() => {
@@ -709,6 +712,7 @@ export default function PatientForm() {
       setTipoReaccion(patient.tipo_reaccion || '');
       setExperienciaTraumatica(patient.experiencia_traumatica || '');
       setQueSucedio(patient.que_sucedio || '');
+      setObservacionesGenerales(patient.observaciones_generales || '');
       
       // Populate form inputs after a small delay to ensure DOM is ready
       setTimeout(() => {
@@ -2482,6 +2486,25 @@ export default function PatientForm() {
         </section>
 
         <div className="mt-8">
+          {/* Observaciones Generales Section */}
+          <div className="bg-white p-4 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-4 border-b-2 border-teal-300 pb-2">Observaciones Generales</h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="observaciones_generales" className="block mb-1 font-medium">Observaciones Generales:</label>
+                <textarea 
+                  id="observaciones_generales" 
+                  name="observaciones_generales" 
+                  className="textarea w-full" 
+                  rows={4}
+                  value={observacionesGenerales} 
+                  onChange={(e) => setObservacionesGenerales(e.target.value)} 
+                  placeholder="Ingrese observaciones generales del paciente..."
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Signature Section */}
           {recordCategoryInfo?.isHistorical && !bypassHistoricalMode ? (
             <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">

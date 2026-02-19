@@ -147,6 +147,8 @@ export async function updatePatient(patientId: string, formData: FormData) {
       'chasquidos_mandibulares', 'dolor_oido_detalle', 'suction_digital',
       'protesis_tipo', 'protesis_nocturno', 'tipo_bruxismo', 'orto_motivo_no_finalizado',
       'ultima_limpieza', 'tipocepillo', 'pastadental', 'cambio_cepillo',
+      // Observaciones Generales field
+      'observaciones_generales',
       'hilo_dental', 'enjuague_bucal', 'tratamiento', 'observaciones_plan'
     ];
     

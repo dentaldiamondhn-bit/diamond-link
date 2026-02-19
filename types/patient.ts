@@ -109,6 +109,7 @@ export interface Patient {
   tratamiento?: string;
   documentos?: string[];
   observaciones_plan?: string;
+  observaciones_generales?: string;
   firma_digital?: string;
   is_historical?: boolean;
   matchedFields?: string[];

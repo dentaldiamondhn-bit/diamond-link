@@ -143,6 +143,7 @@ export async function createPatient(formData: FormData) {
         tratamiento: formData.get('tratamiento') as string || undefined,
         documentos: [], // Will be updated after file uploads
         observaciones_plan: formData.get('observaciones_plan') as string || undefined,
+        observaciones_generales: formData.get('observaciones_generales') as string || undefined,
         firma_digital: '', // Will be updated with URL after upload
       };
 
