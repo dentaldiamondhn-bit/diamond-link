@@ -57,6 +57,7 @@ import {
 } from '@/utils/formatUtils';
 import { formatCurrency } from '@/utils/currencyUtils';
 import SmartIDValidation from '@/components/SmartIDValidation';
+import MedicalWarningModal from '@/components/MedicalWarningModal';
 
 // Medical condition severity calculation (same as menu-navegacion)
 const getConditionSeverity = (patient: Patient) => {
@@ -230,94 +231,6 @@ export default function PatientForm() {
   const { user, isLoaded } = useUser();
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
 
-  // Medical condition severity calculation (same as menu-navegacion)
-  const getConditionSeverity = (patient: Patient) => {
-    const calculateAge = (birthDate: string) => {
-      const today = new Date();
-      const birth = new Date(birthDate);
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-      }
-      return age;
-    };
-
-    const age = calculateAge(patient.fecha_nacimiento);
-    let severityScore = 0;
-    
-    // Age-based severity weighting
-    if (age >= 80) severityScore += 3; // 4ta edad - highest priority
-    else if (age >= 60) severityScore += 2; // 3ra edad - high priority
-    else if (age < 18) severityScore += 1; // Menor - medium priority
-    
-    // Condition-based severity scoring
-    const conditions = [];
-    
-    // Critical conditions (high severity)
-    if (patient.enfermedades) {
-      const criticalDiseases = ['diabetes', 'hipertensión', 'corazón', 'cardíaco', 'cáncer', 'tumor', 'epilepsia', 'asma', 'renal', 'hepático'];
-      const lifeThreateningDiseases = ['cáncer', 'tumor', 'corazón', 'cardíaco', 'insuficiencia cardíaca', 'infarto', 'derrame cerebral'];
-      
-      // Auto-trigger critical severity for life-threatening conditions
-      if (lifeThreateningDiseases.some(disease => patient.enfermedades.toLowerCase().includes(disease))) {
-        return { level: 'critical', color: 'bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-800', textColor: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-500' };
-      }
-      
-      if (criticalDiseases.some(disease => patient.enfermedades.toLowerCase().includes(disease))) {
-        severityScore += 3;
-        conditions.push('critical');
-      }
-    }
-    
-    // Allergies (medium-high severity)
-    if (patient.alergias) {
-      const severeAllergies = ['anafilaxia', 'penicilina', 'maní', 'mariscos', 'látex', 'abeja', 'avispas'];
-      if (severeAllergies.some(allergy => patient.alergias.toLowerCase().includes(allergy))) {
-        severityScore += 2;
-        conditions.push('severe-allergy');
-      }
-    }
-    
-    // Multiple medications (medium severity)
-    if (patient.medicamentos) {
-      const medicationCount = patient.medicamentos.split(',').length;
-      if (medicationCount >= 3) {
-        severityScore += 2;
-        conditions.push('multiple-meds');
-      } else if (medicationCount >= 2) {
-        severityScore += 1;
-        conditions.push('multiple-meds');
-      }
-    }
-    
-    // Pregnancy (high priority for female patients) - only if active
-    if (patient.sexo === 'femenino' && patient.embarazo === 'si' && (!patient.embarazo_activo || patient.embarazo_activo === true)) {
-      severityScore += 3; // Pregnancy is high priority
-      conditions.push('pregnancy');
-    }
-    
-    // Determine severity level and color
-    // Special case: pregnancy-only (no other conditions) - use soft pink to blue gradient
-    if (conditions.length === 1 && conditions.includes('pregnancy')) {
-      return { 
-        level: 'pregnancy', 
-        color: 'bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-800', 
-        textColor: 'text-pink-700 dark:text-pink-300', 
-        bgColor: 'bg-pink-500',
-        gradient: 'linear-gradient(to right, rgb(244 114 182), rgb(147 197 253))'
-      };
-    }
-    
-    if (severityScore >= 6) return { level: 'critical', color: 'bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-800', textColor: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-500' };
-    if (severityScore >= 4) return { level: 'high', color: 'bg-orange-50 dark:bg-orange-900 border-orange-200 dark:border-orange-800', textColor: 'text-orange-700 dark:text-orange-300', bgColor: 'bg-orange-500' };
-    if (severityScore >= 2) return { level: 'medium', color: 'bg-yellow-50 dark:bg-yellow-900 border-yellow-200 dark:border-yellow-800', textColor: 'text-yellow-700 dark:text-yellow-300', bgColor: 'bg-yellow-500' };
-    if (severityScore >= 1) return { level: 'low', color: 'bg-blue-50 dark:bg-blue-900 border-blue-200 dark:border-blue-800', textColor: 'text-blue-700 dark:text-blue-300', bgColor: 'bg-blue-500' };
-    
-    return { level: 'none', color: 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800', textColor: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-500' };
-  };
-  
   // Function to load historical mode setting from Supabase
   const loadHistoricalModeSetting = async () => {
     try {
@@ -1011,12 +924,18 @@ export default function PatientForm() {
       // Load historical mode setting for this patient
       await loadHistoricalModeSetting();
       
-      // Show warning modal if patient has medical conditions and severity is not 'none'
-      if ((patient.enfermedades || patient.alergias || patient.medicamentos) || (patient.sexo === 'femenino' && patient.embarazo === 'si' && (!patient.embarazo_activo || patient.embarazo_activo === true))) {
-        const severity = getConditionSeverity(patient);
-        if (severity.level !== 'none') {
-          setShowWarningModal(true);
-        }
+      // Show warning modal using improved algorithm - only if significant conditions exist
+      const hasSignificantConditions = 
+        (patient.enfermedades && patient.enfermedades.trim() !== '' && 
+           !['na', 'n/a', 'no', 'ninguna', 'ninguno', 'ningún', 'sin', 'sin enfermedades', 'sin alergias', 'sin medicamentos', 'sin antecedentes', 'no aplica', 'no se', 'no tiene', 'no presenta', 'no refiere', 'negado', 'niega', 'desconoce', 'no sabe', 'no recuerda'].includes(patient.enfermedades.toLowerCase().trim())) ||
+        (patient.alergias && patient.alergias.trim() !== '' && 
+           !['na', 'n/a', 'no', 'ninguna', 'ninguno', 'ningún', 'sin', 'sin enfermedades', 'sin alergias', 'sin medicamentos', 'sin antecedentes', 'no aplica', 'no se', 'no tiene', 'no presenta', 'no refiere', 'negado', 'niega', 'desconoce', 'no sabe', 'no recuerda'].includes(patient.alergias.toLowerCase().trim())) ||
+        (patient.medicamentos && patient.medicamentos.trim() !== '' && 
+           !['na', 'n/a', 'no', 'ninguna', 'ninguno', 'ningún', 'sin', 'sin enfermedades', 'sin alergias', 'sin medicamentos', 'sin antecedentes', 'no aplica', 'no se', 'no tiene', 'no presenta', 'no refiere', 'negado', 'niega', 'desconoce', 'no sabe', 'no recuerda'].includes(patient.medicamentos.toLowerCase().trim())) ||
+        (patient.sexo === 'femenino' && patient.embarazo === 'si' && (!patient.embarazo_activo || patient.embarazo_activo === true));
+      
+      if (hasSignificantConditions) {
+        setShowWarningModal(true);
       }
       
     } catch (error) {
@@ -2621,75 +2540,12 @@ export default function PatientForm() {
         </div>
       </form>
       
-      {/* Conditions Warning Modal */}
-      {showWarningModal && isEditing && currentPatient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div 
-            className={`bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full border-2 ${getConditionSeverity(currentPatient).color} opacity-80`}
-            style={getConditionSeverity(currentPatient).gradient ? {
-              background: getConditionSeverity(currentPatient).gradient,
-              border: 'none'
-            } : {}}
-          >
-            {/* Warning Icon */}
-            <div className="flex items-center justify-center mb-4">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center ${getConditionSeverity(currentPatient).bgColor}`}>
-                <i className={`fas ${getConditionSeverity(currentPatient).level === 'pregnancy' ? 'fa-baby' : 'fa-exclamation-triangle'} text-white text-2xl`}></i>
-              </div>
-            </div>
-            
-            {/* Warning Title */}
-            <h3 className={`text-lg font-semibold mb-3 text-center ${getConditionSeverity(currentPatient).gradient ? 'text-white' : getConditionSeverity(currentPatient).textColor}`}>
-              {getConditionSeverity(currentPatient).level === 'pregnancy' ? 'Embarazo Detectado' : 'Alerta Médica Importante'}
-            </h3>
-            
-            {/* Warning Message */}
-            <div className={`text-sm mb-6 text-center ${getConditionSeverity(currentPatient).gradient ? 'text-white' : getConditionSeverity(currentPatient).textColor}`}>
-              {getConditionSeverity(currentPatient).level === 'pregnancy' && (
-                <p>Esta paciente está <strong>embarazada</strong>. Se debe tener especial consideración en los tratamientos odontológicos.</p>
-              )}
-              {getConditionSeverity(currentPatient).level === 'critical' && (
-                <p>Este paciente presenta <strong>condiciones médicas críticas</strong> que requieren atención ESPECIAL.</p>
-              )}
-              {getConditionSeverity(currentPatient).level === 'high' && (
-                <p>Este paciente presenta <strong>condiciones médicas de alto riesgo</strong> que requieren especial atención.</p>
-              )}
-              {getConditionSeverity(currentPatient).level === 'medium' && (
-                <p>Este paciente presenta <strong>condiciones médicas moderadas</strong> que deben ser consideradas en el tratamiento.</p>
-              )}
-              {getConditionSeverity(currentPatient).level === 'low' && (
-                <p>Este paciente presenta <strong>condiciones médicas leves</strong> que deben ser tenidas en cuenta.</p>
-              )}
-              
-              {/* Condition Details */}
-              <div className="mt-3 space-y-1 text-xs">
-                {currentPatient.sexo === 'femenino' && currentPatient.embarazo === 'si' && (
-                  <div><strong>Embarazo:</strong> {currentPatient.embarazo === 'si' ? 'Sí' : 'No'}</div>
-                )}
-                {currentPatient.enfermedades && (
-                  <div><strong>Enfermedades:</strong> {currentPatient.enfermedades}</div>
-                )}
-                {currentPatient.alergias && (
-                  <div><strong>Alergias:</strong> {currentPatient.alergias}</div>
-                )}
-                {currentPatient.medicamentos && (
-                  <div><strong>Medicamentos:</strong> {currentPatient.medicamentos}</div>
-                )}
-              </div>
-            </div>
-            
-            {/* Action Button */}
-            <div className="flex justify-center">
-              <button
-                onClick={() => setShowWarningModal(false)}
-                className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                Aceptar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Improved Medical Warning Modal */}
+      <MedicalWarningModal 
+        patient={currentPatient}
+        isOpen={showWarningModal}
+        onClose={() => setShowWarningModal(false)}
+      />
 
       {/* Validation Error Modal */}
       {showValidationErrorModal && (
