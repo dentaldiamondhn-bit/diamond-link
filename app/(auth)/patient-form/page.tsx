@@ -2335,9 +2335,10 @@ export default function PatientForm() {
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Si</option>
+            <option value="es_1ra_consulta">Es 1ra Consulta</option>
           </select>
 
-          {experienciaTraumatica === 'si' && (
+          {(experienciaTraumatica === 'si' || experienciaTraumatica === 'es_1ra_consulta') && (
             <>
               <label htmlFor="queSucedio" className="block mb-1 font-medium mt-2">Que sucedio?</label>
               <textarea id="queSucedio" name="que_sucedio" className="textarea" value={queSucedio} onChange={(e) => setQueSucedio(e.target.value)} />
