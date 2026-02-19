@@ -11,12 +11,6 @@ export async function createPatient(formData: FormData) {
   console.log('=== CREATE PATIENT ACTION CALLED ===');
   console.log('Form data keys:', Array.from(formData.keys()));
   
-  // Log all form data values for debugging
-  console.log('=== ALL FORM DATA ===');
-  for (const [key, value] of formData.entries()) {
-    console.log(`${key}:`, value);
-  }
-  
   try {
     // Handle signature upload if present
     let signatureUrl = null;

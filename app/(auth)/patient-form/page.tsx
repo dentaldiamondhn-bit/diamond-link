@@ -704,6 +704,12 @@ export default function PatientForm() {
       setOrtodonciaMotivoNoFinalizado(patient.orto_motivo_no_finalizado || '');
       setDiagnostico(patient.diagnostico || '');
       
+      // Set new dental evaluation fields
+      setReaccionAdversaAnestesico(patient.reaccion_adversa_anestesico || '');
+      setTipoReaccion(patient.tipo_reaccion || '');
+      setExperienciaTraumatica(patient.experiencia_traumatica || '');
+      setQueSucedio(patient.que_sucedio || '');
+      
       // Populate form inputs after a small delay to ensure DOM is ready
       setTimeout(() => {
         const form = document.querySelector('form');
@@ -1218,6 +1224,45 @@ export default function PatientForm() {
       validationStatus['antecedentes_familiares'] = 'valid';
     }
     
+    // New Dental Evaluation fields validation
+    const reaccionAdversaAnestesico = form.reaccion_adversa_anestesico?.value?.trim();
+    if (!reaccionAdversaAnestesico) {
+      missing.push('Reacción adversa al anestésico');
+      validationStatus['reaccion_adversa_anestesico'] = 'invalid';
+    } else {
+      validationStatus['reaccion_adversa_anestesico'] = 'valid';
+      
+      // Validate tipo_reaccion only if reaccion is 'si'
+      if (reaccionAdversaAnestesico === 'si') {
+        const tipoReaccion = form.tipo_reaccion?.value?.trim();
+        if (!tipoReaccion) {
+          missing.push('Tipo de reacción');
+          validationStatus['tipo_reaccion'] = 'invalid';
+        } else {
+          validationStatus['tipo_reaccion'] = 'valid';
+        }
+      }
+    }
+    
+    const experienciaTraumatica = form.experiencia_traumatica?.value?.trim();
+    if (!experienciaTraumatica) {
+      missing.push('Experiencia odontológica traumática');
+      validationStatus['experiencia_traumatica'] = 'invalid';
+    } else {
+      validationStatus['experiencia_traumatica'] = 'valid';
+      
+      // Validate que_sucedio only if experiencia is 'si' (not for 'es_1ra_consulta')
+      if (experienciaTraumatica === 'si') {
+        const queSucedio = form.que_sucedio?.value?.trim();
+        if (!queSucedio) {
+          missing.push('Que sucedio');
+          validationStatus['que_sucedio'] = 'invalid';
+        } else {
+          validationStatus['que_sucedio'] = 'valid';
+        }
+      }
+    }
+    
     // Check signature requirement
     const shouldRequireSignature = !recordCategoryInfo?.isHistorical || bypassHistoricalMode;
     if (shouldRequireSignature && !isEditing) {
@@ -1258,6 +1303,7 @@ export default function PatientForm() {
       
       // Manually collect all form data to ensure updated values are included
       const formElements = form.elements;
+      
       for (let i = 0; i < formElements.length; i++) {
         const element = formElements[i] as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
         if (element.name && element.type !== 'file') {
@@ -1308,7 +1354,8 @@ export default function PatientForm() {
       // Server action handles redirect, so no need for client-side redirect
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Error al guardar el paciente. Por favor, inténtelo de nuevo.');
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      alert(`Error al guardar el paciente: ${error.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -2338,7 +2385,7 @@ export default function PatientForm() {
             <option value="es_1ra_consulta">Es 1ra Consulta</option>
           </select>
 
-          {(experienciaTraumatica === 'si' || experienciaTraumatica === 'es_1ra_consulta') && (
+          {(experienciaTraumatica === 'si') && (
             <>
               <label htmlFor="queSucedio" className="block mb-1 font-medium mt-2">Que sucedio?</label>
               <textarea id="queSucedio" name="que_sucedio" className="textarea" value={queSucedio} onChange={(e) => setQueSucedio(e.target.value)} />
