@@ -457,6 +457,12 @@ export default function PatientForm() {
   const [hiloDental, setHiloDental] = useState('');
   const [enjuagueBucal, setEnjuagueBucal] = useState('');
   const [ortodoncia, setOrtodoncia] = useState('');
+  
+  // New dental evaluation fields
+  const [reaccionAdversaAnestesico, setReaccionAdversaAnestesico] = useState('');
+  const [tipoReaccion, setTipoReaccion] = useState('');
+  const [experienciaTraumatica, setExperienciaTraumatica] = useState('');
+  const [queSucedio, setQueSucedio] = useState('');
   const [finalizoTratamiento, setFinalizoTratamiento] = useState('');
   const [ortodonciaMotivoNoFinalizado, setOrtodonciaMotivoNoFinalizado] = useState('');
 
@@ -2291,6 +2297,50 @@ export default function PatientForm() {
                   <textarea id="orto_motivo_no_finalizado" name="orto_motivo_no_finalizado" className="textarea" value={ortodonciaMotivoNoFinalizado} onChange={(e) => setOrtodonciaMotivoNoFinalizado(e.target.value)} />
                 </>
               )}
+            </>
+          )}
+
+          {/* New Dental Evaluation Fields */}
+          <label htmlFor="reaccionAdversaAnestesicoSelect" className="block mb-1 font-medium mt-4">Reacción adversa al Anestésico:</label>
+          <select
+            id="reaccionAdversaAnestesicoSelect"
+            name="reaccion_adversa_anestesico"
+            required
+            className="input"
+            value={reaccionAdversaAnestesico}
+            onChange={e => setReaccionAdversaAnestesico(e.target.value)}
+          >
+            <option value="">Seleccionar</option>
+            <option value="no">No</option>
+            <option value="si">Si</option>
+            <option value="no_aplicada">No Aplicada</option>
+          </select>
+
+          {reaccionAdversaAnestesico === 'si' && (
+            <>
+              <label htmlFor="tipoReaccion" className="block mb-1 font-medium mt-2">Tipo de Reacción:</label>
+              <textarea id="tipoReaccion" name="tipo_reaccion" className="textarea" value={tipoReaccion} onChange={(e) => setTipoReaccion(e.target.value)} />
+            </>
+          )}
+
+          <label htmlFor="experienciaTraumaticaSelect" className="block mb-1 font-medium mt-4">Ha Tenido Experiencia Odontológica Traumatica:</label>
+          <select
+            id="experienciaTraumaticaSelect"
+            name="experiencia_traumatica"
+            required
+            className="input"
+            value={experienciaTraumatica}
+            onChange={e => setExperienciaTraumatica(e.target.value)}
+          >
+            <option value="">Seleccionar</option>
+            <option value="no">No</option>
+            <option value="si">Si</option>
+          </select>
+
+          {experienciaTraumatica === 'si' && (
+            <>
+              <label htmlFor="queSucedio" className="block mb-1 font-medium mt-2">Que sucedio?</label>
+              <textarea id="queSucedio" name="que_sucedio" className="textarea" value={queSucedio} onChange={(e) => setQueSucedio(e.target.value)} />
             </>
           )}
 

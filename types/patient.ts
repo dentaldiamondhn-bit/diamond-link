@@ -88,6 +88,10 @@ export interface Patient {
   ortodoncia: 'no' | 'si';
   orto_finalizado?: 'no' | 'si';
   orto_motivo_no_finalizado?: string;
+  reaccion_adversa_anestesico: 'no' | 'si' | 'no_aplicada';
+  tipo_reaccion?: string;
+  experiencia_traumatica: 'no' | 'si' | 'es_1ra_consulta';
+  que_sucedio?: string;
   protesis: 'no' | 'si';
   protesis_tipo?: 'Removible' | 'Fija' | 'Implante' | 'Parcial Removible' | 'Total';
   protesis_nocturno?: 'no' | 'si';

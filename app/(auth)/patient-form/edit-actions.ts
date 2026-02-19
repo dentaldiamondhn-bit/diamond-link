@@ -138,6 +138,8 @@ export async function updatePatient(patientId: string, formData: FormData) {
       // Evaluación Odontológica fields that were missing
       'encias', 'dolor', 'dolor_cabeza', 'chasquidos', 'dolor_oido', 'ortodoncia',
       'orto_finalizado', 'sensibilidad', 'tipo_sensibilidad',
+      // New dental evaluation fields
+      'reaccion_adversa_anestesico', 'tipo_reaccion', 'experiencia_traumatica', 'que_sucedio',
       // Additional fields from create action that were missing
       'morder', 'hielo', 'boca', 'refrescos', 'dulces', 'pegajosos', 'azucarados',
       'obs', 'visitas_dentista', 'obsgen', 'motivo', 'historial',
