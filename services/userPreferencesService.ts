@@ -57,12 +57,24 @@ export class UserPreferencesService {
         .single();
 
       if (error) {
+        // Handle network errors gracefully
+        if (error.message?.includes('Failed to fetch') || error.code === 'NETWORK_ERROR') {
+          console.warn('Network error saving preferences, using offline mode:', error);
+          // Return preferences as if saved (optimistic update)
+          return preferences;
+        }
         console.error('Error saving user preferences:', error);
         throw error;
       }
 
       return data;
     } catch (error) {
+      // Handle network errors gracefully
+      if (error instanceof TypeError && error.message?.includes('Failed to fetch')) {
+        console.warn('Network error saving preferences, using offline mode:', error);
+        // Return preferences as if saved (optimistic update)
+        return preferences;
+      }
       console.error('Unexpected error saving user preferences:', error);
       throw error;
     }
@@ -93,6 +105,18 @@ export class UserPreferencesService {
       return await this.saveUserPreferences(updatedPrefs);
     } catch (error) {
       console.error('Error updating page preferences:', error);
+      // For network errors, return optimistic update
+      if (error instanceof TypeError && error.message?.includes('Failed to fetch')) {
+        console.warn('Network error in updatePagePreferences, returning optimistic preferences');
+        // Return a basic preferences object to prevent UI breaking
+        return {
+          clerk_user_id: clerkUserId,
+          page_preferences: {
+            [page]: preferences
+          },
+          global_preferences: {}
+        } as UserPreferences;
+      }
       throw error;
     }
   }

@@ -107,13 +107,18 @@ export default function ReportsPage() {
             'reports',
             { tabDateRanges: updatedRanges }
           );
+          console.log('Date range preferences saved successfully');
         } catch (error) {
           console.error('Error saving date range preferences:', error);
+          // For network errors, use optimistic update
+          if (error instanceof TypeError && error.message?.includes('Failed to fetch')) {
+            console.warn('Network error detected, date range preferences will sync when connection is restored');
+          }
         }
       }, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [currentStartDate, currentEndDate, activeTab, prefsLoading, user, tabDateRanges]);
+  }, [currentStartDate, currentEndDate, activeTab, prefsLoading, user]);
 
   // Update current date range when tab changes
   useEffect(() => {

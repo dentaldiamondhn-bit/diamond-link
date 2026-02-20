@@ -55,6 +55,23 @@ export function useUserPreferences(): UseUserPreferencesReturn {
     } catch (err) {
       console.error('Error updating page preferences:', err);
       // Don't throw error, just log it to prevent UI breaking
+      // For network errors, use optimistic update
+      if (err instanceof TypeError && err.message?.includes('Failed to fetch')) {
+        console.warn('Network error detected, using optimistic update for page preferences');
+        setPreferences(current => {
+          if (!current) return null;
+          return {
+            ...current,
+            page_preferences: {
+              ...current.page_preferences,
+              [page]: {
+                ...current.page_preferences?.[page] || {},
+                ...prefs
+              }
+            }
+          };
+        });
+      }
     }
   }, [user?.id]);
 
