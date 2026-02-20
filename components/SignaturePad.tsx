@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import SignaturePad from 'signature_pad';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface SignaturePadComponentProps {
   onChange: (signatureData: string | null) => void;
@@ -10,6 +11,7 @@ interface SignaturePadComponentProps {
 }
 
 export default function SignaturePadComponent({ onChange, value, disabled = false }: SignaturePadComponentProps) {
+  const { resolvedTheme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signaturePadRef = useRef<SignaturePad | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
@@ -17,9 +19,15 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
+      
+      // Use theme-appropriate colors
+      const isDark = resolvedTheme === 'dark';
+      const backgroundColor = isDark ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)';
+      const penColor = isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
+      
       const signaturePad = new SignaturePad(canvas, {
-        backgroundColor: 'rgb(255, 255, 255)',
-        penColor: 'rgb(0, 0, 0)',
+        backgroundColor,
+        penColor,
       });
 
       signaturePadRef.current = signaturePad;
@@ -80,11 +88,17 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
       <div className="relative">
         <canvas
           ref={canvasRef}
-          className={`border-2 border-gray-300 rounded-lg w-full ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
+          className={`border-2 rounded-lg w-full ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'} ${
+            resolvedTheme === 'dark' 
+              ? 'border-gray-600 bg-gray-800' 
+              : 'border-gray-300 bg-white'
+          }`}
           style={{ touchAction: 'none', height: '150px' }}
         />
         {isEmpty && (
-          <div className="signature-placeholder absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-gray-400">
+          <div className="signature-placeholder absolute inset-0 flex flex-col items-center justify-center pointer-events-none ${
+            resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+          }">
             <i className="fas fa-signature text-4xl mb-2 opacity-50"></i>
             <span>Por favor, firme aquí</span>
           </div>

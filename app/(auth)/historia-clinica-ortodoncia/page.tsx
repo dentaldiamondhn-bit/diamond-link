@@ -88,9 +88,8 @@ export default function HistoriaClinicaOrtodoncia() {
     firma_digital_ortodoncia: null as string | null,
   });
 
-  // Form validation state
+  {/* Form validation state */}
   const [fieldValidation, setFieldValidation] = useState<Record<string, boolean>>({});
-  const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
 
   useEffect(() => {
@@ -642,20 +641,17 @@ export default function HistoriaClinicaOrtodoncia() {
                     <SignatureDisplay signature={formData.firma_digital_ortodoncia} />
                     <button
                       type="button"
-                      onClick={() => setShowSignaturePad(true)}
+                      onClick={() => setSignatureData(null)}
                       className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                       Modificar Firma
                     </button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowSignaturePad(true)}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                  >
-                    Agregar Firma
-                  </button>
+                  <SignaturePadComponent 
+                    onChange={setSignatureData}
+                    value={signatureData}
+                  />
                 )}
               </div>
             </div>
@@ -680,28 +676,6 @@ export default function HistoriaClinicaOrtodoncia() {
           </form>
         </div>
       </div>
-
-      {/* Signature Modal */}
-      {showSignaturePad && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4">
-            <h3 className="text-xl font-semibold mb-4">Firma Digital</h3>
-            <SignaturePadComponent
-              onChange={handleSignatureChange}
-              value={signatureData}
-            />
-            <div className="flex justify-end space-x-4 mt-4">
-              <button
-                type="button"
-                onClick={() => setShowSignaturePad(false)}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
