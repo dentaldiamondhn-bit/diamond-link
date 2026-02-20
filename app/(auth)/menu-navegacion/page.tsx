@@ -704,11 +704,11 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
       href: `/odontogram?id=${validPacienteId}`
     },
     {
-      id: 'estudios-ortodonticos',
+      id: 'historia-clinica-ortodoncia',
       icon: 'fas fa-teeth',
-      title: 'Estudios Ortodónticos',
-      description: 'Gestione los estudios ortodónticos, incluyendo análisis cefalométricos y registros de tratamientos.',
-      href: `/dashboard/orthodontic?id=${validPacienteId}`
+      title: 'Historia Clínica Ortodóncica',
+      description: 'Registre y gestione la historia clínica ortodóncica completa del paciente, incluyendo diagnóstico, plan de tratamiento y seguimiento.',
+      href: `/historia-clinica-ortodoncia?id=${validPacienteId}`
     },
     {
       id: 'estudios-periodontales',
