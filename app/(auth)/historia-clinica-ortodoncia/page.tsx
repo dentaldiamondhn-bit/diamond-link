@@ -53,6 +53,7 @@ export default function HistoriaClinicaOrtodoncia() {
   const { user } = useUser();
   const patientId = searchParams.get('id');
   const isEditing = !!patientId && searchParams.get('edit') === 'true';
+  const isViewing = !!patientId && !isEditing;
 
   // Patient data state
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -356,7 +357,7 @@ export default function HistoriaClinicaOrtodoncia() {
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-            Historia Clínica Ortodóncica
+            {isViewing ? 'Ver Historia Clínica Ortodóncica' : isEditing ? 'Editar Historia Clínica Ortodóncica' : 'Historia Clínica Ortodóncica'}
           </h1>
           
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>
@@ -762,19 +763,30 @@ export default function HistoriaClinicaOrtodoncia() {
 
             {/* Form Actions */}
             <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-              >
-                Cancelar
-              </button>
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/historia-clinica-ortodoncia?id=${patientId}&view=true`)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                >
+                  Ver Historia
+                </button>
+              )}
+              
               <button
                 type="submit"
                 disabled={loading}
                 className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? 'Guardando...' : isEditing ? 'Actualizar' : 'Guardar'}
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Cancelar
               </button>
             </div>
           </form>
