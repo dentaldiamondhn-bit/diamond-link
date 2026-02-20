@@ -152,12 +152,39 @@ export async function updateOrthodonticHistory(patientId: string, formData: any)
 
     console.log('Prepared orthodontic update data:', orthodonticData);
 
-    // Update orthodontic history
-    const { data, error } = await supabaseAdmin
+    // First check if record exists
+    const { data: existingRecord, error: checkError } = await supabaseAdmin
       .from('historia_clinica_ortodoncia')
-      .update(orthodonticData)
+      .select('id')
       .eq('paciente_id', patientId)
-      .select();
+      .single();
+
+    console.log('Existing record check:', { existingRecord, checkError });
+
+    let result;
+    if (existingRecord) {
+      // Update existing record
+      console.log('Updating existing record');
+      result = await supabaseAdmin
+        .from('historia_clinica_ortodoncia')
+        .update(orthodonticData)
+        .eq('paciente_id', patientId)
+        .select();
+    } else {
+      // Insert new record
+      console.log('Inserting new record');
+      const insertData = {
+        ...orthodonticData,
+        paciente_id: patientId,
+        created_at: new Date().toISOString()
+      };
+      result = await supabaseAdmin
+        .from('historia_clinica_ortodoncia')
+        .insert([insertData])
+        .select();
+    }
+
+    const { data, error } = result;
 
     if (error) {
       console.error('Error updating orthodontic history:', error);
