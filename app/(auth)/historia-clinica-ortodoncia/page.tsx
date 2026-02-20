@@ -209,13 +209,12 @@ export default function HistoriaClinicaOrtodoncia() {
     }));
   };
 
-  const handleSignatureComplete = (signature: string) => {
+  const handleSignatureChange = (signature: string | null) => {
     setSignatureData(signature);
     setFormData(prev => ({
       ...prev,
       firma_digital_ortodoncia: signature
     }));
-    setShowSignaturePad(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -688,9 +687,18 @@ export default function HistoriaClinicaOrtodoncia() {
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4">
             <h3 className="text-xl font-semibold mb-4">Firma Digital</h3>
             <SignaturePadComponent
-              onSave={handleSignatureComplete}
-              onCancel={() => setShowSignaturePad(false)}
+              onChange={handleSignatureChange}
+              value={signatureData}
             />
+            <div className="flex justify-end space-x-4 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowSignaturePad(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
