@@ -1,7 +1,6 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 
 // Initialize Supabase client
@@ -15,12 +14,6 @@ export async function createOrthodonticHistory(formData: any) {
   console.log('Form data keys:', Object.keys(formData));
   
   try {
-    const session = await auth();
-    const userId = session?.userId;
-    if (!userId) {
-      throw new Error('Usuario no autenticado');
-    }
-
     // Extract form data
     const {
       paciente_id,
@@ -108,12 +101,6 @@ export async function updateOrthodonticHistory(patientId: string, formData: any)
   console.log('Form data keys:', Object.keys(formData));
   
   try {
-    const session = await auth();
-    const userId = session?.userId;
-    if (!userId) {
-      throw new Error('Usuario no autenticado');
-    }
-
     // Extract form data
     const {
       doctor_id,
@@ -198,12 +185,6 @@ export async function getOrthodonticHistory(patientId: string) {
   console.log('Patient ID:', patientId);
   
   try {
-    const session = await auth();
-    const userId = session?.userId;
-    if (!userId) {
-      throw new Error('Usuario no autenticado');
-    }
-
     // Get orthodontic history
     const { data, error } = await supabase
       .from('historia_clinica_ortodoncia')

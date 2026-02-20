@@ -219,18 +219,13 @@ export default function HistoriaClinicaOrtodoncia() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
-      setError('Usuario no autenticado');
-      return;
-    }
-
     try {
       setLoading(true);
       
       const submitData = {
         ...formData,
         paciente_id: patientId,
-        doctor_id: user.id,
+        doctor_id: 'unknown',
       };
 
       if (isEditing && patientId) {
