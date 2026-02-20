@@ -223,33 +223,33 @@ export default function HistoriaClinicaOrtodoncia() {
       setLoading(true);
       
       // Create FormData from the form
-      const formData = new FormData(e.currentTarget);
+      const formFormData = new FormData(e.currentTarget);
       
       // Extract all form data
       const submitData = {
         paciente_id: patientId,
         doctor_id: user?.id || 'unknown',
-        nombre_completo: formData.get('nombre_completo') as string,
-        edad: formData.get('edad') ? parseInt(formData.get('edad') as string) : undefined,
-        fecha_nacimiento: formData.get('fecha_nacimiento') as string,
-        sexo: formData.get('sexo') as string,
-        motivo_consulta_ortodoncia: formData.get('motivo_consulta_ortodoncia') as string,
-        diagnostico_ortodoncia: formData.get('diagnostico_ortodoncia') as string,
-        plan_tratamiento_ortodoncia: formData.get('plan_tratamiento_ortodoncia') as string,
-        tipo_mordida: formData.get('tipo_mordida') as string,
-        tipo_aparato: formData.get('tipo_aparato') as string,
-        duracion_tratamiento: formData.get('duracion_tratamiento') as string,
-        fecha_inicio_tratamiento: formData.get('fecha_inicio_tratamiento') as string,
-        fecha_fin_tratamiento: formData.get('fecha_fin_tratamiento') as string,
-        observaciones_ortodoncia: formData.get('observaciones_ortodoncia') as string,
-        radiografias_realizadas: formData.get('radiografias_realizadas') as string,
-        modelos_estudio: formData.get('modelos_estudio') as string,
-        analisis_cefalometrico: formData.get('analisis_cefalometrico') as string,
-        extracciones_realizadas: formData.get('extracciones_realizadas') as string,
-        retenedor_tipo: formData.get('retenedor_tipo') as string,
-        retenedor_uso: formData.get('retenedor_uso') as string,
-        seguimiento_post_tratamiento: formData.get('seguimiento_post_tratamiento') as string,
-        documentos_ortodoncia: null,
+        nombre_completo: formFormData.get('nombre_completo') as string,
+        edad: formFormData.get('edad') ? parseInt(formFormData.get('edad') as string) : undefined,
+        fecha_nacimiento: formFormData.get('fecha_nacimiento') as string,
+        sexo: formFormData.get('sexo') as string,
+        motivo_consulta_ortodoncia: formFormData.get('motivo_consulta_ortodoncia') as string,
+        diagnostico_ortodoncia: formFormData.get('diagnostico_ortodoncia') as string,
+        plan_tratamiento_ortodoncia: formFormData.get('plan_tratamiento_ortodoncia') as string,
+        tipo_mordida: formFormData.get('tipo_mordida') as string,
+        tipo_aparato: formFormData.get('tipo_aparato') as string,
+        duracion_tratamiento: formFormData.get('duracion_tratamiento') as string,
+        fecha_inicio_tratamiento: formFormData.get('fecha_inicio_tratamiento') as string,
+        fecha_fin_tratamiento: formFormData.get('fecha_fin_tratamiento') as string,
+        observaciones_ortodoncia: formFormData.get('observaciones_ortodoncia') as string,
+        radiografias_realizadas: formFormData.get('radiografias_realizadas') as string,
+        modelos_estudio: formFormData.get('modelos_estudio') as string,
+        analisis_cefalometrico: formFormData.get('analisis_cefalometrico') as string,
+        extracciones_realizadas: formFormData.get('extracciones_realizadas') as string,
+        retenedor_tipo: formFormData.get('retenedor_tipo') as string,
+        retenedor_uso: formFormData.get('retenedor_uso') as string,
+        seguimiento_post_tratamiento: formFormData.get('seguimiento_post_tratamiento') as string,
+        documentos_ortodoncia: formData.documentos_ortodoncia || [],
         firma_digital_ortodoncia: signatureData,
       };
 

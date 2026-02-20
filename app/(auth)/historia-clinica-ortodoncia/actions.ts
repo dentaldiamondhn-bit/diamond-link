@@ -1,13 +1,7 @@
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { redirect } from 'next/navigation';
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function createOrthodonticHistory(formData: any) {
   console.log('=== CREATE ORTHODONTIC HISTORY ACTION CALLED ===');
@@ -75,7 +69,7 @@ export async function createOrthodonticHistory(formData: any) {
     console.log('Prepared orthodontic data:', orthodonticData);
 
     // Insert orthodontic history
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('historia_clinica_ortodoncia')
       .insert([orthodonticData])
       .select();
@@ -159,7 +153,7 @@ export async function updateOrthodonticHistory(patientId: string, formData: any)
     console.log('Prepared orthodontic update data:', orthodonticData);
 
     // Update orthodontic history
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('historia_clinica_ortodoncia')
       .update(orthodonticData)
       .eq('paciente_id', patientId)
@@ -186,7 +180,7 @@ export async function getOrthodonticHistory(patientId: string) {
   
   try {
     // Get orthodontic history
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('historia_clinica_ortodoncia')
       .select('*')
       .eq('paciente_id', patientId)
