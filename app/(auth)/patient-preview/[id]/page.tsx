@@ -724,6 +724,12 @@ export default function PatientPreviewPage() {
               <span className="font-medium text-gray-700 dark:text-gray-300">Enjuague bucal:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.enjuague_bucal}</p>
             </div>
+            {patient.enjuague_bucal === 'si' && patient.tipo_enjuague_bucal && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo enjuague bucal:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_enjuague_bucal}</p>
+              </div>
+            )}
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-300">Dolor de cabeza:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.dolor_cabeza}</p>
@@ -962,6 +968,12 @@ export default function PatientPreviewPage() {
               <span className="font-medium text-gray-700 dark:text-gray-300">Uso de enjuague bucal:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.enjuague_bucal}</p>
             </div>
+            {patient.enjuague_bucal === 'si' && patient.tipo_enjuague_bucal && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo enjuague bucal:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_enjuague_bucal}</p>
+              </div>
+            )}
           </div>
         </div>
 

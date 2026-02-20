@@ -149,7 +149,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
       'ultima_limpieza', 'tipocepillo', 'pastadental', 'cambio_cepillo',
       // Observaciones Generales field
       'observaciones_generales',
-      'hilo_dental', 'enjuague_bucal', 'tratamiento', 'observaciones_plan'
+      'hilo_dental', 'enjuague_bucal', 'tipo_enjuague_bucal', 'tratamiento', 'observaciones_plan'
     ];
     
     // Main select fields that should always be saved (even if empty or "no")
@@ -225,6 +225,11 @@ export async function updatePatient(patientId: string, formData: FormData) {
     const cafeFrecuencia = formData.get('cafe_frecuencia') as Patient['cafe_frecuencia'];
     if (cafeFrecuencia) {
       patientData.cafe_frecuencia = cafeFrecuencia;
+    }
+    
+    const tipoEnjuagueBucal = formData.get('tipo_enjuague_bucal') as string;
+    if (tipoEnjuagueBucal) {
+      patientData.tipo_enjuague_bucal = tipoEnjuagueBucal;
     }
     
     const fCepillado = formData.get('f_cepillado') as string;

@@ -369,6 +369,7 @@ export default function PatientForm() {
   const [cambioCepillo, setCambioCepillo] = useState('');
   const [hiloDental, setHiloDental] = useState('');
   const [enjuagueBucal, setEnjuagueBucal] = useState('');
+  const [tipoEnjuagueBucal, setTipoEnjuagueBucal] = useState('');
   const [ortodoncia, setOrtodoncia] = useState('');
   
   // New dental evaluation fields
@@ -615,6 +616,7 @@ export default function PatientForm() {
       setCambioCepillo(patient.cambio_cepillo || '');
       setHiloDental(patient.hilo_dental || '');
       setEnjuagueBucal(patient.enjuague_bucal || '');
+      setTipoEnjuagueBucal(patient.tipo_enjuague_bucal || '');
       setOrtodoncia(patient.ortodoncia || '');
       setFinalizoTratamiento(patient.orto_finalizado || '');
       setOrtodonciaMotivoNoFinalizado(patient.orto_motivo_no_finalizado || '');
@@ -2424,6 +2426,13 @@ export default function PatientForm() {
             <option value="no">No</option>
             <option value="si">Si</option>
           </select>
+
+          {enjuagueBucal === 'si' && (
+            <>
+              <label htmlFor="tipo_enjuague_bucal" className="block mb-1 font-medium mt-4">Tipo enjuague bucal:</label>
+              <input type="text" id="tipo_enjuague_bucal" name="tipo_enjuague_bucal" className="input" value={tipoEnjuagueBucal} onChange={(e) => setTipoEnjuagueBucal(e.target.value)} />
+            </>
+          )}
 
         </section>
 

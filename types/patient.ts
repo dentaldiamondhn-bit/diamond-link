@@ -107,6 +107,7 @@ export interface Patient {
   cambio_cepillo: string;
   hilo_dental: 'no' | 'si';
   enjuague_bucal: 'no' | 'si';
+  tipo_enjuague_bucal?: string;
   tratamiento?: string;
   documentos?: string[];
   observaciones_plan?: string;

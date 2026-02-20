@@ -141,6 +141,7 @@ export async function createPatient(formData: FormData) {
         cambio_cepillo: formData.get('cambio_cepillo') as string,
         hilo_dental: formData.get('hilo_dental') as Patient['hilo_dental'],
         enjuague_bucal: formData.get('enjuague_bucal') as Patient['enjuague_bucal'],
+        tipo_enjuague_bucal: formData.get('tipo_enjuague_bucal') as string || undefined,
         tratamiento: formData.get('tratamiento') as string || undefined,
         documentos: [], // Will be updated after file uploads
         observaciones_plan: formData.get('observaciones_plan') as string || undefined,
