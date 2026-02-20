@@ -648,6 +648,12 @@ export default function PatientPreviewPage() {
                 <p className="text-gray-600 dark:text-gray-400">{patient.cantidad_tazas}</p>
               </div>
             )}
+            {patient.cafe_frecuencia && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Frecuencia:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.cafe_frecuencia}</p>
+              </div>
+            )}
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-300">Bruxismo:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.bruxismo}</p>

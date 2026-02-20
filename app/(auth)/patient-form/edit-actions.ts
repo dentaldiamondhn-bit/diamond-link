@@ -222,6 +222,11 @@ export async function updatePatient(patientId: string, formData: FormData) {
       patientData.cantidad_tazas = parseInt(cantidadTazas);
     }
     
+    const cafeFrecuencia = formData.get('cafe_frecuencia') as string;
+    if (cafeFrecuencia) {
+      patientData.cafe_frecuencia = cafeFrecuencia;
+    }
+    
     const fCepillado = formData.get('f_cepillado') as string;
     if (fCepillado && !isNaN(parseInt(fCepillado))) {
       patientData.f_cepillado = parseInt(fCepillado);

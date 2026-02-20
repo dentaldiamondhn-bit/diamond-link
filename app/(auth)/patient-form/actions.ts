@@ -95,6 +95,7 @@ export async function createPatient(formData: FormData) {
         drogas_frecuencia: formData.get('drogas_frecuencia') as Patient['drogas_frecuencia'] || undefined,
         cafe: formData.get('cafe') as Patient['cafe'],
         cantidad_tazas: formData.get('cantidad_tazas') ? parseInt(formData.get('cantidad_tazas') as string) : undefined,
+        cafe_frecuencia: formData.get('cafe_frecuencia') as Patient['cafe_frecuencia'] || undefined,
         objetos: formData.get('objetos') as Patient['objetos'],
         morder: formData.get('morder') as string || undefined,
         hielo: formData.get('hielo') as Patient['hielo'],

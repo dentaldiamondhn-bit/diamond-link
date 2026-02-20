@@ -2008,6 +2008,16 @@ export default function PatientForm() {
             <>
               <label htmlFor="cantidad_tazas" className="block mb-1 font-medium mt-2">Cantidad de tazas:</label>
               <input type="number" id="cantidad_tazas" name="cantidad_tazas" min={1} className="input" value={cafeTazas} onChange={(e) => setCafeTazas(e.target.value)} />
+              
+              <label htmlFor="cafe_frecuencia" className="block mb-1 font-medium mt-2">Frecuencia:</label>
+              <select id="cafe_frecuencia" name="cafe_frecuencia" className="input" value={cafeFrecuencia} onChange={(e) => setCafeFrecuencia(e.target.value)}>
+                <option value="">Seleccionar</option>
+                <option value="Social">Social</option>
+                <option value="Diario">Diario</option>
+                <option value="Semanal">Semanal</option>
+                <option value="Mensual">Mensual</option>
+                <option value="Ocasional">Ocasional</option>
+              </select>
             </>
           )}
 

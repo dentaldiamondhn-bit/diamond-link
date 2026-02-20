@@ -61,6 +61,7 @@ export interface Patient {
   drogas_frecuencia?: 'Social' | 'Diario' | 'Semanal' | 'Mensual' | 'Ocasional';
   cafe: 'no' | 'si';
   cantidad_tazas?: number;
+  cafe_frecuencia?: 'Social' | 'Diario' | 'Semanal' | 'Mensual' | 'Ocasional';
   objetos: 'no' | 'si';
   morder?: string;
   hielo: 'no' | 'si';
