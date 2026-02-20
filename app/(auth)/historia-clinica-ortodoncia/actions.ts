@@ -66,7 +66,7 @@ export async function createOrthodonticHistory(formData: any) {
       retenedor_tipo: retenedor_tipo || null,
       retenedor_uso: retenedor_uso || null,
       seguimiento_post_tratamiento: seguimiento_post_tratamiento || null,
-      documentos_ortodoncia: documentos_ortodoncia || [],
+      documentos_ortodoncia: documentos_ortodoncia || null,
       firma_digital_ortodoncia: firma_digital_ortodoncia || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -151,7 +151,7 @@ export async function updateOrthodonticHistory(patientId: string, formData: any)
       retenedor_tipo: retenedor_tipo || null,
       retenedor_uso: retenedor_uso || null,
       seguimiento_post_tratamiento: seguimiento_post_tratamiento || null,
-      documentos_ortodoncia: documentos_ortodoncia || [],
+      documentos_ortodoncia: documentos_ortodoncia || null,
       firma_digital_ortodoncia: firma_digital_ortodoncia || null,
       updated_at: new Date().toISOString(),
     };

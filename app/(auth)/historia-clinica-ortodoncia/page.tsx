@@ -249,7 +249,7 @@ export default function HistoriaClinicaOrtodoncia() {
         retenedor_tipo: formData.get('retenedor_tipo') as string,
         retenedor_uso: formData.get('retenedor_uso') as string,
         seguimiento_post_tratamiento: formData.get('seguimiento_post_tratamiento') as string,
-        documentos_ortodoncia: [], // Will be handled separately
+        documentos_ortodoncia: null,
         firma_digital_ortodoncia: signatureData,
       };
 
