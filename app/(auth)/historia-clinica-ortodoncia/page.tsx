@@ -216,16 +216,41 @@ export default function HistoriaClinicaOrtodoncia() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     try {
       setLoading(true);
       
+      // Create FormData from the form
+      const formData = new FormData(e.currentTarget);
+      
+      // Extract all form data
       const submitData = {
-        ...formData,
         paciente_id: patientId,
-        doctor_id: 'unknown',
+        doctor_id: user?.id || 'unknown',
+        nombre_completo: formData.get('nombre_completo') as string,
+        edad: formData.get('edad') ? parseInt(formData.get('edad') as string) : undefined,
+        fecha_nacimiento: formData.get('fecha_nacimiento') as string,
+        sexo: formData.get('sexo') as string,
+        motivo_consulta_ortodoncia: formData.get('motivo_consulta_ortodoncia') as string,
+        diagnostico_ortodoncia: formData.get('diagnostico_ortodoncia') as string,
+        plan_tratamiento_ortodoncia: formData.get('plan_tratamiento_ortodoncia') as string,
+        tipo_mordida: formData.get('tipo_mordida') as string,
+        tipo_aparato: formData.get('tipo_aparato') as string,
+        duracion_tratamiento: formData.get('duracion_tratamiento') as string,
+        fecha_inicio_tratamiento: formData.get('fecha_inicio_tratamiento') as string,
+        fecha_fin_tratamiento: formData.get('fecha_fin_tratamiento') as string,
+        observaciones_ortodoncia: formData.get('observaciones_ortodoncia') as string,
+        radiografias_realizadas: formData.get('radiografias_realizadas') as string,
+        modelos_estudio: formData.get('modelos_estudio') as string,
+        analisis_cefalometrico: formData.get('analisis_cefalometrico') as string,
+        extracciones_realizadas: formData.get('extracciones_realizadas') as string,
+        retenedor_tipo: formData.get('retenedor_tipo') as string,
+        retenedor_uso: formData.get('retenedor_uso') as string,
+        seguimiento_post_tratamiento: formData.get('seguimiento_post_tratamiento') as string,
+        documentos_ortodoncia: [], // Will be handled separately
+        firma_digital_ortodoncia: signatureData,
       };
 
       if (isEditing && patientId) {
@@ -284,7 +309,7 @@ export default function HistoriaClinicaOrtodoncia() {
             Historia Clínica Ortodóncica
           </h1>
           
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             {/* Patient Information Section */}
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -633,7 +658,7 @@ export default function HistoriaClinicaOrtodoncia() {
                 {formData.firma_digital_ortodoncia ? (
                   <div>
                     <h3 className="text-lg font-medium mb-2">Firma Actual:</h3>
-                    <SignatureDisplay signature={formData.firma_digital_ortodoncia} />
+                    <SignatureDisplay signatureUrl={formData.firma_digital_ortodoncia} />
                     <button
                       type="button"
                       onClick={() => setSignatureData(null)}
