@@ -8,6 +8,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
 import { Patient } from '@/types/patient';
 import { createOrthodonticHistory, updateOrthodonticHistory } from './actions';
+import { updateOrthodonticHistoryAction } from './edit-actions';
+import { OrthodonticHistoryService } from '@/services/orthodonticHistoryService';
 import SignaturePadComponent from '@/components/SignaturePad';
 import SignatureDisplay from '@/components/SignatureDisplay';
 import DocumentDisplay from '@/components/DocumentDisplay';
@@ -50,7 +52,7 @@ export default function HistoriaClinicaOrtodoncia() {
   const { resolvedTheme } = useTheme();
   const { user } = useUser();
   const patientId = searchParams.get('id');
-  const isEditing = !!patientId;
+  const isEditing = !!patientId && searchParams.get('edit') === 'true';
 
   // Patient data state
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -218,21 +220,31 @@ export default function HistoriaClinicaOrtodoncia() {
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || !patientId) return;
 
     const newDocuments: string[] = [];
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      // Here you would upload the file to your storage service
-      // For now, we'll just add the file name
+      // For now, just add the file name (in a real app, you'd upload to storage)
       newDocuments.push(file.name);
     }
 
+    // Update local state
     setFormData(prev => ({
       ...prev,
       documentos_ortodoncia: [...prev.documentos_ortodoncia, ...newDocuments]
     }));
+
+    // Update database if in edit mode
+    if (isEditing && newDocuments.length > 0) {
+      try {
+        await OrthodonticHistoryService.updateOrthodonticHistoryDocuments(patientId, newDocuments);
+      } catch (error) {
+        console.error('Error updating documents:', error);
+      setError('Error al actualizar documentos: ' + error.message);
+      }
+    }
   };
 
   const removeDocument = (index: number) => {
@@ -297,7 +309,7 @@ export default function HistoriaClinicaOrtodoncia() {
         await createOrthodonticHistory(submitData);
       }
 
-      router.push('/menu-navegacion');
+      router.push(`/menu-navegacion?id=${patientId}`);
     } catch (err) {
       console.error('Error submitting form:', err);
       setError('Error al guardar la historia clínica ortodóncica');
@@ -729,13 +741,15 @@ export default function HistoriaClinicaOrtodoncia() {
                   <div>
                     <h3 className="text-lg font-medium mb-2">Firma Actual:</h3>
                     <SignatureDisplay signatureUrl={formData.firma_digital_ortodoncia} />
-                    <button
-                      type="button"
-                      onClick={() => setSignatureData(null)}
-                      className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Modificar Firma
-                    </button>
+                    {!isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => setSignatureData(null)}
+                        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Modificar Firma
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <SignaturePadComponent 
