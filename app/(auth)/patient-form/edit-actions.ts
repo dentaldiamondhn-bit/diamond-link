@@ -222,7 +222,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
       patientData.cantidad_tazas = parseInt(cantidadTazas);
     }
     
-    const cafeFrecuencia = formData.get('cafe_frecuencia') as string;
+    const cafeFrecuencia = formData.get('cafe_frecuencia') as Patient['cafe_frecuencia'];
     if (cafeFrecuencia) {
       patientData.cafe_frecuencia = cafeFrecuencia;
     }
