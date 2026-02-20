@@ -7,8 +7,9 @@ export interface Patient {
   tipo_identificacion: 'HN' | 'US' | 'GT' | 'SV' | 'NI' | 'ES' | 'OTRO';
   otro_tipo_identificacion?: string;
   numero_identidad: string;
+  edad: number;
+  edad_al_momento_consulta?: number;
   fecha_nacimiento: string;
-  edad?: number;
   representante_legal?: string;
   parentesco?: 'padre' | 'madre' | 'tutor' | 'otro';
   otro_parentesco?: string;

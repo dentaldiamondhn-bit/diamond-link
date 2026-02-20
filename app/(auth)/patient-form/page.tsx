@@ -288,6 +288,8 @@ export default function PatientForm() {
   const [doctor, setDoctor] = useState('');
   const [seguro, setSeguro] = useState('');
   const [edad, setEdad] = useState<number | ''>('');
+  const [edadAlMomentoConsulta, setEdadAlMomentoConsulta] = useState<number | ''>('');
+  const [fechaInicio, setFechaInicio] = useState('');
   
   // Additional Personal Information state variables
   const [otroTipoIdentificacion, setOtroTipoIdentificacion] = useState('');
@@ -302,7 +304,6 @@ export default function PatientForm() {
   const [contactoEmergencia, setContactoEmergencia] = useState('');
   const [contactoTelefono, setContactoTelefono] = useState('');
   const [medicoCabecera, setMedicoCabecera] = useState('');
-  const [fechaInicio, setFechaInicio] = useState('');
   const [contacto, setContacto] = useState('');
   const [hospitalizaciones, setHospitalizaciones] = useState('');
   const [cirugias, setCirugias] = useState('');
@@ -556,10 +557,12 @@ export default function PatientForm() {
       setNotasOdontologo(patient.notas_odontologo);
       setTratamiento(patient.tratamiento);
       setObservacionesPlan(patient.observaciones_plan);
+      setEdad(patient.edad || '');
+      setEdadAlMomentoConsulta(patient.edad_al_momento_consulta || '');
+      setFechaInicio(patient.fecha_inicio || '');
       setOtroDoctor(patient.otro_doctor || '');
       setOtroSeguro(patient.otro_seguro || '');
       setPoliza(patient.poliza || '');
-      setEdad(patient.edad || '');
       
       // Set dental evaluation states
       setEncias(patient.encias);
@@ -1477,6 +1480,15 @@ export default function PatientForm() {
 
           <label htmlFor="edad" className="block mb-1 font-medium">Edad:</label>
           <input type="number" id="edad" name="edad" value={edad} readOnly className="input bg-gray-100 cursor-not-allowed" />
+          {edadAlMomentoConsulta && (
+            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+              <div className="text-sm">
+                <span className="font-medium text-green-700">Edad al momento de consulta:</span> 
+                <span className="text-green-600 font-semibold">{edadAlMomentoConsulta} años</span>
+                {fechaInicio && <span className="text-xs text-green-500 ml-2">(al {new Date(fechaInicio).toLocaleDateString('es-HN')})</span>}
+              </div>
+            </div>
+          )}
 
           {/* Representante Legal if under 18 */}
           {edad !== '' && edad < 18 && (

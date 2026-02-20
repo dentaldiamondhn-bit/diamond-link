@@ -345,7 +345,16 @@ export default function PatientPreviewPage() {
             {patient.edad && (
               <div>
                 <span className="font-medium text-gray-700 dark:text-gray-300">Edad:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.edad} años</p>
+                <p className="text-gray-600 dark:text-gray-400">{patient.edad} años (actual)</p>
+                {patient.edad_al_momento_consulta && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                    <div className="text-sm">
+                      <span className="font-medium text-green-700">Edad al momento de consulta:</span>
+                      <span className="text-green-600 font-semibold">{patient.edad_al_momento_consulta} años</span>
+                      {patient.fecha_inicio && <span className="text-xs text-green-500"> (al {new Date(patient.fecha_inicio).toLocaleDateString('es-HN')})</span>}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <div>

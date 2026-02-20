@@ -7,6 +7,49 @@ import { Patient } from '@/types/patient';
 import { redirect } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
 
+// Helper function to calculate age at moment of consultation
+function calculateEdadAlMomentoConsulta(fechaNacimiento: string, fechaInicio: string): number {
+  if (!fechaNacimiento || fechaNacimiento === '') {
+    return 0;
+  }
+
+  // Parse birth date
+  let birthDate: Date;
+  if (fechaNacimiento.includes('/')) {
+    const [day, month, year] = fechaNacimiento.split('/');
+    birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  } else if (fechaNacimiento.includes('-')) {
+    birthDate = new Date(fechaNacimiento);
+  } else {
+    return 0;
+  }
+
+  // Use fecha_inicio if available, otherwise use today's date
+  let comparisonDate: Date;
+  if (fechaInicio && fechaInicio !== '') {
+    if (fechaInicio.includes('/')) {
+      const [day, month, year] = fechaInicio.split('/');
+      comparisonDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    } else if (fechaInicio.includes('-')) {
+      comparisonDate = new Date(fechaInicio);
+    } else {
+      comparisonDate = new Date();
+    }
+  } else {
+    comparisonDate = new Date();
+  }
+
+  // Calculate age
+  let age = comparisonDate.getFullYear() - birthDate.getFullYear();
+  const monthDiff = comparisonDate.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && comparisonDate.getDate() < birthDate.getDate())) {
+    age--;
+  }
+
+  return age;
+}
+
 export async function createPatient(formData: FormData) {
   console.log('=== CREATE PATIENT ACTION CALLED ===');
   console.log('Form data keys:', Array.from(formData.keys()));
@@ -48,6 +91,7 @@ export async function createPatient(formData: FormData) {
         numero_identidad: formData.get('numero_identidad') as string,
         fecha_nacimiento: formData.get('fecha_nacimiento') as string,
         edad: formData.get('edad') ? parseInt(formData.get('edad') as string) : undefined,
+        edad_al_momento_consulta: calculateEdadAlMomentoConsulta(formData.get('fecha_nacimiento') as string, formData.get('fecha_inicio') as string),
         representante_legal: formData.get('representante_legal') as string || undefined,
         parentesco: formData.get('parentesco') as Patient['parentesco'] || undefined,
         otro_parentesco: formData.get('otro_parentesco') as string || undefined,

@@ -854,6 +854,15 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
                   <div className="text-lg font-bold">
                     {patient?.edad ? `${patient.edad} años` : patient?.fecha_nacimiento ? calculateAge(patient.fecha_nacimiento) : 'No especificada'}
                   </div>
+                  {patient?.edad_al_momento_consulta && (
+                    <div className="bg-green-100/50 backdrop-blur-sm rounded-lg px-4 py-3 border border-green-300">
+                      <div className="text-xs text-green-800 font-medium">Edad al momento</div>
+                      <div className="text-lg font-bold text-green-900">
+                        {patient.edad_al_momento_consulta} años
+                        {patient.fecha_inicio && <span className="text-xs text-green-600 block">({new Date(patient.fecha_inicio).toLocaleDateString('es-HN')})</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3">
                   <div className="text-xs text-teal-100 mb-1">Teléfono</div>

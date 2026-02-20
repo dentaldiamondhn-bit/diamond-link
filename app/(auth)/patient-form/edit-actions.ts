@@ -8,6 +8,49 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { auth } from '@clerk/nextjs/server';
 
+// Helper function to calculate age at moment of consultation
+function calculateEdadAlMomentoConsulta(fechaNacimiento: string, fechaInicio: string): number {
+  if (!fechaNacimiento || fechaNacimiento === '') {
+    return 0;
+  }
+
+  // Parse birth date
+  let birthDate: Date;
+  if (fechaNacimiento.includes('/')) {
+    const [day, month, year] = fechaNacimiento.split('/');
+    birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  } else if (fechaNacimiento.includes('-')) {
+    birthDate = new Date(fechaNacimiento);
+  } else {
+    return 0;
+  }
+
+  // Use fecha_inicio if available, otherwise use today's date
+  let comparisonDate: Date;
+  if (fechaInicio && fechaInicio !== '') {
+    if (fechaInicio.includes('/')) {
+      const [day, month, year] = fechaInicio.split('/');
+      comparisonDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    } else if (fechaInicio.includes('-')) {
+      comparisonDate = new Date(fechaInicio);
+    } else {
+      comparisonDate = new Date();
+    }
+  } else {
+    comparisonDate = new Date();
+  }
+
+  // Calculate age
+  let age = comparisonDate.getFullYear() - birthDate.getFullYear();
+  const monthDiff = comparisonDate.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && comparisonDate.getDate() < birthDate.getDate())) {
+    age--;
+  }
+
+  return age;
+}
+
 // Helper function to get existing documents for a patient
 async function getExistingDocuments(patientId: string): Promise<string[]> {
   try {
@@ -211,6 +254,9 @@ export async function updatePatient(patientId: string, formData: FormData) {
     if (edad && !isNaN(parseInt(edad))) {
       patientData.edad = parseInt(edad);
     }
+    
+    const fechaInicio = formData.get('fecha_inicio') as string;
+    patientData.edad_al_momento_consulta = calculateEdadAlMomentoConsulta(fechaNacimiento, fechaInicio);
     
     const fumaCantidad = formData.get('fuma_cantidad') as string;
     if (fumaCantidad && !isNaN(parseInt(fumaCantidad))) {
