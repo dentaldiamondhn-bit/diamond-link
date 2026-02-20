@@ -39,7 +39,7 @@ export async function createOrthodonticHistory(formData: any) {
     // Prepare data for insertion
     const orthodonticData = {
       paciente_id,
-      doctor_id,
+      doctor_id: doctor_id, // Use the actual doctor_id from form
       nombre_completo,
       edad: edad ? parseInt(edad) : null,
       fecha_nacimiento,
@@ -124,7 +124,7 @@ export async function updateOrthodonticHistory(patientId: string, formData: any)
 
     // Prepare data for update
     const orthodonticData = {
-      doctor_id,
+      doctor_id: doctor_id, // Use the actual doctor_id from form
       nombre_completo,
       edad: edad ? parseInt(edad) : null,
       fecha_nacimiento,

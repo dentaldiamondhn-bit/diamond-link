@@ -14,6 +14,7 @@ import DocumentDisplay from '@/components/DocumentDisplay';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@clerk/nextjs';
 import { supabase } from '@/lib/supabase';
+import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
 
 // Isolated component to prevent authentication conflicts
 const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string, removable?: boolean, onRemove?: (index: number) => void }> = React.memo(({ documents, patientId, removable = false, onRemove }) => {
@@ -65,6 +66,9 @@ export default function HistoriaClinicaOrtodoncia() {
     fecha_nacimiento: '',
     sexo: '',
     
+    // Doctor information
+    doctor_id: '',
+    
     // Orthodontic-specific fields
     motivo_consulta_ortodoncia: '',
     diagnostico_ortodoncia: '',
@@ -88,9 +92,27 @@ export default function HistoriaClinicaOrtodoncia() {
     firma_digital_ortodoncia: null as string | null,
   });
 
-  {/* Form validation state */}
+  // Additional conditional fields state variables
+  const [otroDoctor, setOtroDoctor] = useState('');
+
+  // Form validation state
   const [fieldValidation, setFieldValidation] = useState<Record<string, boolean>>({});
   const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [doctors, setDoctors] = useState<any[]>([]); // Add doctors from database
+
+  // Fetch doctors from database
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const doctorsData = await SupabaseDoctorService.getDoctors();
+        setDoctors(doctorsData);
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -121,11 +143,18 @@ export default function HistoriaClinicaOrtodoncia() {
         .single();
 
       if (orthodonticData) {
+        // Check if doctor exists in the doctors list
+        const doctorExists = doctors.some((doc: any) => doc.name === orthodonticData.doctor_id);
+        const doctorIdValue = doctorExists ? orthodonticData.doctor_id : 'otro';
+        
         setFormData({
           nombre_completo: patientData.nombre_completo || '',
           edad: patientData.edad?.toString() || '',
           fecha_nacimiento: patientData.fecha_nacimiento || '',
           sexo: patientData.sexo || '',
+          
+          // Doctor information
+          doctor_id: doctorIdValue,
           
           motivo_consulta_ortodoncia: orthodonticData.motivo_consulta_ortodoncia || '',
           diagnostico_ortodoncia: orthodonticData.diagnostico_ortodoncia || '',
@@ -147,6 +176,11 @@ export default function HistoriaClinicaOrtodoncia() {
           documentos_ortodoncia: orthodonticData.documentos_ortodoncia || [],
           firma_digital_ortodoncia: orthodonticData.firma_digital_ortodoncia || null,
         });
+        
+        // Set otro doctor if needed
+        if (!doctorExists && orthodonticData.doctor_id) {
+          setOtroDoctor(orthodonticData.doctor_id);
+        }
       } else {
         // Initialize with patient data only
         setFormData(prev => ({
@@ -226,9 +260,13 @@ export default function HistoriaClinicaOrtodoncia() {
       const formFormData = new FormData(e.currentTarget);
       
       // Extract all form data
+      const formDoctorId = formFormData.get('doctor_id') as string;
+      const otroDoctorValue = formFormData.get('otro_doctor') as string;
+      const finalDoctorId = formDoctorId === 'otro' ? otroDoctorValue : formDoctorId;
+      
       const submitData = {
         paciente_id: patientId,
-        doctor_id: user?.id || 'unknown',
+        doctor_id: finalDoctorId,
         nombre_completo: formFormData.get('nombre_completo') as string,
         edad: formFormData.get('edad') ? parseInt(formFormData.get('edad') as string) : undefined,
         fecha_nacimiento: formFormData.get('fecha_nacimiento') as string,
@@ -317,6 +355,38 @@ export default function HistoriaClinicaOrtodoncia() {
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block mb-1 font-medium">Doctor Tratante:</label>
+                  <select
+                    name="doctor_id"
+                    value={formData.doctor_id}
+                    onChange={handleInputChange}
+                    className="input"
+                    required
+                  >
+                    <option value="">Seleccionar</option>
+                    {doctors.map((doc: any) => (
+                      <option key={doc.id} value={doc.name}>
+                        {doc.name}
+                      </option>
+                    ))}
+                    <option value="otro">Otro (especificar)</option>
+                  </select>
+                </div>
+
+                {formData.doctor_id === 'otro' && (
+                  <div>
+                    <label className="block mb-1 font-medium">Especifique el nombre del doctor:</label>
+                    <input 
+                      type="text" 
+                      name="otro_doctor" 
+                      className="input" 
+                      value={otroDoctor} 
+                      onChange={(e) => setOtroDoctor(e.target.value)} 
+                    />
+                  </div>
+                )}
+                
                 <div>
                   <label className="block mb-1 font-medium">Nombre Completo:</label>
                   <input
