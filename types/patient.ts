@@ -37,7 +37,7 @@ export interface Patient {
   seguro: 'Ninguno' | 'IHSS' | 'Mapfre' | 'Palic' | 'ficohsa_seguros' | 'otro';
   otro_seguro?: string;
   poliza?: string;
-  contacto?: string;
+  contacto?: 'Recomendación de amigo/familiar' | 'Recomendación de doctor/médico' | 'Facebook' | 'Instagram' | 'WhatsApp' | 'Llamada telefónica' | 'Google/Búsqueda web' | 'Página web' | 'Referido de otro paciente' | 'Publicidad/Folleto' | 'Otro' | string;
   enfermedades: string;
   alergias: string;
   medicamentos: string;

@@ -1758,7 +1758,20 @@ export default function PatientForm() {
           )}
 
           <label htmlFor="contacto" className="block mb-1 font-medium mt-4">Como nos contacto?</label>
-          <input type="text" id="contacto" name="contacto" className="input" value={contacto} onChange={(e) => setContacto(e.target.value)} />
+          <select id="contacto" name="contacto" className="input" value={contacto} onChange={(e) => setContacto(e.target.value)}>
+            <option value="">Seleccionar</option>
+            <option value="Recomendación de amigo/familiar">Recomendación de amigo/familiar</option>
+            <option value="Recomendación de doctor/médico">Recomendación de doctor/médico</option>
+            <option value="Facebook">Facebook</option>
+            <option value="Instagram">Instagram</option>
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Llamada telefónica">Llamada telefónica</option>
+            <option value="Google/Búsqueda web">Google/Búsqueda web</option>
+            <option value="Página web">Página web</option>
+            <option value="Referido de otro paciente">Referido de otro paciente</option>
+            <option value="Publicidad/Folleto">Publicidad/Folleto</option>
+            <option value="Otro">Otro</option>
+          </select>
         </section>
 
         {/* Antecedentes Médicos */}
