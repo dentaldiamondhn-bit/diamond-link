@@ -37,14 +37,14 @@ export class OrthodonticHistoryServiceClient {
         .from('historia_clinica_ortodoncia')
         .select('*')
         .eq('paciente_id', patientId)
-        .single();
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      if (error) {
         console.error('Error fetching orthodontic history:', error);
         throw new Error(`Error al obtener historia clínica ortodóncica: ${error.message}`);
       }
 
-      return data;
+      return data && data.length > 0 ? data[0] : null;
     } catch (error) {
       console.error('Error fetching orthodontic history:', error);
       throw new Error(`Error al obtener historia clínica ortodóncica: ${error.message}`);

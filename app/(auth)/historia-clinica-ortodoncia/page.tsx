@@ -47,13 +47,14 @@ const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string
 IsolatedDocumentDisplay.displayName = 'IsolatedDocumentDisplay';
 
 export default function HistoriaClinicaOrtodoncia() {
+  console.log('=== COMPONENT MOUNTED - Patient ID:', searchParams.get('id'), 'View mode:', searchParams.get('view'));
   const router = useRouter();
   const searchParams = useSearchParams();
   const { resolvedTheme } = useTheme();
   const { user } = useUser();
   const patientId = searchParams.get('id');
   const isEditing = !!patientId && searchParams.get('edit') === 'true';
-  const isViewing = !!patientId && !isEditing;
+  const isViewing = !!patientId && searchParams.get('view') === 'true';
 
   // Patient data state
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -138,65 +139,95 @@ export default function HistoriaClinicaOrtodoncia() {
 
       setPatient(patientData);
       
-      // Load existing orthodontic history if available
-      const { data: orthodonticData } = await supabase
-        .from('historia_clinica_ortodoncia')
-        .select('*')
-        .eq('paciente_id', patientId)
-        .single();
-
-      if (orthodonticData) {
-        // Check if doctor exists in the doctors list
-        const doctorExists = doctors.some((doc: any) => doc.name === orthodonticData.doctor_id);
-        const doctorIdValue = doctorExists ? orthodonticData.doctor_id : 'otro';
-        
-        setFormData({
-          nombre_completo: patientData.nombre_completo || '',
-          edad: patientData.edad?.toString() || '',
-          fecha_nacimiento: patientData.fecha_nacimiento || '',
-          sexo: patientData.sexo || '',
-          
-          // Doctor information
-          doctor_id: doctorIdValue,
-          
-          motivo_consulta_ortodoncia: orthodonticData.motivo_consulta_ortodoncia || '',
-          diagnostico_ortodoncia: orthodonticData.diagnostico_ortodoncia || '',
-          plan_tratamiento_ortodoncia: orthodonticData.plan_tratamiento_ortodoncia || '',
-          tipo_mordida: orthodonticData.tipo_mordida || '',
-          tipo_aparato: orthodonticData.tipo_aparato || '',
-          duracion_tratamiento: orthodonticData.duracion_tratamiento || '',
-          fecha_inicio_tratamiento: orthodonticData.fecha_inicio_tratamiento || '',
-          fecha_fin_tratamiento: orthodonticData.fecha_fin_tratamiento || '',
-          observaciones_ortodoncia: orthodonticData.observaciones_ortodoncia || '',
-          radiografias_realizadas: orthodonticData.radiografias_realizadas || '',
-          modelos_estudio: orthodonticData.modelos_estudio || '',
-          analisis_cefalometrico: orthodonticData.analisis_cefalometrico || '',
-          extracciones_realizadas: orthodonticData.extracciones_realizadas || '',
-          retenedor_tipo: orthodonticData.retenedor_tipo || '',
-          retenedor_uso: orthodonticData.retenedor_uso || '',
-          seguimiento_post_tratamiento: orthodonticData.seguimiento_post_tratamiento || '',
-          
-          documentos_ortodoncia: orthodonticData.documentos_ortodoncia || [],
-          firma_digital_ortodoncia: orthodonticData.firma_digital_ortodoncia || null,
+      console.log('=== Starting orthodontic history load ===');
+      console.log('=== About to call getOrthodonticHistory ===');
+      
+      // First test the API endpoint directly
+      try {
+        const testResponse = await fetch('/api/test-orthodontic-history', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ pacienteId: patientId! }),
         });
         
-        // Set otro doctor if needed
-        if (!doctorExists && orthodonticData.doctor_id) {
-          setOtroDoctor(orthodonticData.doctor_id);
+        const testResult = await testResponse.json();
+        console.log('=== TEST API RESULT ===');
+        console.log('Test data:', testResult.data);
+      } catch (testErr) {
+        console.error('Test API error:', testErr);
+      }
+      
+      const { getOrthodonticHistory } = await import('./actions');
+      try {
+        const orthodonticData = await getOrthodonticHistory(patientId!);
+        console.log('=== getOrthodonticHistory returned:', orthodonticData);
+        
+        if (orthodonticData) {
+          console.log('=== Orthodontic data found, populating form ===');
+          const doctorExists = doctors.some((doc: any) => doc.name === orthodonticData.doctor_id);
+          const doctorIdValue = doctorExists ? orthodonticData.doctor_id : 'otro';
+          
+          const formValues = {
+            nombre_completo: patientData.nombre_completo || '',
+            edad: patientData.edad?.toString() || '',
+            fecha_nacimiento: patientData.fecha_nacimiento || '',
+            sexo: patientData.sexo || '',
+            
+            // Doctor information
+            doctor_id: doctorIdValue,
+            
+            motivo_consulta_ortodoncia: orthodonticData.motivo_consulta_ortodoncia || '',
+            diagnostico_ortodoncia: orthodonticData.diagnostico_ortodoncia || '',
+            plan_tratamiento_ortodoncia: orthodonticData.plan_tratamiento_ortodoncia || '',
+            tipo_mordida: orthodonticData.tipo_mordida || '',
+            tipo_aparato: orthodonticData.tipo_aparato || '',
+            duracion_tratamiento: orthodonticData.duracion_tratamiento || '',
+            fecha_inicio_tratamiento: orthodonticData.fecha_inicio_tratamiento || '',
+            fecha_fin_tratamiento: orthodonticData.fecha_fin_tratamiento || '',
+            observaciones_ortodoncia: orthodonticData.observaciones_ortodoncia || '',
+            radiografias_realizadas: orthodonticData.radiografias_realizadas || '',
+            modelos_estudio: orthodonticData.modelos_estudio || '',
+            analisis_cefalometrico: orthodonticData.analisis_cefalometrico || '',
+            extracciones_realizadas: orthodonticData.extracciones_realizadas || '',
+            retenedor_tipo: orthodonticData.retenedor_tipo || '',
+            retenedor_uso: orthodonticData.retenedor_uso || '',
+            seguimiento_post_tratamiento: orthodonticData.seguimiento_post_tratamiento || '',
+            
+            // Documents and signature
+            documentos_ortodoncia: orthodonticData.documentos_ortodoncia || [],
+            firma_digital_ortodoncia: orthodonticData.firma_digital_ortodoncia || null,
+          };
+          
+          setFormData(formValues);
+          
+          // Set otro doctor if needed
+          if (!doctorExists && orthodonticData.doctor_id) {
+            setOtroDoctor(orthodonticData.doctor_id);
+          }
+        } else {
+          // Initialize with patient data only
+          setFormData(prev => ({
+            ...prev,
+            nombre_completo: patientData.nombre_completo || '',
+            edad: patientData.edad?.toString() || '',
+            fecha_nacimiento: patientData.fecha_nacimiento || '',
+            sexo: patientData.sexo || '',
+          }));
         }
-      } else {
-        // Initialize with patient data only
-        setFormData(prev => ({
-          ...prev,
-          nombre_completo: patientData.nombre_completo || '',
-          edad: patientData.edad?.toString() || '',
-          fecha_nacimiento: patientData.fecha_nacimiento || '',
-          sexo: patientData.sexo || '',
-        }));
+      } catch (historyErr) {
+        console.error('Error loading orthodontic history:', historyErr);
+        setError('Error al cargar la historia clínica ortodóncica');
+      }; catch (err) {
+        console.error('Error loading patient data:', err);
+        setError('Error al cargar los datos del paciente');
+      } finally {
+        setLoading(false);
       }
     } catch (err) {
       console.error('Error loading patient data:', err);
-      setError('Error al cargar datos del paciente');
+      setError('Error al cargar los datos del paciente');
     } finally {
       setLoading(false);
     }
@@ -763,16 +794,6 @@ export default function HistoriaClinicaOrtodoncia() {
 
             {/* Form Actions */}
             <div className="flex justify-end space-x-4">
-              {!isEditing && (
-                <button
-                  type="button"
-                  onClick={() => router.push(`/historia-clinica-ortodoncia?id=${patientId}&view=true`)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-                >
-                  Ver Historia
-                </button>
-              )}
-              
               <button
                 type="submit"
                 disabled={loading}

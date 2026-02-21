@@ -11,6 +11,7 @@ import { CompletedTreatmentService } from '@/services/completedTreatmentService'
 import { OdontogramService } from '@/services/odontogramService';
 import { consentimientoService } from '@/services/consentimientoService';
 import { presupuestoService } from '@/services/presupuestoService';
+import { OrthodonticHistoryServiceClient } from '@/services/orthodonticHistoryServiceClient';
 import { Patient } from '@/types/patient';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
@@ -41,6 +42,7 @@ export default function MenuNavegacion() {
   const [consentimientoStatsLoading, setConsentimientoStatsLoading] = useState(true);
   const [presupuestoStats, setPresupuestoStats] = useState<any>(null);
   const [presupuestoStatsLoading, setPresupuestoStatsLoading] = useState(true);
+  const [hasOrthodonticHistory, setHasOrthodonticHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const searchParams = useSearchParams();
@@ -48,10 +50,13 @@ export default function MenuNavegacion() {
   const { bypassHistoricalMode, setBypassHistoricalMode, loading, setCurrentPatient, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   const { isLoaded } = useUser();
 
+  // Get and validate patient ID
+  const pacienteId = searchParams.get('id');
+  const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'undefined' ? pacienteId : '';
+
   // Function to handle bypass changes using new context method
   const handleBypassChange = async (newBypassValue: boolean) => {
     try {
-      const pacienteId = searchParams.get('id');
       if (pacienteId && pacienteId !== 'null' && pacienteId !== 'undefined') {
         await savePatientSettings(pacienteId, newBypassValue);
         console.log('✅ Patient bypass setting updated successfully');
@@ -65,9 +70,8 @@ export default function MenuNavegacion() {
   useEffect(() => {
     const loadPatient = async () => {
       try {
-        const pacienteId = searchParams.get('id');
         
-        if (!pacienteId || pacienteId === 'null' || pacienteId === 'undefined') {
+        if (!validPacienteId || validPacienteId === 'null' || validPacienteId === 'undefined') {
           setError('ID de paciente no proporcionado');
           setPatientLoading(false);
           return;
@@ -152,6 +156,41 @@ export default function MenuNavegacion() {
 
     loadOdontogramStats();
   }, [patient]);
+
+  useEffect(() => {
+    if (validPacienteId) {
+      const checkOrthodonticHistory = async () => {
+        try {
+          // Add timestamp to force cache invalidation
+          const timestamp = Date.now();
+          console.log('=== Checking orthodontic history at:', timestamp);
+          
+          const response = await fetch('/api/check-orthodontic-history?' + timestamp, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ pacienteId: validPacienteId }),
+          });
+
+          if (!response.ok) {
+            console.error('Error checking orthodontic history:', response.statusText);
+            setHasOrthodonticHistory(false);
+            return;
+          }
+
+          const result = await response.json();
+          const history = result.data;
+          setHasOrthodonticHistory(!!history);
+        } catch (error) {
+          console.error('Error checking orthodontic history:', error);
+          setHasOrthodonticHistory(false);
+        }
+      };
+
+      checkOrthodonticHistory();
+    }
+  }, [validPacienteId]);
 
   useEffect(() => {
     const loadConsentimientoStats = async () => {
@@ -605,9 +644,6 @@ export default function MenuNavegacion() {
     );
   };
 
-  const pacienteId = searchParams.get('id');
-const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'undefined' ? pacienteId : '';
-
   // Patient type utility (same as pacientes page)
   const getPatientType = (patient: any) => {
     const calculateAge = (birthDate: string) => {
@@ -946,8 +982,19 @@ const validPacienteId = pacienteId && pacienteId !== 'null' && pacienteId !== 'u
                      item.id === 'presupuesto' ? 'Ir a Presupuestos' :
                      item.id === 'preformas' ? 'Ver Tratamientos' :
                      item.id === 'reportes' ? 'Ver Reportes' :
-                     item.id === 'gestion-documental' ? 'Ir a Documentos' : 'Ir'}
+                     item.id === 'gestion-documental' ? 'Ir a Documentos' :
+                     item.id === 'historia-clinica-ortodoncia' ? 'Ir' :
+                     'Ir'}
                   </Link>
+                  {item.id === 'historia-clinica-ortodoncia' && hasOrthodonticHistory && (
+                    <Link
+                      href={`/historia-clinica-ortodoncia?id=${validPacienteId}&view=true`}
+                      className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl font-medium text-sm transform hover:scale-105"
+                    >
+                      <i className="fas fa-eye mr-2"></i>
+                      Ver Historia
+                    </Link>
+                  )}
                   {item.id === 'consentimientos' && (
                     <Link
                       href={`/consentimientos/new?id=${validPacienteId}`}

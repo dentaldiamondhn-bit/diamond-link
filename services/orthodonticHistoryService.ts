@@ -39,7 +39,12 @@ export class OrthodonticHistoryService {
         .eq('paciente_id', patientId)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      // Handle case where no record exists (this is normal for checking)
+      if (error && error.code === 'PGRST116') {
+        return null; // No record found is expected when checking
+      }
+
+      if (error && error.code !== 'PGRST116') {
         console.error('Error fetching orthodontic history:', error);
         throw new Error(`Error al obtener historia clínica ortodóncica: ${error.message}`);
       }

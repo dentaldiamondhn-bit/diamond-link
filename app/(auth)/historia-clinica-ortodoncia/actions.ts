@@ -213,7 +213,15 @@ export async function getOrthodonticHistory(patientId: string) {
       .eq('paciente_id', patientId)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+    console.log('=== Supabase query result ===');
+    console.log('Data:', data);
+    console.log('Error:', error);
+
+    if (error) {
+      if (error.code === 'PGRST116') { // PGRST116 is "not found"
+        console.log('No orthodontic history found for patient:', patientId);
+        return null; // Return null when no history found
+      }
       console.error('Error getting orthodontic history:', error);
       throw new Error(`Error al obtener historia clínica ortodóncica: ${error.message}`);
     }
