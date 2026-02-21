@@ -55,7 +55,7 @@ export class OrthodonticHistoryServiceClient {
     try {
       const { error } = await supabase
         .from('historia_clinica_ortodoncia')
-        .update({ documentos_ortodoncia })
+        .update({ documentos })
         .eq('paciente_id', patientId);
 
       if (error) {
