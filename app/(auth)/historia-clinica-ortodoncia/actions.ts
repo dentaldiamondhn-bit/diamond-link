@@ -4,8 +4,6 @@ import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { redirect } from 'next/navigation';
 
 export async function createOrthodonticHistory(formData: any) {
-  console.log('=== CREATE ORTHODONTIC HISTORY ACTION CALLED ===');
-  console.log('Form data keys:', Object.keys(formData));
   
   try {
     // Extract form data
@@ -66,7 +64,6 @@ export async function createOrthodonticHistory(formData: any) {
       updated_at: new Date().toISOString(),
     };
 
-    console.log('Prepared orthodontic data:', orthodonticData);
 
     // Insert orthodontic history
     const { data, error } = await supabaseAdmin
@@ -79,7 +76,6 @@ export async function createOrthodonticHistory(formData: any) {
       throw new Error(`Error al crear historia clínica ortodóncica: ${error.message}`);
     }
 
-    console.log('Orthodontic history created successfully:', data);
     
     return { success: true, data: data[0] };
 
@@ -89,10 +85,7 @@ export async function createOrthodonticHistory(formData: any) {
   }
 }
 
-export async function updateOrthodonticHistory(patientId: string, formData: any) {
-  console.log('=== UPDATE ORTHODONTIC HISTORY ACTION CALLED ===');
-  console.log('Patient ID:', patientId);
-  console.log('Form data keys:', Object.keys(formData));
+export async function updateOrthodonticHistory(recordId: string, formData: any) {
   
   try {
     // Extract form data
@@ -150,48 +143,20 @@ export async function updateOrthodonticHistory(patientId: string, formData: any)
       updated_at: new Date().toISOString(),
     };
 
-    console.log('Prepared orthodontic update data:', orthodonticData);
 
-    // First check if record exists
-    const { data: existingRecord, error: checkError } = await supabaseAdmin
+    // Update the record using the record ID
+    const { data, error } = await supabaseAdmin
       .from('historia_clinica_ortodoncia')
-      .select('id')
-      .eq('paciente_id', patientId)
-      .single();
+      .update(orthodonticData)
+      .eq('id', recordId)
+      .select();
 
-    console.log('Existing record check:', { existingRecord, checkError });
-
-    let result;
-    if (existingRecord) {
-      // Update existing record
-      console.log('Updating existing record');
-      result = await supabaseAdmin
-        .from('historia_clinica_ortodoncia')
-        .update(orthodonticData)
-        .eq('paciente_id', patientId)
-        .select();
-    } else {
-      // Insert new record
-      console.log('Inserting new record');
-      const insertData = {
-        ...orthodonticData,
-        paciente_id: patientId,
-        created_at: new Date().toISOString()
-      };
-      result = await supabaseAdmin
-        .from('historia_clinica_ortodoncia')
-        .insert([insertData])
-        .select();
-    }
-
-    const { data, error } = result;
 
     if (error) {
       console.error('Error updating orthodontic history:', error);
       throw new Error(`Error al actualizar historia clínica ortodóncica: ${error.message}`);
     }
 
-    console.log('Orthodontic history updated successfully:', data);
     
     return { success: true, data: data[0] };
 
@@ -202,8 +167,6 @@ export async function updateOrthodonticHistory(patientId: string, formData: any)
 }
 
 export async function getOrthodonticHistory(patientId: string) {
-  console.log('=== GET ORTHODONTIC HISTORY ACTION CALLED ===');
-  console.log('Patient ID:', patientId);
   
   try {
     // Get orthodontic history
@@ -211,24 +174,18 @@ export async function getOrthodonticHistory(patientId: string) {
       .from('historia_clinica_ortodoncia')
       .select('*')
       .eq('paciente_id', patientId)
-      .single();
+      .limit(1);
 
-    console.log('=== Supabase query result ===');
-    console.log('Data:', data);
-    console.log('Error:', error);
 
     if (error) {
-      if (error.code === 'PGRST116') { // PGRST116 is "not found"
-        console.log('No orthodontic history found for patient:', patientId);
-        return null; // Return null when no history found
-      }
       console.error('Error getting orthodontic history:', error);
       throw new Error(`Error al obtener historia clínica ortodóncica: ${error.message}`);
     }
 
-    console.log('Orthodontic history retrieved:', data);
+    // Return the first record or null if no records found
+    const historyData = data && data.length > 0 ? data[0] : null;
     
-    return data;
+    return historyData;
 
   } catch (error) {
     console.error('Error in getOrthodonticHistory:', error);

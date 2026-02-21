@@ -3,7 +3,7 @@
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
 import { Patient } from '@/types/patient';
@@ -17,6 +17,43 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@clerk/nextjs';
 import { supabase } from '@/lib/supabase';
 import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
+
+// Utility function to extract filename from URL (matches DocumentDisplay logic)
+const getFileName = (url: string): string => {
+  const parts = url.split('/');
+  const fileName = parts[parts.length - 1];
+  
+  // Remove patient ID and timestamp prefix for cleaner display
+  // Format: patientId_timestamp_filename.ext or patientId_timestamp_filename%20(1).ext
+  
+  let cleanFileName = fileName;
+  
+  // Remove patient ID (UUID pattern: 8-4-4-12 hex digits)
+  cleanFileName = cleanFileName.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/, '');
+  
+  // Remove timestamp (digits at start after underscore)
+  cleanFileName = cleanFileName.replace(/^[0-9]+_/, '');
+  
+  // URL decode to handle %20 and other encoded characters
+  try {
+    cleanFileName = decodeURIComponent(cleanFileName);
+  } catch (e) {
+    // If decoding fails, use original
+    console.warn('Failed to decode filename:', cleanFileName);
+  }
+  
+  // If filename is too long, truncate it intelligently
+  if (cleanFileName.length > 30) {
+    const nameWithoutExt = cleanFileName.substring(0, cleanFileName.lastIndexOf('.'));
+    const extension = cleanFileName.substring(cleanFileName.lastIndexOf('.'));
+    
+    // Truncate name part but keep extension
+    const truncatedName = nameWithoutExt.substring(0, 25) + '...' + extension;
+    return truncatedName;
+  }
+  
+  return cleanFileName;
+};
 
 // Isolated component to prevent authentication conflicts
 const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string, removable?: boolean, onRemove?: (index: number) => void }> = React.memo(({ documents, patientId, removable = false, onRemove }) => {
@@ -47,7 +84,6 @@ const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string
 IsolatedDocumentDisplay.displayName = 'IsolatedDocumentDisplay';
 
 export default function HistoriaClinicaOrtodoncia() {
-  console.log('=== COMPONENT MOUNTED - Patient ID:', searchParams.get('id'), 'View mode:', searchParams.get('view'));
   const router = useRouter();
   const searchParams = useSearchParams();
   const { resolvedTheme } = useTheme();
@@ -55,12 +91,20 @@ export default function HistoriaClinicaOrtodoncia() {
   const patientId = searchParams.get('id');
   const isEditing = !!patientId && searchParams.get('edit') === 'true';
   const isViewing = !!patientId && searchParams.get('view') === 'true';
+  
+  const hasMounted = useRef(false);
+  
+  if (!hasMounted.current) {
+    hasMounted.current = true;
+  }
 
   // Patient data state
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [patientDataLoaded, setPatientDataLoaded] = useState(false);
+  const [orthodonticHistoryId, setOrthodonticHistoryId] = useState<string | null>(null); // Store record ID
 
   // Form state
   const [formData, setFormData] = useState({
@@ -98,7 +142,12 @@ export default function HistoriaClinicaOrtodoncia() {
 
   // Additional conditional fields state variables
   const [otroDoctor, setOtroDoctor] = useState('');
-
+  
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<{ index: number; name: string } | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  
   // Form validation state
   const [fieldValidation, setFieldValidation] = useState<Record<string, boolean>>({});
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -120,12 +169,12 @@ export default function HistoriaClinicaOrtodoncia() {
 
   useEffect(() => {
     setMounted(true);
-    if (patientId) {
+    if (patientId && !patientDataLoaded && doctors.length > 0) {
       loadPatientData();
-    } else {
+    } else if (!patientId) {
       setLoading(false);
     }
-  }, [patientId]);
+  }, [patientId, patientDataLoaded, doctors]);
 
   const loadPatientData = async () => {
     try {
@@ -139,8 +188,6 @@ export default function HistoriaClinicaOrtodoncia() {
 
       setPatient(patientData);
       
-      console.log('=== Starting orthodontic history load ===');
-      console.log('=== About to call getOrthodonticHistory ===');
       
       // First test the API endpoint directly
       try {
@@ -153,21 +200,41 @@ export default function HistoriaClinicaOrtodoncia() {
         });
         
         const testResult = await testResponse.json();
-        console.log('=== TEST API RESULT ===');
-        console.log('Test data:', testResult.data);
       } catch (testErr) {
         console.error('Test API error:', testErr);
+      }
+      
+      // Wait for doctors to be loaded before processing orthodontic data
+      if (doctors.length === 0) {
+        // Wait a bit for doctors to load
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
       const { getOrthodonticHistory } = await import('./actions');
       try {
         const orthodonticData = await getOrthodonticHistory(patientId!);
-        console.log('=== getOrthodonticHistory returned:', orthodonticData);
         
         if (orthodonticData) {
-          console.log('=== Orthodontic data found, populating form ===');
-          const doctorExists = doctors.some((doc: any) => doc.name === orthodonticData.doctor_id);
-          const doctorIdValue = doctorExists ? orthodonticData.doctor_id : 'otro';
+          
+          // Store the orthodontic history record ID for updates
+          setOrthodonticHistoryId(orthodonticData.id);
+          
+          // Initialize signatureData with the loaded signature
+          setSignatureData(orthodonticData.firma_digital_ortodoncia);
+          
+          // More robust doctor matching - case insensitive and trimmed
+          const savedDoctor = (orthodonticData.doctor_id || '').trim();
+          const doctorExists = doctors.some((doc: any) => 
+            (doc.name || '').trim().toLowerCase() === savedDoctor.toLowerCase()
+          );
+          
+          
+          const doctorIdValue = doctorExists ? savedDoctor : 'otro';
+          
+          // If doctor doesn't exist in list, set it as "otro" and populate the text field
+          if (!doctorExists && savedDoctor) {
+            setOtroDoctor(savedDoctor);
+          }
           
           const formValues = {
             nombre_completo: patientData.nombre_completo || '',
@@ -216,14 +283,12 @@ export default function HistoriaClinicaOrtodoncia() {
             sexo: patientData.sexo || '',
           }));
         }
-      } catch (historyErr) {
-        console.error('Error loading orthodontic history:', historyErr);
+      } catch (err) {
+        console.error('Error loading orthodontic history:', err);
         setError('Error al cargar la historia clínica ortodóncica');
-      }; catch (err) {
-        console.error('Error loading patient data:', err);
-        setError('Error al cargar los datos del paciente');
       } finally {
         setLoading(false);
+        setPatientDataLoaded(true);
       }
     } catch (err) {
       console.error('Error loading patient data:', err);
@@ -252,30 +317,44 @@ export default function HistoriaClinicaOrtodoncia() {
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || !patientId) return;
+    if (!files || files.length === 0) return;
 
-    const newDocuments: string[] = [];
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      // For now, just add the file name (in a real app, you'd upload to storage)
-      newDocuments.push(file.name);
-    }
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append('patientId', patientId || 'new');
+      
+      // Add all files
+      Array.from(files).forEach(file => {
+        formData.append('files', file);
+      });
 
-    // Update local state
-    setFormData(prev => ({
-      ...prev,
-      documentos_ortodoncia: [...prev.documentos_ortodoncia, ...newDocuments]
-    }));
+      const response = await fetch('/api/upload-orthodontic-documents', {
+        method: 'POST',
+        body: formData,
+      });
 
-    // Update database if in edit mode
-    if (isEditing && newDocuments.length > 0) {
-      try {
-        await OrthodonticHistoryService.updateOrthodonticHistoryDocuments(patientId, newDocuments);
-      } catch (error) {
-        console.error('Error updating documents:', error);
-      setError('Error al actualizar documentos: ' + error.message);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al subir documentos');
       }
+
+      // Update form with new documents
+      if (result.allDocuments) {
+        setFormData(prev => ({
+          ...prev,
+          documentos_ortodoncia: result.allDocuments
+        }));
+      }
+
+    } catch (error) {
+      console.error('Document upload error:', error);
+      setError('Error al subir documentos: ' + error.message);
+    } finally {
+      setLoading(false);
+      // Clear the file input
+      e.target.value = '';
     }
   };
 
@@ -335,8 +414,9 @@ export default function HistoriaClinicaOrtodoncia() {
         firma_digital_ortodoncia: signatureData,
       };
 
-      if (isEditing && patientId) {
-        await updateOrthodonticHistory(patientId, submitData);
+
+      if (orthodonticHistoryId) {
+        await updateOrthodonticHistory(orthodonticHistoryId, submitData);
       } else {
         await createOrthodonticHistory(submitData);
       }
@@ -384,14 +464,14 @@ export default function HistoriaClinicaOrtodoncia() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div key={`historia-page-${patientId}`} className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
             {isViewing ? 'Ver Historia Clínica Ortodóncica' : isEditing ? 'Editar Historia Clínica Ortodóncica' : 'Historia Clínica Ortodóncica'}
           </h1>
           
-          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+          <form key={`historia-form-${patientId}`} onSubmit={handleSubmit} className="space-y-6" noValidate>
             {/* Patient Information Section */}
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -755,7 +835,15 @@ export default function HistoriaClinicaOrtodoncia() {
                       documents={formData.documentos_ortodoncia}
                       patientId={patientId || 'new'}
                       removable={true}
-                      onRemove={removeDocument}
+                      onRemove={(index) => {
+                        if (!formData.documentos_ortodoncia[index]) return;
+                        
+                        const docUrl = formData.documentos_ortodoncia[index];
+                        const fileName = getFileName(docUrl);
+                        
+                        setDocumentToDelete({ index, name: fileName });
+                        setShowDeleteModal(true);
+                      }}
                     />
                   </div>
                 )}
@@ -813,6 +901,79 @@ export default function HistoriaClinicaOrtodoncia() {
           </form>
         </div>
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && documentToDelete && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full sm:mx-0 sm:h-10 sm:w-10 ${
+                    deleteSuccess ? 'bg-green-100' : 'bg-red-100'
+                  }`}>
+                    <i className={`fas ${deleteSuccess ? 'fa-check-circle text-green-600' : 'fa-exclamation-triangle text-red-600'}`}></i>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                      {deleteSuccess ? 'Documento Eliminado' : 'Eliminar Documento'}
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {deleteSuccess 
+                          ? `El documento "${documentToDelete?.name}" ha sido eliminado exitosamente.`
+                          : `¿Está seguro de que desea eliminar el documento "${documentToDelete?.name}"? Esta acción no se puede deshacer.`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                {!deleteSuccess ? (
+                  <>
+                    <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm" onClick={async () => {
+                      // Delete logic here
+                      const docUrl = formData.documentos_ortodoncia[documentToDelete!.index];
+                      const fileName = decodeURIComponent(docUrl.split('/').pop()!);
+                      const filePath = `${patientId}/${fileName}`;
+                      
+                      const response = await fetch('/api/delete-orthodontic-document', {
+                        method: 'DELETE',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                          patientId: patientId, 
+                          filePath, 
+                          documentIndex: documentToDelete!.index, 
+                          documents: formData.documentos_ortodoncia
+                        })
+                      });
+                      
+                      if (response.ok) {
+                        const updatedDocuments = formData.documentos_ortodoncia.filter((_, i) => i !== documentToDelete!.index);
+                        setFormData(prev => ({...prev, documentos_ortodoncia: updatedDocuments}));
+                        setDeleteSuccess(true);
+                      } else {
+                        const result = await response.json();
+                        alert('Error: ' + result.error);
+                      }
+                    }}>Eliminar</button>
+                    <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={() => {setShowDeleteModal(false); setDocumentToDelete(null);}}>Cancelar</button>
+                  </>
+                ) : (
+                  <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-white hover:bg-green-700 sm:w-auto sm:text-sm" onClick={() => {setShowDeleteModal(false); setDocumentToDelete(null); setDeleteSuccess(false);}}>
+                    <i className="fas fa-check mr-2"></i>Eliminado Exitosamente
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
