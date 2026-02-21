@@ -23,7 +23,13 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
       // Use theme-appropriate colors
       const isDark = resolvedTheme === 'dark';
       const backgroundColor = isDark ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)';
-      const penColor = isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
+      const penColor = isDark ? 'rgb(0, 0, 0)' : 'rgb(0, 0, 0)';
+      
+      // Clear existing signature pad before creating new one
+      if (signaturePadRef.current) {
+        signaturePadRef.current.off();
+        signaturePadRef.current.clear();
+      }
       
       const signaturePad = new SignaturePad(canvas, {
         backgroundColor,
@@ -70,10 +76,11 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
       }
 
       return () => {
+        signaturePadRef.current?.off();
         window.removeEventListener('resize', resizeCanvas);
       };
     }
-  }, [onChange, value]);
+  }, [onChange, value, resolvedTheme]);
 
   const clearSignature = () => {
     if (signaturePadRef.current) {
