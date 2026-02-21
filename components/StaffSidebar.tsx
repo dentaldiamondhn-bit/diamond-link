@@ -19,9 +19,21 @@ const staffNavItems = [
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
 ];
 
-export default function StaffSidebar() {
+interface StaffSidebarProps {
+  sidebarOpen?: boolean;
+  setSidebarOpen?: (open: boolean) => void;
+}
+
+export default function StaffSidebar({ sidebarOpen, setSidebarOpen }: StaffSidebarProps) {
   const pathname = usePathname();
   const { user } = useUser();
+
+  const handleLinkClick = () => {
+    // Close sidebar on mobile when clicking a menu item
+    if (sidebarOpen && setSidebarOpen) {
+      setSidebarOpen(false);
+    }
+  };
 
   return (
     <div className="w-64 bg-green-900 text-white flex flex-col h-screen overflow-y-auto">
@@ -45,6 +57,7 @@ export default function StaffSidebar() {
               <React.Fragment key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={handleLinkClick}
                   className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                     pathname === item.href || pathname.startsWith(item.href + '/')
                       ? 'bg-green-600 text-white shadow-lg'
@@ -70,6 +83,7 @@ export default function StaffSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleLinkClick}
               className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                 pathname === item.href || pathname.startsWith(item.href + '/')
                   ? 'bg-green-600 text-white shadow-lg'

@@ -60,10 +60,8 @@ export default function UserAdministration() {
     if (!isLoaded) return;
     if (!isAdmin) {
       // Redirect or show access denied
-      console.log('User is not admin or not loaded, skipping user fetch');
       return;
     }
-    console.log('User is admin, loading users...');
     loadUsers();
   }, [isLoaded, isAdmin]);
 
@@ -120,11 +118,9 @@ export default function UserAdministration() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      console.log('Fetching users from API...');
       const response = await fetch('/api/admin/users');
       
       if (response.status === 401) {
-        console.log('Authentication failed, user may need to sign in again');
         // Don't throw error for 401, just log it
         return;
       }
@@ -134,7 +130,6 @@ export default function UserAdministration() {
       }
       
       const data = await response.json();
-      console.log('Users loaded successfully:', data.users?.length || 0);
       setUsers(data.users || []);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -149,7 +144,6 @@ export default function UserAdministration() {
 
   const updateUserRole = async (userId: string, newRole: UserRole) => {
     try {
-      console.log('Updating user role:', { userId, newRole, currentUserRole: userRole, isAdmin, currentUserId: currentUser?.id });
       setUpdatingRole(userId);
       const response = await fetch('/api/admin/users', {
         method: 'POST',
@@ -165,12 +159,10 @@ export default function UserAdministration() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('API response error:', errorData);
         throw new Error(errorData.error || 'Failed to update role');
       }
 
       const data = await response.json();
-      console.log('API response success:', data);
       
       // Update local state
       setUsers(prev => prev.map(user => 
@@ -375,7 +367,7 @@ export default function UserAdministration() {
         });
 
         if (!response.ok) {
-          console.error(`Failed to ${action} user ${userId}`);
+          // Failed to ${action} user ${userId}
         }
       }
 
@@ -385,7 +377,6 @@ export default function UserAdministration() {
       
       alert(`Successfully ${action} ${selectedUsers.length} user(s)`);
     } catch (error) {
-      console.error('Error in bulk operation:', error);
       alert('Error performing bulk operation');
     } finally {
       setBulkUpdating(false);
@@ -560,9 +551,9 @@ export default function UserAdministration() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="max-w-7xl mx-auto">
       {/* Stats - Moved to top */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <div className="flex items-center">
@@ -1266,7 +1257,6 @@ export default function UserAdministration() {
                   disabled={currentPage === totalPages || totalPages === 0}
                   className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-white"
                 >
-                  <i className="fas fa-chevron-right"></i>
                 </button>
               </div>
             </div>

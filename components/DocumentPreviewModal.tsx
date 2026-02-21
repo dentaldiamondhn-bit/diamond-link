@@ -2,6 +2,43 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AnimatedLeft from './AnimatedLeft';
 import AnimatedRight from './AnimatedRight';
 
+// Utility function to extract filename from URL (matches DocumentDisplay logic)
+const getFileName = (url: string): string => {
+  const parts = url.split('/');
+  const fileName = parts[parts.length - 1];
+  
+  // Remove patient ID and timestamp prefix for cleaner display
+  // Format: patientId_timestamp_filename.ext or patientId_timestamp_filename%20(1).ext
+  
+  let cleanFileName = fileName;
+  
+  // Remove patient ID (UUID pattern: 8-4-4-12 hex digits)
+  cleanFileName = cleanFileName.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/, '');
+  
+  // Remove timestamp (digits at start after underscore)
+  cleanFileName = cleanFileName.replace(/^[0-9]+_/, '');
+  
+  // URL decode to handle %20 and other encoded characters
+  try {
+    cleanFileName = decodeURIComponent(cleanFileName);
+  } catch (e) {
+    // If decoding fails, use original
+    console.warn('Failed to decode filename:', cleanFileName);
+  }
+  
+  // If filename is too long, truncate it intelligently
+  if (cleanFileName.length > 30) {
+    const nameWithoutExt = cleanFileName.substring(0, cleanFileName.lastIndexOf('.'));
+    const extension = cleanFileName.substring(cleanFileName.lastIndexOf('.'));
+    
+    // Truncate name part but keep extension
+    const truncatedName = nameWithoutExt.substring(0, 25) + '...' + extension;
+    return truncatedName;
+  }
+  
+  return cleanFileName;
+};
+
 interface DocumentPreviewModalProps {
   documents: string[];
   initialIndex: number;
@@ -22,7 +59,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   }, [initialIndex]);
 
   const currentDocument = documents[currentIndex];
-  const fileName = currentDocument.split('/').pop()?.split('?')[0] || 'Document';
+  const fileName = getFileName(currentDocument);
   
   // Use secure proxy for document URLs
   // const proxiedDocumentUrl = `/api/document-proxy?url=${encodeURIComponent(currentDocument)}`;

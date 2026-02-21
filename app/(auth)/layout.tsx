@@ -135,9 +135,9 @@ export default function AuthLayout({
                   transition-transform duration-300 ease-in-out z-50 lg:z-auto
                 `}>
                   <div className="w-64 lg:w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
-                    {userRole === 'admin' && <AdminSidebar />}
-                    {userRole === 'doctor' && <DoctorSidebar />}
-                    {userRole === 'staff' && <StaffSidebar />}
+                    {userRole === 'admin' && <AdminSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+                    {userRole === 'doctor' && <DoctorSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+                    {userRole === 'staff' && <StaffSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
                     
                     {/* Fallback sidebar if role detection fails */}
                     {(!userRole || !['admin', 'doctor', 'staff'].includes(userRole)) && (
@@ -196,6 +196,12 @@ export default function AuthLayout({
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                       <i className="fas fa-file-signature mr-2"></i>
                       Consentimientos Informados
+                    </h1>
+                  )}
+                  {pathname === '/historia-clinica-ortodoncia' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-tooth mr-2"></i>
+                      Historia Ortodoncia
                     </h1>
                   )}
                   {pathname === '/doctores' && (

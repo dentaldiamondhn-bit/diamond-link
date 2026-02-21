@@ -23,9 +23,21 @@ const doctorNavItems = [
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
 ];
 
-export default function DoctorSidebar() {
+interface DoctorSidebarProps {
+  sidebarOpen?: boolean;
+  setSidebarOpen?: (open: boolean) => void;
+}
+
+export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSidebarProps) {
   const pathname = usePathname();
   const { user } = useUser();
+
+  const handleLinkClick = () => {
+    // Close sidebar on mobile when clicking a menu item
+    if (sidebarOpen && setSidebarOpen) {
+      setSidebarOpen(false);
+    }
+  };
 
   return (
     <div className="w-64 bg-blue-900 text-white flex flex-col h-screen overflow-y-auto">
@@ -49,6 +61,7 @@ export default function DoctorSidebar() {
               <React.Fragment key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={handleLinkClick}
                   className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                     pathname === item.href || pathname.startsWith(item.href + '/')
                       ? 'bg-blue-600 text-white shadow-lg'
@@ -74,6 +87,7 @@ export default function DoctorSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleLinkClick}
               className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                 pathname === item.href || pathname.startsWith(item.href + '/')
                   ? 'bg-blue-600 text-white shadow-lg'

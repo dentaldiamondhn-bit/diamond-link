@@ -31,6 +31,31 @@ export interface OrthodonticHistory {
 }
 
 export class OrthodonticHistoryService {
+  static async getOrthodonticHistoryByPatientId(patientId: string): Promise<OrthodonticHistory | null> {
+    try {
+      const { data, error } = await supabase
+        .from('historia_clinica_ortodoncia')
+        .select('*')
+        .eq('paciente_id', patientId)
+        .single();
+
+      // Handle case where no record exists (this is normal for checking)
+      if (error && error.code === 'PGRST116') {
+        return null; // No record found is expected when checking
+      }
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching orthodontic history:', error);
+        throw new Error(`Error al obtener historia clínica ortodóncica: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching orthodontic history:', error);
+      throw new Error(`Error al obtener historia clínica ortodóncica: ${error.message}`);
+    }
+  }
+
   static async getOrthodonticHistory(patientId: string): Promise<OrthodonticHistory | null> {
     try {
       const { data, error } = await supabase
@@ -58,7 +83,14 @@ export class OrthodonticHistoryService {
 
   static async updateOrthodonticHistoryDocuments(patientId: string, documentos: string[]): Promise<void> {
     try {
-      const { error } = await supabase
+      // Import admin client to bypass RLS
+      const { supabaseAdmin } = await import('@/lib/supabaseAdmin');
+      
+      console.log('=== Updating orthodontic documents ===');
+      console.log('Patient ID:', patientId);
+      console.log('Documents to save:', documentos);
+      
+      const { error } = await supabaseAdmin
         .from('historia_clinica_ortodoncia')
         .update({ documentos_ortodoncia: documentos })
         .eq('paciente_id', patientId);
@@ -67,6 +99,8 @@ export class OrthodonticHistoryService {
         console.error('Error updating orthodontic documents:', error);
         throw new Error(`Error al actualizar documentos ortodóncicos: ${error.message}`);
       }
+      
+      console.log('=== Orthodontic documents updated successfully ===');
     } catch (error) {
       console.error('Error updating orthodontic documents:', error);
       throw new Error(`Error al actualizar documentos ortodóncicos: ${error.message}`);

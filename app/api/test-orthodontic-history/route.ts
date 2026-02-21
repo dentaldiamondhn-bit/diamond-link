@@ -3,9 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('=== TEST ENDPOINT CALLED ===');
     const { pacienteId } = await request.json();
-    console.log('Patient ID:', pacienteId);
 
     // Use service role to bypass RLS
     const supabase = createClient(
@@ -17,10 +15,6 @@ export async function POST(request: NextRequest) {
       .from('historia_clinica_ortodoncia')
       .select('*')
       .eq('paciente_id', pacienteId);
-
-    console.log('=== TEST ENDPOINT RESULT ===');
-    console.log('Data:', data);
-    console.log('Error:', error);
 
     return NextResponse.json({ data, error });
   } catch (error) {

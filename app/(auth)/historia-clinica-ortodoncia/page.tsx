@@ -464,14 +464,12 @@ export default function HistoriaClinicaOrtodoncia() {
   }
 
   return (
-    <div key={`historia-page-${patientId}`} className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-            {isViewing ? 'Ver Historia Clínica Ortodóncica' : isEditing ? 'Editar Historia Clínica Ortodóncica' : 'Historia Clínica Ortodóncica'}
-          </h1>
-          
-          <form key={`historia-form-${patientId}`} onSubmit={handleSubmit} className="space-y-6" noValidate>
+    <div key={`historia-page-${patientId}`} className="max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+        {isViewing ? 'Ver Historia Clínica Ortodóncica' : isEditing ? 'Editar Historia Clínica Ortodóncica' : 'Historia Clínica Ortodóncica'}
+      </h1>
+      
+      <form key={`historia-form-${patientId}`} onSubmit={handleSubmit} className="space-y-6" noValidate>
             {/* Patient Information Section */}
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -899,8 +897,6 @@ export default function HistoriaClinicaOrtodoncia() {
               </button>
             </div>
           </form>
-        </div>
-      </div>
       
       {/* Delete Confirmation Modal */}
       {showDeleteModal && documentToDelete && (
