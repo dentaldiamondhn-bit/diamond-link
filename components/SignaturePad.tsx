@@ -16,6 +16,23 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
   const signaturePadRef = useRef<SignaturePad | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
+  // Handle theme changes and redraw signature
+  useEffect(() => {
+    if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+      // Save current signature data
+      const currentData = signaturePadRef.current.toData();
+      
+      // Update colors based on new theme
+      const isDark = resolvedTheme === 'dark';
+      const backgroundColor = isDark ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)';
+      const penColor = isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
+      
+      // Clear and redraw with new colors
+      signaturePadRef.current.clear();
+      signaturePadRef.current.fromData(currentData);
+    }
+  }, [resolvedTheme]);
+
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
@@ -23,13 +40,7 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
       // Use theme-appropriate colors
       const isDark = resolvedTheme === 'dark';
       const backgroundColor = isDark ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)';
-      const penColor = isDark ? 'rgb(0, 0, 0)' : 'rgb(0, 0, 0)';
-      
-      // Clear existing signature pad before creating new one
-      if (signaturePadRef.current) {
-        signaturePadRef.current.off();
-        signaturePadRef.current.clear();
-      }
+      const penColor = isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
       
       const signaturePad = new SignaturePad(canvas, {
         backgroundColor,
@@ -71,12 +82,54 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
 
       // Load existing signature if provided
       if (value) {
-        signaturePad.fromDataURL(value);
-        setIsEmpty(false);
+        // Check if this is image data and we need to process it for theme compatibility
+        if (value.startsWith('data:image/')) {
+          // This is an image with baked-in colors
+          // We need to process it to make it compatible with the current theme
+          const img = new Image();
+          img.onload = () => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Apply theme-appropriate background
+            const isDark = resolvedTheme === 'dark';
+            ctx.fillStyle = isDark ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Apply color filter if needed
+            if (!isDark) {
+              // In light mode, we need to invert the white signature to black
+              ctx.filter = 'invert(1)';
+            } else {
+              // In dark mode, keep original colors
+              ctx.filter = 'none';
+            }
+            
+            // Draw the signature image
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Reset filter
+            ctx.filter = 'none';
+            
+            // Update signature pad with the processed image
+            signaturePad.fromDataURL(canvas.toDataURL());
+            setIsEmpty(false);
+          };
+          img.src = value;
+        } else {
+          // This is raw signature data, load it normally
+          signaturePad.fromDataURL(value);
+          setIsEmpty(false);
+        }
       }
 
       return () => {
-        signaturePadRef.current?.off();
         window.removeEventListener('resize', resizeCanvas);
       };
     }

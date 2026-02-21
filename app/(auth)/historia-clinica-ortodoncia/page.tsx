@@ -123,7 +123,7 @@ export default function HistoriaClinicaOrtodoncia() {
     plan_tratamiento_ortodoncia: '',
     tipo_mordida: '',
     tipo_aparato: '',
-    duracion_tratamiento: '',
+    duracion_tratamiento: '12 meses', // Default to 12 months
     fecha_inicio_tratamiento: '',
     fecha_fin_tratamiento: '',
     observaciones_ortodoncia: '',
@@ -250,7 +250,7 @@ export default function HistoriaClinicaOrtodoncia() {
             plan_tratamiento_ortodoncia: orthodonticData.plan_tratamiento_ortodoncia || '',
             tipo_mordida: orthodonticData.tipo_mordida || '',
             tipo_aparato: orthodonticData.tipo_aparato || '',
-            duracion_tratamiento: orthodonticData.duracion_tratamiento || '',
+            duracion_tratamiento: orthodonticData.duracion_tratamiento || '12 meses', // Default to 12 months
             fecha_inicio_tratamiento: orthodonticData.fecha_inicio_tratamiento || '',
             fecha_fin_tratamiento: orthodonticData.fecha_fin_tratamiento || '',
             observaciones_ortodoncia: orthodonticData.observaciones_ortodoncia || '',
@@ -302,6 +302,25 @@ export default function HistoriaClinicaOrtodoncia() {
     setFieldValidation(prev => ({
       ...prev,
       [fieldName]: value.trim() !== ''
+    }));
+  };
+
+  // Helper function to extract numeric months from duracion_tratamiento
+  const getDuracionMeses = (duracion: string): number => {
+    const match = duracion.match(/\d+/);
+    return match ? parseInt(match[0]) : 12; // Default to 12 if no number found
+  };
+
+  // Helper function to format duracion_tratamiento text
+  const formatDuracionText = (meses: number): string => {
+    return `${meses} meses`;
+  };
+
+  // Handle slider change for duracion_tratamiento
+  const handleDuracionChange = (meses: number) => {
+    setFormData(prev => ({
+      ...prev,
+      duracion_tratamiento: formatDuracionText(meses)
     }));
   };
 
@@ -627,14 +646,64 @@ export default function HistoriaClinicaOrtodoncia() {
                   
                   <div>
                     <label className="block mb-1 font-medium">Duración Estimada:</label>
-                    <input
-                      type="text"
-                      name="duracion_tratamiento"
-                      value={formData.duracion_tratamiento}
-                      onChange={handleInputChange}
-                      className="input"
-                      placeholder="Ej: 18 meses, 2 años"
-                    />
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-4">
+                        <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[3rem]">1 mes</span>
+                        <div className="flex-1 relative">
+                          <input
+                            type="range"
+                            min="1"
+                            max="50"
+                            value={getDuracionMeses(formData.duracion_tratamiento)}
+                            onChange={(e) => handleDuracionChange(parseInt(e.target.value))}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-teal-600 slider"
+                            style={{
+                              background: `linear-gradient(to right, #14b8a6 0%, #14b8a6 ${((getDuracionMeses(formData.duracion_tratamiento) - 1) / 49) * 100}%, #e5e7eb ${((getDuracionMeses(formData.duracion_tratamiento) - 1) / 49) * 100}%, #e5e7eb 100%)`
+                            }}
+                          />
+                          <style jsx>{`
+                            .slider::-webkit-slider-thumb {
+                              appearance: none;
+                              width: 20px;
+                              height: 20px;
+                              background: #14b8a6;
+                              border-radius: 50%;
+                              cursor: pointer;
+                              border: 2px solid white;
+                              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                            }
+                            .slider::-moz-range-thumb {
+                              width: 20px;
+                              height: 20px;
+                              background: #14b8a6;
+                              border-radius: 50%;
+                              cursor: pointer;
+                              border: 2px solid white;
+                              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                            }
+                            .slider::-webkit-slider-thumb:hover {
+                              background: #0d9488;
+                              transform: scale(1.1);
+                            }
+                            .slider::-moz-range-thumb:hover {
+                              background: #0d9488;
+                              transform: scale(1.1);
+                            }
+                          `}</style>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[3rem]">50 meses</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="inline-block bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-4 py-2 rounded-full text-sm font-medium shadow-sm">
+                          📅 {formData.duracion_tratamiento}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                        <span>Corto (1-12 meses)</span>
+                        <span>Medio (13-24 meses)</span>
+                        <span>Largo (25-50 meses)</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
