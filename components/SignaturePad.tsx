@@ -16,23 +16,6 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
   const signaturePadRef = useRef<SignaturePad | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
-  // Handle theme changes and redraw signature
-  useEffect(() => {
-    if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
-      // Save current signature data
-      const currentData = signaturePadRef.current.toData();
-      
-      // Update colors based on new theme
-      const isDark = resolvedTheme === 'dark';
-      const backgroundColor = isDark ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)';
-      const penColor = isDark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
-      
-      // Clear and redraw with new colors
-      signaturePadRef.current.clear();
-      signaturePadRef.current.fromData(currentData);
-    }
-  }, [resolvedTheme]);
-
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
@@ -45,30 +28,53 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
       const signaturePad = new SignaturePad(canvas, {
         backgroundColor,
         penColor,
+        // Disable all smoothing that causes stroke issues
+        minWidth: 1,
+        maxWidth: 2,
+        velocityFilterWeight: 0.1,
+        dotSize: 2,
+        throttle: 0,
       });
 
       signaturePadRef.current = signaturePad;
 
-      // Handle resize
-      const resizeCanvas = () => {
+      // Simple resize - only on window resize, not during drawing
+      const handleResize = () => {
+        if (!canvasRef.current || !signaturePadRef.current) return;
+        
+        const canvas = canvasRef.current;
+        const signaturePad = signaturePadRef.current;
+        
+        // Store current signature
+        const data = signaturePad.isEmpty() ? null : signaturePad.toData();
+        
+        // Set canvas size
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
         canvas.width = canvas.offsetWidth * ratio;
         canvas.height = canvas.offsetHeight * ratio;
+        
+        // Scale context
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.scale(ratio, ratio);
+          // Fix stroke overlap issues
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.globalCompositeOperation = 'source-over';
         }
         
-        // Redraw signature if it exists
-        if (!signaturePad.isEmpty()) {
-          const data = signaturePad.toData();
-          signaturePad.clear();
+        // Clear and restore signature
+        signaturePad.clear();
+        if (data) {
           signaturePad.fromData(data);
         }
       };
 
-      resizeCanvas();
-      window.addEventListener('resize', resizeCanvas);
+      // Initial resize
+      handleResize();
+      
+      // Only listen to window resize events
+      window.addEventListener('resize', handleResize);
 
       // Handle signature events
       signaturePad.addEventListener('beginStroke', () => {
@@ -82,55 +88,14 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
 
       // Load existing signature if provided
       if (value) {
-        // Check if this is image data and we need to process it for theme compatibility
         if (value.startsWith('data:image/')) {
-          // This is an image with baked-in colors
-          // We need to process it to make it compatible with the current theme
-          const img = new Image();
-          img.onload = () => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Apply theme-appropriate background
-            const isDark = resolvedTheme === 'dark';
-            ctx.fillStyle = isDark ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Apply color filter if needed
-            if (!isDark) {
-              // In light mode, we need to invert the white signature to black
-              ctx.filter = 'invert(1)';
-            } else {
-              // In dark mode, keep original colors
-              ctx.filter = 'none';
-            }
-            
-            // Draw the signature image
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
-            // Reset filter
-            ctx.filter = 'none';
-            
-            // Update signature pad with the processed image
-            signaturePad.fromDataURL(canvas.toDataURL());
-            setIsEmpty(false);
-          };
-          img.src = value;
-        } else {
-          // This is raw signature data, load it normally
           signaturePad.fromDataURL(value);
           setIsEmpty(false);
         }
       }
 
       return () => {
-        window.removeEventListener('resize', resizeCanvas);
+        window.removeEventListener('resize', handleResize);
       };
     }
   }, [onChange, value, resolvedTheme]);
@@ -150,10 +115,14 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
           ref={canvasRef}
           className={`border-2 rounded-lg w-full ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'} ${
             resolvedTheme === 'dark' 
-              ? 'border-gray-600 bg-gray-800' 
-              : 'border-gray-300 bg-white'
+              ? 'border-gray-600' 
+              : 'border-gray-300'
           }`}
-          style={{ touchAction: 'none', height: '150px' }}
+          style={{ 
+            touchAction: 'none', 
+            height: '225px', // 150px * 1.50 = 225px
+            backgroundColor: resolvedTheme === 'dark' ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)'
+          }}
         />
         {isEmpty && (
           <div className="signature-placeholder absolute inset-0 flex flex-col items-center justify-center pointer-events-none ${
