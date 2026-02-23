@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user has tech_support privileges only
     try {
       const client = await clerkClient();
       const currentUser = await client.users.getUser(userId);
@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
       const userRole = currentUser.publicMetadata?.role;
       console.log('API: User role:', userRole);
 
-      if (userRole !== 'admin') {
-        console.log('API: User is not admin, returning 403');
+      if (userRole !== 'tech_support') {
+        console.log('API: User is not tech_support, returning 403. User role:', userRole);
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
@@ -74,12 +74,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user has tech_support privileges only
     const client = await clerkClient();
     const currentUser = await client.users.getUser(userId);
     const userRole = currentUser.publicMetadata?.role;
 
-    if (userRole !== 'admin') {
+    if (userRole !== 'tech_support') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'updateRole':
-        if (!newRole || !['admin', 'doctor', 'staff'].includes(newRole)) {
+        if (!newRole || !['admin', 'doctor', 'staff', 'tech_support'].includes(newRole)) {
           return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
         }
 

@@ -726,13 +726,6 @@ export default function MenuNavegacion() {
       href: `/patient-form?id=${validPacienteId}`
     },
     {
-      id: 'registros-paciente',
-      icon: 'fas fa-user-chart',
-      title: 'Registros del Paciente',
-      description: 'Vea los registros completos del paciente incluyendo historial de odontogramas y documentos.',
-      href: `/patient-records?id=${validPacienteId}`
-    },
-    {
       id: 'odontograma',
       icon: 'fas fa-tooth',
       title: 'Odontograma',

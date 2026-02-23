@@ -16,7 +16,6 @@ interface NavItem {
 const roleBasedNavItems: Record<string, NavItem[]> = {
   admin: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-    { href: '/admin/users', label: 'Usuarios', icon: 'fas fa-users' },
     { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
     { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" /> },
     { href: '/patient-preview', label: 'Vista Paciente', icon: 'fas fa-eye' },

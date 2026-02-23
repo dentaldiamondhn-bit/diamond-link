@@ -16,6 +16,7 @@ import type { Payment, PaymentSummary } from '../../../services/paymentServiceFi
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
 import HistoricalBadge from '../../../components/HistoricalBadge';
+import HistoricalBanner from '../../../components/HistoricalBanner';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
 import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '../../../lib/supabase';
@@ -23,12 +24,14 @@ import { supabase } from '../../../lib/supabase';
 export default function TratamientosCompletadosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { bypassHistoricalMode, loadPatientSettings } = useHistoricalMode();
+  const { bypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   const [completedTreatments, setCompletedTreatments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [patientBypassStatus, setPatientBypassStatus] = useState<Record<string, boolean>>({});
+  const [currentPatient, setCurrentPatient] = useState<string | null>(null);
+  const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
   
   // Use page preferences for tratamientos-completados page
   const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('tratamientos-completados');
@@ -109,6 +112,36 @@ export default function TratamientosCompletadosPage() {
     loadCompletedTreatments();
   }, [pacienteId]);
 
+  // Load patient-specific historical mode settings when pacienteId is available
+  useEffect(() => {
+    const loadPatientHistoricalMode = async () => {
+      if (pacienteId) {
+        try {
+          console.log('Tratamientos Completados: Loading patient settings for:', pacienteId);
+          setCurrentPatient(pacienteId);
+          
+          // Load patient-specific historical mode settings
+          await loadPatientSettings(pacienteId);
+          
+          // Get patient data to determine record category
+          const { PatientService } = await import('../../../services/patientService');
+          const patientData = await PatientService.getPatientById(pacienteId);
+          
+          if (patientData) {
+            // Check record category (historical, active, archived)
+            const categoryInfo = getRecordCategoryInfoSync(patientData.fecha_inicio || patientData.fecha_inicio_consulta);
+            setRecordCategoryInfo(categoryInfo);
+            console.log('Tratamientos Completados: Record category loaded:', categoryInfo);
+          }
+        } catch (error) {
+          console.error('Error loading patient historical mode settings:', error);
+        }
+      }
+    };
+
+    loadPatientHistoricalMode();
+  }, [pacienteId, loadPatientSettings]);
+
   // Sync preferences when they load (only on initial load)
   useEffect(() => {
     if (pagePrefs && !prefsLoading) {
@@ -169,6 +202,12 @@ export default function TratamientosCompletadosPage() {
   }, [sortOrder, prefsLoading, updatePagePrefs]);
 
   const handleCreateTreatment = (treatment?: CompletedTreatment) => {
+    // Check if trying to create new treatment for historical patient without bypass
+    if (!treatment && pacienteId && recordCategoryInfo?.isHistorical && !bypassHistoricalMode) {
+      alert('No se pueden crear nuevos tratamientos para pacientes históricos. Use el bypass del modo histórico para habilitar esta función.');
+      return;
+    }
+    
     if (treatment) {
       router.push(`/tratamientos-completados/${treatment.id}/view`);
     } else {
@@ -572,6 +611,25 @@ export default function TratamientosCompletadosPage() {
 
   return (
     <>
+      {/* Historical Mode Banner - Only show when viewing specific patient */}
+      {pacienteId && recordCategoryInfo && (
+        <HistoricalBanner
+          isHistorical={recordCategoryInfo?.isHistorical}
+          isBypassed={bypassHistoricalMode}
+          patientId={pacienteId}
+          onBypassChange={async (newBypassValue) => {
+            try {
+              await savePatientSettings(pacienteId!, newBypassValue);
+            } catch (error) {
+              console.error('Failed to update bypass setting:', error);
+              alert('Error al actualizar la configuración del modo histórico');
+            }
+          }}
+          loading={false}
+          compact={true}
+        />
+      )}
+      
       {/* Top Action Bar */}
       <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

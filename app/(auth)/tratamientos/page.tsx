@@ -19,8 +19,25 @@ import LoadingAnimation from '../../../components/LoadingAnimation';
 import { usePagePreferences } from '../../../hooks/useUserPreferences';
 import { supabase } from '../../../lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
+import AccessDenied from '@/components/AccessDenied';
 
 export default function TratamientosPage() {
+  const { userRole } = useRoleBasedAccess();
+  
+  // Check if user has permission to access treatments
+  if (!userRole || (userRole !== 'admin' && userRole !== 'doctor' && userRole !== 'tech_support')) {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permisos para acceder a la gestión de tratamientos."
+        explanation="Esta área es exclusiva para administradores, doctores y personal de soporte técnico que pueden gestionar tratamientos activos."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
+
   const { resolvedTheme } = useTheme();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);

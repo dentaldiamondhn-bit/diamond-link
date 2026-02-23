@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
+import { useUser, UserButton } from '@clerk/nextjs';
 import { useUserRole } from '@/hooks/useUserRole';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
 import { formatCurrency, formatNumber } from '@/utils/currencyUtils';
@@ -27,6 +27,7 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
+import AccessDenied from '@/components/AccessDenied';
 
 export default function ReportsPage() {
   const { resolvedTheme } = useTheme();
@@ -195,7 +196,7 @@ export default function ReportsPage() {
 
   // Load data when component mounts or when filters change
   useEffect(() => {
-    if (user && (userRole === 'admin' || userRole === 'doctor')) {
+    if (user && (userRole === 'admin' || userRole === 'doctor' || userRole === 'tech_support')) {
       loadReportData();
     }
   }, [user, userRole, timeRange, currentStartDate, currentEndDate]);
@@ -239,21 +240,16 @@ export default function ReportsPage() {
     );
   }
 
-  // Show access denied if not admin or doctor
-  if (userRole !== 'admin' && userRole !== 'doctor') {
+  // Show access denied if not admin, doctor, or tech support
+  if (userRole !== 'admin' && userRole !== 'doctor' && userRole !== 'tech_support') {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Acceso Denegado</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">No tienes permisos para acceder a esta página.</p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-          >
-            Volver al Dashboard
-          </button>
-        </div>
-      </div>
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permisos para acceder a esta página."
+        explanation="Esta área es exclusiva para administradores, doctores y personal de soporte técnico."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
     );
   }
 

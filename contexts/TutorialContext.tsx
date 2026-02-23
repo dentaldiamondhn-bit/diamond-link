@@ -36,7 +36,7 @@ const tutorials: RoleTutorial = {
       id: 'admin-users',
       title: 'Gestión de Usuarios',
       content: 'Administra todos los usuarios del sistema, asigna roles y permisos. Puedes crear doctores, staff y otros administradores.',
-      target: 'a[href="/admin/users"]',
+      target: 'a[href="/tech-support/users"]',
       position: 'right'
     },
     {

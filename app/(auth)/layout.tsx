@@ -9,6 +9,7 @@ import { NotificationDropdown } from '@/components/NotificationDropdown';
 import AdminSidebar from '@/components/AdminSidebar';
 import DoctorSidebar from '@/components/DoctorSidebar';
 import StaffSidebar from '@/components/StaffSidebar';
+import TechSupportSidebar from '@/components/TechSupportSidebar';
 import AnimatedReport from '@/components/AnimatedReport';
 import AnimatedBurger from '@/components/AnimatedBurger';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -65,6 +66,14 @@ export default function AuthLayout({
   // Role badge colors and styles
   const getRoleBadgeInfo = (role: string) => {
     switch (role) {
+      case 'tech_support':
+        return {
+          bgColor: 'bg-yellow-100',
+          textColor: 'text-yellow-800',
+          borderColor: 'border-yellow-200',
+          icon: 'fas fa-tools',
+          label: 'Tech Support'
+        };
       case 'admin':
         return {
           bgColor: 'bg-purple-100',
@@ -135,12 +144,13 @@ export default function AuthLayout({
                   transition-transform duration-300 ease-in-out z-50 lg:z-auto
                 `}>
                   <div className="w-64 lg:w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
+                    {userRole === 'tech_support' && <TechSupportSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
                     {userRole === 'admin' && <AdminSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
                     {userRole === 'doctor' && <DoctorSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
                     {userRole === 'staff' && <StaffSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
                     
                     {/* Fallback sidebar if role detection fails */}
-                    {(!userRole || !['admin', 'doctor', 'staff'].includes(userRole)) && (
+                    {(!userRole || !['tech_support', 'admin', 'doctor', 'staff'].includes(userRole)) && (
                       <div className="w-64 bg-gray-900 text-white flex flex-col h-full">
                         <div className="p-6 border-b border-gray-700">
                           <div className="flex items-center space-x-3">
@@ -164,6 +174,51 @@ export default function AuthLayout({
               <div className="flex items-center justify-between">
                 {/* Left side - Page Title */}
                 <div className="flex items-center">
+                  {/* Tech Support Pages */}
+                  {pathname === '/tech-support/dashboard' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-tachometer-alt mr-2"></i>
+                      Dashboard de Soporte Técnico
+                    </h1>
+                  )}
+                  {pathname === '/tech-support/tickets' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-ticket-alt mr-2"></i>
+                      Tickets de Soporte
+                    </h1>
+                  )}
+                  {pathname === '/tech-support/system-logs' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-file-alt mr-2"></i>
+                      Logs del Sistema
+                    </h1>
+                  )}
+                  {pathname === '/tech-support/system-settings' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-cogs mr-2"></i>
+                      Configuración del Sistema
+                    </h1>
+                  )}
+                  {pathname === '/tech-support/access-portal' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-th-large mr-2"></i>
+                      Portal de Acceso
+                    </h1>
+                  )}
+                  {pathname === '/tech-support/terminal' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-terminal mr-2"></i>
+                      Terminal
+                    </h1>
+                  )}
+                  {pathname === '/tech-support/code-runner' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-code mr-2"></i>
+                      Code Runner
+                    </h1>
+                  )}
+                  
+                  {/* Existing Admin Pages */}
                   {pathname === '/reports' && (
                     <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                       <div className="w-6 h-6 mr-3 flex items-center justify-center">
@@ -222,6 +277,14 @@ export default function AuthLayout({
                         <AnimatedUsers />
                       </div>
                       User Administration
+                    </h1>
+                  )}
+                  {pathname.startsWith('/tech-support/users') && (
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                      <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                        <AnimatedUsers />
+                      </div>
+                      User Management
                     </h1>
                   )}
                   {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (

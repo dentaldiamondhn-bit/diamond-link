@@ -159,7 +159,9 @@ export default function ConsentimientoDocument() {
         setRecordCategoryInfo(categoryInfo);
         
         // Load patient-specific historical mode settings using new context method
-        loadPatientSettings(actualPatientId);
+        console.log('Consentimientos: Loading patient settings for:', actualPatientId);
+        await loadPatientSettings(actualPatientId);
+        console.log('Consentimientos: Patient settings loaded, bypassHistoricalMode:', bypassHistoricalMode);
         
         setLoading(false);
       } catch (err) {

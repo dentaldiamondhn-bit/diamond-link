@@ -137,7 +137,6 @@ export default function GlobalSearch() {
       { title: 'Tratamientos Completados', description: 'Historial de tratamientos', href: '/tratamientos-completados', category: 'Navegación', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
       { title: 'Odontograma', description: 'Diagrama dental', href: '/odontogram', category: 'Herramientas' },
       { title: 'Nueva Historia Clínica', description: 'Formulario de paciente', href: '/patient-form', category: 'Formularios', icon: <AnimatedUser className="w-4 h-4" /> },
-      { title: 'Historial de Pacientes', description: 'Registros médicos', href: '/patient-records', category: 'Registros' },
       { title: 'Menú de Navegación', description: 'Navegación rápida', href: '/menu-navegacion', category: 'Navegación' },
       { title: 'Promociones', description: 'Ofertas y promociones', href: '/promociones', category: 'Promociones' },
       { title: 'Consentimientos', description: 'Formularios de consentimiento', href: '/consentimientos', category: 'Formularios' },

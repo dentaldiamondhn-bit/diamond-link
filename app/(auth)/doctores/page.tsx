@@ -7,6 +7,7 @@ import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import { useClerkUsers, ClerkUser } from '../../../hooks/useClerkUsers';
 import { UserAvatar } from '@/components/UserAvatar';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
+import AccessDenied from '@/components/AccessDenied';
 
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -119,7 +120,7 @@ export default function DoctorsPage() {
     }
   }, [sortOrder, prefsLoading, pagePrefs?.sortOrder, updatePagePrefs]);
 
-  // Check if user has admin access
+  // Check if user has proper access (only tech_support and admin)
   const { userRole, permissions } = useRoleBasedAccess();
 
   // Check if user can manage doctors
@@ -131,6 +132,19 @@ export default function DoctorsPage() {
     canManageDoctores,
     allPermissions: permissions
   });
+
+  // Access control: only tech_support and admin can access
+  if (!userRole || (userRole !== 'tech_support' && userRole !== 'admin')) {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permisos para acceder a la gestión de doctores."
+        explanation="Esta área es exclusiva para administradores y personal de soporte técnico que pueden gestionar doctores."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
 
   // Filter doctors based on search and specialty
   const filteredDoctors = doctors.filter(doctor => {
@@ -305,19 +319,6 @@ export default function DoctorsPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Cargando...</div>
-      </div>
-    );
-  }
-
-  if (!canManageDoctores) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Acceso Denegado</h1>
-          <p className="text-gray-600">No tiene permisos para acceder a esta página.</p>
-          <p className="text-sm text-gray-500 mt-2">Rol: {userRole}</p>
-          <p className="text-sm text-gray-500 mt-2">Permisos: {JSON.stringify(permissions)}</p>
-        </div>
       </div>
     );
   }

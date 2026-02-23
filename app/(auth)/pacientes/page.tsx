@@ -10,11 +10,13 @@ import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { getPatientType } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
+import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import { useUser } from '@clerk/nextjs';
 import { usePagePreferences } from '../../../hooks/useUserPreferences';
 import { supabase } from '../../../lib/supabase';
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import HistoricalBanner from '../../../components/HistoricalBanner';
+import AccessDenied from '@/components/AccessDenied';
 
 export default function PacientesPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -25,8 +27,9 @@ export default function PacientesPage() {
   const [showWarningModal, setShowWarningModal] = useState<Patient | null>(null);
   const [patientBypassStatus, setPatientBypassStatus] = useState<Record<string, boolean>>({});
   const router = useRouter();
-  const { bypassHistoricalMode, setCurrentPatient, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   const { user } = useUser();
+  const { userRole, permissions, hasPermission } = useRoleBasedAccess();
+  const { bypassHistoricalMode, setCurrentPatient, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   
   // Use page preferences for pacientes page
   const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('pacientes');
@@ -120,6 +123,11 @@ export default function PacientesPage() {
 
   useEffect(() => {
     const loadPatients = async () => {
+      // Check if user has permission to view patients
+      if (!hasPermission('canViewPatients')) {
+        return;
+      }
+      
       try {
         const patientsData = await PatientService.getPatients();
         setPatients(patientsData);

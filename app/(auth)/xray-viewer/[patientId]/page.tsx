@@ -6,8 +6,25 @@ import { dentalStudyService } from '../../../../services/dentalStudyService';
 import { DentalStudy, StudyGroup } from '../../../../types/dental';
 import Link from 'next/link';
 import LoadingAnimation from '../../../../components/LoadingAnimation';
+import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
+import AccessDenied from '@/components/AccessDenied';
 
 export default function PatientXrayViewPage() {
+  const { userRole } = useRoleBasedAccess();
+  
+  // Check if user has permission to access xray viewer
+  if (!userRole || (userRole !== 'admin' && userRole !== 'doctor' && userRole !== 'tech_support')) {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permisos para acceder al visor de rayos X."
+        explanation="Esta área es exclusiva para administradores, doctores y personal de soporte técnico que pueden ver imágenes radiográficas de pacientes."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
+
   const [studies, setStudies] = useState<DentalStudy[]>([]);
   const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
   const [loading, setLoading] = useState(true);

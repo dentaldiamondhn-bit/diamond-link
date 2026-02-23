@@ -17,7 +17,6 @@ export const NAVIGATION_GROUPS = [
     items: [
       { href: '/patient-form', icon: <AnimatedUser className="w-4 h-4" />, label: 'Nueva Historia Clínica' },
       { href: '/pacientes', icon: <AnimatedUsers className="w-4 h-4" />, label: 'Lista de Pacientes' },
-      { href: '/patient-records', icon: 'fa-notes-medical', label: 'Historias Clínicas' },
     ]
   },
   {

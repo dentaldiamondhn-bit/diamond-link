@@ -17,6 +17,18 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@clerk/nextjs';
 import { supabase } from '@/lib/supabase';
 import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
+import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
+import { getRecordCategoryInfo } from '@/utils/recordCategoryUtils';
+import HistoricalBanner from '@/components/HistoricalBanner';
+
+// New imports for versioning and progress
+import ProgressBar from '@/components/ProgressBar';
+import Timeline from '@/components/Timeline';
+import VersionManager from '@/components/VersionManager';
+import { useProgressCalculation } from '@/hooks/useProgressCalculation';
+import { useVersionManagement } from '@/hooks/useVersionManagement';
+import { OrthodonticVersion } from '@/utils/versionUtils';
+import { calculateProgress, extractMonthsFromDuration, calculateEstimatedAppointments } from '@/utils/progressUtils';
 
 // Utility function to extract filename from URL (matches DocumentDisplay logic)
 const getFileName = (url: string): string => {
@@ -92,6 +104,10 @@ export default function HistoriaClinicaOrtodoncia() {
   const isEditing = !!patientId && searchParams.get('edit') === 'true';
   const isViewing = !!patientId && searchParams.get('view') === 'true';
   
+  // Historical mode state
+  const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
+  const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
+  
   const hasMounted = useRef(false);
   
   if (!hasMounted.current) {
@@ -152,6 +168,16 @@ export default function HistoriaClinicaOrtodoncia() {
   const [fieldValidation, setFieldValidation] = useState<Record<string, boolean>>({});
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [doctors, setDoctors] = useState<any[]>([]); // Add doctors from database
+
+  // Progress and version management hooks
+  const progressData = useProgressCalculation({ 
+    patientId: patientId || '', 
+    duracionTratamiento: formData.duracion_tratamiento 
+  });
+  
+  const versionManagement = useVersionManagement({ 
+    patientId: patientId || '' 
+  });
 
   // Fetch doctors from database
   useEffect(() => {
@@ -286,15 +312,23 @@ export default function HistoriaClinicaOrtodoncia() {
       } catch (err) {
         console.error('Error loading orthodontic history:', err);
         setError('Error al cargar la historia clínica ortodóncica');
-      } finally {
-        setLoading(false);
-        setPatientDataLoaded(true);
       }
+      
+      // Check record category (historical, active, archived)
+      const categoryInfo = await getRecordCategoryInfo(patientData.fecha_inicio || patientData.fecha_inicio_consulta);
+      setRecordCategoryInfo(categoryInfo);
+      
+      // Load patient-specific historical mode settings
+      console.log('Historia Clinica Ortodoncia: Loading patient settings for:', patientId);
+      await loadPatientSettings(patientId!);
+      console.log('Historia Clinica Ortodoncia: Patient settings loaded, bypassHistoricalMode:', bypassHistoricalMode);
+      
     } catch (err) {
       console.error('Error loading patient data:', err);
       setError('Error al cargar los datos del paciente');
     } finally {
       setLoading(false);
+      setPatientDataLoaded(true);
     }
   };
 
@@ -484,11 +518,77 @@ export default function HistoriaClinicaOrtodoncia() {
 
   return (
     <div key={`historia-page-${patientId}`} className="max-w-7xl mx-auto">
+      {/* Historical Mode Banner */}
+      <HistoricalBanner
+        isHistorical={recordCategoryInfo?.isHistorical}
+        isBypassed={bypassHistoricalMode}
+        patientId={patientId!}
+        onBypassChange={async (newBypassValue) => {
+          try {
+            await savePatientSettings(patientId!, newBypassValue);
+          } catch (error) {
+            console.error('Failed to update bypass setting:', error);
+            alert('Error al actualizar la configuración del modo histórico');
+          }
+        }}
+        loading={false}
+        compact={true}
+      />
+      
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
         {isViewing ? 'Ver Historia Clínica Ortodóncica' : isEditing ? 'Editar Historia Clínica Ortodóncica' : 'Historia Clínica Ortodóncica'}
       </h1>
       
+      {/* Progress Bar Section */}
+      <div className="mb-6">
+        <ProgressBar 
+          percentage={progressData.progressPercentage}
+          showLabel={true}
+          showStatus={true}
+          size="md"
+        />
+      </div>
+      
+      {/* Version Management Section */}
+      <VersionManager
+        onUpdateCurrent={async () => {
+          // Update current version with current form data
+          await versionManagement.actions.updateCurrentVersion({
+            motivoConsultaOrtodoncia: formData.motivo_consulta_ortodoncia,
+            diagnosticoOrtodoncia: formData.diagnostico_ortodoncia,
+            planTratamientoOrtodoncia: formData.plan_tratamiento_ortodoncia,
+            tipoMordida: formData.tipo_mordida,
+            tipoAparato: formData.tipo_aparato,
+            duracionTratamiento: formData.duracion_tratamiento,
+            fechaInicioTratamiento: formData.fecha_inicio_tratamiento,
+            fechaFinTratamiento: formData.fecha_fin_tratamiento,
+            observacionesOrtodoncia: formData.observaciones_ortodoncia,
+            radiografiasRealizadas: formData.radiografias_realizadas,
+            modelosEstudio: formData.modelos_estudio,
+            analisisCefalometrico: formData.analisis_cefalometrico,
+            extraccionesRealizadas: formData.extracciones_realizadas,
+            retenedorTipo: formData.retenedor_tipo,
+            retenedorUso: formData.retenedor_uso,
+            seguimientoPostTratamiento: formData.seguimiento_post_tratamiento,
+            documentosOrtodoncia: formData.documentos_ortodoncia,
+            firmaDigitalOrtodoncia: formData.firma_digital_ortodoncia
+          });
+        }}
+        onSaveNew={async (recordDate, notes) => {
+          await versionManagement.actions.createNewVersion(recordDate, notes);
+        }}
+        loading={versionManagement.loading}
+        disabled={!patientId}
+      />
+      
       <form key={`historia-form-${patientId}`} onSubmit={handleSubmit} className="space-y-6" noValidate>
+      {/* Hidden field for record ID */}
+      <input
+        type="hidden"
+        name="orthodontic_history_id"
+        value={orthodonticHistoryId || ''}
+      />
+            
             {/* Patient Information Section */}
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -918,15 +1018,16 @@ export default function HistoriaClinicaOrtodoncia() {
             </div>
 
             {/* Signature Section */}
-            <div className="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Firma Digital
-              </h2>
-              
-              <div className="space-y-4">
-                {formData.firma_digital_ortodoncia ? (
-                  <div>
-                    <h3 className="text-lg font-medium mb-2">Firma Actual:</h3>
+            {(!recordCategoryInfo?.isHistorical || bypassHistoricalMode) && (
+              <div className="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                  Firma Digital
+                </h2>
+                
+                <div className="space-y-4">
+                  {formData.firma_digital_ortodoncia ? (
+                    <div>
+                      <h3 className="text-lg font-medium mb-2">Firma Actual:</h3>
                     <SignatureDisplay signatureUrl={formData.firma_digital_ortodoncia} />
                     {!isEditing && (
                       <button
@@ -946,6 +1047,24 @@ export default function HistoriaClinicaOrtodoncia() {
                 )}
               </div>
             </div>
+            )}
+
+            {/* Historical Mode Signature Notice */}
+            {recordCategoryInfo?.isHistorical && !bypassHistoricalMode && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <i className="fas fa-info-circle text-amber-600 dark:text-amber-400"></i>
+                  <div>
+                    <h3 className="text-lg font-medium text-amber-900 dark:text-amber-100">
+                      Modo Histórico - Firma No Requerida
+                    </h3>
+                    <p className="text-amber-700 dark:text-amber-300 text-sm">
+                      Este paciente está en modo histórico. Las firmas digitales no son requeridas para registros históricos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Form Actions */}
             <div className="flex justify-end space-x-4">
@@ -966,6 +1085,16 @@ export default function HistoriaClinicaOrtodoncia() {
               </button>
             </div>
           </form>
+      
+      {/* Timeline Section */}
+      <div className="mt-8">
+        <Timeline
+          versions={versionManagement.versions}
+          onVersionSelect={versionManagement.actions.selectVersion}
+          selectedVersionId={versionManagement.selectedVersion?.id}
+          loading={versionManagement.loading}
+        />
+      </div>
       
       {/* Delete Confirmation Modal */}
       {showDeleteModal && documentToDelete && (
