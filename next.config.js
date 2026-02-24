@@ -14,7 +14,33 @@ const nextConfig = {
   // Ensure proper build for Vercel
   swcMinify: true,
   // Fix client reference manifest issues
-  transpilePackages: []
+  transpilePackages: [],
+  // Fix xterm self reference issue
+  webpack: (config, { isServer, webpack }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'xterm': 'xterm/lib/xterm.js',
+    };
+
+    // Define self for xterm compatibility
+    if (isServer) {
+      config.plugins = [
+        ...config.plugins,
+        new webpack.DefinePlugin({
+          'self': 'globalThis',
+        }),
+      ];
+    }
+
+    return config;
+  },
 };
 
 export default nextConfig;
