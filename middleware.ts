@@ -80,6 +80,12 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.next();
     }
     
+    // TESTING: Allow odontogram-test for all roles (testing page)
+    if (req.nextUrl.pathname.startsWith('/odontogram-test')) {
+      console.log('ODONTOGRAM TEST BYPASS - All roles allowed for testing');
+      return NextResponse.next();
+    }
+    
     console.log('CanAccessRoute result:', canAccessRoute(userRole, req.nextUrl.pathname));
     
     // Check route access based on role
