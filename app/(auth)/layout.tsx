@@ -287,6 +287,12 @@ export default function AuthLayout({
                       User Management
                     </h1>
                   )}
+                  {pathname.startsWith('/odontogram-test') && (
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                      <i className="fas fa-tooth mr-2 text-teal-600"></i>
+                      Odontogram Testing
+                    </h1>
+                  )}
                   {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (
                     <div className="flex items-center">
                       <i className="fas fa-x-ray text-2xl text-teal-600 mr-3"></i>
