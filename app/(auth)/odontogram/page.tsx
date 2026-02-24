@@ -183,6 +183,65 @@ function OdontogramPageContent() {
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [odontogramasGuardados, setOdontogramasGuardados] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
+  const filteredEstados = ESTADOS.filter(estado =>
+    estado.label.toLowerCase().includes(searchTerm.toLowerCase())
+  ).sort((a, b) => {
+    // Sort by relevance: exact matches first, then starts with, then contains
+    const searchLower = searchTerm.toLowerCase();
+    const aLabel = a.label.toLowerCase();
+    const bLabel = b.label.toLowerCase();
+    
+    // Exact match
+    if (aLabel === searchLower && bLabel !== searchLower) return -1;
+    if (bLabel === searchLower && aLabel !== searchLower) return 1;
+    
+    // Starts with
+    if (aLabel.startsWith(searchLower) && !bLabel.startsWith(searchLower)) return -1;
+    if (bLabel.startsWith(searchLower) && !aLabel.startsWith(searchLower)) return 1;
+    
+    // Alphabetical
+    return aLabel.localeCompare(bLabel);
+  });
+
+  const handleEstadoSelect = (estadoKey: string) => {
+    setEstadoSeleccionado(estadoKey);
+    setSearchTerm(ESTADOS.find(e => e.key === estadoKey)?.label || '');
+    setShowDropdown(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showDropdown || filteredEstados.length === 0) return;
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev < filteredEstados.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev > 0 ? prev - 1 : filteredEstados.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0) {
+          handleEstadoSelect(filteredEstados[highlightedIndex].key);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowDropdown(false);
+        setHighlightedIndex(-1);
+        break;
+    }
+  };
   const [popupState, setPopupState] = useState<{ show: boolean; toothNumber: number; noteText: string }>({
     show: false,
     toothNumber: 0,
@@ -290,6 +349,11 @@ function OdontogramPageContent() {
       if (odontogram.datos_odontograma.notas) {
         notasData = odontogram.datos_odontograma.notas;
       }
+    }
+    
+    // Check for general notes in the main notas column
+    if (odontogram.notas) {
+      notasData = odontogram.notas;
     }
     
     // Set tipo from loaded odontogram
@@ -579,21 +643,6 @@ function OdontogramPageContent() {
     
     return contador;
   };
-
-  const contadorEstados = getContadorEstados();
-
-  const filteredEstados = ESTADOS.filter(estado =>
-    estado.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-        <p className="ml-4 text-gray-600">Cargando datos del odontograma...</p>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -1436,11 +1485,11 @@ function OdontogramPageContent() {
           <div className="contador-inner">
             <table>
               <tbody>
-                {ESTADOS.filter(estado => contadorEstados[estado.key] > 0).map(estado => (
+                {ESTADOS.filter(estado => getContadorEstados()[estado.key] > 0).map(estado => (
                   <tr key={estado.key}>
                     <td>
                       <span className="small-box" style={{ background: estado.color }}></span>
-                      {estado.label}: {contadorEstados[estado.key]}
+                      {estado.label}: {getContadorEstados()[estado.key]}
                     </td>
                   </tr>
                 ))}
@@ -1501,13 +1550,51 @@ function OdontogramPageContent() {
               Seleccionar Estado
             </h3>
             
-            <input
-              type="text"
-              placeholder="Buscar estado..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar estado..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setShowDropdown(true);
+                  setHighlightedIndex(-1);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                onKeyDown={handleKeyDown}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+              
+              {/* Contextual Dropdown */}
+              {showDropdown && filteredEstados.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredEstados.map((estado, index) => (
+                    <div
+                      key={estado.key}
+                      className={`px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between ${
+                        index === highlightedIndex ? 'bg-gray-100 dark:bg-gray-600' : ''
+                      }`}
+                      onClick={() => handleEstadoSelect(estado.key)}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                    >
+                      <span className="flex items-center">
+                        <span 
+                          className="w-4 h-4 rounded mr-2" 
+                          style={{ backgroundColor: estado.color }}
+                        ></span>
+                        {estado.label}
+                        {estado.label.toLowerCase() === searchTerm.toLowerCase() && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                            <i className="fas fa-check"></i>
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             
             <select
               value={estadoSeleccionado}
