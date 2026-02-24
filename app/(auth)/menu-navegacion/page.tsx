@@ -761,13 +761,6 @@ export default function MenuNavegacion() {
       href: `/presupuestos?id=${validPacienteId}`
     },
     {
-      id: 'tickets',
-      icon: 'fas fa-ticket-alt',
-      title: 'Tickets',
-      description: 'Gestione tareas, problemas del sistema y recordatorios del equipo.',
-      href: `/tickets`
-    },
-    {
       id: 'reportes',
       icon: <AnimatedReport className="w-4 h-4" />,
       title: 'Reportes',

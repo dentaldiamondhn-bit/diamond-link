@@ -10,7 +10,6 @@ import { TutorialButton } from './TutorialButton';
 import AnimatedReport from './AnimatedReport';
 import AnimatedUser from './AnimatedUser';
 import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
-import AnimatedUsers from './AnimatedUsers';
 
 const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -19,10 +18,10 @@ const adminNavItems = [
   { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+  { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
   { href: '/xray-viewer', label: 'Visor Rayos X', icon: 'fas fa-x-ray' },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/doctores', label: 'Doctores', icon: 'fas fa-user-md' },
-  { href: '/admin/users', label: 'Usuarios', icon: <AnimatedUsers className="w-4 h-4" /> },
   { href: '/reports', label: 'Reportes', icon: <AnimatedReport className="w-4 h-4" /> },
 ];
 
