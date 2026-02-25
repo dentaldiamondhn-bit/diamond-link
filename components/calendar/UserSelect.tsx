@@ -159,7 +159,7 @@ export const UserSelect: React.FC<UserSelectProps> = ({
         <button
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
-          disabled={disabled}
+          disabled={disabled || loading}
           className="w-full px-3 py-2 text-left border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {selectedUsers.length === 0 ? (
@@ -207,9 +207,9 @@ export const UserSelect: React.FC<UserSelectProps> = ({
                       key={user.id}
                       type="button"
                       onClick={() => handleUserSelect(user)}
-                      disabled={isSelected}
+                      disabled={!!isSelected}
                       className={`w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-3 ${
-                        isSelected ? 'opacity-50 cursor-not-allowed' : ''
+                        !!isSelected ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     >
                       <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
@@ -230,7 +230,7 @@ export const UserSelect: React.FC<UserSelectProps> = ({
                       )}
                       {isSelected && (
                         <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7 7" />
                         </svg>
                       )}
                     </button>

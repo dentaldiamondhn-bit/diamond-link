@@ -173,7 +173,7 @@ export class NotificationService {
     }
 
     await this.addNotification({
-      type: 'event',
+      type: 'calendar_event',
       title: 'Próxima cita',
       message: `${eventTitle} ${timeText}`,
       metadata: {
