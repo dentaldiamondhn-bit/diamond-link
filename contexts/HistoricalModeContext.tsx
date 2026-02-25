@@ -44,10 +44,15 @@ export function HistoricalModeProvider({ children }: { children: ReactNode }) {
         .from('historical_mode_settings')
         .select('bypass_historical_mode')
         .eq('patient_id', patientId)
-        .single();
+        .eq('clerk_user_id', 'system-migration-placeholder') // Match the placeholder
+        .maybeSingle(); // Use maybeSingle instead of single to avoid 406
       
-      if (error && error.code !== 'PGRST116') { // Not found error
+      if (error) {
         console.error('Error loading patient settings:', error);
+        // Don't throw error for 406, just use default value
+        if (error.code !== 'PGRST116') { // Not found error
+          console.warn('Using default bypass setting due to error:', error.message);
+        }
       }
       
       const bypassValue = data?.bypass_historical_mode ?? false;
@@ -75,49 +80,60 @@ export function HistoricalModeProvider({ children }: { children: ReactNode }) {
     try {
       const { supabase } = await import('../lib/supabase');
       
-      // First try to update existing record
-      const { data: existingData, error: fetchError } = await supabase
+      // Use UPSERT to handle both insert and update in one atomic operation
+      console.log('Attempting to save patient setting:', { patientId, bypass });
+      
+      const { error } = await supabase
         .from('historical_mode_settings')
-        .select('id')
-        .eq('patient_id', patientId)
-        .single();
+        .upsert({
+          patient_id: patientId,
+          clerk_user_id: 'system-migration-placeholder', // Consistent placeholder
+          bypass_historical_mode: bypass,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'patient_id,clerk_user_id' // Specify the unique constraint columns
+        });
       
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error checking existing setting:', fetchError);
-        throw fetchError;
-      }
-      
-      let error;
-      
-      if (existingData) {
-        // Update existing record
-        const { error: updateError } = await supabase
-          .from('historical_mode_settings')
-          .update({
-            bypass_historical_mode: bypass,
-            updated_at: new Date().toISOString()
-          })
-          .eq('patient_id', patientId);
-        
-        error = updateError;
-      } else {
-        // Insert new record (provide placeholder for clerk_user_id since it's still required)
-        const { error: insertError } = await supabase
-          .from('historical_mode_settings')
-          .insert({
-            patient_id: patientId,
-            clerk_user_id: 'system-migration-placeholder', // Clear placeholder value
-            bypass_historical_mode: bypass,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        
-        error = insertError;
-      }
+      console.log('Upsert result:', { error, patientId });
       
       if (error) {
         console.error('Error saving patient setting:', error);
-        throw error;
+        
+        // If it's still a duplicate key error, try to clean up and retry
+        if (error.code === '23505') {
+          console.log('Duplicate key detected, attempting cleanup...');
+          
+          // Delete any existing duplicates and retry
+          const { error: deleteError } = await supabase
+            .from('historical_mode_settings')
+            .delete()
+            .eq('patient_id', patientId)
+            .eq('clerk_user_id', 'system-migration-placeholder');
+          
+          if (deleteError) {
+            console.error('Error cleaning up duplicates:', deleteError);
+            throw deleteError;
+          }
+          
+          // Retry the upsert after cleanup
+          const { error: retryError } = await supabase
+            .from('historical_mode_settings')
+            .upsert({
+              patient_id: patientId,
+              clerk_user_id: 'system-migration-placeholder',
+              bypass_historical_mode: bypass,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'patient_id,clerk_user_id'
+            });
+          
+          if (retryError) {
+            console.error('Error on retry:', retryError);
+            throw retryError;
+          }
+        } else {
+          throw error;
+        }
       }
       
       // Only update if value actually changed to prevent infinite loops

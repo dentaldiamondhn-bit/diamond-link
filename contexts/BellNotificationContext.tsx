@@ -4,17 +4,17 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 
 export interface BellNotification {
   id: string;
-  type: 'event' | 'patient_created' | 'patient_updated' | 'system';
+  type: 'patient_created' | 'patient_updated' | 'system' | 'calendar_event' | 'calendar_reminder';
   title: string;
   message: string;
   timestamp: Date;
   read: boolean;
   metadata?: {
-    eventId?: string;
     patientId?: string;
     userId?: string;
     userName?: string;
     patientName?: string;
+    eventId?: string;
     eventTitle?: string;
     eventTime?: Date;
   };
@@ -150,19 +150,8 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
     }
   };
 
-  // Check for upcoming events every minute (disabled for now due to auth issues)
+  // Fetch notifications from server and sync periodically
   useEffect(() => {
-    const checkUpcomingEvents = async () => {
-      try {
-        // Disabled for now - Google Calendar API requires auth tokens
-        // This would need to be implemented differently for server-side notifications
-        console.log('Calendar event notifications disabled - requires client-side auth');
-      } catch (error) {
-        console.error('Error checking upcoming events:', error);
-      }
-    };
-
-    // Fetch notifications from server
     const fetchNotifications = async () => {
       try {
         const response = await fetch('/api/notifications', {

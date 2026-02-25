@@ -59,6 +59,7 @@ export default clerkMiddleware(async (auth, req) => {
         req.nextUrl.pathname === '/doctores' ||
         req.nextUrl.pathname === '/calendario' ||
         req.nextUrl.pathname === '/tratamientos' ||
+        req.nextUrl.pathname === '/presupuestos' ||
         req.nextUrl.pathname.startsWith('/xray-viewer') ||
         req.nextUrl.pathname === '/reports' ||
         req.nextUrl.pathname.startsWith('/historia-clinica-ortodoncia') ||

@@ -7,6 +7,7 @@ export async function updateOrthodonticHistoryAction(formData: FormData) {
   'use server';
   
   const patientId = formData.get('paciente_id') as string;
+  const recordId = formData.get('orthodontic_history_id') as string;
   const doctorId = formData.get('doctor_id') as string;
   const otroDoctorValue = formData.get('otro_doctor') as string;
   const finalDoctorId = doctorId === 'otro' ? otroDoctorValue : doctorId;
@@ -40,7 +41,7 @@ export async function updateOrthodonticHistoryAction(formData: FormData) {
   };
 
   try {
-    await updateOrthodonticHistory(patientId, submitData);
+    await updateOrthodonticHistory(recordId, submitData);
     redirect(`/historia-clinica-ortodoncia?id=${patientId}&edit=true`);
   } catch (error) {
     console.error('Error updating orthodontic history:', error);

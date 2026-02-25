@@ -9,12 +9,14 @@ export function NotificationDropdown() {
 
   const getNotificationIcon = (type: BellNotification['type']) => {
     switch (type) {
-      case 'event':
-        return 'fas fa-calendar text-blue-500';
       case 'patient_created':
         return 'fas fa-user-plus text-green-500';
       case 'patient_updated':
         return 'fas fa-user-edit text-yellow-500';
+      case 'calendar_event':
+        return 'fas fa-calendar text-blue-500';
+      case 'calendar_reminder':
+        return 'fas fa-clock text-orange-500';
       case 'system':
         return 'fas fa-info-circle text-gray-500';
       default:

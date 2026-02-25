@@ -42,7 +42,6 @@ export const NAVIGATION_GROUPS = [
     label: 'Gestión de Negocio',
     icon: 'fa-chart-line',
     items: [
-      { href: '/dashboard/appointments', icon: 'fa-calendar-check', label: 'Citas' },
       { href: '/dashboard/budgets', icon: 'fa-file-invoice-dollar', label: 'Presupuestos' },
       { href: '/dashboard/payments', icon: 'fa-credit-card', label: 'Pagos' },
       { href: '/dashboard/income', icon: 'fa-chart-line', label: 'Ingresos' },

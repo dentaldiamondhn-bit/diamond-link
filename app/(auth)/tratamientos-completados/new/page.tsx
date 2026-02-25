@@ -884,14 +884,6 @@ function NuevoTratamientoCompletadoPage() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={saveTreatment}
-              disabled={saving || selectedTreatments.length === 0}
-              className="px-6 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center space-x-2"
-            >
-              <i className="fas fa-save"></i>
-              <span>{saving ? 'Guardando...' : 'Guardar Tratamiento'}</span>
-            </button>
           </div>
         </div>
       </div>
@@ -905,6 +897,18 @@ function NuevoTratamientoCompletadoPage() {
         loading={false}
         compact={true}
       />
+
+      {/* Save Button at Bottom */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={saveTreatment}
+          disabled={saving || selectedTreatments.length === 0}
+          className="px-6 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 text-white rounded-lg shadow-lg transition-colors flex items-center space-x-2"
+        >
+          <i className="fas fa-save"></i>
+          <span>{saving ? 'Guardando...' : 'Guardar Tratamiento'}</span>
+        </button>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { TutorialButton } from './TutorialButton';
-import AnimatedUser from './AnimatedUser';
-import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 import { PatientService } from '../services/patientService';
 import { OdontogramService } from '../services/odontogramService';
 import { consentimientoService } from '../services/consentimientoService';
@@ -13,7 +10,6 @@ import { TreatmentService } from '../services/treatmentService';
 import { Patient } from '../types/patient';
 import { format } from 'date-fns';
 import { formatCurrency } from '../utils/currencyUtils';
-import { useEventModal } from '../contexts/EventModalContext';
 
 export default function GlobalSearch() {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -22,11 +18,8 @@ export default function GlobalSearch() {
   const [completedTreatments, setCompletedTreatments] = useState<any[]>([]);
   const [odontograms, setOdontograms] = useState<any[]>([]);
   const [consents, setConsents] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
   const [promotions, setPromotions] = useState<any[]>([]);
-  const { openEventModal } = useEventModal();
   const [searchResults, setSearchResults] = useState<{
-    events: any[];
     patients: any[];
     treatments: any[];
     completedTreatments: any[];
@@ -49,7 +42,6 @@ export default function GlobalSearch() {
       score: number;
     }>;
   }>({
-    events: [],
     patients: [],
     treatments: [],
     completedTreatments: [],
@@ -69,28 +61,61 @@ export default function GlobalSearch() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [
-          patientsData,
-          treatmentsData,
-          completedTreatmentsData,
-          odontogramsData,
-          consentsData,
-        ] = await Promise.all([
-          PatientService.getPatients(),
-          TreatmentService.getTreatments(),
-          CompletedTreatmentService.getAllCompletedTreatments(),
-          OdontogramService.getAllOdontograms(),
-          consentimientoService.getAllConsentimientos(),
-        ]);
+        
+        // Try to load data with error handling for each service
+        let patientsData: any[] = [];
+        let treatmentsData: any[] = [];
+        let completedTreatmentsData: any[] = [];
+        let odontogramsData: any[] = [];
+        let consentsData: any[] = [];
+        
+        // Load patients with error handling
+        try {
+          patientsData = await PatientService.getPatients();
+        } catch (error) {
+          console.error('Error loading patients:', error);
+          patientsData = [];
+        }
+        
+        // Load treatments with error handling
+        try {
+          treatmentsData = await TreatmentService.getTreatments();
+        } catch (error) {
+          console.error('Error loading treatments:', error);
+          treatmentsData = [];
+        }
+        
+        // Load completed treatments with error handling
+        try {
+          completedTreatmentsData = await CompletedTreatmentService.getAllCompletedTreatments();
+        } catch (error) {
+          console.error('Error loading completed treatments:', error);
+          completedTreatmentsData = [];
+        }
+        
+        // Load odontograms with error handling
+        try {
+          odontogramsData = await OdontogramService.getAllOdontograms();
+        } catch (error) {
+          console.error('Error loading odontograms:', error);
+          odontogramsData = [];
+        }
+        
+        // Load consents with error handling
+        try {
+          consentsData = await consentimientoService.getAllConsentimientos();
+        } catch (error) {
+          console.error('Error loading consents:', error);
+          consentsData = [];
+        }
         
         setPatients(patientsData);
         setTreatments(treatmentsData);
         setCompletedTreatments(completedTreatmentsData);
         setOdontograms(odontogramsData);
         setConsents(consentsData);
-        setEvents([]); // No events service yet
         
-        // Load promotions from API
+        // Load promotions from API with error handling
         try {
           const promotionsResponse = await fetch('/api/promociones');
           if (promotionsResponse.ok) {
@@ -111,18 +136,25 @@ export default function GlobalSearch() {
         
       } catch (error) {
         console.error('Error loading search data:', error);
+        // Set empty arrays on error to prevent crashes
+        setPatients([]);
+        setTreatments([]);
+        setCompletedTreatments([]);
+        setOdontograms([]);
+        setConsents([]);
+        setPromotions([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [searchQuery]);
+  }, []);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setShowSearchResults(false);
-      setSearchResults({ events: [], patients: [], treatments: [], completedTreatments: [], odontograms: [], consents: [], promotions: [], pages: [], patientCentric: [] });
+      setSearchResults({ patients: [], treatments: [], completedTreatments: [], odontograms: [], consents: [], promotions: [], pages: [], patientCentric: [] });
       return;
     }
 
@@ -132,15 +164,14 @@ export default function GlobalSearch() {
     const allPages = [
       { title: 'Dashboard', description: 'Panel principal', href: '/dashboard', category: 'Navegación' },
       { title: 'Pacientes', description: 'Gestión de pacientes', href: '/pacientes', category: 'Navegación' },
-      { title: 'Calendario', description: 'Citas y eventos', href: '/calendario', category: 'Navegación' },
       { title: 'Tratamientos', description: 'Catálogo de tratamientos', href: '/tratamientos', category: 'Navegación' },
-      { title: 'Tratamientos Completados', description: 'Historial de tratamientos', href: '/tratamientos-completados', category: 'Navegación', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
+      { title: 'Tratamientos Completados', description: 'Historial de tratamientos', href: '/tratamientos-completados', category: 'Navegación' },
       { title: 'Odontograma', description: 'Diagrama dental', href: '/odontogram', category: 'Herramientas' },
-      { title: 'Nueva Historia Clínica', description: 'Formulario de paciente', href: '/patient-form', category: 'Formularios', icon: <AnimatedUser className="w-4 h-4" /> },
+      { title: 'Nueva Historia Clínica', description: 'Formulario de paciente', href: '/patient-form', category: 'Formularios' },
+      { title: 'Historial de Pacientes', description: 'Registros médicos', href: '/patient-records', category: 'Registros' },
       { title: 'Menú de Navegación', description: 'Navegación rápida', href: '/menu-navegacion', category: 'Navegación' },
       { title: 'Promociones', description: 'Ofertas y promociones', href: '/promociones', category: 'Promociones' },
       { title: 'Consentimientos', description: 'Formularios de consentimiento', href: '/consentimientos', category: 'Formularios' },
-      { title: 'Crear Evento', description: 'Agregar nueva cita o evento', href: '#create-event', category: 'Acciones', action: 'createEvent' },
       { title: 'Mi Cuenta', description: 'Configuración de perfil', href: '/account', category: 'Configuración' },
     ];
     
@@ -169,13 +200,6 @@ export default function GlobalSearch() {
       treatment.nombre?.toLowerCase().includes(query) ||
       treatment.codigo?.toLowerCase().includes(query) ||
       treatment.especialidad?.toLowerCase().includes(query)
-    );
-
-    // Search events
-    const filteredEvents = events.filter(event =>
-      event.title?.toLowerCase().includes(query) ||
-      event.description?.toLowerCase().includes(query) ||
-      event.location?.toLowerCase().includes(query)
     );
 
     // Search completed treatments
@@ -366,7 +390,6 @@ export default function GlobalSearch() {
     });
 
     setSearchResults({
-      events: filteredEvents,
       patients: filteredPatients,
       treatments: filteredTreatments,
       completedTreatments: filteredCompletedTreatments,
@@ -378,7 +401,7 @@ export default function GlobalSearch() {
     });
     
     setShowSearchResults(true);
-  }, [searchQuery, patients, treatments, completedTreatments, odontograms, consents, events, promotions]);
+  }, [searchQuery, patients, treatments, completedTreatments, odontograms, consents, promotions]);
 
   // Click outside handler to close search results
   useEffect(() => {
@@ -404,20 +427,6 @@ export default function GlobalSearch() {
   const handleResultClick = (href: string, action?: string) => {
     setShowSearchResults(false);
     setSearchQuery('');
-    
-    if (action === 'createEvent') {
-      const now = new Date();
-      openEventModal({
-        id: 'new',
-        title: 'Nuevo Evento',
-        start: now,
-        end: new Date(now.getTime() + 60 * 60 * 1000), // 1 hour later
-        allDay: false,
-        description: '',
-        location: ''
-      });
-      return;
-    }
     
     router.push(href);
   };
@@ -461,7 +470,7 @@ export default function GlobalSearch() {
               <div className="px-3 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                 Datos del Paciente
               </div>
-              {searchResults.patientCentric.map((patientData, index) => (
+              {searchResults.patientCentric.slice(0, 3).map((patientData, index) => (
                 <div key={index} className={`mb-3 p-2 rounded-lg border ${
                   (patientData.matchedFields.includes('nombre_completo') || 
                    patientData.matchedFields.includes('numero_identidad') || 
@@ -604,8 +613,7 @@ export default function GlobalSearch() {
                   className="block px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md cursor-pointer"
                   onClick={() => handleResultClick(page.href, page.action)}
                 >
-                  <div className="font-medium flex items-center">
-                    {page.action === 'createEvent' && <i className="fas fa-plus-circle mr-2 text-blue-500"></i>}
+                  <div className="font-medium">
                     {page.title}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -616,31 +624,9 @@ export default function GlobalSearch() {
             </div>
           )}
 
-          {/* Events Results */}
-          {searchResults.events.length > 0 && (
-            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
-              <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Eventos
-              </div>
-              {searchResults.events.slice(0, 3).map((event) => (
-                <div
-                  key={event.id}
-                  className="block px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md cursor-pointer"
-                  onClick={() => handleResultClick('/calendario')}
-                >
-                  <div className="font-medium">{event.title}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {format(new Date(event.start), "PPP 'dd' MMM', 'HH:mm")}
-                    {event.location && ` • ${event.location}`}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Treatments Results */}
           {searchResults.treatments.length > 0 && (
-            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.events.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
+            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
               <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Tratamientos
               </div>
@@ -661,7 +647,7 @@ export default function GlobalSearch() {
 
           {/* Completed Treatments Results */}
           {searchResults.completedTreatments.length > 0 && (
-            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.events.length > 0 || searchResults.treatments.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
+            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.treatments.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
               <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Tratamientos Completados
               </div>
@@ -684,7 +670,7 @@ export default function GlobalSearch() {
 
           {/* Odontograms Results */}
           {searchResults.odontograms.length > 0 && (
-            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.events.length > 0 || searchResults.treatments.length > 0 || searchResults.completedTreatments.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
+            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.treatments.length > 0 || searchResults.completedTreatments.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
               <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Odontogramas
               </div>
@@ -714,7 +700,7 @@ export default function GlobalSearch() {
 
           {/* Consents Results */}
           {searchResults.consents.length > 0 && (
-            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.events.length > 0 || searchResults.treatments.length > 0 || searchResults.completedTreatments.length > 0 || searchResults.odontograms.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
+            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.treatments.length > 0 || searchResults.completedTreatments.length > 0 || searchResults.odontograms.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
               <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Consentimientos
               </div>
@@ -741,7 +727,7 @@ export default function GlobalSearch() {
 
           {/* Promotions Results */}
           {searchResults.promotions.length > 0 && (
-            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.events.length > 0 || searchResults.treatments.length > 0 || searchResults.completedTreatments.length > 0 || searchResults.odontograms.length > 0 || searchResults.consents.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
+            <div className={`p-2 ${(searchResults.patientCentric.length > 0 || searchResults.pages.length > 0 || searchResults.treatments.length > 0 || searchResults.completedTreatments.length > 0 || searchResults.odontograms.length > 0 || searchResults.consents.length > 0) ? 'border-t border-gray-200 dark:border-gray-700' : ''}`}>
               <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Promociones
               </div>
@@ -765,7 +751,6 @@ export default function GlobalSearch() {
           {/* No Results */}
           {searchResults.patientCentric.length === 0 && 
            searchResults.pages.length === 0 && 
-           searchResults.events.length === 0 &&
            searchResults.treatments.length === 0 &&
            searchResults.completedTreatments.length === 0 &&
            searchResults.odontograms.length === 0 &&

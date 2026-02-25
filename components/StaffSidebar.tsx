@@ -12,11 +12,15 @@ import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 
 const staffNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
-  { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
-  { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" /> },
-  { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-signature' },
-  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
+  { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-users' },
+  { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
+  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
+  { href: '/odontogram', label: 'Odontograma', icon: 'fas fa-teeth' },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+  { href: '/promociones', label: 'Promociones', icon: 'fas fa-tags' },
+  { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+  { href: '/reportes', label: 'Reportes', icon: 'fas fa-chart-bar' },
+  { href: '/configuracion', label: 'Configuración', icon: 'fas fa-cog' },
 ];
 
 interface StaffSidebarProps {

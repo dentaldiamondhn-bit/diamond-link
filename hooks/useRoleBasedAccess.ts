@@ -11,7 +11,6 @@ export interface RolePermissions {
   canViewTreatments: boolean;
   canViewCompletedTreatments: boolean;
   canViewConsentimientos: boolean;
-  canViewCalendar: boolean;
   canViewMenuNavegacion: boolean;
   canManageDoctores: boolean;
   // Tech support specific permissions
@@ -39,7 +38,6 @@ const rolePermissions: Record<string, RolePermissions> = {
     canViewTreatments: true,
     canViewCompletedTreatments: true,
     canViewConsentimientos: true,
-    canViewCalendar: true,
     canViewMenuNavegacion: true,
     canManageDoctores: true,
     // Tech support specific permissions
@@ -65,7 +63,6 @@ const rolePermissions: Record<string, RolePermissions> = {
     canViewTreatments: true,
     canViewCompletedTreatments: true,
     canViewConsentimientos: true,
-    canViewCalendar: true,
     canViewMenuNavegacion: true,
     canManageDoctores: true, // Admin can manage doctors
     // User management removed - now tech support only
@@ -91,7 +88,6 @@ const rolePermissions: Record<string, RolePermissions> = {
     canViewTreatments: true,
     canViewCompletedTreatments: true,
     canViewConsentimientos: true,
-    canViewCalendar: true,
     canViewMenuNavegacion: true,
     canManageDoctores: true,
     canManageUsers: false,
@@ -116,7 +112,6 @@ const rolePermissions: Record<string, RolePermissions> = {
     canViewTreatments: false,
     canViewCompletedTreatments: true,
     canViewConsentimientos: true, // Allow staff to manage consent forms
-    canViewCalendar: true,
     canViewMenuNavegacion: true,
     canManageDoctores: true,
     canManageUsers: false,
@@ -241,7 +236,6 @@ export function canAccessRoute(userRole: string, pathname: string): boolean {
     '/tratamientos': 'canViewTreatments',
     '/tratamientos-completados': 'canViewCompletedTreatments',
     '/consentimientos': 'canViewConsentimientos',
-    '/calendario': 'canViewCalendar',
     '/menu-navegacion': 'canViewMenuNavegacion',
     '/doctores': 'canManageDoctores',
     '/admin': 'canManageUsers',

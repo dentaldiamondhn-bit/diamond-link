@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import HistoricalBadge from './HistoricalBadge';
 
@@ -23,6 +23,12 @@ export function HistoricalBanner({
 }: HistoricalBannerProps) {
   const { user } = useUser();
   const [localBypass, setLocalBypass] = useState(isBypassed);
+
+  // Sync local state with prop changes
+  useEffect(() => {
+    console.log('HistoricalBanner: Syncing localBypass with isBypassed:', { localBypass, isBypassed });
+    setLocalBypass(isBypassed);
+  }, [isBypassed]);
 
   // Always show banner if patient is historical (regardless of bypass state)
   if (!isHistorical) return null;

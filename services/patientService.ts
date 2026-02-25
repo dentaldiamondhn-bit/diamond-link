@@ -52,17 +52,29 @@ export class PatientService {
 
   static async getPatients() {
     try {
-      const { data, error } = await supabase
-        .from('patients')
-        .select('*')
-        .order('fecha_inicio', { ascending: false });
+      // Try ordering by fecha_inicio first, if it fails try created_at, then no ordering
+      let query = supabase.from('patients').select('*');
+      
+      try {
+        query = query.order('fecha_inicio', { ascending: false });
+      } catch (orderError) {
+        console.warn('Failed to order by fecha_inicio, trying created_at:', orderError);
+        try {
+          query = query.order('created_at', { ascending: false });
+        } catch (secondOrderError) {
+          console.warn('Failed to order by created_at, using no ordering:', secondOrderError);
+          // No ordering if both fail
+        }
+      }
+      
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching patients:', error);
         throw error;
       }
 
-      return data;
+      return data || [];
     } catch (error) {
       console.error('Unexpected error fetching patients:', error);
       throw error;

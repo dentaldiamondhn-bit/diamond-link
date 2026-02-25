@@ -15,8 +15,6 @@ import AnimatedBurger from '@/components/AnimatedBurger';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { HistoricalModeProvider } from '@/contexts/HistoricalModeContext';
 import { BellNotificationProvider } from '@/contexts/BellNotificationContext';
-import { EventModalProvider, useEventModal } from '@/contexts/EventModalContext';
-import { EventModal } from '@/components/calendar/EventModal';
 import { TutorialProvider } from '@/contexts/TutorialContext';
 import { TutorialModal } from '@/components/TutorialModal';
 import { TutorialButton } from '@/components/TutorialButton';
@@ -26,28 +24,6 @@ import { usePathname } from 'next/navigation';
 
 // Force dynamic rendering for this layout
 export const dynamic = 'force-dynamic';
-
-// Separate component for modal content
-function EventModalWrapper() {
-  const { isEventModalOpen, selectedEvent, closeEventModal } = useEventModal();
-  
-  return (
-    <>
-      {isEventModalOpen && selectedEvent && (
-        <EventModal
-          event={selectedEvent}
-          onClose={closeEventModal}
-          onSave={async (eventData) => {
-            // TODO: Implement save functionality
-          }}
-          onDelete={async (eventId) => {
-            // TODO: Implement delete functionality
-          }}
-        />
-      )}
-    </>
-  );
-}
 
 export default function AuthLayout({
   children,
@@ -116,8 +92,7 @@ export default function AuthLayout({
       <ThemeProvider>
         <HistoricalModeProvider>
           <BellNotificationProvider>
-            <EventModalProvider>
-              <div className="flex h-screen bg-gray-100 relative">
+            <div className="flex h-screen bg-gray-100 relative">
                 {/* Mobile Menu Button */}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -371,13 +346,9 @@ export default function AuthLayout({
             </div>
           </div>
           
-          {/* Event Modal */}
-          <EventModalWrapper />
-          
           {/* Tutorial Modal */}
           <TutorialModal />
         </div>
-        </EventModalProvider>
         </BellNotificationProvider>
       </HistoricalModeProvider>
     </ThemeProvider>

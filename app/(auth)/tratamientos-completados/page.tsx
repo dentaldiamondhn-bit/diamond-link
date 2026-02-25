@@ -202,12 +202,6 @@ export default function TratamientosCompletadosPage() {
   }, [sortOrder, prefsLoading, updatePagePrefs]);
 
   const handleCreateTreatment = (treatment?: CompletedTreatment) => {
-    // Check if trying to create new treatment for historical patient without bypass
-    if (!treatment && pacienteId && recordCategoryInfo?.isHistorical && !bypassHistoricalMode) {
-      alert('No se pueden crear nuevos tratamientos para pacientes históricos. Use el bypass del modo histórico para habilitar esta función.');
-      return;
-    }
-    
     if (treatment) {
       router.push(`/tratamientos-completados/${treatment.id}/view`);
     } else {

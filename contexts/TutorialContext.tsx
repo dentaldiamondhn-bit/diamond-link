@@ -61,13 +61,6 @@ const tutorials: RoleTutorial = {
       position: 'right'
     },
     {
-      id: 'doctor-calendar',
-      title: 'Tu Calendario Personal',
-      content: 'Gestiona tus citas, visualiza tu agenda diaria y programa nuevas consultas.',
-      target: 'a[href="/calendario"]',
-      position: 'right'
-    },
-    {
       id: 'doctor-complete',
       title: '¡Listo para Practicar! 🦷',
       content: 'Ahora estás preparado para gestionar tus pacientes y tratamientos de manera eficiente.',
@@ -86,13 +79,6 @@ const tutorials: RoleTutorial = {
       title: 'Registro de Pacientes',
       content: 'Ayuda en el registro de nuevos pacientes, actualización de datos y gestión de información básica.',
       target: 'a[href="/pacientes"]',
-      position: 'right'
-    },
-    {
-      id: 'staff-calendar',
-      title: 'Gestión de Citas',
-      content: 'Programa y confirma citas de pacientes, mantén organizada la agenda diaria de la clínica.',
-      target: 'a[href="/calendario"]',
       position: 'right'
     },
     {

@@ -2,13 +2,34 @@
 
 import { useUser } from '@clerk/nextjs';
 
-export type UserRole = 'admin' | 'doctor' | 'staff';
+export type UserRole = 'admin' | 'doctor' | 'staff' | 'tech_support';
 
 export function useUserRole() {
   const { user, isLoaded } = useUser();
   
+  // Ensure fresh data for each render - no caching issues
+  if (!isLoaded || !user) {
+    return {
+      userRole: undefined,
+      userId: undefined,
+      isLoaded,
+      isAdmin: false,
+      isDoctor: false,
+      isStaff: false,
+      isTechSupport: false,
+      hasRole: false,
+    };
+  }
+  
   // Get role from user object public metadata
   const userRole = user?.publicMetadata?.role as UserRole | undefined;
+  
+  // Debug logging for multi-user issues
+  console.log('=== useUserRole DEBUG ===');
+  console.log('User ID:', user?.id);
+  console.log('User loaded:', isLoaded);
+  console.log('Public metadata:', user?.publicMetadata);
+  console.log('Detected role:', userRole);
   
   return {
     userRole,
@@ -17,6 +38,7 @@ export function useUserRole() {
     isAdmin: userRole === 'admin',
     isDoctor: userRole === 'doctor',
     isStaff: userRole === 'staff',
+    isTechSupport: userRole === 'tech_support',
     hasRole: !!userRole,
   };
 }
@@ -30,5 +52,8 @@ export const permissions = {
   canAccessPatientRecords: (role: UserRole | undefined) => ['admin', 'doctor'].includes(role || ''),
   canManageTreatments: (role: UserRole | undefined) => ['admin', 'doctor', 'staff'].includes(role || ''),
   canManagePatients: (role: UserRole | undefined) => ['admin', 'doctor', 'staff'].includes(role || ''),
-  canAccessCalendar: (role: UserRole | undefined) => ['admin', 'doctor'].includes(role || ''),
+  // Tech support permissions
+  canAccessUserManagement: (role: UserRole | undefined) => role === 'tech_support',
+  canAccessSystemSettings: (role: UserRole | undefined) => role === 'tech_support',
+  canAccessTechSupport: (role: UserRole | undefined) => role === 'tech_support',
 };

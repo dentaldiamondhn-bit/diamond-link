@@ -1,7 +1,7 @@
 // app/sign-in/[[...sign-in]]/page.tsx
 'use client';
 
-import { SignIn } from "@clerk/nextjs";
+import { SignIn, useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
@@ -9,6 +9,29 @@ import './signin-styles.css';
 
 export default function Page() {
   const [isLoaded, setIsLoaded] = useState(false);
+  const { user, isLoaded: userLoaded } = useUser();
+  
+  // Determine redirect URL based on user role
+  const getRedirectUrl = () => {
+    if (!userLoaded || !user) {
+      return '/dashboard'; // Default fallback
+    }
+    
+    const userRole = user.publicMetadata?.role as string;
+    
+    switch (userRole) {
+      case 'tech_support':
+        return '/tech-support/dashboard';
+      case 'admin':
+        return '/dashboard';
+      case 'doctor':
+        return '/dashboard';
+      case 'staff':
+        return '/dashboard';
+      default:
+        return '/dashboard';
+    }
+  };
 
   useEffect(() => {
     setIsLoaded(true);
@@ -28,22 +51,20 @@ export default function Page() {
       <div className="login-left">
         <motion.div 
           className="logo-container"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          <div className="logo-wrapper">
-            <Image 
-              src="/Logo.svg" 
-              alt="Dental Clinic Logo" 
-              width={200} 
-              height={200}
-              className="login-logo"
-              priority
-            />
-            <div className="logo-glow"></div>
-          </div>
+          <Image
+            src="/Logo.svg"
+            alt="Diamond Link Dental"
+            width={120}
+            height={120}
+            className="logo"
+            priority
+          />
         </motion.div>
+        <div className="logo-glow"></div>
         
         {/* Desktop-only text content */}
         <motion.div 
@@ -121,7 +142,7 @@ export default function Page() {
                 }}
                 routing="path"
                 path="/sign-in"
-                afterSignInUrl="/dashboard"
+                afterSignInUrl={getRedirectUrl()}
               />
             </motion.div>
           )}
