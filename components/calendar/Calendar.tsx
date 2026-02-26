@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CalendarEventWithPatient, CalendarView } from '../../types/calendar';
 import { CalendarTaskWithPatient } from '../../types/calendarTasks';
 import { CalendarService } from '../../services/calendarService';
@@ -9,6 +9,8 @@ import { EventModal } from './EventModal';
 import { TaskModal } from './TaskModal';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import calendarRealtimeService, { CalendarRealtimeNotification } from '../../services/calendarRealtimeService';
+import { SimpleTimezoneFix } from '../../services/simpleTimezoneFix';
 
 interface CalendarProps {
   userId: string;
@@ -26,15 +28,70 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [showTasks, setShowTasks] = useState(false); // Toggle between events and tasks
+  const [notifications, setNotifications] = useState<CalendarRealtimeNotification[]>([]);
+
+  // Helper function to format date for display with timezone fix
+  const formatEventDate = (dateString: string): Date => {
+    try {
+      const utcDate = new Date(dateString);
+      // Convert UTC to local time using timezone fix
+      return new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
+    } catch (error) {
+      console.error('Error formatting event date:', error);
+      return new Date(dateString);
+    }
+  };
 
   useEffect(() => {
-    if (showTasks) {
-      loadTasks();
-    } else {
-      loadEvents();
+    loadEvents();
+    loadTasks();
+  }, [currentDate, view]);
+
+  // Real-time updates and notifications
+  useEffect(() => {
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
-  }, [currentDate, view, showTasks]);
+
+    // Subscribe to real-time notifications
+    const unsubscribeNotifications = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
+      // Add notification to state
+      setNotifications(prev => [...prev.slice(-4), notification]); // Keep max 5 notifications
+      
+      // Show browser notification if permission granted
+      if (Notification.permission === 'granted') {
+        new Notification(notification.title, {
+          body: notification.message,
+          icon: '/favicon.ico',
+          tag: notification.type
+        });
+      } else {
+        console.log('🔕 Browser notification permission not granted');
+      }
+
+      // Auto-remove notification after 5 seconds
+      setTimeout(() => {
+        setNotifications(prev => prev.slice(1));
+      }, 5000);
+
+      // Reload data based on notification type
+      if (notification.type.includes('event')) {
+        loadEvents();
+      } else if (notification.type.includes('task')) {
+        loadTasks();
+      }
+    });
+
+    // Subscribe to user-specific events
+    const unsubscribeUserEvents = calendarRealtimeService.subscribeToUserEvents(userId);
+
+    // Cleanup
+    return () => {
+      unsubscribeNotifications();
+      unsubscribeUserEvents();
+    };
+  }, [userId]);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -126,19 +183,15 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     setSelectedDate(date);
     setSelectedEvent(null);
     setSelectedTask(null);
-    if (showTasks) {
-      setShowTaskModal(true);
-    } else {
-      setShowEventModal(true);
-    }
+    setShowEventModal(true);
   };
 
-  const handleEventSave = () => {
+  const handleEventSave = (eventType: 'created' | 'updated' = 'created', eventData?: any) => {
     loadEvents();
     setSelectedEvent(null);
   };
 
-  const handleTaskSave = () => {
+  const handleTaskSave = (taskType: 'created' | 'updated' = 'created', taskData?: any) => {
     loadTasks();
     setSelectedTask(null);
   };
@@ -173,8 +226,8 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
-      const eventStart = parseISO(event.start_date);
-      const eventEnd = parseISO(event.end_date);
+      const eventStart = formatEventDate(event.start_date);
+      const eventEnd = formatEventDate(event.end_date);
       return isSameDay(date, eventStart) || isSameDay(date, eventEnd) || 
              (date > eventStart && date < eventEnd);
     });
@@ -183,7 +236,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
   const getTasksForDate = (date: Date) => {
     return tasks.filter(task => {
       if (!task.due_date) return false;
-      const taskDue = parseISO(task.due_date);
+      const taskDue = formatEventDate(task.due_date);
       return isSameDay(date, taskDue);
     });
   };
@@ -275,40 +328,38 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                 {format(date, 'd')}
               </div>
               <div className="space-y-1">
-                {showTasks ? (
-                  // Show tasks
-                  dayTasks.slice(0, 3).map((task, taskIndex) => (
-                    <div
-                      key={taskIndex}
-                      className={`text-xs p-1 rounded text-white truncate ${getTaskCategoryColor(task.category)} border-l-2 ${getPriorityColor(task.priority)}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTaskClick(task);
-                      }}
-                      title={task.title}
-                    >
-                      {task.status === 'completed' ? '✓ ' : ''}{task.title}
-                    </div>
-                  ))
-                ) : (
-                  // Show events
-                  dayEvents.slice(0, 3).map((event, eventIndex) => (
-                    <div
-                      key={eventIndex}
-                      className={`text-xs p-1 rounded text-white truncate ${getEventTypeColor(event.event_type)} border-l-2 ${getPriorityColor(event.priority)}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEventClick(event);
-                      }}
-                      title={event.title}
-                    >
-                      {format(parseISO(event.start_date), 'HH:mm')} {event.title}
-                    </div>
-                  ))
-                )}
-                {(showTasks ? dayTasks.length > 3 : dayEvents.length > 3) && (
+                {/* Show events first */}
+                {dayEvents.slice(0, 2).map((event, eventIndex) => (
+                  <div
+                    key={`event-${eventIndex}`}
+                    className={`text-xs p-1 rounded text-white truncate ${getEventTypeColor(event.event_type)} border-l-2 ${getPriorityColor(event.priority)}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEventClick(event);
+                    }}
+                    title={event.title}
+                  >
+                    {format(formatEventDate(event.start_date), 'h:mm a')} {event.title}
+                  </div>
+                ))}
+                {/* Show tasks */}
+                {dayTasks.slice(0, 2).map((task, taskIndex) => (
+                  <div
+                    key={`task-${taskIndex}`}
+                    className={`text-xs p-1 rounded text-white truncate ${getTaskCategoryColor(task.category)} border-l-2 ${getPriorityColor(task.priority)}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTaskClick(task);
+                    }}
+                    title={task.title}
+                  >
+                    {task.status === 'completed' ? '✓ ' : ''}{task.title}
+                  </div>
+                ))}
+                {/* Show more indicator if needed */}
+                {(dayEvents.length + dayTasks.length) > 4 && (
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    +{(showTasks ? dayTasks.length : dayEvents.length) - 3} más
+                    +{dayEvents.length + dayTasks.length - 4} más
                   </div>
                 )}
               </div>
@@ -352,12 +403,17 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           {hours.map(hour => (
             <div key={hour} className="grid grid-cols-8">
               <div className="p-2 text-sm text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700">
-                {format(new Date().setHours(hour, 0, 0, 0), 'HH:mm')}
+                {format(new Date().setHours(hour, 0, 0, 0), 'h:mm a')}
               </div>
               {days.map((date, dayIndex) => {
                 const dayEvents = getEventsForDate(date).filter(event => {
-                  const eventHour = parseISO(event.start_date).getHours();
+                  const eventHour = formatEventDate(event.start_date).getHours();
                   return eventHour === hour;
+                });
+                const dayTasks = getTasksForDate(date).filter(task => {
+                  if (!task.due_date) return false;
+                  const taskHour = new Date(task.due_date).getHours();
+                  return taskHour === hour;
                 });
 
                 return (
@@ -372,7 +428,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                   >
                     {dayEvents.map((event, eventIndex) => (
                       <div
-                        key={eventIndex}
+                        key={`event-${eventIndex}`}
                         className={`text-xs p-1 rounded text-white mb-1 ${getEventTypeColor(event.event_type)} border-l-2 ${getPriorityColor(event.priority)}`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -380,6 +436,18 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                         }}
                       >
                         {event.title}
+                      </div>
+                    ))}
+                    {dayTasks.map((task, taskIndex) => (
+                      <div
+                        key={`task-${taskIndex}`}
+                        className={`text-xs p-1 rounded text-white mb-1 ${getTaskCategoryColor(task.category)} border-l-2 ${getPriorityColor(task.priority)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTaskClick(task);
+                        }}
+                      >
+                        {task.status === 'completed' ? '✓ ' : ''}{task.title}
                       </div>
                     ))}
                   </div>
@@ -394,6 +462,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
   const renderDayView = () => {
     const dayEvents = getEventsForDate(currentDate);
+    const dayTasks = getTasksForDate(currentDate);
     const hours = [];
     for (let hour = 0; hour < 24; hour++) {
       hours.push(hour);
@@ -412,14 +481,19 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {hours.map(hour => {
             const hourEvents = dayEvents.filter(event => {
-              const eventHour = parseISO(event.start_date).getHours();
+              const eventHour = formatEventDate(event.start_date).getHours();
               return eventHour === hour;
+            });
+            const hourTasks = dayTasks.filter(task => {
+              if (!task.due_date) return false;
+              const taskHour = new Date(task.due_date).getHours();
+              return taskHour === hour;
             });
 
             return (
               <div key={hour} className="flex">
                 <div className="w-20 p-2 text-sm text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700">
-                  {format(new Date().setHours(hour, 0, 0, 0), 'HH:mm')}
+                  {format(new Date().setHours(hour, 0, 0, 0), 'h:mm a')}
                 </div>
                 <div className="flex-1 p-2 min-h-[60px] cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
                   onClick={() => {
@@ -429,7 +503,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                   }}>
                   {hourEvents.map((event, index) => (
                     <div
-                      key={index}
+                      key={`event-${index}`}
                       className={`text-sm p-2 rounded text-white mb-2 ${getEventTypeColor(event.event_type)} border-l-4 ${getPriorityColor(event.priority)}`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -443,8 +517,25 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                         </div>
                       )}
                       <div className="text-xs opacity-75">
-                        {format(parseISO(event.start_date), 'HH:mm')} - {format(parseISO(event.end_date), 'HH:mm')}
+                        {format(formatEventDate(event.start_date), 'h:mm a')} - {format(formatEventDate(event.end_date), 'h:mm a')}
                       </div>
+                    </div>
+                  ))}
+                  {hourTasks.map((task, index) => (
+                    <div
+                      key={`task-${index}`}
+                      className={`text-sm p-2 rounded text-white mb-2 ${getTaskCategoryColor(task.category)} border-l-4 ${getPriorityColor(task.priority)}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTaskClick(task);
+                      }}
+                    >
+                      <div className="font-medium">{task.status === 'completed' ? '✓ ' : ''}{task.title}</div>
+                      {task.patient && (
+                        <div className="text-xs opacity-90">
+                          {task.patient.nombre_completo}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -465,109 +556,90 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={navigatePrevious}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              {format(currentDate, 'MMMM yyyy', { locale: es })}
-            </h2>
-            
-            <button
-              onClick={navigateNext}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setCurrentDate(new Date())}
-              className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md"
-            >
-              Hoy
-            </button>
-            
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-md">
-              {(['month', 'week', 'day'] as const).map(viewType => (
-                <button
-                  key={viewType}
-                  onClick={() => setView(viewType)}
-                  className={`px-3 py-1 text-sm rounded-md ${
-                    view === viewType
-                      ? 'bg-blue-600 text-white'
-                      : 'hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {viewType === 'month' ? 'Mes' : viewType === 'week' ? 'Semana' : 'Día'}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-md">
+    <>
+      <div className="space-y-3">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
               <button
-                onClick={() => setShowTasks(false)}
-                className={`px-3 py-1 text-sm rounded-md ${
-                  !showTasks
-                    ? 'bg-blue-600 text-white'
-                    : 'hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                onClick={navigatePrevious}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
               >
-                Eventos
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
+              
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                {format(currentDate, 'MMMM yyyy', { locale: es })}
+              </h2>
+              
               <button
-                onClick={() => setShowTasks(true)}
-                className={`px-3 py-1 text-sm rounded-md ${
-                  showTasks
-                    ? 'bg-blue-600 text-white'
-                    : 'hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                onClick={navigateNext}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
               >
-                Tareas
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
 
-            <button
-              onClick={() => {
-                if (showTasks) {
-                  setSelectedTask(null);
-                  setSelectedDate(new Date());
-                  setShowTaskModal(true);
-                } else {
+            <div className="flex items-center space-x-2">
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-md">
+                {(['month', 'week', 'day'] as const).map(viewType => (
+                  <button
+                    key={viewType}
+                    onClick={() => setView(viewType)}
+                    className={`px-3 py-1 text-sm rounded-md ${
+                      view === viewType
+                        ? 'bg-blue-600 text-white'
+                        : 'hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {viewType === 'month' ? 'Mes' : viewType === 'week' ? 'Semana' : 'Día'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
                   setSelectedEvent(null);
                   setSelectedDate(new Date());
                   setShowEventModal(true);
-                }
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Nuevo {showTasks ? 'Tarea' : 'Evento'}</span>
-            </button>
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>Nuevo Evento</span>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedTask(null);
+                  setSelectedDate(new Date());
+                  setShowTaskModal(true);
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                <span>Nueva Tarea</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Calendar View */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        {view === 'month' && renderMonthView()}
-        {view === 'week' && renderWeekView()}
-        {view === 'day' && renderDayView()}
+        {/* Calendar View */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          {view === 'month' && renderMonthView()}
+          {view === 'week' && renderWeekView()}
+          {view === 'day' && renderDayView()}
+        </div>
       </div>
 
       {/* Event Modal */}
@@ -579,7 +651,10 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           setSelectedDate(null);
         }}
         event={selectedEvent}
-        onSave={handleEventSave}
+        onSave={(event) => {
+          const eventType = selectedEvent ? 'updated' : 'created';
+          handleEventSave(eventType, event);
+        }}
         userId={userId}
       />
 
@@ -592,9 +667,26 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           setSelectedDate(null);
         }}
         task={selectedTask}
-        onSave={handleTaskSave}
+        onSave={(task) => {
+          const taskType = selectedTask ? 'updated' : 'created';
+          handleTaskSave(taskType, task);
+        }}
         userId={userId}
       />
-    </div>
+
+      {/* Real-time Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {notifications.map((notification, index) => (
+          <div
+            key={`${notification.timestamp}-${index}`}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg animate-pulse max-w-sm"
+            role="alert"
+          >
+            <div className="font-semibold text-sm">{notification.title}</div>
+            <div className="text-xs opacity-90">{notification.message}</div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 };

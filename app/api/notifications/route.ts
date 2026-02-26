@@ -2,17 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
 // In-memory storage for demo (in production, use database)
-let notifications: any[] = [
-  {
-    id: 'test-1',
-    type: 'system',
-    title: 'Notificación de Prueba',
-    message: 'Esta es una notificación de prueba para verificar que el sistema funciona.',
-    timestamp: new Date().toISOString(),
-    read: false,
-    userId: 'test-user'
-  }
-];
+let notifications: any[] = [];
 
 
 // Force dynamic rendering for this API route
