@@ -17,6 +17,7 @@ import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
 import { getRecordCategoryInfoSync } from '@/utils/recordCategoryUtils';
 import { supabase } from '@/lib/supabase';
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 import { HistoricalModeService } from '@/services/historicalModeService';
 import HistoricalBadge from '@/components/HistoricalBadge';
 import MedicalWarningModal from '@/components/MedicalWarningModal';
@@ -888,7 +889,7 @@ export default function MenuNavegacion() {
                       <div className="text-xs text-green-800 font-medium">Edad al momento</div>
                       <div className="text-lg font-bold text-green-900">
                         {patient.edad_al_momento_consulta} años
-                        {patient.fecha_inicio && <span className="text-xs text-green-600 block">({new Date(patient.fecha_inicio).toLocaleDateString('es-HN')})</span>}
+                        {patient.fecha_inicio && <span className="text-xs text-green-600 block">({SimpleTimezoneFix.formatDateForConsultationAge(patient.fecha_inicio)})</span>}
                       </div>
                     </div>
                   )}

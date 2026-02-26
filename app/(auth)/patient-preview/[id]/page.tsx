@@ -13,6 +13,7 @@ import { getPatientType } from '@/utils/patientTypeUtils';
 import { createWhatsAppUrl, formatPhoneDisplay, parsePhoneNumber } from '@/utils/phoneUtils';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/nextjs';
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 import HistoricalBanner from '@/components/HistoricalBanner';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedUser from '@/components/AnimatedUser';
@@ -351,7 +352,7 @@ export default function PatientPreviewPage() {
                     <div className="text-sm">
                       <span className="font-medium text-green-700">Edad al momento de consulta:</span>
                       <span className="text-green-600 font-semibold">{patient.edad_al_momento_consulta} años</span>
-                      {patient.fecha_inicio && <span className="text-xs text-green-500"> (al {new Date(patient.fecha_inicio).toLocaleDateString('es-HN')})</span>}
+                      {patient.fecha_inicio && <span className="text-xs text-green-500"> (al {SimpleTimezoneFix.formatDateForConsultationAge(patient.fecha_inicio)})</span>}
                     </div>
                   </div>
                 )}

@@ -17,6 +17,7 @@ import { supabase } from '../../../lib/supabase';
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import HistoricalBanner from '../../../components/HistoricalBanner';
 import AccessDenied from '@/components/AccessDenied';
+import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
 
 export default function PacientesPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -42,34 +43,34 @@ export default function PacientesPage() {
 
   // Utility functions - moved here to be available before use
   const calculateAge = (fechaNacimiento: string): string => {
-    const birthDate = new Date(fechaNacimiento);
-    if (isNaN(birthDate.getTime())) return 'No especificada';
+    if (!fechaNacimiento) return 'No especificada';
     
-    const ageDiff = Date.now() - birthDate.getTime();
-    const ageDate = new Date(ageDiff);
-    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
-    return `${age} años`;
+    try {
+      const age = SimpleTimezoneFix.calculateAge(fechaNacimiento);
+      return `${age} años`;
+    } catch (error) {
+      return 'No especificada';
+    }
   };
 
   const getAgeNumber = (fechaNacimiento: string): number => {
-    const birthDate = new Date(fechaNacimiento);
-    if (isNaN(birthDate.getTime())) return 0;
+    if (!fechaNacimiento) return 0;
     
-    const ageDiff = Date.now() - birthDate.getTime();
-    const ageDate = new Date(ageDiff);
-    return Math.abs(ageDate.getUTCFullYear() - 1970);
+    try {
+      return SimpleTimezoneFix.calculateAge(fechaNacimiento);
+    } catch (error) {
+      return 0;
+    }
   };
 
   const formatDateSpanish = (dateString: string): string => {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'No especificada';
+    if (!dateString) return 'No especificada';
     
-    const day = date.getDate();
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const month = monthNames[date.getMonth()];
-    const year = date.getFullYear();
-    
-    return `${day} de ${month} ${year}`;
+    try {
+      return SimpleTimezoneFix.formatDisplayDate(dateString);
+    } catch (error) {
+      return 'No especificada';
+    }
   };
 
   // Function to check if a specific patient has bypass activated
@@ -556,7 +557,7 @@ export default function PacientesPage() {
                   </div>
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                     <i className="fas fa-calendar w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
-                    <span>{displayPatient.fecha_nacimiento ? formatDateSpanish(displayPatient.fecha_nacimiento) : 'No especificada'}</span>
+                    <span>{displayPatient.fecha_nacimiento ? SimpleTimezoneFix.formatDisplayDate(displayPatient.fecha_nacimiento) : 'No especificada'}</span>
                   </div>
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                     <i className="fas fa-user-md w-4 mr-2 text-teal-600 dark:text-teal-400"></i>

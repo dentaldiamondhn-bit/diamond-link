@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, Currency } from '../../../utils/currencyUtils';
-import { formatDateForDisplay } from '../../../utils/dateUtils';
 import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils';
+import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
 import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
@@ -832,7 +832,7 @@ export default function TratamientosCompletadosPage() {
                       <div className="space-y-3 mb-4">
                         <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                           <i className="fas fa-calendar w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
-                          <span>{formatDateForDisplay(treatment.fecha_cita)}</span>
+                          <span>{SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                           <i className="fas fa-phone w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
@@ -1086,7 +1086,7 @@ export default function TratamientosCompletadosPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {formatDateForDisplay(treatment.fecha_cita)}
+                          {SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                           {treatment.paciente_doctor || treatment.paciente?.doctor || 'No especificado'}
@@ -1483,7 +1483,7 @@ export default function TratamientosCompletadosPage() {
                                   </span>
                                 </div>
                                 <div className="text-sm text-gray-500 dark:text-gray-300">
-                                  {new Date(payment.fecha_pago).toLocaleDateString('es-ES')}
+                                  {SimpleTimezoneFix.formatDateForConsultationAge(payment.fecha_pago)}
                                   {payment.notas_pago && ` - ${payment.notas_pago}`}
                                 </div>
                               </div>

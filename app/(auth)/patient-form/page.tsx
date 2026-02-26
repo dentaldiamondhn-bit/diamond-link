@@ -15,6 +15,7 @@ import SignaturePadComponent from '@/components/SignaturePad';
 import SignatureDisplay from '@/components/SignatureDisplay';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import { useTheme } from '@/contexts/ThemeContext';
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 
 // Isolated component to prevent authentication conflicts
 const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string, removable?: boolean, onRemove?: (index: number) => void }> = React.memo(({ documents, patientId, removable = false, onRemove }) => {
@@ -1485,7 +1486,7 @@ export default function PatientForm() {
               <div className="text-sm">
                 <span className="font-medium text-green-700">Edad al momento de consulta:</span> 
                 <span className="text-green-600 font-semibold">{edadAlMomentoConsulta} años</span>
-                {fechaInicio && <span className="text-xs text-green-500 ml-2">(al {new Date(fechaInicio).toLocaleDateString('es-HN')})</span>}
+                {fechaInicio && <span className="text-xs text-green-500 ml-2">(al {SimpleTimezoneFix.formatDateForConsultationAge(fechaInicio)})</span>}
               </div>
             </div>
           )}
