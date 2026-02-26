@@ -144,13 +144,6 @@ export function useRoleBasedAccess() {
   // Use the same metadata source as middleware
   const userRole = user?.publicMetadata?.role as string || 'staff';
   
-  // Debug logging for multi-user issues
-  console.log('=== useRoleBasedAccess DEBUG ===');
-  console.log('User ID:', user.id);
-  console.log('User loaded:', isLoaded);
-  console.log('Public metadata:', user?.publicMetadata);
-  console.log('Detected role:', userRole);
-  
   const permissions = rolePermissions[userRole] || rolePermissions.staff;
   
   return {
@@ -187,10 +180,6 @@ export function canAccessRoute(userRole: string, pathname: string): boolean {
         pathname.startsWith('/tech-support/users')) {
       return false;
     }
-    // Block doctors from certain admin functions
-    if (pathname === '/reports') {
-      return false;
-    }
   }
 
   // Staff has very limited access - daily tasks only
@@ -212,7 +201,7 @@ export function canAccessRoute(userRole: string, pathname: string): boolean {
     // Block staff from sensitive clinical functions
     if (pathname.startsWith('/xray-viewer') ||
         pathname === '/tratamientos' || // Block only main treatments page, not completed
-        pathname.startsWith('/reports')) {
+        pathname === '/reports') { // Block staff from reports
       return false;
     }
     // Staff can access odontogram for viewing dental charts (read-only)
@@ -238,6 +227,7 @@ export function canAccessRoute(userRole: string, pathname: string): boolean {
     '/consentimientos': 'canViewConsentimientos',
     '/menu-navegacion': 'canViewMenuNavegacion',
     '/doctores': 'canManageDoctores',
+    '/reports': 'canViewDashboard', // Reports use dashboard permission
     '/admin': 'canManageUsers',
     '/admin/users': 'canManageUsers',
     '/tech-support/users': 'canManageUsers',

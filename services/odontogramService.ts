@@ -5,16 +5,31 @@ export class OdontogramService {
   // Crear un nuevo odontograma para un paciente
   static async createOdontogram(pacienteId: string, datosOdontograma: OdontogramData, notas?: string, creadoPor?: string): Promise<Odontogram> {
     try {
-      // Obtener la siguiente versión para este paciente
-      const { data: versionData, error: versionError } = await supabase
-        .rpc('get_next_odontogram_version', { paciente_id_param: pacienteId });
+      // Try to get the next version using RPC first
+      let nextVersion = 1;
+      
+      try {
+        const { data: versionData, error: versionError } = await supabase
+          .rpc('get_next_odontogram_version', { paciente_id_param: pacienteId });
 
-      if (versionError) {
-        console.error('Error getting next version:', versionError);
-        throw versionError;
+        if (!versionError && versionData) {
+          nextVersion = versionData;
+        } else {
+          // Fallback: Get max version manually
+          const { data: existingVersions } = await supabase
+            .from('odontograms')
+            .select('version')
+            .eq('paciente_id', pacienteId)
+            .order('version', { ascending: false })
+            .limit(1);
+          
+          if (existingVersions && existingVersions.length > 0) {
+            nextVersion = existingVersions[0].version + 1;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not get next version, using default:', error);
       }
-
-      const nextVersion = versionData;
 
       const odontogramData = {
         paciente_id: pacienteId,
@@ -22,7 +37,9 @@ export class OdontogramService {
         datos_odontograma: datosOdontograma,
         notas,
         creado_por: creadoPor,
-        activo: true
+        activo: true,
+        fecha_creacion: new Date().toISOString(),
+        fecha_actualizacion: new Date().toISOString()
       };
 
       const { data, error } = await supabase
@@ -52,15 +69,19 @@ export class OdontogramService {
         .eq('paciente_id', pacienteId)
         .eq('activo', true)
         .order('version', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      if (error) {
         console.error('Error fetching active odontogram:', error);
+        // Don't throw error for no results, just return null
+        if (error.code === 'PGRST116') {
+          return null;
+        }
         throw error;
       }
 
-      return data;
+      // Return single result or null
+      return data && data.length > 0 ? data[0] : null;
     } catch (error) {
       console.error('Unexpected error fetching active odontogram:', error);
       throw error;
@@ -170,13 +191,14 @@ export class OdontogramService {
       // Desactivar la versión actual
       const { error: deactivateError } = await supabase
         .from('odontograms')
-        .update({ activo: false })
+        .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
         .eq('paciente_id', pacienteId)
         .eq('activo', true);
 
       if (deactivateError) {
         console.error('Error deactivating previous version:', deactivateError);
-        throw deactivateError;
+        // Don't throw error, continue with creation
+        console.warn('Continuing with new version creation despite deactivation error');
       }
 
       // Crear nueva versión

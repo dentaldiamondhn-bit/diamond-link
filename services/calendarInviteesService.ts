@@ -12,32 +12,21 @@ export class CalendarInviteesService {
         .single();
 
       if (error) {
-        console.error('Error creating calendar invitee:', error);
         throw error;
       }
 
       return data;
     } catch (error) {
-      console.error('Unexpected error creating calendar invitee:', error);
       throw error;
     }
   }
 
   static async getInviteesForItem(itemType: 'event' | 'task' | 'reminder', itemId: string): Promise<CalendarInviteeWithUser[]> {
     try {
-      // First get the invitees with user data from auth.users
+      // First get the invitees
       const { data, error } = await supabase
         .from('calendar_invitees')
-        .select(`
-          *,
-          user:auth.users(
-            id,
-            raw_user_meta_data->first_name,
-            raw_user_meta_data->last_name,
-            email,
-            raw_user_meta_data->role
-          )
-        `)
+        .select('*')
         .eq('item_type', itemType)
         .eq('item_id', itemId)
         .order('invited_at', { ascending: true });
@@ -77,13 +66,11 @@ export class CalendarInviteesService {
         .single();
 
       if (error) {
-        console.error('Error updating calendar invitee:', error);
         throw error;
       }
 
       return data;
     } catch (error) {
-      console.error('Unexpected error updating calendar invitee:', error);
       throw error;
     }
   }

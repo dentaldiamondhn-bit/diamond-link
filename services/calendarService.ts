@@ -12,13 +12,11 @@ export class CalendarService {
         .single();
 
       if (error) {
-        console.error('Error creating calendar event:', error);
         throw error;
       }
 
       return data;
     } catch (error) {
-      console.error('Unexpected error creating calendar event:', error);
       throw error;
     }
   }
@@ -60,13 +58,11 @@ export class CalendarService {
         .order('start_date', { ascending: true });
 
       if (error) {
-        console.error('Error fetching calendar events:', error);
         throw error;
       }
 
       return data || [];
     } catch (error) {
-      console.error('Unexpected error fetching calendar events:', error);
       throw error;
     }
   }
@@ -92,13 +88,16 @@ export class CalendarService {
           // Record not found
           return null;
         }
-        console.error('Error fetching calendar event:', error);
         throw error;
+      }
+
+      if (!data) {
+        // Record not found
+        return null;
       }
 
       return data;
     } catch (error) {
-      console.error('Unexpected error fetching calendar event:', error);
       throw error;
     }
   }

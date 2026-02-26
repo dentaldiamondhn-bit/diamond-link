@@ -33,23 +33,11 @@ export default clerkMiddleware(async (auth, req) => {
       userRole = sessionClaims.role;
     }
     
-    // DEBUG: Log everything with request ID
-    console.log('=== MIDDLEWARE DEBUG ===');
-    console.log('Request URL:', req.url);
-    console.log('User ID:', userId);
-    console.log('Session claims:', sessionClaims);
-    console.log('Public metadata:', sessionClaims?.public_metadata);
-    console.log('Metadata:', sessionClaims?.metadata);
-    console.log('Role in claims:', sessionClaims?.role);
-    console.log('Detected role:', userRole);
-    console.log('Pathname:', req.nextUrl.pathname);
-    
     // MULTIPLE FALLBACKS FOR TECH SUPPORT ACCESS
     if (userRole === 'tech_support' || 
         userRole === 'tech-support' || 
         req.nextUrl.pathname.startsWith('/tech-support/') ||
         userId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6') { // Specific tech support user
-      console.log('TECH SUPPORT ACCESS GRANTED - Multiple checks passed');
       return NextResponse.next();
     }
     
@@ -61,40 +49,44 @@ export default clerkMiddleware(async (auth, req) => {
         req.nextUrl.pathname === '/tratamientos' ||
         req.nextUrl.pathname === '/presupuestos' ||
         req.nextUrl.pathname.startsWith('/xray-viewer') ||
-        req.nextUrl.pathname === '/reports' ||
         req.nextUrl.pathname.startsWith('/historia-clinica-ortodoncia') ||
         req.nextUrl.pathname.startsWith('/tratamientos-completados')) {
-      console.log('BASIC ACCESS GRANTED - Common route bypass');
       return NextResponse.next();
+    }
+
+    // Reports page - restricted to doctors, admins, and tech-support only
+    if (req.nextUrl.pathname === '/reports') {
+      // TEMPORARY: Allow all authenticated users to access reports for testing
+      return NextResponse.next();
+      
+      if (userRole === 'doctor' || userRole === 'admin' || userRole === 'tech_support') {
+        return NextResponse.next();
+      } else {
+        return new Response('Access Denied', { status: 403 });
+      }
     }
     
     // EMERGENCY BYPASS: Allow tech-support/users access for tech support user while metadata is broken
     if (userId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6' && 
         req.nextUrl.pathname === '/tech-support/users') {
-      console.log('EMERGENCY BYPASS - Tech support users access granted');
       return NextResponse.next();
     }
     
     // TEMPORARY: Allow tech-support/users for component-level access control
     if (req.nextUrl.pathname === '/tech-support/users') {
-      console.log('TECH SUPPORT USERS BYPASS - Component-level access control');
       return NextResponse.next();
     }
     
     // TESTING: Allow odontogram-test for all roles (testing page)
     if (req.nextUrl.pathname.startsWith('/odontogram-test')) {
-      console.log('ODONTOGRAM TEST BYPASS - All roles allowed for testing');
       return NextResponse.next();
     }
     
-    console.log('CanAccessRoute result:', canAccessRoute(userRole, req.nextUrl.pathname));
-    
-    // Check route access based on role
+    // Check route access using the same function as frontend
     if (!canAccessRoute(userRole, req.nextUrl.pathname)) {
-      console.log('ACCESS DENIED - Returning 403');
       return new Response('Access Denied', { status: 403 });
     } else {
-      console.log('ACCESS GRANTED');
+      return NextResponse.next();
     }
   }
 });

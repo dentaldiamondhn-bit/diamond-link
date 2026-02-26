@@ -12,6 +12,7 @@ import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 
 const staffNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+  { href: '/patient-form', label: 'Nueva Historia Clínica', icon: 'fas fa-file-medical' },
   { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-users' },
   { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
@@ -20,7 +21,6 @@ const staffNavItems = [
   { href: '/promociones', label: 'Promociones', icon: 'fas fa-tags' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
   { href: '/reportes', label: 'Reportes', icon: 'fas fa-chart-bar' },
-  { href: '/configuracion', label: 'Configuración', icon: 'fas fa-cog' },
 ];
 
 interface StaffSidebarProps {

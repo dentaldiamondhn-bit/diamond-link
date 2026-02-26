@@ -36,9 +36,6 @@ export async function POST(request: NextRequest) {
       .single();
     
     const existingUrls = existingHistory?.documentos_ortodoncia || [];
-    console.log('=== EXISTING DOCS DEBUG ===');
-    console.log('Existing History:', existingHistory);
-    console.log('Existing URLs:', existingUrls);
 
     // Check for duplicates by file hash
     const nonDuplicateFiles: File[] = [];
@@ -70,10 +67,6 @@ export async function POST(request: NextRequest) {
 
     // Combine existing documents with new ones
     const allDocuments = [...existingUrls, ...uploadedUrls];
-    console.log('=== UPLOAD DEBUG ===');
-    console.log('Existing URLs:', existingUrls);
-    console.log('Uploaded URLs:', uploadedUrls);
-    console.log('All Documents:', allDocuments);
 
     // Update orthodontic history with combined documents using admin client
     const { error } = await supabaseAdmin
@@ -88,8 +81,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    console.log('=== Documents updated successfully ===');
 
     return NextResponse.json({
       success: true,

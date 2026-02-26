@@ -59,14 +59,12 @@ export default function IDNumberValidation({
         setHasBeenValidated(true);
         onValidationChange?.(result);
       } else {
-        console.error('❌ ID validation failed:', result);
         setValidationResult({
           isUnique: false,
           message: 'Error validating ID number'
         });
       }
     } catch (error) {
-      console.error('❌ Network error validating ID:', error);
       setValidationResult({
         isUnique: false,
         message: 'Network error validating ID'

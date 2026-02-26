@@ -137,26 +137,17 @@ export function DocumentDisplay({ documents, onRemove, removable = false, patien
     }
 
     const docUrl = documents[index];
-    console.log('Original document URL:', docUrl);
     
     const urlParts = docUrl.split('/');
-    console.log('URL parts:', urlParts);
-    
     const fileName = urlParts[urlParts.length - 1];
     // Decode URL-encoded filename (handles %20 for spaces, etc.)
     const decodedFileName = decodeURIComponent(fileName);
-    console.log('Extracted filename:', fileName);
-    console.log('Decoded filename:', decodedFileName);
     
     const filePath = `${patientId}/${decodedFileName}`;
-    console.log('Constructed file path for deletion:', filePath);
-    console.log('Patient ID:', patientId);
 
     setDeletingIndex(index);
 
     try {
-      console.log('Deleting document:', { patientId, filePath, documentIndex: index });
-
       // Call server-side API
       const response = await fetch('/api/delete-document', {
         method: 'DELETE',
@@ -174,12 +165,9 @@ export function DocumentDisplay({ documents, onRemove, removable = false, patien
       const result = await response.json();
 
       if (!response.ok) {
-        console.error('API error:', result);
         alert('Error al eliminar el documento: ' + result.error);
         return;
       }
-
-      console.log('Delete successful:', result);
 
       // Update local state
       if (onRemove) {

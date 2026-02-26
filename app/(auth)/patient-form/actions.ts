@@ -51,37 +51,14 @@ function calculateEdadAlMomentoConsulta(fechaNacimiento: string, fechaInicio: st
 }
 
 export async function createPatient(formData: FormData) {
-  console.log('=== CREATE PATIENT ACTION CALLED ===');
-  console.log('Form data keys:', Array.from(formData.keys()));
-  
   try {
     // Handle signature upload if present
     let signatureUrl = null;
     const signatureData = formData.get('firma_digital') as string;
     
-    console.log('=== SIGNATURE DATA DEBUG ===');
-    console.log('Signature data from formData:', signatureData);
-    console.log('Signature data type:', typeof signatureData);
-    console.log('Signature data exists:', !!signatureData);
-    console.log('Signature data length:', signatureData?.length || 0);
-    console.log('Signature starts with data:image:', signatureData?.startsWith('data:image'));
-    
-    if (signatureData) {
-      console.log('First 100 chars of signature data:', signatureData.substring(0, 100));
-    } else {
-      console.log('Signature data is null or empty');
-    }
-    console.log('Signature data type:', typeof signatureData);
-    
-    if (signatureData) {
-      console.log('First 100 chars:', signatureData.substring(0, 100));
-    }
-    
     // Handle document uploads - will be processed after patient creation
     let documentUrls: string[] = [];
     const documentFiles = formData.getAll('documentos') as any[];
-    
-    console.log('Document files received:', documentFiles.length);
     
     // Create patient first to get ID for file uploads
     const tempPatientData: Omit<Patient, 'paciente_id'> = {
@@ -199,97 +176,37 @@ export async function createPatient(formData: FormData) {
         const { updatePregnancyStatus } = await import('@/utils/pregnancyUtils');
         const updatedPatientData = updatePregnancyStatus(tempPatientData);
         Object.assign(tempPatientData, updatedPatientData);
-        console.log('Pregnancy status calculated:', {
-          embarazo_fecha_fin: updatedPatientData.embarazo_fecha_fin,
-          embarazo_activo: updatedPatientData.embarazo_activo
-        });
       }
 
       // Create patient first to get ID for file uploads
-      console.log('Patient data before database insert:', tempPatientData);
-      console.log('Doctor field value:', tempPatientData.doctor);
-      console.log('Otro doctor field value:', tempPatientData.otro_doctor);
-      
       const patient = await PatientService.createPatient(tempPatientData);
       
       // Upload documents with patient ID
       // Only process document upload if files are actually provided
       if (documentFiles.length > 0 && documentFiles[0] && documentFiles[0].name && documentFiles[0].size > 0) {
-        console.log('=== DOCUMENT UPLOAD DEBUG ===');
-        console.log('Document files to upload:', documentFiles.length);
-        documentFiles.forEach((file, index) => {
-          console.log(`File ${index}:`, {
-            name: file.name,
-            type: file.type,
-            size: file.size
-          });
-        });
-        
         try {
           documentUrls = await StorageService.uploadDocuments(documentFiles, patient.paciente_id);
-          console.log('=== UPLOAD RESULT ===');
-          console.log('Documents uploaded successfully:', documentUrls);
-          console.log('Document URLs count:', documentUrls.length);
-          console.log('Document URLs type:', typeof documentUrls);
-          console.log('Document URLs isArray:', Array.isArray(documentUrls));
           
           // Update patient with document URLs
-          console.log('=== DATABASE UPDATE ===');
-          console.log('Calling updatePatient with documentos:', documentUrls);
           await PatientService.updatePatient(patient.paciente_id!, { documentos: documentUrls });
-          console.log('=== DATABASE UPDATE COMPLETE ===');
         } catch (docError) {
           console.error('Error uploading documents:', docError);
-          console.log('Continuing without document upload...');
-          // Continue without documents - don't block form submission
         }
-      } else {
-        console.log('No documents to upload - skipping document upload process');
       }
       
       // Upload signature with patient ID
       if (signatureData && signatureData.startsWith('data:image')) {
-        console.log('=== SIGNATURE UPLOAD START ===');
-        console.log('Uploading signature for patient:', patient.paciente_id);
-        console.log('Signature data type:', typeof signatureData);
-        console.log('Signature data length:', signatureData.length);
-        console.log('Signature starts with data:image:', signatureData.startsWith('data:image'));
-        console.log('First 100 chars of signature data:', signatureData.substring(0, 100));
-        
         try {
           signatureUrl = await StorageService.uploadSignature(
             signatureData, 
             patient.paciente_id
           );
           
-          console.log('Signature upload result:', signatureUrl);
-          
-          // Update patient with signature URL
           if (signatureUrl) {
-            console.log('Updating patient with signature URL:', signatureUrl);
-            try {
-              const updatedPatient = await PatientService.updatePatient(patient.paciente_id, {
-                firma_digital: signatureUrl
-              });
-              console.log('Patient updated successfully with signature:', updatedPatient);
-              console.log('Updated signature field:', updatedPatient.firma_digital);
-            } catch (updateError) {
-              console.error('Error updating patient with signature:', updateError);
-            }
-          } else {
-            console.log('No signature URL returned from upload');
+            await PatientService.updatePatient(patient.paciente_id!, { firma_digital: signatureUrl });
           }
         } catch (uploadError) {
           console.error('Error uploading signature:', uploadError);
-        }
-      } else {
-        console.log('=== SIGNATURE UPLOAD SKIPPED ===');
-        console.log('Signature data exists:', !!signatureData);
-        console.log('Signature data starts with data:image:', signatureData?.startsWith('data:image'));
-        if (!signatureData) {
-          console.log('Signature data is null or empty');
-        } else if (!signatureData.startsWith('data:image')) {
-          console.log('Signature data does not start with data:image, first 50 chars:', signatureData.substring(0, 50));
         }
       }
       

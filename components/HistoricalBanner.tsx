@@ -26,7 +26,6 @@ export function HistoricalBanner({
 
   // Sync local state with prop changes
   useEffect(() => {
-    console.log('HistoricalBanner: Syncing localBypass with isBypassed:', { localBypass, isBypassed });
     setLocalBypass(isBypassed);
   }, [isBypassed]);
 

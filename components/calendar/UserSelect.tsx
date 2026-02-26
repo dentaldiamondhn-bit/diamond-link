@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CalendarInviteesService } from '../../services/calendarInviteesService';
+import { UserAvatar, RoleBadge } from './UserComponents';
 
 interface User {
   id: string;
@@ -124,23 +125,17 @@ export const UserSelect: React.FC<UserSelectProps> = ({
     <div className="relative" ref={dropdownRef}>
       {/* Selected Users */}
       <div className="flex flex-wrap gap-2 mb-2">
-        {selectedUsers.map(user => (
+        {selectedUsers.map((user, index) => (
           <div
-            key={user.id}
+            key={`selected-${user.id || user.email || `index-${index}`}`}
             className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-sm"
           >
             <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium">
-                {getInitials(user)}
-              </div>
+              <UserAvatar user={user} size="sm" />
               <span className="text-gray-800 dark:text-gray-200">
                 {getDisplayName(user)}
               </span>
-              {user.role && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${getRoleColor(user.role)}`}>
-                  {user.role}
-                </span>
-              )}
+              {user.role && <RoleBadge role={user.role} />}
             </div>
             <button
               type="button"
@@ -200,11 +195,11 @@ export const UserSelect: React.FC<UserSelectProps> = ({
                   No se encontraron usuarios
                 </div>
               ) : (
-                filteredUsers.map(user => {
+                filteredUsers.map((user, index) => {
                   const isSelected = selectedUsers.find(selected => selected.id === user.id);
                   return (
                     <button
-                      key={user.id}
+                      key={`dropdown-${user.id || user.email || `index-${index}`}`}
                       type="button"
                       onClick={() => handleUserSelect(user)}
                       disabled={!!isSelected}
@@ -212,9 +207,7 @@ export const UserSelect: React.FC<UserSelectProps> = ({
                         !!isSelected ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                        {getInitials(user)}
-                      </div>
+                      <UserAvatar user={user} size="sm" />
                       <div className="flex-1">
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {getDisplayName(user)}
@@ -223,14 +216,10 @@ export const UserSelect: React.FC<UserSelectProps> = ({
                           {user.email}
                         </div>
                       </div>
-                      {user.role && (
-                        <span className={`text-xs px-2 py-1 rounded-full ${getRoleColor(user.role)}`}>
-                          {user.role}
-                        </span>
-                      )}
+                      {user.role && <RoleBadge role={user.role} />}
                       {isSelected && (
                         <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7 7" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
                     </button>

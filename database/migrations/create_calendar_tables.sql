@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     doctor_id VARCHAR(255),
     notes TEXT,
     reminder_minutes INTEGER DEFAULT 30,
-    created_by UUID NOT NULL,
+    created_by TEXT NOT NULL, -- Use TEXT to support Clerk user IDs
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -55,11 +55,11 @@ CREATE TABLE IF NOT EXISTS calendar_invitees (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     item_type VARCHAR(20) NOT NULL CHECK (item_type IN ('event', 'task', 'reminder')),
     item_id UUID NOT NULL,
-    user_id UUID NOT NULL,
+    user_id TEXT NOT NULL, -- Use TEXT to support Clerk user IDs
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'tentative')),
     invited_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     responded_at TIMESTAMP WITH TIME ZONE,
-    created_by UUID NOT NULL,
+    created_by TEXT NOT NULL, -- Use TEXT to support Clerk user IDs
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(item_type, item_id, user_id) -- Prevent duplicate invites
 );

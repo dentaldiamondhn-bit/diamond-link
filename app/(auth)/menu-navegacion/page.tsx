@@ -164,7 +164,6 @@ export default function MenuNavegacion() {
         try {
           // Add timestamp to force cache invalidation
           const timestamp = Date.now();
-          console.log('=== Checking orthodontic history at:', timestamp);
           
           const response = await fetch('/api/check-orthodontic-history?' + timestamp, {
             method: 'POST',
@@ -280,12 +279,7 @@ export default function MenuNavegacion() {
     // Format latest treatment date
     const formatDate = (dateString: string) => {
       if (!dateString) return null;
-      const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      });
+      return SimpleTimezoneFix.formatDisplayDate(dateString);
     };
 
     return (

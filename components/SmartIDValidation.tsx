@@ -74,18 +74,22 @@ export default function SmartIDValidation({
       const result = await response.json();
       
       if (result.success) {
-        const isValid = result.isUnique;
-        setValidationResult({
-          ...result,
-          isValid
-        });
+        if (result.isValid && result.isUnique) {
+          setValidationResult({
+            isUnique: true,
+            isValid: true,
+            message: 'ID válido y único'
+          });
+        } else {
+          setValidationResult({
+            isUnique: false,
+            isValid: false,
+            message: result.message || 'ID no válido o ya existe'
+          });
+        }
         setHasBeenValidated(true);
-        onValidationChange?.({
-          ...result,
-          isValid
-        });
+        onValidationChange?.(validationResult);
       } else {
-        console.error('❌ ID validation failed:', result);
         setValidationResult({
           isUnique: false,
           isValid: false,
@@ -93,11 +97,10 @@ export default function SmartIDValidation({
         });
       }
     } catch (error) {
-      console.error('❌ Network error validating ID:', error);
       setValidationResult({
         isUnique: false,
         isValid: false,
-        message: 'Network error validating ID'
+        message: 'Error de red al validar ID'
       });
     } finally {
       setIsValidating(false);

@@ -209,7 +209,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
       onSave(taskData);
       onClose();
     } catch (error) {
-      console.error('Error saving task:', error);
       setErrors({ submit: 'Error al guardar la tarea' });
     } finally {
       setLoading(false);

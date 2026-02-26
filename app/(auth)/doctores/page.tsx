@@ -126,13 +126,6 @@ export default function DoctorsPage() {
   // Check if user can manage doctors
   const canManageDoctores = permissions?.canManageDoctores || false;
 
-  // Debug logging
-  console.log('Doctores Page Debug:', {
-    userRole,
-    canManageDoctores,
-    allPermissions: permissions
-  });
-
   // Access control: only tech_support and admin can access
   if (!userRole || (userRole !== 'tech_support' && userRole !== 'admin')) {
     return (

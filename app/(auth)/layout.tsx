@@ -287,9 +287,6 @@ export default function AuthLayout({
                 <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                   {/* Header Actions - Left of User Info */}
                   <div className="hidden sm:flex items-center space-x-3">
-                    {/* Tutorial Button */}
-                    <TutorialButton />
-                    
                     {/* Dark Mode Toggle */}
                     <DarkModeToggle />
                     

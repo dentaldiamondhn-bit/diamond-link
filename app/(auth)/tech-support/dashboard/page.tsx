@@ -25,10 +25,6 @@ interface RecentActivity {
 export default function TechSupportDashboard() {
   const { userRole, hasPermission } = useRoleBasedAccess();
   
-  // Debug logging
-  console.log('Tech Dashboard - User Role:', userRole);
-  console.log('Tech Dashboard - Has Permission:', hasPermission('canViewDashboard'));
-  
   const [stats, setStats] = useState<DashboardStat[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);

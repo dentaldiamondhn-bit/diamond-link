@@ -117,7 +117,6 @@ export default function TratamientosCompletadosPage() {
     const loadPatientHistoricalMode = async () => {
       if (pacienteId) {
         try {
-          console.log('Tratamientos Completados: Loading patient settings for:', pacienteId);
           setCurrentPatient(pacienteId);
           
           // Load patient-specific historical mode settings

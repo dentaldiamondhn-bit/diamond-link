@@ -698,22 +698,31 @@ export default function PresupuestosPage() {
                 )}
               </div>
             </div>
-            <button
-              onClick={() => {
-                setShowCreateForm(true);
-                autoLoadOdontogramData();
-              }}
-              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors flex items-center"
-            >
-              <i className="fas fa-plus mr-2"></i>
-              Nuevo Presupuesto
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push('/menu-navegacion')}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center"
+              >
+                <i className="fas fa-arrow-left mr-2"></i>
+                Volver
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateForm(true);
+                  autoLoadOdontogramData();
+                }}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors flex items-center"
+              >
+                <i className="fas fa-plus mr-2"></i>
+                Nuevo Presupuesto
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Create Quote Form */}
         {showCreateForm && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               <i className="fas fa-file-invoice mr-2 text-teal-600"></i>
               Crear Nuevo Presupuesto
@@ -1011,7 +1020,7 @@ export default function PresupuestosPage() {
         )}
 
         {/* Quotes List */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>

@@ -205,7 +205,6 @@ export class CompletedTreatmentService {
         tratamientos_realizados: items || []  // Add this line!
       };
       
-      console.log('🔍 Final result being returned:', result);
       return result;
     } catch (error) {
       console.error('Unexpected error fetching completed treatment:', error);
@@ -215,16 +214,12 @@ export class CompletedTreatmentService {
 
   static async getCompletedTreatmentsByPatientId(pacienteId: string): Promise<CompletedTreatment[]> {
     try {
-      console.log('Fetching treatments for patient:', pacienteId);
-      
       // Fetch treatments where patient is the main patient
       const { data: mainTreatments, error: mainError } = await supabase
         .from('tratamientos_completados')
         .select('*')
         .eq('paciente_id', pacienteId)
         .order('fecha_cita', { ascending: false });
-
-      console.log('Main treatments:', mainTreatments);
 
       // Also check if there are separate treatment records where patient is beneficiary
       const { data: separateBeneficiaryTreatments, error: separateError } = await supabase
@@ -234,8 +229,6 @@ export class CompletedTreatmentService {
         .eq('estado', 'completado')  // Beneficiary treatments are marked as completed
         .ilike('notas_doctor', '%beneficiario%')  // Check if notes mention beneficiary
         .order('fecha_cita', { ascending: false });
-
-      console.log('Separate beneficiary treatments:', separateBeneficiaryTreatments);
 
       if (mainError || separateError) {
         console.error('Error fetching completed treatments by patient:', mainError || separateError);
@@ -249,8 +242,6 @@ export class CompletedTreatmentService {
       const uniqueTreatments = allTreatments.filter((treatment, index, self) =>
         index === self.findIndex((t) => t.id === treatment.id)
       );
-
-      console.log('Final unique treatments:', uniqueTreatments);
 
       // Fetch treatment items for each completed treatment
       const treatmentsWithItems = await Promise.all(
@@ -745,8 +736,6 @@ export class CompletedTreatmentService {
 
   static async getPatientTreatmentStatistics(pacienteId: string): Promise<any> {
     try {
-      console.log('Fetching treatment statistics for patient:', pacienteId);
-      
       // Fetch treatments for the specific patient
       const { data, error } = await supabase
         .from('tratamientos_completados')

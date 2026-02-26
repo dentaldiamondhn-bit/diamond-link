@@ -24,7 +24,6 @@ export class SimpleTimezoneFix {
       
       return `${year}-${month}-${day}`;
     } catch (error) {
-      console.error('Error in toLocalDate:', error);
       return typeof dateString === 'string' ? dateString : '';
     }
   }
@@ -48,7 +47,6 @@ export class SimpleTimezoneFix {
       
       return `${day} de ${month} ${year}`;
     } catch (error) {
-      console.error('Error in formatDisplayDate:', error);
       return 'No especificada';
     }
   }
@@ -73,7 +71,6 @@ export class SimpleTimezoneFix {
       
       return `${day}/${month}/${year}`;
     } catch (error) {
-      console.error('Error in formatDateForConsultationAge:', error);
       return typeof dateString === 'string' ? dateString : '';
     }
   }
@@ -101,7 +98,6 @@ export class SimpleTimezoneFix {
       
       return age;
     } catch (error) {
-      console.error('Error calculating age:', error);
       return 0;
     }
   }
@@ -129,7 +125,6 @@ export class SimpleTimezoneFix {
       
       return age;
     } catch (error) {
-      console.error('Error calculating age at date:', error);
       return 0;
     }
   }

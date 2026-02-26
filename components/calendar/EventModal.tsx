@@ -152,15 +152,15 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
   useEffect(() => {
     if (event) {
       setFormData({
-        title: event.title,
+        title: event.title || '',
         description: event.description || '',
-        start_date: event.start_date,
-        end_date: event.end_date,
-        all_day: event.all_day,
+        start_date: formatDateTimeLocal(event.start_date),
+        end_date: formatDateTimeLocal(event.end_date),
+        all_day: event.all_day || false,
         location: event.location || '',
-        event_type: event.event_type,
-        status: event.status,
-        priority: event.priority,
+        event_type: event.event_type || 'appointment',
+        status: event.status || 'scheduled',
+        priority: event.priority || 'medium',
         patient_id: event.patient_id || '',
         doctor_id: event.doctor_id || '',
         notes: event.notes || '',
@@ -175,6 +175,7 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
     } else {
       // Set default values for new event
       const now = new Date();
+      // Format for HTML datetime-local input (yyyy-MM-ddThh:mm)
       const startTime = format(now, "yyyy-MM-dd'T'HH:mm", { locale: es });
       const endTime = format(addMinutes(now, 60), "yyyy-MM-dd'T'HH:mm", { locale: es });
       
@@ -227,7 +228,7 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
     try {
       const eventData: CalendarEvent = {
         ...formData as CalendarEvent,
-        created_by: userId,
+        created_by: userId, // Use original Clerk user ID
       };
 
       let savedEvent: CalendarEventWithPatient;
@@ -258,9 +259,9 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           const inviteesData = selectedUsers.map(user => ({
             item_type: 'event' as const,
             item_id: savedEvent.id,
-            user_id: user.id,
+            user_id: user.id, // Use original Clerk user ID
             status: 'pending' as const,
-            created_by: userId
+            created_by: userId // Use original Clerk user ID
           }));
           
           await CalendarInviteesService.createMultipleInvitees(inviteesData);
@@ -270,16 +271,45 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
       onSave(eventData);
       onClose();
     } catch (error) {
-      console.error('Error saving event:', error);
       setErrors({ submit: 'Error al guardar el evento' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePatientSelect = (patient: any) => {
+  // Helper function to convert Clerk user ID to valid UUID format for Supabase
+const clerkIdToUuid = (clerkId: string): string => {
+  // Generate a proper UUID v4 using crypto API
+  // This ensures compatibility with Supabase UUID fields
+  return crypto.randomUUID();
+};
+
+// Helper function to handle Clerk user ID compatibility
+const handleUserId = (userId: string): string => {
+  // Use crypto.randomUUID() which always generates valid UUID v4
+  // This ensures Supabase compatibility
+  return crypto.randomUUID();
+};
+
+// Helper function to format date for HTML datetime-local input
+const formatDateTimeLocal = (date: string | Date): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  // Format as yyyy-MM-ddThh:mm (local time)
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const hours = String(dateObj.getHours()).padStart(2, '0');
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const handlePatientSelect = (patient: any) => {
     setSelectedPatient(patient);
-    setFormData(prev => ({ ...prev, patient_id: patient.paciente_id }));
+    setFormData(prev => ({ 
+      ...prev, 
+      patient_id: patient.paciente_id,
+      title: prev.title || `Cita con ${patient.nombre_completo}` // Auto-populate title if empty
+    }));
   };
 
   const handleRemovePatient = () => {

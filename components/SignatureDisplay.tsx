@@ -60,15 +60,6 @@ const SignatureDisplay: React.FC<SignatureDisplayProps> = ({
         const lightRatio = lightPixels / totalPixels;
         const isLightSignature = lightRatio > 0.5;
         
-        console.log('Signature analysis:', {
-          lightPixels,
-          darkPixels,
-          totalPixels,
-          lightRatio,
-          isLightSignature,
-          currentTheme: resolvedTheme
-        });
-        
         // Determine if inversion is needed based on signature color and theme
         const shouldInvert = 
           (resolvedTheme === 'light' && isLightSignature) ||  // Light theme + light signature = need dark
