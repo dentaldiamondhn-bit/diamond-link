@@ -151,7 +151,8 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
       const eventsData = await CalendarService.getEventsByDateRange(
         startDate.toISOString(),
-        endDate.toISOString()
+        endDate.toISOString(),
+        userId
       );
       setEvents(eventsData);
     } catch (error) {
@@ -189,7 +190,8 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
       const tasksData = await CalendarTaskService.getTasksByDateRange(
         startDate.toISOString(),
-        endDate.toISOString()
+        endDate.toISOString(),
+        userId
       );
       setTasks(tasksData);
     } catch (error) {

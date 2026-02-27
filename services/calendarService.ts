@@ -172,9 +172,16 @@ export class CalendarService {
   }
 
   // Get events for a specific date range
-  static async getEventsByDateRange(startDate: string, endDate: string): Promise<CalendarEventWithPatient[]> {
+  static async getEventsByDateRange(startDate: string, endDate: string, userId?: string): Promise<CalendarEventWithPatient[]> {
     try {
-      const { data, error } = await supabase
+      // If no userId provided, return empty array (shouldn't happen in normal flow)
+      if (!userId) {
+        console.warn('⚠️ getEventsByDateRange called without userId');
+        return [];
+      }
+
+      // First get events where user is creator
+      const { data: creatorEvents, error: creatorError } = await supabase
         .from('calendar_events')
         .select(`
           *,
@@ -185,16 +192,49 @@ export class CalendarService {
             email
           )
         `)
+        .eq('created_by_clerk_id', userId)
         .gte('start_date', startDate)
         .lte('end_date', endDate)
         .order('start_date', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching events by date range:', error);
-        throw error;
+      if (creatorError) {
+        console.error('Error fetching creator events:', creatorError);
+        throw creatorError;
       }
 
-      return data || [];
+      // Then get events where user is an invitee
+      const { data: inviteeEvents, error: inviteeError } = await supabase
+        .from('calendar_events')
+        .select(`
+          *,
+          patient:patients(
+            paciente_id,
+            nombre_completo,
+            telefono,
+            email
+          )
+        `)
+        .in('id', `
+          SELECT event_id 
+          FROM calendar_invitees 
+          WHERE user_id = '${userId}'
+        `)
+        .gte('start_date', startDate)
+        .lte('end_date', endDate)
+        .order('start_date', { ascending: true });
+
+      if (inviteeError) {
+        console.error('Error fetching invitee events:', inviteeError);
+        throw inviteeError;
+      }
+
+      // Combine both sets of events and remove duplicates
+      const allEvents = [...(creatorEvents || []), ...(inviteeEvents || [])];
+      const uniqueEvents = allEvents.filter((event, index, self) => 
+        index === self.findIndex((e) => e.id === event.id)
+      );
+
+      return uniqueEvents;
     } catch (error) {
       console.error('Unexpected error fetching events by date range:', error);
       throw error;

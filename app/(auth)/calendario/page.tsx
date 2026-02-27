@@ -3,7 +3,6 @@
 import { useUser } from '@clerk/nextjs';
 import { Calendar } from '../../../components/calendar/Calendar';
 import { useEffect, useState } from 'react';
-import { MobileNotificationSettings } from '../../../components/notifications/MobileNotificationSettings';
 
 export default function CalendarPage() {
   const { user, isLoaded } = useUser();
@@ -35,14 +34,7 @@ export default function CalendarPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3">
-          <Calendar userId={user.id} userRole={userRole} />
-        </div>
-        <div className="lg:col-span-1">
-          <MobileNotificationSettings />
-        </div>
-      </div>
+      <Calendar userId={user.id} userRole={userRole} />
     </div>
   );
 }

@@ -201,9 +201,16 @@ export class CalendarTaskService {
   }
 
   // Get tasks for a specific date range
-  static async getTasksByDateRange(startDate: string, endDate: string): Promise<CalendarTaskWithPatient[]> {
+  static async getTasksByDateRange(startDate: string, endDate: string, userId?: string): Promise<CalendarTaskWithPatient[]> {
     try {
-      const { data, error } = await supabase
+      // If no userId provided, return empty array (shouldn't happen in normal flow)
+      if (!userId) {
+        console.warn('⚠️ getTasksByDateRange called without userId');
+        return [];
+      }
+
+      // First get tasks where user is creator
+      const { data: creatorTasks, error: creatorError } = await supabase
         .from('calendar_tasks')
         .select(`
           *,
@@ -214,17 +221,51 @@ export class CalendarTaskService {
             email
           )
         `)
+        .eq('created_by_clerk_id', userId)
         .gte('due_date', startDate)
         .lte('due_date', endDate)
         .order('due_date', { ascending: true, nullsFirst: true })
         .order('priority', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching tasks by date range:', error);
-        throw error;
+      if (creatorError) {
+        console.error('Error fetching creator tasks:', creatorError);
+        throw creatorError;
       }
 
-      return data || [];
+      // Then get tasks where user is an invitee
+      const { data: inviteeTasks, error: inviteeError } = await supabase
+        .from('calendar_tasks')
+        .select(`
+          *,
+          patient:patients(
+            paciente_id,
+            nombre_completo,
+            telefono,
+            email
+          )
+        `)
+        .in('id', `
+          SELECT item_id 
+          FROM calendar_invitees 
+          WHERE user_id = '${userId}' AND item_type = 'task'
+        `)
+        .gte('due_date', startDate)
+        .lte('due_date', endDate)
+        .order('due_date', { ascending: true, nullsFirst: true })
+        .order('priority', { ascending: false });
+
+      if (inviteeError) {
+        console.error('Error fetching invitee tasks:', inviteeError);
+        throw inviteeError;
+      }
+
+      // Combine both sets of tasks and remove duplicates
+      const allTasks = [...(creatorTasks || []), ...(inviteeTasks || [])];
+      const uniqueTasks = allTasks.filter((task, index, self) => 
+        index === self.findIndex((t) => t.id === task.id)
+      );
+
+      return uniqueTasks;
     } catch (error) {
       console.error('Unexpected error fetching tasks by date range:', error);
       throw error;
