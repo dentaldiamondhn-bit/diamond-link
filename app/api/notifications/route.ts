@@ -4,7 +4,6 @@ import { auth } from '@clerk/nextjs/server';
 // In-memory storage for demo (in production, use database)
 let notifications: any[] = [];
 
-
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +19,29 @@ export async function GET() {
     // In a real implementation, you would fetch from database
     // For now, return the in-memory notifications filtered by user
     const userNotifications = notifications.filter(n => n.userId === userId || n.userId === 'test-user');
+    
+    // Also fetch notifications from the send-to-user API storage
+    // In a real implementation, this would be a single database query
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/send-to-user?userId=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const sentNotifications = await response.json();
+        // Merge both notification sources
+        const allNotifications = [...userNotifications, ...sentNotifications];
+        // Sort by timestamp (newest first)
+        allNotifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        return NextResponse.json(allNotifications);
+      }
+    } catch (error) {
+      console.error('Error fetching sent notifications:', error);
+    }
+    
     return NextResponse.json(userNotifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);

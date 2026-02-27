@@ -6,6 +6,7 @@ import { CalendarEventWithInvitees } from '../../types/calendarInvitees';
 import { CalendarService } from '../../services/calendarService';
 import { CalendarInviteesService } from '../../services/calendarInviteesService';
 import { CalendarReminderService } from '../../services/calendarReminderService';
+import { InviteeNotificationService } from '../../services/inviteeNotificationService';
 import { UserSelect } from './UserSelect';
 import { format, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -320,10 +321,20 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           { ...savedEvent, patient: selectedPatient },
           'updated'
         );
+        // Notify invitees of updated event
+        await InviteeNotificationService.notifyEventInvitees(
+          { ...savedEvent, patient: selectedPatient },
+          'updated'
+        );
       } else {
         savedEvent = await CalendarService.createEvent(eventData);
         // Create notification for new event
         await CalendarReminderService.createEventNotification(
+          { ...savedEvent, patient: selectedPatient },
+          'created'
+        );
+        // Notify invitees of new event
+        await InviteeNotificationService.notifyEventInvitees(
           { ...savedEvent, patient: selectedPatient },
           'created'
         );

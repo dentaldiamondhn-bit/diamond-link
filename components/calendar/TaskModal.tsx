@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarTask, CalendarTaskWithPatient } from '../../types/calendarTasks';
 import { CalendarTaskService } from '../../services/calendarTaskService';
+import { InviteeNotificationService } from '../../services/inviteeNotificationService';
 import { format, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -280,8 +281,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
       
       if (task?.id) {
         savedTask = await CalendarTaskService.updateTask(task.id, taskData);
+        // Notify invitees of updated task
+        await InviteeNotificationService.notifyTaskInvitees(savedTask, 'updated');
       } else {
         savedTask = await CalendarTaskService.createTask(taskData);
+        // Notify invitees of new task
+        await InviteeNotificationService.notifyTaskInvitees(savedTask, 'created');
       }
 
       // Handle reminders

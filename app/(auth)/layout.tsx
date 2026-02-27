@@ -21,6 +21,8 @@ import { TutorialButton } from '@/components/TutorialButton';
 import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
 import AnimatedUsers from '@/components/AnimatedUsers';
 import { usePathname } from 'next/navigation';
+import { useNotificationListener } from '@/hooks/useNotificationListener';
+import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
 
 // Force dynamic rendering for this layout
 export const dynamic = 'force-dynamic';
@@ -92,7 +94,8 @@ export default function AuthLayout({
       <ThemeProvider>
         <HistoricalModeProvider>
           <BellNotificationProvider>
-            <div className="flex h-screen bg-gray-100 relative">
+            <NotificationListenerWrapper>
+              <div className="flex h-screen bg-gray-100 relative">
                 {/* Mobile Menu Button */}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -352,9 +355,10 @@ export default function AuthLayout({
           {/* Tutorial Modal */}
           <TutorialModal />
         </div>
-        </BellNotificationProvider>
-      </HistoricalModeProvider>
-    </ThemeProvider>
-    </TutorialProvider>
-  );
+        </NotificationListenerWrapper>
+      </BellNotificationProvider>
+    </HistoricalModeProvider>
+  </ThemeProvider>
+</TutorialProvider>
+);  
 }
