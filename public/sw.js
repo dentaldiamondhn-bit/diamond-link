@@ -94,19 +94,20 @@ self.addEventListener('push', (event) => {
       badge: '/Logo.svg',
       tag: data.type || 'general',
       data: data,
-      requireInteraction: true,
-      actions: [
-        {
-          action: 'open',
-          title: 'Ver',
-          icon: '/Logo.svg'
-        },
-        {
-          action: 'dismiss',
-          title: 'Cerrar',
-          icon: '/Logo.svg'
-        }
-      ]
+      requireInteraction: true
+      // Actions are not supported in all browsers
+      // actions: [
+      //   {
+      //     action: 'open',
+      //     title: 'Ver',
+      //     icon: '/Logo.svg'
+      //   },
+      //   {
+      //     action: 'dismiss',
+      //     title: 'Cerrar',
+      //     icon: '/Logo.svg'
+      //   }
+      // ]
     };
 
     // Add event time to notification body if available
@@ -147,13 +148,24 @@ self.addEventListener('notificationclick', (event) => {
 
   event.notification.close();
 
+  // Handle different actions (simplified for now)
   if (event.action === 'dismiss') {
     return;
   }
 
   // Default action - open the app
   event.waitUntil(
-    clients.openWindow('/calendario')
+    clients.matchAll().then(clientList => {
+      // Check if app is already open
+      for (const client of clientList) {
+        if (client.url === '/' || client.url.includes('/calendario')) {
+          // Focus the existing tab
+          return client.focus();
+        }
+      }
+      // Open new tab
+      return clients.openWindow('/calendario');
+    })
   );
 });
 

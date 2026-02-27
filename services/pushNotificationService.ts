@@ -95,7 +95,8 @@ export class PushNotificationService {
       // Subscribe to push notifications
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(this.getVapidPublicKey()) as any
+        // applicationServerKey: this.urlBase64ToUint8Array(this.getVapidPublicKey()) as any
+        // Temporarily disable VAPID key for demo - in production, you need a real VAPID key
       });
 
       console.log('📱 Push subscription created:', subscription);
