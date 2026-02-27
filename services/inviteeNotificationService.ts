@@ -9,8 +9,11 @@ export class InviteeNotificationService {
     type: 'created' | 'updated' | 'cancelled' | 'reminder'
   ) {
     try {
+      console.log(`🔔 Starting notifyEventInvitees for event ${event.id}, type: ${type}`);
+      
       // Get all invitees for this event
       const invitees = await CalendarInviteesService.getInviteesForItem('event', event.id);
+      console.log(`📋 Found ${invitees.length} invitees for event ${event.id}:`, invitees);
       
       // Create notification data
       const notificationData = {
@@ -27,14 +30,15 @@ export class InviteeNotificationService {
         }
       };
 
-      // Send notification to each invitee
+      // Send notification to each invitee (send to all invitees, not just accepted)
       for (const invitee of invitees) {
-        if (invitee.status === 'accepted') {
-          await this.sendNotificationToUser(invitee.user_id, notificationData);
-        }
+        console.log(`📤 Sending notification to invitee ${invitee.user_id} (status: ${invitee.status})`);
+        await this.sendNotificationToUser(invitee.user_id, notificationData);
       }
+      
+      console.log(`✅ Completed notifyEventInvitees for event ${event.id}`);
     } catch (error) {
-      console.error('Error notifying event invitees:', error);
+      console.error('❌ Error notifying event invitees:', error);
     }
   }
 
@@ -44,8 +48,11 @@ export class InviteeNotificationService {
     type: 'created' | 'updated' | 'cancelled' | 'reminder'
   ) {
     try {
+      console.log(`🔔 Starting notifyTaskInvitees for task ${task.id}, type: ${type}`);
+      
       // Get all invitees for this task
       const invitees = await CalendarInviteesService.getInviteesForItem('task', task.id);
+      console.log(`📋 Found ${invitees.length} invitees for task ${task.id}:`, invitees);
       
       // Create notification data
       const notificationData = {
@@ -62,20 +69,23 @@ export class InviteeNotificationService {
         }
       };
 
-      // Send notification to each invitee
+      // Send notification to each invitee (send to all invitees, not just accepted)
       for (const invitee of invitees) {
-        if (invitee.status === 'accepted') {
-          await this.sendNotificationToUser(invitee.user_id, notificationData);
-        }
+        console.log(`📤 Sending notification to invitee ${invitee.user_id} (status: ${invitee.status})`);
+        await this.sendNotificationToUser(invitee.user_id, notificationData);
       }
+      
+      console.log(`✅ Completed notifyTaskInvitees for task ${task.id}`);
     } catch (error) {
-      console.error('Error notifying task invitees:', error);
+      console.error('❌ Error notifying task invitees:', error);
     }
   }
 
   // Send notification to a specific user (bypassing current user authentication)
   private static async sendNotificationToUser(userId: string, notificationData: any) {
     try {
+      console.log(`📡 Sending notification to user ${userId}:`, notificationData);
+      
       // Use service role to send notification to any user
       const response = await fetch('/api/notifications/send-to-user', {
         method: 'POST',
@@ -89,12 +99,14 @@ export class InviteeNotificationService {
       });
 
       if (!response.ok) {
-        console.error('Error sending notification to user:', await response.text());
+        const errorText = await response.text();
+        console.error(`❌ Error sending notification to user ${userId}:`, errorText);
       } else {
-        console.log(`✅ Notification sent to user ${userId}`);
+        const result = await response.json();
+        console.log(`✅ Notification sent to user ${userId}:`, result);
       }
     } catch (error) {
-      console.error('Error sending notification to user:', error);
+      console.error(`❌ Error sending notification to user ${userId}:`, error);
     }
   }
 

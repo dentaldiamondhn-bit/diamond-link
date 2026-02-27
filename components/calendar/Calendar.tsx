@@ -56,11 +56,11 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
     // Subscribe to real-time notifications
     const unsubscribeNotifications = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
-      // Only show notifications for this user
-      if (notification.userId !== userId) {
-        return;
-      }
-
+      console.log('📡 Calendar received notification:', notification);
+      
+      // Show notification for all relevant users (not just current user)
+      // The realtime service already handles filtering relevant users
+      
       // Add notification to state
       setNotifications(prev => [...prev.slice(-4), notification]); // Keep max 5 notifications
       
@@ -68,10 +68,10 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       if (Notification.permission === 'granted') {
         const notificationOptions: NotificationOptions = {
           body: notification.message,
-          icon: '/favicon.ico',
-          badge: '/favicon.ico',
+          icon: '/Logo.svg', // Use proper logo
+          badge: '/Logo.svg', // Use proper logo for badge
           tag: notification.type,
-          requireInteraction: false,
+          requireInteraction: true, // Require interaction for calendar notifications
           silent: false
         };
 
@@ -83,17 +83,19 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           }
         }
 
+        console.log('🔔 Showing browser notification:', notification.title);
         new Notification(notification.title, notificationOptions);
       } else {
         console.log('🔕 Browser notification permission not granted');
       }
 
-      // Auto-remove notification after 5 seconds
+      // Auto-remove notification after 8 seconds
       setTimeout(() => {
         setNotifications(prev => prev.slice(1));
-      }, 5000);
+      }, 8000);
 
-      // Reload data based on notification type
+      // Always reload data to ensure instant updates
+      console.log('🔄 Reloading calendar data due to notification:', notification.type);
       if (notification.type.includes('event')) {
         loadEvents();
       } else if (notification.type.includes('task')) {
@@ -101,13 +103,23 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       }
     });
 
-    // Subscribe to user-specific events
-    const unsubscribeUserEvents = calendarRealtimeService.subscribeToUserEvents(userId);
+    // Subscribe to event updates for instant refresh
+    const unsubscribeEventUpdates = calendarRealtimeService.onEventUpdate((update) => {
+      console.log('📡 Calendar received event update:', update);
+      
+      // Always refresh to ensure instant updates
+      if (update.table === 'calendar_events') {
+        console.log('🔄 Refreshing events due to database change');
+        loadEvents();
+      } else if (update.table === 'calendar_tasks') {
+        console.log('🔄 Refreshing tasks due to database change');
+        loadTasks();
+      }
+    });
 
-    // Cleanup
     return () => {
       unsubscribeNotifications();
-      unsubscribeUserEvents();
+      unsubscribeEventUpdates();
     };
   }, [userId]);
 
