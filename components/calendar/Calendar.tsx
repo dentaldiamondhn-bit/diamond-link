@@ -56,16 +56,34 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
     // Subscribe to real-time notifications
     const unsubscribeNotifications = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
+      // Only show notifications for this user
+      if (notification.userId !== userId) {
+        return;
+      }
+
       // Add notification to state
       setNotifications(prev => [...prev.slice(-4), notification]); // Keep max 5 notifications
       
       // Show browser notification if permission granted
       if (Notification.permission === 'granted') {
-        new Notification(notification.title, {
+        const notificationOptions: NotificationOptions = {
           body: notification.message,
           icon: '/favicon.ico',
-          tag: notification.type
-        });
+          badge: '/favicon.ico',
+          tag: notification.type,
+          requireInteraction: false,
+          silent: false
+        };
+
+        // Add timestamp for events/tasks
+        if (notification.data.start_date || notification.data.due_date) {
+          const eventDate = notification.data.start_date || notification.data.due_date;
+          if (eventDate) {
+            (notificationOptions as any).timestamp = new Date(eventDate).getTime();
+          }
+        }
+
+        new Notification(notification.title, notificationOptions);
       } else {
         console.log('🔕 Browser notification permission not granted');
       }

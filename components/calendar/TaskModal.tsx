@@ -139,6 +139,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
     actual_duration: 0,
     completion_notes: '',
   });
+  const [reminders, setReminders] = useState<Array<{ id?: string; minutes_before: number }>>([]);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [showPatientSearch, setShowPatientSearch] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -163,6 +164,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
         completion_notes: task.completion_notes || '',
       });
       setSelectedPatient(task.patient || null);
+      
+      // Load existing reminders
+      if (task.id) {
+        loadReminders(task.id);
+      } else {
+        setReminders([{ minutes_before: 30 }]);
+      }
     } else {
       // Set default values for new task
       const tomorrow = addDays(new Date(), 1);
@@ -170,8 +178,78 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
         ...prev,
         due_date: tomorrow.toISOString().slice(0, 16),
       }));
+      setReminders([{ minutes_before: 30 }]);
     }
   }, [task]);
+
+  const loadReminders = async (taskId: string) => {
+    try {
+      const response = await fetch(`/api/calendar/tasks/${taskId}/reminders`);
+      if (response.ok) {
+        const data = await response.json();
+        setReminders(data.map((r: any) => ({ id: r.id, minutes_before: r.minutes_before })));
+      }
+    } catch (error) {
+      console.error('Error loading reminders:', error);
+      setReminders([{ minutes_before: 30 }]);
+    }
+  };
+
+  const addReminder = () => {
+    const commonTimes = [10, 15, 30, 60, 120, 1440]; // Common reminder times
+    const usedTimes = reminders.map(r => r.minutes_before);
+    const nextTime = commonTimes.find(time => !usedTimes.includes(time)) || 0;
+    setReminders([...reminders, { minutes_before: nextTime }]);
+  };
+
+  const removeReminder = (index: number) => {
+    if (reminders.length > 1) {
+      setReminders(reminders.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateReminder = (index: number, minutes_before: number) => {
+    setReminders(reminders.map((r, i) => i === index ? { ...r, minutes_before } : r));
+  };
+
+  const saveReminders = async (itemId: string, itemType: 'event' | 'task') => {
+    try {
+      // Delete existing reminders
+      const response = await fetch(`/api/calendar/${itemType}s/${itemId}/reminders`, {
+        method: 'DELETE',
+      });
+
+      // Create new reminders
+      const validReminders = reminders.filter(r => r.minutes_before > 0);
+      if (validReminders.length > 0) {
+        const reminderData = validReminders.map(reminder => ({
+          item_type: itemType,
+          item_id: itemId,
+          minutes_before: reminder.minutes_before,
+          reminder_time: new Date(
+            new Date(formData.due_date).getTime() - 
+            reminder.minutes_before * 60000
+          ).toISOString(),
+          created_by: userId,
+          sent: false
+        }));
+
+        const createResponse = await fetch(`/api/calendar/${itemType}s/${itemId}/reminders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(reminderData),
+        });
+
+        if (!createResponse.ok) {
+          console.error('Error saving reminders:', await createResponse.text());
+        }
+      }
+    } catch (error) {
+      console.error('Error saving reminders:', error);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -204,6 +282,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
         savedTask = await CalendarTaskService.updateTask(task.id, taskData);
       } else {
         savedTask = await CalendarTaskService.createTask(taskData);
+      }
+
+      // Handle reminders
+      if (savedTask.id) {
+        await saveReminders(savedTask.id, 'task');
       }
 
       onSave(taskData);
@@ -333,6 +416,64 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
                   onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                 />
+              </div>
+
+              {/* Multiple Reminders */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Recordatorios
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addReminder}
+                    className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+                  >
+                    <i className="fas fa-plus mr-1"></i>
+                    Agregar
+                  </button>
+                </div>
+                
+                {reminders.map((reminder, index) => (
+                  <div key={index} className="flex items-center gap-2 mb-2">
+                    <select
+                      value={reminder.minutes_before}
+                      onChange={(e) => updateReminder(index, parseInt(e.target.value))}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+                    >
+                      <option value={0}>Sin recordatorio</option>
+                      <option value={10}>10 minutos</option>
+                      <option value={15}>15 minutos</option>
+                      <option value={30}>30 minutos</option>
+                      <option value={60}>1 hora</option>
+                      <option value={120}>2 horas</option>
+                      <option value={180}>3 horas</option>
+                      <option value={360}>6 horas</option>
+                      <option value={720}>12 horas</option>
+                      <option value={1440}>1 día</option>
+                      <option value={2880}>2 días</option>
+                      <option value={4320}>3 días</option>
+                      <option value={10080}>1 semana</option>
+                    </select>
+                    
+                    {reminders.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeReminder(index)}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                        title="Eliminar recordatorio"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    )}
+                  </div>
+                ))}
+                
+                {reminders.length === 0 && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                    No hay recordatorios configurados
+                  </p>
+                )}
               </div>
 
               <div>

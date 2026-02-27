@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import AnimatedUser from './AnimatedUser';
 import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
+import { CalendarNotificationCounter } from './calendar/CalendarNotificationCounter';
 
 interface NavItem {
   href: string;
@@ -17,29 +18,26 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
   admin: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
     { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
-    { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" /> },
-    { href: '/patient-preview', label: 'Vista Paciente', icon: 'fas fa-eye' },
-    { href: '/odontogram', label: 'Odontograma', icon: 'fas fa-teeth' },
+    { href: '/doctores', label: 'Doctores', icon: 'fas fa-user-md' },
     { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
     { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
-    { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
+    { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   ],
   doctor: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
     { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
-    { href: '/patient-form', label: 'Nueva Historia', icon: <AnimatedUser className="w-4 h-4" /> },
-    { href: '/odontogram', label: 'Odontograma', icon: 'fas fa-teeth' },
     { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
     { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
-    { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
+    { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   ],
   staff: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
     { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured' },
     { href: '/tratamientos-completados', label: 'Tratamientos', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
-    { href: '/chat', label: 'Chat', icon: 'fas fa-comments' },
+    { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+    { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   ],
 };
 
@@ -74,7 +72,10 @@ export default function Navigation() {
                   }`}
                 >
                   {typeof item.icon === 'string' ? (
-                    <i className={`${item.icon} mr-2`}></i>
+                    <div className="mr-2">
+                      <i className={`${item.icon}`}></i>
+                      {item.href === '/calendario' && <CalendarNotificationCounter className="ml-1" />}
+                    </div>
                   ) : (
                     <>{item.icon}</>
                   )}

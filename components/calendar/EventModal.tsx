@@ -9,6 +9,7 @@ import { CalendarReminderService } from '../../services/calendarReminderService'
 import { UserSelect } from './UserSelect';
 import { format, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { SimpleTimezoneFix } from '../../services/simpleTimezoneFix';
 
 interface EventModalProps {
   isOpen: boolean;
@@ -141,13 +142,19 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
     patient_id: '',
     doctor_id: '',
     notes: '',
-    reminder_minutes: 30,
   });
+  const [reminders, setReminders] = useState<Array<{ id?: string; minutes_before: number }>>([]);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [showPatientSearch, setShowPatientSearch] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
 
   useEffect(() => {
     if (event) {
@@ -164,13 +171,16 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
         patient_id: event.patient_id || '',
         doctor_id: event.doctor_id || '',
         notes: event.notes || '',
-        reminder_minutes: event.reminder_minutes || 30,
       });
       setSelectedPatient(event.patient || null);
       
-      // Load invitees for existing event
+      // Load existing reminders
       if (event.id) {
+        loadReminders(event.id);
         loadInvitees(event.id);
+      } else {
+        // Set default reminder for new events
+        setReminders([{ minutes_before: 30 }]);
       }
     } else {
       // Set default values for new event
@@ -185,8 +195,39 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
         end_date: endTime,
       }));
       setSelectedUsers([]);
+      setReminders([{ minutes_before: 30 }]);
     }
   }, [event]);
+
+  const loadReminders = async (eventId: string) => {
+    try {
+      const response = await fetch(`/api/calendar/events/${eventId}/reminders`);
+      if (response.ok) {
+        const data = await response.json();
+        setReminders(data.map((r: any) => ({ id: r.id, minutes_before: r.minutes_before })));
+      }
+    } catch (error) {
+      console.error('Error loading reminders:', error);
+      setReminders([{ minutes_before: 30 }]);
+    }
+  };
+
+  const addReminder = () => {
+    const commonTimes = [10, 15, 30, 60, 120, 1440]; // Common reminder times
+    const usedTimes = reminders.map(r => r.minutes_before);
+    const nextTime = commonTimes.find(time => !usedTimes.includes(time)) || 0;
+    setReminders([...reminders, { minutes_before: nextTime }]);
+  };
+
+  const removeReminder = (index: number) => {
+    if (reminders.length > 1) {
+      setReminders(reminders.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateReminder = (index: number, minutes_before: number) => {
+    setReminders(reminders.map((r, i) => i === index ? { ...r, minutes_before } : r));
+  };
 
   const loadInvitees = async (eventId: string) => {
     try {
@@ -215,6 +256,45 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const saveReminders = async (itemId: string, itemType: 'event' | 'task') => {
+    try {
+      // Delete existing reminders
+      const response = await fetch(`/api/calendar/${itemType}s/${itemId}/reminders`, {
+        method: 'DELETE',
+      });
+
+      // Create new reminders
+      const validReminders = reminders.filter(r => r.minutes_before > 0);
+      if (validReminders.length > 0) {
+        const reminderData = validReminders.map(reminder => ({
+          item_type: itemType,
+          item_id: itemId,
+          minutes_before: reminder.minutes_before,
+          reminder_time: new Date(
+            new Date(formData.start_date).getTime() - 
+            reminder.minutes_before * 60000
+          ).toISOString(),
+          created_by: userId,
+          sent: false
+        }));
+
+        const createResponse = await fetch(`/api/calendar/${itemType}s/${itemId}/reminders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(reminderData),
+        });
+
+        if (!createResponse.ok) {
+          console.error('Error saving reminders:', await createResponse.text());
+        }
+      }
+    } catch (error) {
+      console.error('Error saving reminders:', error);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -266,6 +346,9 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           
           await CalendarInviteesService.createMultipleInvitees(inviteesData);
         }
+
+        // Handle reminders
+        await saveReminders(savedEvent.id, 'event');
       }
 
       onSave(eventData);
@@ -274,6 +357,40 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
       setErrors({ submit: 'Error al guardar el evento' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Delete event functions
+  const openDeleteModal = () => {
+    if (!event?.id) return;
+    setShowDeleteModal(true);
+    setDeleteError(null);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteError(null);
+    setDeleteSuccess(false);
+  };
+
+  const deleteEvent = async () => {
+    if (!event?.id) return;
+    
+    setIsDeleting(true);
+    setDeleteError(null);
+    
+    try {
+      // Delete the event (this should cascade delete reminders and invitees if properly set up)
+      await CalendarService.deleteEvent(event.id);
+      
+      // Show success state
+      setDeleteSuccess(true);
+      setIsDeleting(false);
+      
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      setDeleteError('Error al eliminar el evento. Por favor intente nuevamente.');
+      setIsDeleting(false);
     }
   };
 
@@ -293,14 +410,27 @@ const handleUserId = (userId: string): string => {
 
 // Helper function to format date for HTML datetime-local input
 const formatDateTimeLocal = (date: string | Date): string => {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  // Format as yyyy-MM-ddThh:mm (local time)
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  const hours = String(dateObj.getHours()).padStart(2, '0');
-  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  if (!date) return '';
+  
+  try {
+    // Use SimpleTimezoneFix to convert UTC to local time
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Get local date using timezone fix
+    const localDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
+    
+    // Format as yyyy-MM-ddThh:mm (local time)
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    const hours = String(localDate.getHours()).padStart(2, '0');
+    const minutes = String(localDate.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch (error) {
+    console.error('Error formatting date time local:', error);
+    return typeof date === 'string' ? date : '';
+  }
 };
 
 const handlePatientSelect = (patient: any) => {
@@ -526,23 +656,62 @@ const handlePatientSelect = (patient: any) => {
               </div>
             </div>
 
-            {/* Reminder */}
+            {/* Multiple Reminders */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Recordatorio (minutos antes)
-              </label>
-              <select
-                value={formData.reminder_minutes}
-                onChange={(e) => setFormData(prev => ({ ...prev, reminder_minutes: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-              >
-                <option value={0}>Sin recordatorio</option>
-                <option value={15}>15 minutos</option>
-                <option value={30}>30 minutos</option>
-                <option value={60}>1 hora</option>
-                <option value={120}>2 horas</option>
-                <option value={1440}>1 día</option>
-              </select>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Recordatorios
+                </label>
+                <button
+                  type="button"
+                  onClick={addReminder}
+                  className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+                >
+                  <i className="fas fa-plus mr-1"></i>
+                  Agregar
+                </button>
+              </div>
+              
+              {reminders.map((reminder, index) => (
+                <div key={index} className="flex items-center gap-2 mb-2">
+                  <select
+                    value={reminder.minutes_before}
+                    onChange={(e) => updateReminder(index, parseInt(e.target.value))}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+                  >
+                    <option value={0}>Sin recordatorio</option>
+                    <option value={10}>10 minutos</option>
+                    <option value={15}>15 minutos</option>
+                    <option value={30}>30 minutos</option>
+                    <option value={60}>1 hora</option>
+                    <option value={120}>2 horas</option>
+                    <option value={180}>3 horas</option>
+                    <option value={360}>6 horas</option>
+                    <option value={720}>12 horas</option>
+                    <option value={1440}>1 día</option>
+                    <option value={2880}>2 días</option>
+                    <option value={4320}>3 días</option>
+                    <option value={10080}>1 semana</option>
+                  </select>
+                  
+                  {reminders.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeReminder(index)}
+                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                      title="Eliminar recordatorio"
+                    >
+                      <i className="fas fa-trash"></i>
+                    </button>
+                  )}
+                </div>
+              ))}
+              
+              {reminders.length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                  No hay recordatorios configurados
+                </p>
+              )}
             </div>
 
             {/* Notes */}
@@ -567,21 +736,36 @@ const handlePatientSelect = (patient: any) => {
             )}
 
             {/* Actions */}
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Guardando...' : (event ? 'Actualizar' : 'Crear')}
-              </button>
+            <div className="flex justify-between items-center pt-4">
+              {/* Delete button - only show for existing events */}
+              {event && (
+                <button
+                  type="button"
+                  onClick={openDeleteModal}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  <i className="fas fa-trash mr-2"></i>
+                  Eliminar Evento
+                </button>
+              )}
+              
+              {/* Save/Cancel buttons */}
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Guardando...' : (event ? 'Actualizar' : 'Crear')}
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -592,6 +776,115 @@ const handlePatientSelect = (patient: any) => {
         onClose={() => setShowPatientSearch(false)}
         onSelectPatient={handlePatientSelect}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full sm:mx-0 sm:h-10 sm:w-10 ${
+                    deleteSuccess ? 'bg-green-100 dark:bg-green-900' : deleteError ? 'bg-red-100 dark:bg-red-900' : 'bg-red-100 dark:bg-red-900'
+                  }`}>
+                    <i className={`fas ${
+                      deleteSuccess ? 'fa-check-circle text-green-600 dark:text-green-400' : 
+                      deleteError ? 'fa-times-circle text-red-600 dark:text-red-400' : 
+                      isDeleting ? 'fa-spinner fa-spin text-red-600 dark:text-red-400' : 
+                      'fa-exclamation-triangle text-red-600 dark:text-red-400'
+                    }`}></i>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                      {deleteSuccess ? 'Evento Eliminado' : deleteError ? 'Error al Eliminar' : isDeleting ? 'Eliminando Evento...' : 'Eliminar Evento'}
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {deleteSuccess 
+                          ? `El evento "${event?.title}" ha sido eliminado exitosamente.`
+                          : isDeleting 
+                          ? 'Por favor espere mientras se elimina el evento y todos sus datos relacionados...'
+                          : `¿Está seguro de que desea eliminar el evento "${event?.title}"?`
+                        }
+                      </p>
+                      {!isDeleting && !deleteSuccess && (
+                        <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                            <i className="fas fa-exclamation-triangle mr-1"></i>
+                            Esta acción eliminará permanentemente:
+                          </p>
+                          <ul className="text-xs text-amber-700 dark:text-amber-300 mt-1 ml-4 list-disc">
+                            <li>El evento y toda su información</li>
+                            <li>Los recordatorios asociados</li>
+                            <li>Las invitaciones a usuarios</li>
+                            <li>Las tareas relacionadas (si existen)</li>
+                          </ul>
+                          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium mt-2">
+                            Esta acción no se puede deshacer.
+                          </p>
+                        </div>
+                      )}
+                      {deleteError && (
+                        <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                          <p className="text-sm text-red-800 dark:text-red-200">
+                            <i className="fas fa-exclamation-circle mr-1"></i>
+                            Error: {deleteError}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                {!isDeleting && !deleteSuccess ? (
+                  <>
+                    <button 
+                      type="button" 
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm" 
+                      onClick={deleteEvent}
+                      disabled={isDeleting}
+                    >
+                      <i className="fas fa-trash mr-2"></i>
+                      Eliminar Evento
+                    </button>
+                    <button 
+                      type="button" 
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" 
+                      onClick={closeDeleteModal}
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : deleteSuccess ? (
+                  <button 
+                    type="button" 
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:w-auto sm:text-sm" 
+                    onClick={() => {
+                      closeDeleteModal();
+                      onClose(); // Close the main event modal as well
+                    }}
+                  >
+                    <i className="fas fa-check mr-2"></i>
+                    Aceptar
+                  </button>
+                ) : (
+                  <div className="w-full text-center">
+                    <div className="inline-flex items-center text-red-600 dark:text-red-400">
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Eliminando evento...
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

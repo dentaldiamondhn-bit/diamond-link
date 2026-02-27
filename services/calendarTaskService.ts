@@ -156,15 +156,44 @@ export class CalendarTaskService {
 
   static async deleteTask(id: string): Promise<void> {
     try {
-      const { error } = await supabase
+      // Delete all related data in correct order to respect foreign key constraints
+      
+      // 1. Delete calendar invitees for this task
+      const { error: inviteesError } = await supabase
+        .from('calendar_invitees')
+        .delete()
+        .eq('item_type', 'task')
+        .eq('item_id', id);
+
+      if (inviteesError) {
+        console.error('Error deleting calendar invitees:', inviteesError);
+        throw inviteesError;
+      }
+
+      // 2. Delete calendar reminders for this task
+      const { error: remindersError } = await supabase
+        .from('calendar_reminders')
+        .delete()
+        .eq('item_type', 'task')
+        .eq('item_id', id);
+
+      if (remindersError) {
+        console.error('Error deleting calendar reminders:', remindersError);
+        throw remindersError;
+      }
+
+      // 3. Finally delete task itself
+      const { error: taskError } = await supabase
         .from('calendar_tasks')
         .delete()
         .eq('id', id);
 
-      if (error) {
-        console.error('Error deleting calendar task:', error);
-        throw error;
+      if (taskError) {
+        console.error('Error deleting calendar task:', taskError);
+        throw taskError;
       }
+
+      console.log(`✅ Task ${id} and all related data deleted successfully`);
     } catch (error) {
       console.error('Unexpected error deleting calendar task:', error);
       throw error;

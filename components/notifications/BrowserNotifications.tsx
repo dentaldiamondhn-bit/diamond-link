@@ -31,11 +31,33 @@ export function BrowserNotifications() {
   ) => {
     if (!settings.enabled || permission !== 'granted') return;
 
+    // Extract event time from metadata if available
+    let body = options.body || '';
+    if (options.data?.eventTime || options.data?.taskTime) {
+      const eventTime = new Date(options.data.eventTime || options.data.taskTime);
+      const formattedTime = eventTime.toLocaleDateString('es-HN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      // Add time information to the notification body
+      if (body) {
+        body += ` | ${formattedTime}`;
+      } else {
+        body = formattedTime;
+      }
+    }
+
     const notification = new Notification(title, {
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      tag: 'general',
-      requireInteraction: options.requireInteraction || false,
+      icon: '/Logo.svg', // Use the proper logo
+      badge: '/Logo.svg', // Use the proper logo for badge
+      tag: options.data?.type || 'general',
+      requireInteraction: options.requireInteraction || true, // Default to true for calendar notifications
+      body: body,
+      data: options.data,
       ...options,
     });
 
@@ -47,11 +69,11 @@ export function BrowserNotifications() {
       });
     }
 
-    // Auto-close after 5 seconds unless requireInteraction is true
+    // Auto-close after 8 seconds unless requireInteraction is true
     if (!options.requireInteraction) {
       setTimeout(() => {
         notification.close();
-      }, 5000);
+      }, 8000);
     }
 
     return notification;
@@ -128,6 +150,10 @@ export function BrowserNotifications() {
         <button
           onClick={() => showNotification('Notificación de Prueba', {
             body: 'Esta es una notificación de prueba para verificar que todo funciona correctamente.',
+            data: {
+              type: 'test',
+              eventTime: new Date().toISOString() // Test event time display
+            }
           })}
           disabled={!settings.enabled || permission !== 'granted'}
           className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
