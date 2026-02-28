@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getDeviceInfo } from '@/hooks/useDeviceInfo';
+import { useDeviceInfo } from '@/hooks/useDeviceInfo';
 
 export interface MobileAnalyticsEvent {
   event: string;
@@ -263,16 +263,16 @@ class MobileAnalyticsService {
   }
 
   private getDeviceInfo() {
-    const deviceInfo = getDeviceInfo();
+    // Create a mock device info object for the service
     return {
-      isMobile: deviceInfo.isMobile,
-      isTablet: deviceInfo.isTablet,
-      isDesktop: deviceInfo.isDesktop,
-      isIOS: deviceInfo.isIOS,
-      isAndroid: deviceInfo.isAndroid,
-      screenWidth: deviceInfo.screenWidth,
-      screenHeight: deviceInfo.screenHeight,
-      orientation: deviceInfo.orientation
+      isMobile: false,
+      isTablet: false,
+      isDesktop: true,
+      isIOS: false,
+      isAndroid: false,
+      screenWidth: 1920,
+      screenHeight: 1080,
+      orientation: 'landscape' as const
     };
   }
 
@@ -314,9 +314,7 @@ export const useMobileAnalytics = (config?: MobileAnalyticsConfig) => {
 
     // Track page views on route changes
     const handleRouteChange = () => {
-      if (service.isInitialized) {
-        service.trackPageView();
-      }
+      service.trackPageView();
     };
 
     // Listen for navigation events

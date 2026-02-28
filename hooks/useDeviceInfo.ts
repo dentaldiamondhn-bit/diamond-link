@@ -97,7 +97,12 @@ export const getDeviceSpecificStyles = (deviceInfo: DeviceInfo) => {
       md: isMobile ? '1rem' : '0.8rem',
       lg: isMobile ? '1.5rem' : '1.2rem',
       xl: isMobile ? '2rem' : '1.6rem'
-    }
+    },
+    
+    // CSS classes for styling
+    container: isMobile ? 'px-2 py-1' : 'px-4 py-2',
+    input: isMobile ? 'text-base py-3' : 'text-sm py-2',
+    button: isMobile ? 'px-4 py-3 text-base' : 'px-3 py-2 text-sm'
   };
 };
 

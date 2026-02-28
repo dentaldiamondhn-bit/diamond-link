@@ -18,6 +18,11 @@ import LoadingAnimation from '../../../components/LoadingAnimation';
 import HistoricalBanner from '../../../components/HistoricalBanner';
 import AccessDenied from '@/components/AccessDenied';
 import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
+import MobileLayout from '@/components/MobileLayout';
+import { VirtualizedPatientList } from '@/components/VirtualizedPatientList';
+import { useDeviceInfo, getDeviceSpecificStyles } from '@/hooks/useDeviceInfo';
+import { useMobileNotifications } from '@/services/mobileNotificationService';
+import { useMobileAnalytics } from '@/services/mobileAnalyticsService';
 
 export default function PacientesPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -31,6 +36,12 @@ export default function PacientesPage() {
   const { user } = useUser();
   const { userRole, permissions, hasPermission } = useRoleBasedAccess();
   const { bypassHistoricalMode, setCurrentPatient, loadPatientSettings, savePatientSettings } = useHistoricalMode();
+  
+  // Mobile enhancement hooks
+  const deviceInfo = useDeviceInfo();
+  const deviceStyles = getDeviceSpecificStyles(deviceInfo);
+  const { showNotification } = useMobileNotifications();
+  const { track, trackMobileGesture, trackCalendarInteraction } = useMobileAnalytics();
   
   // Use page preferences for pacientes page
   const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('pacientes');
@@ -133,6 +144,12 @@ export default function PacientesPage() {
         const patientsData = await PatientService.getPatients();
         setPatients(patientsData);
         
+        // Track patient list loaded
+        track('patient_list_loaded', {
+          totalPatients: patientsData.length,
+          deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop'
+        });
+        
         // Load bypass status for all patients
         if (user) {
           const bypassPromises = patientsData.map(async (patient) => {
@@ -143,7 +160,11 @@ export default function PacientesPage() {
           await Promise.all(bypassPromises);
         }
       } catch (error) {
-        // Error loading patients
+        // Track error
+        track('patient_list_error', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop'
+        });
       } finally {
         setLoading(false);
       }
@@ -361,10 +382,53 @@ export default function PacientesPage() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    track('patient_pagination_changed', { page, deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop' });
   };
 
   const handleRecordsPerPageChange = (value: number) => {
     setRecordsPerPagePref(value);
+    track('patient_records_per_page_changed', { value, deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop' });
+  };
+
+  const handlePatientSelect = (patient: Patient) => {
+    track('patient_selected', {
+      patientId: patient.paciente_id,
+      patientName: patient.nombre_completo,
+      deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop'
+    });
+    
+    // Navigate to patient preview
+    router.push(`/patient-preview/${patient.paciente_id}`);
+  };
+
+  const handlePatientEdit = (patient: Patient) => {
+    track('patient_edit_clicked', {
+      patientId: patient.paciente_id,
+      patientName: patient.nombre_completo,
+      deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop'
+    });
+    
+    router.push(`/patient-form?id=${patient.paciente_id}`);
+  };
+
+  const handlePatientDelete = (patient: Patient) => {
+    track('patient_delete_clicked', {
+      patientId: patient.paciente_id,
+      patientName: patient.nombre_completo,
+      deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop'
+    });
+    
+    // Show delete confirmation or handle deletion
+    setShowWarningModal(patient);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    track('patient_search_performed', {
+      searchTerm: value,
+      resultCount: filteredPatients.length,
+      deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop'
+    });
   };
 
   if (loading) {
@@ -388,501 +452,494 @@ export default function PacientesPage() {
         <div className="flex items-center justify-between mb-4">
           {/* Title moved to main header */}
         </div>
-        
+          
         {/* Search Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div className="flex-1">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre, identidad o teléfono..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                />
-                <i className="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+            <div className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre, identidad o teléfono..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className={`w-full px-4 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${deviceStyles.input}`}
+                  />
+                  <i className="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+                </div>
+                
+                {/* Sort Controls */}
+                <div className="flex items-center gap-2">
+                  <label className={`text-sm font-medium text-gray-700 dark:text-gray-300 ${deviceStyles.fontSize.sm}`}>Ordenar por:</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as 'nombre' | 'edad' | 'doctor')}
+                    className={`px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${deviceStyles.input}`}
+                  >
+                    <option value="nombre">Nombre</option>
+                    <option value="edad">Edad</option>
+                    <option value="doctor">Doctor</option>
+                  </select>
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className={`px-3 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white ${deviceStyles.button}`}
+                    title={`Orden ${sortOrder === 'asc' ? 'ascendente' : 'descendente'}`}
+                  >
+                    <i className={`fas fa-sort-amount-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
+                  </button>
+                </div>
               </div>
-              
-              {/* Sort Controls */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por:</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'nombre' | 'edad' | 'doctor')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="nombre">Nombre</option>
-                  <option value="edad">Edad</option>
-                  <option value="doctor">Doctor</option>
-                </select>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {/* View Toggle Button */}
+              <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                 <button
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                  title={`Orden ${sortOrder === 'asc' ? 'ascendente' : 'descendente'}`}
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    viewMode === 'grid'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
                 >
-                  <i className={`fas fa-sort-amount-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
+                  <i className="fas fa-th-large mr-2"></i>
+                  Cuadrícula
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    viewMode === 'list'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <i className="fas fa-list mr-2"></i>
+                  Lista
                 </button>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            {/* View Toggle Button */}
-            <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  viewMode === 'grid'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <i className="fas fa-th-large mr-2"></i>
-                Cuadrícula
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  viewMode === 'list'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <i className="fas fa-list mr-2"></i>
-                Lista
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {/* Patients Display */}
-      {viewMode === 'grid' ? (
-        /* Grid View */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {currentPatients.map((patient) => {
-            // Temporarily test with different age scenarios
-            const testPatient = {
-              ...patient,
-              fecha_nacimiento: patient.nombre_completo?.includes('Test') ? 
-                (patient.nombre_completo?.includes('Menor') ? '2010-01-01' :
-                 patient.nombre_completo?.includes('3ra') ? '1950-01-01' :
-                 patient.nombre_completo?.includes('4ta') ? '1940-01-01' :
-                 patient.fecha_nacimiento) : patient.fecha_nacimiento,
-              sexo: patient.nombre_completo?.includes('Femenino') ? 'femenino' : 
-                    patient.nombre_completo?.includes('Masculino') ? 'masculino' : 
-                    patient.sexo,
-              is_historical: patient.is_historical || (patient.fecha_inicio && new Date(patient.fecha_inicio) < new Date('2026-01-01'))
-            };
-            
-            const patientType = getPatientType(testPatient);
-            const conditionSeverity = getConditionSeverity(testPatient);
-            const recordCategoryInfo = getRecordCategoryInfoSync(testPatient.fecha_inicio);
-            const displayPatient = { ...patient, ...testPatient }; // Merge testPatient overrides with original patient
-            
-            // Check if this specific patient has bypass activated
-            const patientHasBypass = patientBypassStatus[patient.paciente_id] || false;
-            
-            return (
-            <div key={patient.paciente_id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border border-gray-200 dark:border-gray-700 overflow-hidden group relative">
-              {/* Patient Type Badge */}
-              <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${patientType.colors.badge} border ${patientType.colors.badgeText}`}>
-                  {patientType.label}
-                </span>
-                {/* Historical Badge - only show if historical and patient-specific bypass is not active */}
-                {recordCategoryInfo?.isHistorical && !patientHasBypass && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
-                    Histórico
-                  </span>
-                )}
-              </div>
-              
-              {/* Patient Header with Dynamic Gradient */}
-              <div 
-                className={`bg-gradient-to-r p-4 text-white`}
-                style={{
-                  background: displayPatient.sexo === 'femenino' && displayPatient.embarazo === 'si'
-                    ? 'linear-gradient(to right, rgb(236 72 153), rgb(59 130 246))' // Soft pink to blue gradient for pregnancy
-                    : patientType.category === 'menor' && displayPatient.sexo === 'femenino' 
-                    ? 'linear-gradient(to right, rgb(236 72 153), rgb(219 39 119))'
-                    : patientType.category === 'menor' && displayPatient.sexo === 'masculino'
-                    ? 'linear-gradient(to right, rgb(96 165 250), rgb(59 130 246))'
-                    : patientType.category === '4ta' && displayPatient.sexo === 'femenino'
-                    ? 'linear-gradient(to right, rgb(168 85 247), rgb(147 51 234))'
-                    : patientType.category === '4ta' && displayPatient.sexo === 'masculino'
-                    ? 'linear-gradient(to right, rgb(107 114 128), rgb(75 85 99))'
-                    : patientType.category === '3ra' && displayPatient.sexo === 'femenino'
-                    ? 'linear-gradient(to right, rgb(248 113 113), rgb(239 68 68))'
-                    : patientType.category === '3ra' && displayPatient.sexo === 'masculino'
-                    ? 'linear-gradient(to right, rgb(245 158 11), rgb(217 119 6))'
-                    : 'linear-gradient(to right, rgb(20 184 166), rgb(6 182 212))'
-                }}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white font-bold border border-white/30">
-                    {displayPatient.nombre_completo?.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-white transition-colors">{displayPatient.nombre_completo}</h3>
-                    <p className="text-white/80 text-sm">ID: {displayPatient.numero_identidad}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Patient Details */}
-              <div className="p-4">
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center text-sm text-gray-400">
-                    <i className="fas fa-birthday-cake w-4 mr-2 text-teal-400"></i>
-                    <span>Edad: {displayPatient.edad ? `${displayPatient.edad} años` : displayPatient.fecha_nacimiento ? calculateAge(displayPatient.fecha_nacimiento) : 'No especificada'}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <i className="fas fa-phone w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
-                    {displayPatient.telefono ? (
-                      <a 
-                        href={createWhatsAppUrl(displayPatient.telefono, displayPatient.codigopais)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline flex items-center gap-1"
-                      >
-                        <div className="w-4 h-4 flex items-center justify-center">
-                          <AnimatedWhatsApp />
+          {/* Patients Display */}
+          {deviceInfo.isMobile || deviceInfo.isTablet ? (
+            /* Mobile/Tablet - Use Virtual Scrolling */
+            <VirtualizedPatientList
+              patients={filteredPatients}
+              onPatientSelect={handlePatientSelect}
+              onPatientEdit={handlePatientEdit}
+              onPatientDelete={handlePatientDelete}
+              loading={loading}
+              height={deviceInfo.isMobile ? 500 : 600}
+              itemHeight={120}
+            />
+          ) : (
+            /* Desktop - Use Original Grid/List View */
+            <>
+              {viewMode === 'grid' ? (
+                /* Grid View */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {currentPatients.map((patient) => {
+                    // Restore original test patient logic
+                    const testPatient = {
+                      ...patient,
+                      fecha_nacimiento: patient.nombre_completo?.includes('Test') ? 
+                        (patient.nombre_completo?.includes('Menor') ? '2010-01-01' :
+                         patient.nombre_completo?.includes('3ra') ? '1950-01-01' :
+                         patient.nombre_completo?.includes('4ta') ? '1940-01-01' :
+                         patient.fecha_nacimiento) : patient.fecha_nacimiento,
+                      sexo: patient.nombre_completo?.includes('Femenino') ? 'femenino' : 
+                            patient.nombre_completo?.includes('Masculino') ? 'masculino' : 
+                            patient.sexo,
+                      is_historical: patient.is_historical || (patient.fecha_inicio && new Date(patient.fecha_inicio) < new Date('2026-01-01'))
+                    };
+                    
+                    const patientType = getPatientType(testPatient);
+                    const conditionSeverity = getConditionSeverity(testPatient);
+                    const recordCategoryInfo = getRecordCategoryInfoSync(testPatient.fecha_inicio);
+                    const displayPatient = { ...patient, ...testPatient };
+                    
+                    // Check if this specific patient has bypass activated
+                    const patientHasBypass = patientBypassStatus[patient.paciente_id] || false;
+                    
+                    return (
+                      <div key={patient.paciente_id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border border-gray-200 dark:border-gray-700 overflow-hidden group relative">
+                        {/* Patient Type Badge */}
+                        <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${patientType.colors.badge} border ${patientType.colors.badgeText}`}>
+                            {patientType.label}
+                          </span>
+                          {/* Historical Badge - only show if historical and patient-specific bypass is not active */}
+                          {recordCategoryInfo?.isHistorical && !patientHasBypass && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
+                              Histórico
+                            </span>
+                          )}
                         </div>
-                        {formatPhoneDisplay(displayPatient.telefono, displayPatient.codigopais)}
-                      </a>
-                    ) : (
-                      <span>No especificado</span>
-                    )}
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <i className="fas fa-calendar w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
-                    <span>{displayPatient.fecha_nacimiento ? SimpleTimezoneFix.formatDisplayDate(displayPatient.fecha_nacimiento) : 'No especificada'}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <i className="fas fa-user-md w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
-                    <span>{displayPatient.doctor || 'No especificado'}</span>
-                  </div>
-                </div>
-
-                {/* Medical Conditions - Middle Right Center */}
-                {(displayPatient.enfermedades || displayPatient.alergias || displayPatient.medicamentos || (displayPatient.sexo === 'femenino' && displayPatient.embarazo === 'si')) && (
-                  <div className={`absolute right-3 top-1/2 transform -translate-y-1/2 backdrop-blur-sm rounded-lg p-2 shadow-sm border max-w-[140px] ${conditionSeverity.color}`}>
-                    <div className="space-y-1">
-                      {displayPatient.sexo === 'femenino' && displayPatient.embarazo === 'si' && (
+                        
+                        {/* Patient Header with Dynamic Gradient */}
                         <div 
-                          className="flex items-start gap-1 cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => setShowWarningModal(displayPatient)}
+                          className={`bg-gradient-to-r p-4 text-white`}
+                          style={{
+                            background: displayPatient.sexo === 'femenino' && displayPatient.embarazo === 'si'
+                              ? 'linear-gradient(to right, rgb(236 72 153), rgb(59 130 246))' // Soft pink to blue gradient for pregnancy
+                              : patientType.category === 'menor' && displayPatient.sexo === 'femenino' 
+                              ? 'linear-gradient(to right, rgb(236 72 153), rgb(219 39 119))'
+                              : patientType.category === 'menor' && displayPatient.sexo === 'masculino'
+                              ? 'linear-gradient(to right, rgb(96 165 250), rgb(59 130 246))'
+                              : patientType.category === '4ta' && displayPatient.sexo === 'femenino'
+                              ? 'linear-gradient(to right, rgb(168 85 247), rgb(147 51 234))'
+                              : patientType.category === '4ta' && displayPatient.sexo === 'masculino'
+                              ? 'linear-gradient(to right, rgb(107 114 128), rgb(75 85 99))'
+                              : patientType.category === '3ra' && displayPatient.sexo === 'femenino'
+                              ? 'linear-gradient(to right, rgb(248 113 113), rgb(239 68 68))'
+                              : patientType.category === '3ra' && displayPatient.sexo === 'masculino'
+                              ? 'linear-gradient(to right, rgb(245 158 11), rgb(217 119 6))'
+                              : 'linear-gradient(to right, rgb(20 184 166), rgb(6 182 212))'
+                          }}
                         >
-                          <span className={`font-semibold text-xs ${conditionSeverity.textColor} min-w-[30px]`}>Embarazo:</span>
-                          <span className={`text-xs ${conditionSeverity.textColor} leading-tight line-clamp-2`}>{displayPatient.semanas_embarazo ? `${displayPatient.semanas_embarazo} sem` : 'Sí'}</span>
-                        </div>
-                      )}
-                      {displayPatient.enfermedades && (
-                        <div className="flex items-start gap-1">
-                          <span className={`font-semibold text-xs ${conditionSeverity.textColor} min-w-[30px]`}>Enf:</span>
-                          <span className={`text-xs ${conditionSeverity.textColor} leading-tight line-clamp-2`}>{displayPatient.enfermedades}</span>
-                        </div>
-                      )}
-                      {displayPatient.alergias && (
-                        <div className="flex items-start gap-1">
-                          <span className={`font-semibold text-xs ${conditionSeverity.textColor} min-w-[30px]`}>Alerg:</span>
-                          <span className={`text-xs ${conditionSeverity.textColor} leading-tight line-clamp-2`}>{displayPatient.alergias}</span>
-                        </div>
-                      )}
-                      {displayPatient.medicamentos && (
-                        <div className="flex items-start gap-1">
-                          <span className={`font-semibold text-xs ${conditionSeverity.textColor} min-w-[30px]`}>Med:</span>
-                          <span className={`text-xs ${conditionSeverity.textColor} leading-tight line-clamp-2`}>{displayPatient.medicamentos}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex space-x-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <Link
-                    href={`/patient-preview/${patient.paciente_id}`}
-                    className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-blue-400 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl"
-                  >
-                    <i className="fas fa-eye mr-1"></i>
-                    Historia
-                  </Link>
-                  <Link
-                    href={`/menu-navegacion?id=${patient.paciente_id}`}
-                    className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-teal-400 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                  >
-                    <i className="fas fa-th-large mr-1"></i>
-                    Menu
-                  </Link>
-                  <Link
-                    href={`/patient-form?id=${patient.paciente_id}`}
-                    className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-gray-400 to-gray-700 text-white text-sm font-medium rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl"
-                  >
-                    <i className="fas fa-edit mr-1"></i>
-                    Editar
-                  </Link>
-                </div>
-              </div>
-            </div>
-          );
-          })}
-        </div>
-      ) : (
-        /* List View */
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Paciente
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Prótesis
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Teléfono
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Edad
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Doctor
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {currentPatients.map((patient) => (
-                  <tr key={patient.paciente_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">
-                        <div className="font-medium text-gray-900 dark:text-white">
-                          {patient.nombre_completo}
-                        </div>
-                        <div className="text-gray-500 dark:text-gray-400">
-                          ID: {patient.numero_identidad}
-                        </div>
-                        {/* Patient Type and Historical Badges */}
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {(() => {
-                            const patientType = getPatientType(patient);
-                            return patientType ? (
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${patientType.colors.badge} border ${patientType.colors.badgeText}`}>
-                                {patientType.label}
-                              </span>
-                            ) : null;
-                          })()}
-                          {/* Historical Badge - only show if historical and NOT bypassed */}
-                          {(() => {
-                            // Use fecha_nacimiento as a fallback for historical check, or try other date fields
-                            const dateToCheck = patient.fecha_nacimiento || patient.fecha_inicio;
-                            const recordCategoryInfo = dateToCheck ? getRecordCategoryInfoSync(dateToCheck) : null;
-                            return recordCategoryInfo?.isHistorical && !patientBypassStatus[patient.paciente_id] ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
-                                Histórico
-                              </span>
-                            ) : null;
-                          })()}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {patient.protesis === 'si' && patient.protesis_tipo ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
-                          {patient.protesis_tipo}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-500 text-xs">No</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {patient.telefono ? (
-                        <a 
-                          href={createWhatsAppUrl(patient.telefono, patient.codigopais)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 underline flex items-center gap-1"
-                        >
-                          <div className="w-4 h-4 flex items-center justify-center">
-                            <AnimatedWhatsApp />
+                          <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white font-bold border border-white/30">
+                              {displayPatient.nombre_completo?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-white transition-colors">{displayPatient.nombre_completo}</h3>
+                              <p className="text-white/80 text-sm">ID: {displayPatient.numero_identidad}</p>
+                            </div>
                           </div>
-                          {formatPhoneDisplay(patient.telefono, patient.codigopais)}
-                        </a>
-                      ) : (
-                        <span className="text-gray-500 dark:text-gray-400">No especificado</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {calculateAge(patient.fecha_nacimiento)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {patient.doctor || 'No especificado'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <Link
-                          href={`/patient-preview/${patient.paciente_id}`}
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-                        >
-                          <i className="fas fa-eye"></i>
-                        </Link>
-                        <Link
-                          href={`/menu-navegacion?id=${patient.paciente_id}`}
-                          className="text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-300"
-                        >
-                          <i className="fas fa-th-large"></i>
-                        </Link>
-                        <Link
-                          href={`/patient-form?id=${patient.paciente_id}`}
-                          className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
-                        >
-                          <i className="fas fa-edit"></i>
-                        </Link>
+                        </div>
+
+                        {/* Patient Details */}
+                        <div className="p-4">
+                          <div className="space-y-3 mb-4">
+                            <div className="flex items-center text-sm text-gray-400">
+                              <i className="fas fa-birthday-cake w-4 mr-2 text-teal-400"></i>
+                              <span>Edad: {displayPatient.edad ? `${displayPatient.edad} años` : displayPatient.fecha_nacimiento ? calculateAge(displayPatient.fecha_nacimiento) : 'No especificada'}</span>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                              <i className="fas fa-phone w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
+                              {displayPatient.telefono ? (
+                                <a 
+                                  href={createWhatsAppUrl(displayPatient.telefono, displayPatient.codigopais)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline flex items-center gap-1"
+                                >
+                                  <div className="w-4 h-4 flex items-center justify-center">
+                                    <AnimatedWhatsApp />
+                                  </div>
+                                  {formatPhoneDisplay(displayPatient.telefono, displayPatient.codigopais)}
+                                </a>
+                              ) : (
+                                <span>No especificado</span>
+                              )}
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                              <i className="fas fa-calendar w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
+                              <span>{displayPatient.fecha_nacimiento ? SimpleTimezoneFix.formatDisplayDate(displayPatient.fecha_nacimiento) : 'No especificada'}</span>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                              <i className="fas fa-user-md w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
+                              <span>{displayPatient.doctor || 'No especificado'}</span>
+                            </div>
+                          </div>
+
+                          {/* Medical Conditions - Middle Right Center */}
+                          {(displayPatient.enfermedades || displayPatient.alergias || displayPatient.medicamentos || (displayPatient.sexo === 'femenino' && displayPatient.embarazo === 'si')) && (
+                            <div className={`absolute right-3 top-1/2 transform -translate-y-1/2 backdrop-blur-sm rounded-lg p-2 shadow-sm border max-w-[140px] ${conditionSeverity.color}`}>
+                              <div className="space-y-1">
+                                {displayPatient.sexo === 'femenino' && displayPatient.embarazo === 'si' && (
+                                  <div 
+                                    className="flex items-start gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => setShowWarningModal(displayPatient)}
+                                  >
+                                    <span className={`font-semibold text-xs ${conditionSeverity.textColor} min-w-[30px]`}>Embarazo:</span>
+                                    <span className={`text-xs ${conditionSeverity.textColor} leading-tight line-clamp-2`}>{displayPatient.semanas_embarazo ? `${displayPatient.semanas_embarazo} sem` : 'Sí'}</span>
+                                  </div>
+                                )}
+                                {displayPatient.enfermedades && (
+                                  <div className="flex items-start gap-1">
+                                    <span className={`font-semibold text-xs ${conditionSeverity.textColor} min-w-[30px]`}>Enf:</span>
+                                    <span className={`text-xs ${conditionSeverity.textColor} leading-tight line-clamp-2`}>{displayPatient.enfermedades}</span>
+                                  </div>
+                                )}
+                                {displayPatient.alergias && (
+                                  <div className="flex items-start gap-1">
+                                    <span className={`font-semibold text-xs ${conditionSeverity.textColor} min-w-[30px]`}>Alerg:</span>
+                                    <span className={`text-xs ${conditionSeverity.textColor} leading-tight line-clamp-2`}>{displayPatient.alergias}</span>
+                                  </div>
+                                )}
+                                {displayPatient.medicamentos && (
+                                  <div className="flex items-start gap-1">
+                                    <span className={`font-semibold text-xs ${conditionSeverity.textColor} min-w-[30px]`}>Med:</span>
+                                    <span className={`text-xs ${conditionSeverity.textColor} leading-tight line-clamp-2`}>{displayPatient.medicamentos}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex space-x-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <Link
+                              href={`/patient-preview/${patient.paciente_id}`}
+                              className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-blue-400 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                            >
+                              <i className="fas fa-eye mr-1"></i>
+                              Historia
+                            </Link>
+                            <Link
+                              href={`/menu-navegacion?id=${patient.paciente_id}`}
+                              className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-teal-400 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                            >
+                              <i className="fas fa-th-large mr-1"></i>
+                              Menu
+                            </Link>
+                            <Link
+                              href={`/patient-form?id=${patient.paciente_id}`}
+                              className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-gray-400 to-gray-700 text-white text-sm font-medium rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                            >
+                              <i className="fas fa-edit mr-1"></i>
+                              Editar
+                            </Link>
+                          </div>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      
-      {/* Medical Conditions Warning Modal */}
-      {showWarningModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div 
-            className={`bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full border-2 ${getConditionSeverity(showWarningModal).color} opacity-80`}
-            style={getConditionSeverity(showWarningModal).gradient ? {
-              background: getConditionSeverity(showWarningModal).gradient,
-              border: 'none'
-            } : {}}
-          >
-            {/* Warning Icon */}
-            <div className="flex items-center justify-center mb-4">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center ${getConditionSeverity(showWarningModal).bgColor}`}>
-                <i className={`fas ${getConditionSeverity(showWarningModal).level === 'pregnancy' ? 'fa-baby' : 'fa-exclamation-triangle'} text-white text-2xl`}></i>
-              </div>
-            </div>
-            
-            {/* Warning Title */}
-            <h3 className={`text-lg font-semibold mb-3 text-center ${getConditionSeverity(showWarningModal).gradient ? 'text-white' : getConditionSeverity(showWarningModal).textColor}`}>
-              {getConditionSeverity(showWarningModal).level === 'pregnancy' ? 'Embarazo Detectado' : 'Alerta Médica Importante'}
-            </h3>
-            
-            {/* Warning Message */}
-            <div className={`text-sm mb-6 text-center ${getConditionSeverity(showWarningModal).gradient ? 'text-white' : getConditionSeverity(showWarningModal).textColor}`}>
-              {getConditionSeverity(showWarningModal).level === 'pregnancy' && (
-                <p>Esta paciente está <strong>embarazada</strong>. Se debe tener especial consideración en los tratamientos odontológicos.</p>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* List View - Desktop Only */
+                <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Paciente
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Prótesis
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Teléfono
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Edad
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Doctor
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                            Acciones
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {currentPatients.map((patient) => (
+                          <tr key={patient.paciente_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm">
+                                <div className="font-medium text-gray-900 dark:text-white">
+                                  {patient.nombre_completo}
+                                </div>
+                                <div className="text-gray-500 dark:text-gray-400">
+                                  ID: {patient.numero_identidad}
+                                </div>
+                                {/* Patient Type and Historical Badges */}
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {(() => {
+                                    const patientType = getPatientType(patient);
+                                    return patientType ? (
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${patientType.colors.badge} border ${patientType.colors.badgeText}`}>
+                                        {patientType.label}
+                                      </span>
+                                    ) : null;
+                                  })()}
+                                  {/* Historical Badge - only show if historical and NOT bypassed */}
+                                  {(() => {
+                                    // Use fecha_nacimiento as a fallback for historical check, or try other date fields
+                                    const dateToCheck = patient.fecha_nacimiento || patient.fecha_inicio;
+                                    const recordCategoryInfo = dateToCheck ? getRecordCategoryInfoSync(dateToCheck) : null;
+                                    return recordCategoryInfo?.isHistorical && !patientBypassStatus[patient.paciente_id] ? (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
+                                        Histórico
+                                      </span>
+                                    ) : null;
+                                  })()}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              {patient.protesis === 'si' && patient.protesis_tipo ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
+                                  {patient.protesis_tipo}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 dark:text-gray-500 text-xs">No</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                              {patient.telefono ? (
+                                <a 
+                                  href={createWhatsAppUrl(patient.telefono, patient.codigopais)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 underline flex items-center gap-1"
+                                >
+                                  <div className="w-4 h-4 flex items-center justify-center">
+                                    <AnimatedWhatsApp />
+                                  </div>
+                                  {formatPhoneDisplay(patient.telefono, patient.codigopais)}
+                                </a>
+                              ) : (
+                                <span className="text-gray-500 dark:text-gray-400">No especificado</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              {calculateAge(patient.fecha_nacimiento)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              {patient.doctor || 'No especificado'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex space-x-2">
+                                <Link
+                                  href={`/patient-preview/${patient.paciente_id}`}
+                                  className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                                >
+                                  <i className="fas fa-eye"></i>
+                                </Link>
+                                <Link
+                                  href={`/menu-navegacion?id=${patient.paciente_id}`}
+                                  className="text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-300"
+                                >
+                                  <i className="fas fa-th-large"></i>
+                                </Link>
+                                <Link
+                                  href={`/patient-form?id=${patient.paciente_id}`}
+                                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
+                                >
+                                  <i className="fas fa-edit"></i>
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
-              {getConditionSeverity(showWarningModal).level === 'critical' && (
-                <p>Este paciente presenta <strong>condiciones médicas críticas</strong> que requieren atención ESPECIAL.</p>
-              )}
-              {getConditionSeverity(showWarningModal).level === 'high' && (
-                <p>Este paciente presenta <strong>condiciones médicas de alto riesgo</strong> que requieren especial atención.</p>
-              )}
-              {getConditionSeverity(showWarningModal).level === 'medium' && (
-                <p>Este paciente presenta <strong>condiciones médicas moderadas</strong> que deben ser consideradas en el tratamiento.</p>
-              )}
-              {getConditionSeverity(showWarningModal).level === 'low' && (
-                <p>Este paciente presenta <strong>condiciones médicas leves</strong> que deben ser tenidas en cuenta.</p>
-              )}
-              
-              {/* Condition Details */}
-              <div className="mt-3 space-y-1 text-xs">
-                {showWarningModal.sexo === 'femenino' && showWarningModal.embarazo === 'si' && (
-                  <div><strong>Embarazo:</strong> {showWarningModal.semanas_embarazo ? `${showWarningModal.semanas_embarazo} semanas` : 'Sí'}</div>
-                )}
-                {showWarningModal.enfermedades && (
-                  <div><strong>Enfermedades:</strong> {showWarningModal.enfermedades}</div>
-                )}
-                {showWarningModal.alergias && (
-                  <div><strong>Alergias:</strong> {showWarningModal.alergias}</div>
-                )}
-                {showWarningModal.medicamentos && (
-                  <div><strong>Medicamentos:</strong> {showWarningModal.medicamentos}</div>
-                )}
-                {showWarningModal.sexo === 'femenino' && showWarningModal.embarazo === 'si' && showWarningModal.medicamentos_embarazo && (
-                  <div><strong>Medicamentos embarazo:</strong> {showWarningModal.medicamentos_embarazo}</div>
-                )}
-              </div>
-            </div>
-            
-            {/* Action Button */}
-            <div className="flex justify-center">
-              <button
-                onClick={() => setShowWarningModal(null)}
-                className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                Aceptar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* No Results */}
-      {currentPatients.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
-            <i className="fas fa-users text-6xl"></i>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm ? 'No se encontraron pacientes' : 'No hay pacientes registrados'}
-          </h3>
-          <p className="text-gray-500">
-            {searchTerm ? 'Intenta con otros términos de búsqueda' : 'Comienza agregando un nuevo paciente'}
-          </p>
-          {!searchTerm && (
-            <Link
-              href="/patient-form"
-              className="mt-4 inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors duration-200"
-            >
-              <i className="fas fa-plus mr-2"></i>
-              Nuevo Paciente
-            </Link>
+            </>
           )}
-        </div>
-      )}
-
-      {/* Pagination and Records Counter */}
-      {totalPatients > 0 && (
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
-            {/* Records Counter */}
-            <div className="text-sm text-gray-700 dark:text-gray-300">
-              <span className="font-medium">Total Pacientes: {totalPatients}</span>
-              <span className="mx-2">|</span>
-              <span>Mostrando: {startIndex + 1}-{Math.min(endIndex, totalPatients)} de {totalPatients}</span>
-            </div>
-
-            {/* Records Per Page Dropdown */}
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Registros por página:</label>
-              <div className="relative">
-                <select
-                  value={recordsPerPagePref}
-                  onChange={(e) => handleRecordsPerPageChange(Number(e.target.value))}
-                  className="appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm font-medium text-gray-900 dark:text-white hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 cursor-pointer transition-colors duration-200"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                  <i className="fas fa-chevron-down text-xs"></i>
+          
+          {/* Medical Conditions Warning Modal */}
+          {showWarningModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div 
+                className={`bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full border-2 ${getConditionSeverity(showWarningModal).color} opacity-80`}
+                style={getConditionSeverity(showWarningModal).gradient ? {
+                  background: getConditionSeverity(showWarningModal).gradient,
+                  border: 'none'
+                } : {}}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Condiciones Médicas Importantes
+                  </h3>
+                  <button
+                    onClick={() => setShowWarningModal(null)}
+                    className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-500"
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {showWarningModal.sexo === 'femenino' && showWarningModal.embarazo === 'si' && (
+                    <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <i className="fas fa-baby text-pink-600 dark:text-pink-400"></i>
+                        <span className="text-pink-800 dark:text-pink-200 font-medium">Embarazo:</span>
+                        <span className="text-pink-700 dark:text-pink-300">{showWarningModal.semanas_embarazo ? `${showWarningModal.semanas_embarazo} semanas` : 'Activo'}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showWarningModal.enfermedades && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <i className="fas fa-heartbeat text-red-600 dark:text-red-400"></i>
+                        <span className="text-red-800 dark:text-red-200 font-medium">Enfermedades:</span>
+                        <span className="text-red-700 dark:text-red-300">{showWarningModal.enfermedades}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showWarningModal.alergias && (
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <i className="fas fa-allergies text-orange-600 dark:text-orange-400"></i>
+                        <span className="text-orange-800 dark:text-orange-200 font-medium">Alergias:</span>
+                        <span className="text-orange-700 dark:text-orange-300">{showWarningModal.alergias}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showWarningModal.medicamentos && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <i className="fas fa-pills text-blue-600 dark:text-blue-400"></i>
+                        <span className="text-blue-800 dark:text-blue-200 font-medium">Medicamentos:</span>
+                        <span className="text-blue-700 dark:text-blue-300">{showWarningModal.medicamentos}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowWarningModal(null)}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  >
+                    Cerrar
+                  </button>
                 </div>
               </div>
             </div>
+          )}
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 mt-6">
+              {/* Records Counter */}
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="font-medium">Total Pacientes: {totalPatients}</span>
+                <span className="mx-2">|</span>
+                <span>Mostrando: {startIndex + 1}-{Math.min(endIndex, totalPatients)} de {totalPatients}</span>
+              </div>
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
+              {/* Records Per Page Dropdown */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Registros por página:</label>
+                <div className="relative">
+                  <select
+                    value={recordsPerPagePref}
+                    onChange={(e) => handleRecordsPerPageChange(Number(e.target.value))}
+                    className="appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm font-medium text-gray-900 dark:text-white hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 cursor-pointer transition-colors duration-200"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+                    <i className="fas fa-chevron-down text-xs"></i>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pagination Controls */}
               <div className="flex items-center space-x-1">
                 {/* Previous Button */}
                 <button
@@ -922,11 +979,33 @@ export default function PacientesPage() {
                   <i className="fas fa-chevron-right"></i>
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+          
+          {/* No Results */}
+          {currentPatients.length === 0 && !loading && (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-4">
+                <i className="fas fa-users text-6xl"></i>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {searchTerm ? 'No se encontraron pacientes' : 'No hay pacientes registrados'}
+              </h3>
+              <p className="text-gray-500">
+                {searchTerm ? 'Intenta con otros términos de búsqueda' : 'Comienza agregando un nuevo paciente'}
+              </p>
+              {!searchTerm && (
+                <Link
+                  href="/patient-form"
+                  className="mt-4 inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors duration-200"
+                >
+                  <i className="fas fa-plus mr-2"></i>
+                  Nuevo Paciente
+                </Link>
+              )}
+            </div>
+          )}
         </div>
-      )}
     </div>
-  </div>
   );
 }

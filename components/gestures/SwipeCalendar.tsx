@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useRef, useCallback } from 'react';
-import { useGesture } from '@use-gesture/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SwipeCalendarProps {
@@ -22,51 +21,57 @@ export const SwipeCalendar: React.FC<SwipeCalendarProps> = ({
   className = ''
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const isDragging = useRef(false);
 
-  const bind = useGesture(
-    {
-      onDrag: ({ 
-        direction: [xDir, yDir], 
-        distance, 
-        velocity: [vx, vy],
-        last 
-      }) => {
-        // Threshold for swipe detection
-        const threshold = 50;
-        const velocityThreshold = 0.5;
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
+    isDragging.current = true;
+  }, []);
 
-        if (last && distance > threshold && Math.max(Math.abs(vx), Math.abs(vy)) > velocityThreshold) {
-          // Horizontal swipe
-          if (Math.abs(xDir) > Math.abs(yDir)) {
-            if (xDir > 0 && onSwipeRight) {
-              onSwipeRight();
-            } else if (xDir < 0 && onSwipeLeft) {
-              onSwipeLeft();
-            }
-          }
-          // Vertical swipe
-          else {
-            if (yDir > 0 && onSwipeDown) {
-              onSwipeDown();
-            } else if (yDir < 0 && onSwipeUp) {
-              onSwipeUp();
-            }
-          }
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    
+    const deltaX = endX - startX.current;
+    const deltaY = endY - startY.current;
+    
+    const threshold = 50;
+    
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      // Horizontal swipe
+      if (Math.abs(deltaX) > threshold) {
+        if (deltaX > 0 && onSwipeRight) {
+          onSwipeRight();
+        } else if (deltaX < 0 && onSwipeLeft) {
+          onSwipeLeft();
         }
       }
-    },
-    {
-      target: containerRef,
-      eventOptions: { passive: false }
+    } else {
+      // Vertical swipe
+      if (Math.abs(deltaY) > threshold) {
+        if (deltaY > 0 && onSwipeDown) {
+          onSwipeDown();
+        } else if (deltaY < 0 && onSwipeUp) {
+          onSwipeUp();
+        }
+      }
     }
-  );
+    
+    isDragging.current = false;
+  }, [onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown]);
 
   return (
     <div 
       ref={containerRef}
-      {...bind()}
       className={`touch-pan-y select-none ${className}`}
       style={{ touchAction: 'pan-y' }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {children}
     </div>
@@ -95,55 +100,50 @@ export const TouchButton: React.FC<TouchButtonProps> = ({
   const timeoutRef = useRef<NodeJS.Timeout>();
   const longPressDelay = 500;
 
-  const bind = useGesture(
-    {
-      onPointerDown: () => {
-        if (disabled) return;
-        
-        onPressIn?.();
-        
-        // Start long press timer
-        timeoutRef.current = setTimeout(() => {
-          onLongPress?.();
-        }, longPressDelay);
-      },
+  const handleTouchStart = useCallback(() => {
+    if (disabled) return;
+    
+    onPressIn?.();
+    
+    // Start long press timer
+    timeoutRef.current = setTimeout(() => {
+      onLongPress?.();
+    }, longPressDelay);
+  }, [disabled, onPressIn, onLongPress]);
 
-      onPointerUp: () => {
-        if (disabled) return;
-        
-        onPressOut?.();
-        
-        // Clear long press timer
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          
-          // If long press didn't trigger, treat as tap
-          if (onTap) {
-            onTap();
-          }
-        }
-      },
-
-      onPointerLeave: () => {
-        if (disabled) return;
-        
-        onPressOut?.();
-        
-        // Clear long press timer
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
+  const handleTouchEnd = useCallback(() => {
+    if (disabled) return;
+    
+    onPressOut?.();
+    
+    // Clear long press timer
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      
+      // If long press didn't trigger, treat as tap
+      if (onTap) {
+        onTap();
       }
-    },
-    {
-      eventOptions: { passive: false }
     }
-  );
+  }, [disabled, onPressOut, onTap]);
+
+  const handleTouchCancel = useCallback(() => {
+    if (disabled) return;
+    
+    onPressOut?.();
+    
+    // Clear long press timer
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+  }, [disabled, onPressOut]);
 
   return (
     <div
-      {...bind()}
       className={`touch-manipulation ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${className}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
     >
       {children}
     </div>

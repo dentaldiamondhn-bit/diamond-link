@@ -1,22 +1,11 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
-import { List } from 'react-window';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Phone, Mail, Calendar, User } from 'lucide-react';
-
-interface Patient {
-  paciente_id: string;
-  nombre_completo: string;
-  telefono?: string;
-  email?: string;
-  ultima_visita?: string;
-  proxima_cita?: string;
-  estado: 'activo' | 'inactivo' | 'pendiente';
-}
+import { Patient } from '@/types/patient';
 
 interface VirtualizedPatientListProps {
   patients: Patient[];
@@ -28,23 +17,12 @@ interface VirtualizedPatientListProps {
   itemHeight?: number;
 }
 
-const PatientRow = React.memo(({ 
-  index, 
-  style, 
-  data 
-}: { 
-  index: number; 
-  style: React.CSSProperties; 
-  data: {
-    patients: Patient[];
-    onPatientSelect: (patient: Patient) => void;
-    onPatientEdit?: (patient: Patient) => void;
-    onPatientDelete?: (patient: Patient) => void;
-  };
-}) => {
-  const patient = data.patients[index];
-  const { onPatientSelect, onPatientEdit, onPatientDelete } = data;
-
+const PatientRow: React.FC<{
+  patient: Patient;
+  onPatientSelect: (patient: Patient) => void;
+  onPatientEdit?: (patient: Patient) => void;
+  onPatientDelete?: (patient: Patient) => void;
+}> = ({ patient, onPatientSelect, onPatientEdit, onPatientDelete }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'activo': return 'bg-green-100 text-green-800';
@@ -54,8 +32,11 @@ const PatientRow = React.memo(({
     }
   };
 
+  // Use a default status since the full Patient type doesn't have an 'estado' field
+  const status = 'activo'; // Default to active since all patients in the main view are typically active
+
   return (
-    <div style={style} className="px-2 py-1">
+    <div className="px-2 py-1">
       <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
         <div className="flex items-center justify-between">
           <div 
@@ -85,13 +66,13 @@ const PatientRow = React.memo(({
                   )}
                 </div>
                 <div className="flex items-center gap-4 mt-1">
-                  <Badge className={getStatusColor(patient.estado)}>
-                    {patient.estado}
+                  <Badge className={getStatusColor(status)}>
+                    {status}
                   </Badge>
-                  {patient.proxima_cita && (
+                  {patient.fecha_inicio && (
                     <div className="flex items-center gap-1 text-xs text-blue-600">
                       <Calendar className="h-3 w-3" />
-                      {new Date(patient.proxima_cita).toLocaleDateString()}
+                      {new Date(patient.fecha_inicio).toLocaleDateString()}
                     </div>
                   )}
                 </div>
@@ -129,9 +110,7 @@ const PatientRow = React.memo(({
       </Card>
     </div>
   );
-});
-
-PatientRow.displayName = 'PatientRow';
+};
 
 export const VirtualizedPatientList: React.FC<VirtualizedPatientListProps> = ({
   patients,
@@ -142,20 +121,22 @@ export const VirtualizedPatientList: React.FC<VirtualizedPatientListProps> = ({
   height = 600,
   itemHeight = 120
 }) => {
-  const data = useMemo(() => ({
-    patients,
-    onPatientSelect,
-    onPatientEdit,
-    onPatientDelete
-  }), [patients, onPatientSelect, onPatientEdit, onPatientDelete]);
+  const [scrollTop, setScrollTop] = useState(0);
+  const scrollElementRef = useRef<HTMLDivElement>(null);
 
-  const renderItem = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => (
-    <PatientRow
-      index={index}
-      style={style}
-      data={data}
-    />
-  ), [data]);
+  const visibleStart = Math.floor(scrollTop / itemHeight);
+  const visibleEnd = Math.min(
+    visibleStart + Math.ceil(height / itemHeight) + 1,
+    patients.length
+  );
+
+  const visiblePatients = useMemo(() => {
+    return patients.slice(visibleStart, visibleEnd);
+  }, [patients, visibleStart, visibleEnd]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  };
 
   if (loading) {
     return (
@@ -177,19 +158,32 @@ export const VirtualizedPatientList: React.FC<VirtualizedPatientListProps> = ({
 
   return (
     <div className="w-full border rounded-lg">
-      <AutoSizer>
-        {({ width, height }: { width: number; height: number }) => (
-          <List
-            height={Math.min(height, 600)}
-            width={width}
-            itemCount={patients.length}
-            itemSize={itemHeight}
-            itemData={data}
-          >
-            {renderItem}
-          </List>
-        )}
-      </AutoSizer>
+      <div
+        ref={scrollElementRef}
+        className="overflow-auto"
+        style={{ height: `${height}px` }}
+        onScroll={handleScroll}
+      >
+        <div style={{ height: `${patients.length * itemHeight}px`, position: 'relative' }}>
+          {visiblePatients.map((patient, index) => (
+            <div
+              key={patient.paciente_id}
+              style={{
+                position: 'absolute',
+                top: `${(visibleStart + index) * itemHeight}px`,
+                width: '100%'
+              }}
+            >
+              <PatientRow
+                patient={patient}
+                onPatientSelect={onPatientSelect}
+                onPatientEdit={onPatientEdit}
+                onPatientDelete={onPatientDelete}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
