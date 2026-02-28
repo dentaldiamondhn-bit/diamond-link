@@ -2,6 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
+// Extend the global NotificationOptions to include actions and timestamp
+declare global {
+  interface NotificationOptions {
+    actions?: NotificationAction[];
+    timestamp?: number;
+  }
+}
+
 export interface NotificationPermission {
   granted: boolean;
   denied: boolean;
