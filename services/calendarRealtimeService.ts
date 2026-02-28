@@ -39,6 +39,9 @@ class CalendarRealtimeService {
       
       // Enable real-time for calendar reminders
       await this.enableRealtimeForTable('calendar_reminders');
+      
+      // Enable real-time for calendar invitees (important for notifying invitees)
+      await this.enableRealtimeForTable('calendar_invitees');
 
       this.isConnected = true;
       console.log('✅ Calendar Realtime initialized');
@@ -88,6 +91,20 @@ class CalendarRealtimeService {
 
     // Notify event update callbacks
     this.eventUpdateCallbacks.forEach(callback => callback(update));
+
+    // Special handling for calendar_invitees - when invitees are added/removed, refresh events
+    if (tableName === 'calendar_invitees' && eventType === 'INSERT') {
+      // When an invitee is added, trigger an event update to refresh calendars
+      const eventUpdate: RealtimeEventUpdate = {
+        type: 'UPDATE',
+        table: 'calendar_events',
+        schema: 'public',
+        record: { id: newRecord.item_id }, // Trigger refresh for this event
+        old_record: null,
+        timestamp: new Date().toISOString()
+      };
+      this.eventUpdateCallbacks.forEach(callback => callback(eventUpdate));
+    }
 
     // Convert to calendar notification
     const notification = this.convertToNotification(tableName, { ...payload, eventType });
@@ -144,7 +161,7 @@ class CalendarRealtimeService {
       message,
       data: record,
       timestamp: new Date().toISOString(),
-      userId: record.created_by_clerk_id // Will be overridden to notify all relevant users
+      userId: record.created_by // Fixed: use created_by instead of created_by_clerk_id
     };
   }
 
@@ -173,7 +190,7 @@ class CalendarRealtimeService {
       message,
       data: record,
       timestamp: new Date().toISOString(),
-      userId: record.created_by_clerk_id // Will be overridden to notify all relevant users
+      userId: record.created_by // Fixed: use created_by instead of created_by_clerk_id
     };
   }
 
