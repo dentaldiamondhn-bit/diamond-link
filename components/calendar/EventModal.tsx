@@ -141,7 +141,6 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
     status: 'scheduled',
     priority: 'medium',
     patient_id: '',
-    doctor_id: '',
     notes: '',
   });
   const [reminders, setReminders] = useState<Array<{ id?: string; minutes_before: number }>>([]);
@@ -170,7 +169,6 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
         status: event.status || 'scheduled',
         priority: event.priority || 'medium',
         patient_id: event.patient_id || '',
-        doctor_id: event.doctor_id || '',
         notes: event.notes || '',
       });
       setSelectedPatient(event.patient || null);
@@ -310,6 +308,7 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
       const eventData: CalendarEvent = {
         ...formData as CalendarEvent,
         created_by: userId, // Use original Clerk user ID
+        patient_id: formData.patient_id || null, // Convert empty string to null
       };
 
       let savedEvent: CalendarEventWithPatient;

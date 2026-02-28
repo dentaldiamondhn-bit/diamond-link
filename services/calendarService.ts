@@ -5,10 +5,29 @@ export class CalendarService {
   // Events CRUD operations
   static async createEvent(eventData: Omit<CalendarEvent, 'id' | 'created_at' | 'updated_at'>): Promise<CalendarEvent> {
     try {
+      // Remove doctor_id if it exists in the data (it shouldn't be there)
+      const { doctor_id, ...cleanEventData } = eventData as any;
+      
       const { data, error } = await supabase
         .from('calendar_events')
-        .insert([eventData])
-        .select()
+        .insert([cleanEventData])
+        .select(`
+          id,
+          title,
+          description,
+          start_date,
+          end_date,
+          all_day,
+          location,
+          event_type,
+          status,
+          priority,
+          patient_id,
+          notes,
+          created_by,
+          created_at,
+          updated_at
+        `)
         .single();
 
       if (error) {
@@ -44,9 +63,6 @@ export class CalendarService {
       }
       if (filter?.priority) {
         query = query.eq('priority', filter.priority);
-      }
-      if (filter?.doctor_id) {
-        query = query.eq('doctor_id', filter.doctor_id);
       }
       if (filter?.date_range) {
         query = query
@@ -104,14 +120,33 @@ export class CalendarService {
 
   static async updateEvent(id: string, updates: Partial<CalendarEvent>): Promise<CalendarEvent> {
     try {
+      // Remove doctor_id if it exists in the updates (it shouldn't be there)
+      const { doctor_id, ...cleanUpdates } = updates as any;
+      
       const { data, error } = await supabase
         .from('calendar_events')
         .update({
-          ...updates,
+          ...cleanUpdates,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
-        .select()
+        .select(`
+          id,
+          title,
+          description,
+          start_date,
+          end_date,
+          all_day,
+          location,
+          event_type,
+          status,
+          priority,
+          patient_id,
+          notes,
+          created_by,
+          created_at,
+          updated_at
+        `)
         .single();
 
       if (error) {
@@ -180,57 +215,21 @@ export class CalendarService {
         return [];
       }
 
-      // First get events where user is creator
-      const { data: creatorEvents, error: creatorError } = await supabase
-        .from('calendar_events')
-        .select(`
-          *,
-          patient:patients(
-            paciente_id,
-            nombre_completo,
-            telefono,
-            email
-          )
-        `)
-        .eq('created_by_clerk_id', userId)
-        .gte('start_date', startDate)
-        .lte('end_date', endDate)
-        .order('start_date', { ascending: true });
+      const { data, error } = await supabase
+        .rpc('get_user_events', {
+          user_id_param: userId,
+          start_date_param: startDate,
+          end_date_param: endDate
+        });
 
-      if (creatorError) {
-        console.error('Error fetching creator events:', creatorError);
-        throw creatorError;
+      if (error) {
+        console.error('Error fetching events by date range:', error);
+        throw error;
       }
 
-      // Then get events where user is an invitee
-      const { data: inviteeEvents, error: inviteeError } = await supabase
-        .from('calendar_events')
-        .select(`
-          *,
-          patient:patients(
-            paciente_id,
-            nombre_completo,
-            telefono,
-            email
-          )
-        `)
-        .in('id', `
-          SELECT event_id 
-          FROM calendar_invitees 
-          WHERE user_id = '${userId}'
-        `)
-        .gte('start_date', startDate)
-        .lte('end_date', endDate)
-        .order('start_date', { ascending: true });
-
-      if (inviteeError) {
-        console.error('Error fetching invitee events:', inviteeError);
-        throw inviteeError;
-      }
-
-      // Combine both sets of events and remove duplicates
-      const allEvents = [...(creatorEvents || []), ...(inviteeEvents || [])];
-      const uniqueEvents = allEvents.filter((event, index, self) => 
+      // Remove duplicates and format data
+      const events = data || [];
+      const uniqueEvents = events.filter((event, index, self) => 
         index === self.findIndex((e) => e.id === event.id)
       );
 

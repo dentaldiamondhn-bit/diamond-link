@@ -10,7 +10,6 @@ export interface CalendarEvent {
   status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed';
   priority: 'low' | 'medium' | 'high';
   patient_id?: string;
-  doctor_id?: string;
   notes?: string;
   reminder_minutes?: number; // Minutes before event to send reminder
   created_by: string; // User ID who created the event
@@ -39,7 +38,6 @@ export interface CalendarFilter {
   event_type?: CalendarEvent['event_type'];
   status?: CalendarEvent['status'];
   priority?: CalendarEvent['priority'];
-  doctor_id?: string;
   date_range?: {
     start: string;
     end: string;

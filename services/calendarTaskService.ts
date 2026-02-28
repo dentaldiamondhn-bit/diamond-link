@@ -209,59 +209,21 @@ export class CalendarTaskService {
         return [];
       }
 
-      // First get tasks where user is creator
-      const { data: creatorTasks, error: creatorError } = await supabase
-        .from('calendar_tasks')
-        .select(`
-          *,
-          patient:patients(
-            paciente_id,
-            nombre_completo,
-            telefono,
-            email
-          )
-        `)
-        .eq('created_by_clerk_id', userId)
-        .gte('due_date', startDate)
-        .lte('due_date', endDate)
-        .order('due_date', { ascending: true, nullsFirst: true })
-        .order('priority', { ascending: false });
+      const { data, error } = await supabase
+        .rpc('get_user_tasks', {
+          user_id_param: userId,
+          start_date_param: startDate,
+          end_date_param: endDate
+        });
 
-      if (creatorError) {
-        console.error('Error fetching creator tasks:', creatorError);
-        throw creatorError;
+      if (error) {
+        console.error('Error fetching tasks by date range:', error);
+        throw error;
       }
 
-      // Then get tasks where user is an invitee
-      const { data: inviteeTasks, error: inviteeError } = await supabase
-        .from('calendar_tasks')
-        .select(`
-          *,
-          patient:patients(
-            paciente_id,
-            nombre_completo,
-            telefono,
-            email
-          )
-        `)
-        .in('id', `
-          SELECT item_id 
-          FROM calendar_invitees 
-          WHERE user_id = '${userId}' AND item_type = 'task'
-        `)
-        .gte('due_date', startDate)
-        .lte('due_date', endDate)
-        .order('due_date', { ascending: true, nullsFirst: true })
-        .order('priority', { ascending: false });
-
-      if (inviteeError) {
-        console.error('Error fetching invitee tasks:', inviteeError);
-        throw inviteeError;
-      }
-
-      // Combine both sets of tasks and remove duplicates
-      const allTasks = [...(creatorTasks || []), ...(inviteeTasks || [])];
-      const uniqueTasks = allTasks.filter((task, index, self) => 
+      // Remove duplicates and format data
+      const tasks = data || [];
+      const uniqueTasks = tasks.filter((task, index, self) => 
         index === self.findIndex((t) => t.id === task.id)
       );
 
