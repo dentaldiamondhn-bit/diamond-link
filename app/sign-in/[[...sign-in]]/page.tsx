@@ -21,7 +21,6 @@ export default function Page() {
       
       // Check multiple metadata locations for role
       const userRole = user.publicMetadata?.role as string || 
-                      user.privateMetadata?.role as string ||
                       user.unsafeMetadata?.role as string ||
                       'staff';
       

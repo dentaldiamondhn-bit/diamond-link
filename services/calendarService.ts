@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
-import type { CalendarEvent, CalendarEventWithPatient, CalendarFilter, CalendarReminder, CalendarTask, CalendarInvitee } from '../types/calendar';
+import type { CalendarEvent, CalendarEventWithPatient, CalendarFilter, CalendarReminder } from '../types/calendar';
+import type { CalendarInvitee } from '../types/calendarInvitees';
 import { SimpleTimezoneFix } from './simpleTimezoneFix';
 
 export class CalendarService {
