@@ -4,49 +4,18 @@
 import { SignIn, useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import Image from 'next/image';
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import './signin-styles.css';
 
 export default function Page() {
   const [isLoaded, setIsLoaded] = useState(false);
   const { user, isLoaded: userLoaded } = useUser();
-  const router = useRouter();
-  const hasRedirected = useRef(false);
-  
-  // Redirect authenticated users immediately - only once
-  useEffect(() => {
-    if (userLoaded && user && !hasRedirected.current) {
-      hasRedirected.current = true;
-      
-      // Check multiple metadata locations for role
-      const userRole = user.publicMetadata?.role as string || 
-                      user.unsafeMetadata?.role as string ||
-                      'staff';
-      
-      let redirectUrl = '/dashboard'; // Default fallback
-      
-      switch (userRole) {
-        case 'tech_support':
-        case 'tech-support':
-          redirectUrl = '/tech-support/dashboard';
-          break;
-        case 'admin':
-        case 'doctor':
-        case 'staff':
-          redirectUrl = '/dashboard';
-          break;
-      }
-      
-      router.push(redirectUrl);
-    }
-  }, [userLoaded, user]);
 
   useEffect(() => {
     setIsLoaded(true);
   }, []);
 
-  // If user is authenticated, don't render SignIn component
+  // If user is already authenticated, show loading instead of SignIn component
   if (userLoaded && user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -163,6 +132,7 @@ export default function Page() {
                 }}
                 routing="path"
                 path="/sign-in"
+                afterSignInUrl="/dashboard"
               />
             </motion.div>
           )}
