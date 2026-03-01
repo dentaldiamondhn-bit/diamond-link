@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
-import { CalendarEvent, CalendarEventWithPatient, CalendarReminder, CalendarFilter } from '../types/calendar';
+import type { CalendarEvent, CalendarEventWithPatient, CalendarFilter, CalendarReminder, CalendarTask, CalendarInvitee } from '../types/calendar';
+import { SimpleTimezoneFix } from './simpleTimezoneFix';
 
 export class CalendarService {
   // Events CRUD operations
@@ -269,42 +270,185 @@ export class CalendarService {
     }
   }
 
-  // Get upcoming events for reminders
+  // Get event participants (owner + invitees) for avatar display
+  static async getEventParticipants(eventId: string): Promise<any[]> {
+    try {
+      const participants: any[] = [];
+      
+      // Get event details to find owner
+      const { data: eventData, error: eventError } = await supabase
+        .from('calendar_events')
+        .select('created_by')
+        .eq('id', eventId)
+        .single();
+        
+      if (eventError) {
+        console.error('Error fetching event owner:', eventError);
+        return [];
+      }
+      
+      // Get all user data from API
+      let allUsers: any[] = [];
+      try {
+        const response = await fetch('/api/users');
+        if (response.ok) {
+          allUsers = await response.json();
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+      
+      // Create user map for quick lookup
+      const userMap = new Map(allUsers.map((user: any) => [user.id, user]));
+      
+      // Add event owner to participants with real user info
+      if (eventData?.created_by) {
+        const userData = userMap.get(eventData.created_by);
+        participants.push({
+          id: eventData.created_by,
+          role: 'owner',
+          first_name: userData?.first_name || 'Event',
+          last_name: userData?.last_name || 'Owner',
+          email: userData?.email || '',
+          profile_image_url: userData?.profileImageUrl || null
+        });
+      }
+      
+      // Get invitees with real user info
+      const { data: inviteeData, error: inviteeError } = await supabase
+        .from('calendar_invitees')
+        .select('user_id, status')
+        .eq('item_id', eventId)
+        .eq('item_type', 'event')
+        .in('status', ['accepted', 'pending']);
+        
+      if (!inviteeError && inviteeData) {
+        for (const invitee of inviteeData) {
+          const userData = userMap.get(invitee.user_id);
+          participants.push({
+            id: invitee.user_id,
+            role: invitee.status === 'accepted' ? 'invitee_accepted' : 'invitee_pending',
+            first_name: userData?.first_name || 'Invited',
+            last_name: userData?.last_name || 'User',
+            email: userData?.email || '',
+            profile_image_url: userData?.profileImageUrl || null
+          });
+        }
+      }
+      
+      return participants;
+    } catch (error) {
+      console.error('Error fetching event participants:', error);
+      return [];
+    }
+  }
+
+  // Get upcoming events for reminders - includes events where user is creator OR invitee
   static async getUpcomingEvents(userId?: string): Promise<CalendarEventWithPatient[]> {
     try {
-      const now = new Date().toISOString();
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowISO = tomorrow.toISOString();
+      // Use Honduras local time for filtering - get start of today in local time
+      const nowLocal = new Date();
+      const startOfTodayLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate());
+      const startOfTodayUTC = startOfTodayLocal.toISOString();
+      
+      const nextWeekLocal = new Date();
+      nextWeekLocal.setDate(nextWeekLocal.getDate() + 14);
+      const nextWeekUTC = nextWeekLocal.toISOString();
 
-      let query = supabase
+      // First, get events where user is the creator
+      let creatorQuery = supabase
         .from('calendar_events')
         .select(`
           *,
-          patient:pacientes(
+          patient:patients(
             paciente_id,
             nombre_completo,
             telefono,
             email
           )
         `)
-        .gte('start_date', now)
-        .lte('start_date', tomorrow)
+        .gte('start_date', startOfTodayUTC)
+        .lte('start_date', nextWeekUTC)
         .neq('status', 'cancelled')
         .order('start_date', { ascending: true });
 
       if (userId) {
-        query = query.eq('created_by', userId);
+        creatorQuery = creatorQuery.eq('created_by', userId);
       }
 
-      const { data, error } = await query;
+      const { data: creatorEvents, error: creatorError } = await creatorQuery;
 
-      if (error) {
-        console.error('Error fetching upcoming events:', error);
-        throw error;
+      if (creatorError) {
+        console.error('Error fetching creator events:', creatorError);
+        throw creatorError;
       }
 
-      return data || [];
+      // Second, get events where user is an invitee
+      let inviteeEvents: CalendarEventWithPatient[] = [];
+      
+      if (userId) {
+        // First get the invitee records (without date filtering first)
+        const { data: inviteeData, error: inviteeError } = await supabase
+          .from('calendar_invitees')
+          .select(`
+            item_id,
+            status
+          `)
+          .eq('user_id', userId)
+          .eq('item_type', 'event') // Only get event invitees
+          .in('status', ['accepted', 'pending']); // Include both accepted and pending
+
+        if (inviteeError) {
+          console.error('Error fetching invitee records:', inviteeError);
+        } else if (inviteeData && inviteeData.length > 0) {
+          // Get the event IDs
+          const eventIds = inviteeData.map(item => item.item_id);
+          
+          // Now fetch the events for these IDs (with broader date range)
+          const { data: eventsData, error: eventsError } = await supabase
+            .from('calendar_events')
+            .select(`
+              *,
+              patient:patients(
+                paciente_id,
+                nombre_completo,
+                telefono,
+                email
+              )
+            `)
+            .in('id', eventIds)
+            .gte('start_date', startOfTodayUTC)
+            .lte('start_date', nextWeekUTC)
+            .neq('status', 'cancelled')
+            .order('start_date', { ascending: true });
+
+          if (eventsError) {
+            console.error('Error fetching invitee events:', eventsError);
+          } else {
+            // Transform and add invitee status
+            inviteeEvents = (eventsData || []).map(event => {
+              const inviteeRecord = inviteeData.find(item => item.item_id === event.id);
+              return {
+                ...event,
+                invitee_status: inviteeRecord?.status
+              };
+            });
+          }
+        }
+      }
+
+      // Combine both sets of events
+      const allEvents = [...(creatorEvents || []), ...inviteeEvents];
+      
+      // Remove duplicates (in case user is both creator and invitee)
+      const uniqueEvents = allEvents.filter((event, index, self) => 
+        index === self.findIndex((e) => e.id === event.id)
+      );
+
+      // Sort by start date
+      uniqueEvents.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+
+      return uniqueEvents;
     } catch (error) {
       console.error('Unexpected error fetching upcoming events:', error);
       throw error;

@@ -103,6 +103,33 @@ export class SimpleTimezoneFix {
   }
   
   /**
+   * Format time for display - SIMPLE VERSION
+   */
+  static formatTime(dateString: string | Date): string {
+    if (!dateString) return '';
+    
+    try {
+      const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+      
+      // Get local time components
+      const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+      
+      // Format as HH:MM AM/PM
+      let hours = localDate.getHours();
+      const minutes = localDate.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      
+      const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
+      
+      return `${hours}:${formattedMinutes} ${ampm}`;
+    } catch (error) {
+      return '';
+    }
+  }
+  
+  /**
    * Calculate age at a specific date (for "Edad al momento de consulta")
    */
   static calculateAgeAtDate(birthDateString: string, consultationDateString: string): number {

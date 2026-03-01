@@ -4,38 +4,60 @@
 import { SignIn, useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import './signin-styles.css';
 
 export default function Page() {
   const [isLoaded, setIsLoaded] = useState(false);
   const { user, isLoaded: userLoaded } = useUser();
+  const router = useRouter();
+  const hasRedirected = useRef(false);
   
-  // Determine redirect URL based on user role
-  const getRedirectUrl = () => {
-    if (!userLoaded || !user) {
-      return '/dashboard'; // Default fallback
+  // Redirect authenticated users immediately - only once
+  useEffect(() => {
+    if (userLoaded && user && !hasRedirected.current) {
+      hasRedirected.current = true;
+      
+      // Check multiple metadata locations for role
+      const userRole = user.publicMetadata?.role as string || 
+                      user.privateMetadata?.role as string ||
+                      user.unsafeMetadata?.role as string ||
+                      'staff';
+      
+      let redirectUrl = '/dashboard'; // Default fallback
+      
+      switch (userRole) {
+        case 'tech_support':
+        case 'tech-support':
+          redirectUrl = '/tech-support/dashboard';
+          break;
+        case 'admin':
+        case 'doctor':
+        case 'staff':
+          redirectUrl = '/dashboard';
+          break;
+      }
+      
+      router.push(redirectUrl);
     }
-    
-    const userRole = user.publicMetadata?.role as string;
-    
-    switch (userRole) {
-      case 'tech_support':
-        return '/tech-support/dashboard';
-      case 'admin':
-        return '/dashboard';
-      case 'doctor':
-        return '/dashboard';
-      case 'staff':
-        return '/dashboard';
-      default:
-        return '/dashboard';
-    }
-  };
+  }, [userLoaded, user]);
 
   useEffect(() => {
     setIsLoaded(true);
   }, []);
+
+  // If user is authenticated, don't render SignIn component
+  if (userLoaded && user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirigiendo...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-container">
@@ -142,7 +164,6 @@ export default function Page() {
                 }}
                 routing="path"
                 path="/sign-in"
-                afterSignInUrl={getRedirectUrl()}
               />
             </motion.div>
           )}
