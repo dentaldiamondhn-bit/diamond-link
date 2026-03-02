@@ -1,6 +1,40 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
+// Mobile-friendly debug logging
+const debugLog = (level: 'info' | 'error' | 'success' | 'warning', message: string, details?: any) => {
+  // Store logs in localStorage for mobile debugging
+  const logs = JSON.parse(localStorage.getItem('widgetDebugLogs') || '[]');
+  const newLog = {
+    id: Math.random().toString(36).substr(2, 9),
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    details
+  };
+  logs.push(newLog);
+  
+  // Keep only last 50 logs
+  if (logs.length > 50) {
+    logs.shift();
+  }
+  
+  localStorage.setItem('widgetDebugLogs', JSON.stringify(logs));
+  
+  // Also log to console for development
+  console.log(`[WIDGET ${level.toUpperCase()}] ${message}`, details || '');
+};
+
+// Helper to get logs for mobile debug panel
+export const getWidgetDebugLogs = () => {
+  return JSON.parse(localStorage.getItem('widgetDebugLogs') || '[]');
+};
+
+// Helper to clear debug logs
+export const clearWidgetDebugLogs = () => {
+  localStorage.removeItem('widgetDebugLogs');
+};
+
 export class CalendarHomeWidget {
   private static instance: CalendarHomeWidget;
 
@@ -13,22 +47,23 @@ export class CalendarHomeWidget {
 
   async requestHomeScreenWidget(): Promise<boolean> {
     try {
-      console.log('Platform:', Capacitor.getPlatform());
+      const platform = Capacitor.getPlatform();
+      debugLog('info', 'Platform detected', { platform });
       
       // Check if running on native platform
-      if (Capacitor.getPlatform() === 'web') {
-        console.log('Home screen widget only available on native platforms');
+      if (platform === 'web') {
+        debugLog('warning', 'Home screen widget only available on native platforms');
         return false;
       }
 
       // Request notification permissions first
       const permissionStatus = await LocalNotifications.requestPermissions();
-      console.log('Notification permissions:', permissionStatus);
+      debugLog('info', 'Notification permissions requested', { permissionStatus });
 
       // For now, we'll show instructions and return true for demonstration
       // In a real implementation, you would use native platform APIs
-      if (Capacitor.getPlatform() === 'android') {
-        console.log('Showing Android widget instructions');
+      if (platform === 'android') {
+        debugLog('info', 'Showing Android widget instructions');
         // Show instructions for Android widget
         await LocalNotifications.schedule({
           notifications: [{
@@ -40,12 +75,13 @@ export class CalendarHomeWidget {
             largeIcon: 'calendar_icon'
           }]
         });
+        debugLog('success', 'Android widget notification scheduled');
         return true;
       }
 
       // For iOS, add to Today View
-      if (Capacitor.getPlatform() === 'ios') {
-        console.log('Showing iOS widget instructions');
+      if (platform === 'ios') {
+        debugLog('info', 'Showing iOS widget instructions');
         await LocalNotifications.schedule({
           notifications: [{
             id: 1002,
@@ -56,25 +92,27 @@ export class CalendarHomeWidget {
             largeIcon: 'calendar_icon'
           }]
         });
+        debugLog('success', 'iOS widget notification scheduled');
         return true;
       }
 
       return false;
     } catch (error) {
-      console.error('Error requesting home screen widget:', error);
+      debugLog('error', 'Error requesting home screen widget', error);
       return false;
     }
   }
 
   async createCalendarShortcut(): Promise<boolean> {
     try {
-      console.log('Creating calendar shortcut for platform:', Capacitor.getPlatform());
+      const platform = Capacitor.getPlatform();
+      debugLog('info', 'Creating calendar shortcut', { platform });
       
       // Request notification permissions first
       const permissionStatus = await LocalNotifications.requestPermissions();
-      console.log('Notification permissions for shortcut:', permissionStatus);
+      debugLog('info', 'Notification permissions for shortcut', { permissionStatus });
       
-      if (Capacitor.getPlatform() === 'web') {
+      if (platform === 'web') {
         // For web, we can create a PWA prompt
         if ('serviceWorker' in navigator && 'PushManager' in window) {
           await LocalNotifications.schedule({
@@ -87,13 +125,15 @@ export class CalendarHomeWidget {
               largeIcon: 'calendar_icon'
             }]
           });
+          debugLog('success', 'Web PWA notification scheduled');
           return true;
         }
+        debugLog('warning', 'Web platform does not support PWA features');
         return false;
       }
 
       // For native platforms, show instructions
-      console.log('Showing native platform shortcut instructions');
+      debugLog('info', 'Showing native platform shortcut instructions');
       await LocalNotifications.schedule({
         notifications: [{
           id: 1004,
@@ -104,10 +144,11 @@ export class CalendarHomeWidget {
           largeIcon: 'calendar_icon'
         }]
       });
+      debugLog('success', 'Native shortcut notification scheduled');
       
       return true;
     } catch (error) {
-      console.error('Error creating calendar shortcut:', error);
+      debugLog('error', 'Error creating calendar shortcut', error);
       return false;
     }
   }
@@ -129,15 +170,15 @@ export class CalendarHomeWidget {
   async showWidgetInstructions(): Promise<void> {
     try {
       const { platform } = await this.checkWidgetSupport();
-      console.log('Showing widget instructions for platform:', platform);
+      debugLog('info', 'Showing widget instructions', { platform });
       
       // Request notification permissions first
       const permissionStatus = await LocalNotifications.requestPermissions();
-      console.log('Notification permissions for instructions:', permissionStatus);
+      debugLog('info', 'Notification permissions for instructions', { permissionStatus });
       
       if (platform === 'android') {
         // Show Android-specific instructions
-        console.log('Showing Android widget instructions');
+        debugLog('info', 'Showing Android widget instructions');
         await LocalNotifications.schedule({
           notifications: [{
             id: 1005,
@@ -149,9 +190,10 @@ export class CalendarHomeWidget {
             actionTypeId: 'widget_instructions'
           }]
         });
+        debugLog('success', 'Android widget instructions notification scheduled');
       } else if (platform === 'ios') {
         // Show iOS-specific instructions
-        console.log('Showing iOS widget instructions');
+        debugLog('info', 'Showing iOS widget instructions');
         await LocalNotifications.schedule({
           notifications: [{
             id: 1006,
@@ -163,9 +205,10 @@ export class CalendarHomeWidget {
             actionTypeId: 'widget_instructions'
           }]
         });
+        debugLog('success', 'iOS widget instructions notification scheduled');
       } else if (platform === 'web') {
         // Show web-specific instructions
-        console.log('Showing web widget instructions');
+        debugLog('info', 'Showing web widget instructions');
         await LocalNotifications.schedule({
           notifications: [{
             id: 1007,
@@ -177,9 +220,10 @@ export class CalendarHomeWidget {
             actionTypeId: 'widget_instructions'
           }]
         });
+        debugLog('success', 'Web widget instructions notification scheduled');
       }
     } catch (error) {
-      console.error('Error showing widget instructions:', error);
+      debugLog('error', 'Error showing widget instructions', error);
     }
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CalendarHomeWidget } from '@/services/calendarHomeWidget';
+import { CalendarHomeWidget, getWidgetDebugLogs, clearWidgetDebugLogs } from '@/services/calendarHomeWidget';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -11,7 +11,8 @@ import {
   CheckCircle, 
   AlertCircle,
   Grid3x3 as WidgetIcon,
-  Zap as Shortcut
+  Zap as Shortcut,
+  Bug
 } from 'lucide-react';
 
 interface WidgetRequestProps {
@@ -28,9 +29,17 @@ export const WidgetRequest: React.FC<WidgetRequestProps> = ({ className = '' }) 
   const [isCreatingShortcut, setIsCreatingShortcut] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<any[]>([]);
 
   useEffect(() => {
     checkWidgetSupport();
+    // Load debug logs periodically
+    const interval = setInterval(() => {
+      setDebugLogs(getWidgetDebugLogs());
+    }, 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const checkWidgetSupport = async () => {
@@ -254,6 +263,88 @@ export const WidgetRequest: React.FC<WidgetRequestProps> = ({ className = '' }) 
               )}
             </div>
           </div>
+
+          {/* Debug Panel Toggle */}
+          <div className="mt-4 flex justify-center">
+            <Button
+              onClick={() => setShowDebugPanel(!showDebugPanel)}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              <Bug className="h-3 w-3 mr-1" />
+              {showDebugPanel ? 'Hide' : 'Show'} Debug Panel
+            </Button>
+          </div>
+
+          {/* Mobile Debug Panel */}
+          {showDebugPanel && (
+            <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <div className="bg-gray-100 dark:bg-gray-800 px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h4 className="text-sm font-semibold">Debug Console</h4>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => setDebugLogs(getWidgetDebugLogs())}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs"
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      clearWidgetDebugLogs();
+                      setDebugLogs([]);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="max-h-48 overflow-y-auto p-3 space-y-2">
+                {debugLogs.length === 0 ? (
+                  <div className="text-center text-gray-500 dark:text-gray-400 text-xs py-4">
+                    No logs yet. Try using the widget features.
+                  </div>
+                ) : (
+                  debugLogs.map(log => (
+                    <div
+                      key={log.id}
+                      className={`p-2 rounded text-xs ${
+                        log.level === 'error' ? 'bg-red-50 dark:bg-red-900 text-red-800 dark:text-red-200' :
+                        log.level === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                        log.level === 'success' ? 'bg-green-50 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                        'bg-blue-50 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                      }`}
+                    >
+                      <div className="flex items-start space-x-1">
+                        <span className="text-xs">
+                          {log.level === 'error' ? '❌' :
+                           log.level === 'warning' ? '⚠️' :
+                           log.level === 'success' ? '✅' : 'ℹ️'}
+                        </span>
+                        <div className="flex-1">
+                          <div className="font-medium">{log.message}</div>
+                          <div className="opacity-70 text-xs mt-1">
+                            {new Date(log.timestamp).toLocaleTimeString()}
+                          </div>
+                          {log.details && (
+                            <div className="mt-1 text-xs bg-white dark:bg-gray-800 p-1 rounded border">
+                              <pre className="whitespace-pre-wrap">{JSON.stringify(log.details, null, 2)}</pre>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
