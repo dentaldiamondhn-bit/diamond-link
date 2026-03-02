@@ -46,6 +46,7 @@ export default clerkMiddleware(async (auth, req) => {
         req.nextUrl.pathname === '/pacientes' ||
         req.nextUrl.pathname === '/doctores' ||
         req.nextUrl.pathname === '/calendario' ||
+        req.nextUrl.pathname === '/calendar-widget' ||
         req.nextUrl.pathname === '/tratamientos' ||
         req.nextUrl.pathname === '/presupuestos' ||
         req.nextUrl.pathname.startsWith('/xray-viewer') ||
