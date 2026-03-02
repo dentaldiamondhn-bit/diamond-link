@@ -115,9 +115,26 @@ export class CalendarHomeWidget {
       if (platform === 'web') {
         // For web, we can create a PWA prompt
         if ('serviceWorker' in navigator && 'PushManager' in window) {
+          debugLog('info', 'Checking ServiceWorker availability for shortcut');
+          
           // For web, use ServiceWorkerRegistration.showNotification() if available
           if (navigator.serviceWorker.ready) {
-            navigator.serviceWorker.ready.then(registration => {
+            debugLog('info', 'ServiceWorker.ready exists for shortcut, waiting for registration');
+            
+            // Add timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('ServiceWorker.ready timeout after 5 seconds')), 5000);
+            });
+            
+            Promise.race([
+              navigator.serviceWorker.ready,
+              timeoutPromise
+            ]).then((registration: ServiceWorkerRegistration | undefined) => {
+              debugLog('info', 'ServiceWorker ready resolved for shortcut', { 
+                hasRegistration: !!registration,
+                scope: registration?.scope 
+              });
+              
               if (registration) {
                 registration.showNotification('Add to Home Screen', {
                   body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
@@ -127,19 +144,91 @@ export class CalendarHomeWidget {
                 });
                 debugLog('success', 'Web PWA notification shown via ServiceWorker');
               } else {
-                debugLog('warning', 'ServiceWorker registration not available');
+                debugLog('warning', 'ServiceWorker registration not available for shortcut');
               }
             }).catch(error => {
-              debugLog('error', 'ServiceWorker ready failed', error);
+              debugLog('error', 'ServiceWorker ready failed or timed out for shortcut', error);
+              debugLog('info', 'Falling back to direct registration for shortcut');
+              
+              // Try to get current registration directly
+              navigator.serviceWorker.getRegistration().then(registration => {
+                if (registration) {
+                  registration.showNotification('Add to Home Screen', {
+                    body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
+                    icon: '/calendar_icon.png',
+                    tag: 'pwa-instructions',
+                    requireInteraction: true
+                  });
+                  debugLog('success', 'Web PWA notification shown via direct registration');
+                } else {
+                  debugLog('warning', 'No ServiceWorker registration found for shortcut, falling back to Notification API');
+                  // Fallback to Notification constructor
+                  if ('Notification' in window && Notification.permission === 'granted') {
+                    try {
+                      new Notification('Add to Home Screen', {
+                        body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
+                        icon: '/calendar_icon.png',
+                        tag: 'pwa-instructions'
+                      });
+                      debugLog('success', 'Web PWA notification shown via Notification constructor fallback');
+                    } catch (error) {
+                      debugLog('error', 'Notification constructor failed for shortcut', error);
+                      debugLog('info', 'Trying alternative notification method for shortcut');
+                      
+                      // Alternative: Use alert as last resort
+                      if (confirm('Add Calendar to Home Screen\n\nUse browser menu to "Add to Home Screen" for quick calendar access\n\nClick OK to continue')) {
+                        debugLog('info', 'User confirmed shortcut instructions via alert dialog');
+                      }
+                      debugLog('success', 'Shortcut instructions shown via alert dialog');
+                    }
+                  } else {
+                    debugLog('warning', 'Notification API not available or permission not granted for shortcut');
+                  }
+                }
+              }).catch(error => {
+                debugLog('error', 'Direct ServiceWorker registration failed for shortcut', error);
+              });
             });
-          } else if ('Notification' in window) {
-            // Fallback to Notification constructor if ServiceWorker not available
-            new Notification('Add to Home Screen', {
-              body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
-              icon: '/calendar_icon.png',
-              tag: 'pwa-instructions'
+          } else {
+            debugLog('warning', 'ServiceWorker.ready not available for shortcut, trying direct registration');
+            // Try to get current registration directly
+            navigator.serviceWorker.getRegistration().then(registration => {
+              if (registration) {
+                registration.showNotification('Add to Home Screen', {
+                  body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
+                  icon: '/calendar_icon.png',
+                  tag: 'pwa-instructions',
+                  requireInteraction: true
+                });
+                debugLog('success', 'Web PWA notification shown via direct registration');
+              } else {
+                debugLog('warning', 'No ServiceWorker registration found for shortcut, falling back to Notification API');
+                // Fallback to Notification constructor
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  try {
+                    new Notification('Add to Home Screen', {
+                      body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
+                      icon: '/calendar_icon.png',
+                      tag: 'pwa-instructions'
+                    });
+                    debugLog('success', 'Web PWA notification shown via Notification constructor fallback');
+                  } catch (error) {
+                    debugLog('error', 'Notification constructor failed for shortcut', error);
+                    debugLog('info', 'Trying alternative notification method for shortcut');
+                    
+                    // Alternative: Use alert as last resort
+                    if (confirm('Add Calendar to Home Screen\n\nUse browser menu to "Add to Home Screen" for quick calendar access\n\nClick OK to continue')) {
+                      debugLog('info', 'User confirmed shortcut instructions via alert dialog');
+                    }
+                    debugLog('success', 'Shortcut instructions shown via alert dialog');
+                  }
+                } else {
+                  debugLog('warning', 'Notification API not available or permission not granted for shortcut');
+                }
+              }
+            }).catch(error => {
+              debugLog('error', 'Direct ServiceWorker registration failed for shortcut', error);
             });
-            debugLog('success', 'Web PWA notification shown via Notification constructor');
           }
           return true;
         }
