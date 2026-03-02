@@ -374,8 +374,8 @@ export const PwaCalendarWidget: React.FC<PwaCalendarWidgetProps> = ({
     
     // Sort by date
     const sortedItems = [...allEvents, ...allTasks].sort((a, b) => {
-      const dateA = new Date(a.start_date || a.due_date);
-      const dateB = new Date(b.start_date || b.due_date);
+      const dateA = new Date('start_date' in a ? a.start_date : a.due_date);
+      const dateB = new Date('start_date' in b ? b.start_date : b.due_date);
       return dateA.getTime() - dateB.getTime();
     });
 
@@ -393,7 +393,7 @@ export const PwaCalendarWidget: React.FC<PwaCalendarWidgetProps> = ({
             <div className="space-y-3">
               {sortedItems.map((item, index) => {
                 const isEvent = 'start_date' in item;
-                const date = new Date(isEvent ? item.start_date : item.due_date);
+                const date = new Date(isEvent ? (item as CalendarEvent).start_date : (item as CalendarTask).due_date);
                 
                 return (
                   <div
