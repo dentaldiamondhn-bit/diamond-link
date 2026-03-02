@@ -225,33 +225,82 @@ export class CalendarHomeWidget {
         // Show web-specific instructions
         debugLog('info', 'Showing web widget instructions');
         
+        // Check ServiceWorker availability
+        debugLog('info', 'Checking ServiceWorker availability', {
+          hasServiceWorker: 'serviceWorker' in navigator,
+          hasNavigator: 'navigator' in window,
+          serviceWorkerReady: navigator.serviceWorker ? 'exists' : 'missing'
+        });
+        
         // For web, use ServiceWorkerRegistration.showNotification() if available
-        if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
-          navigator.serviceWorker.ready.then(registration => {
-            if (registration) {
-              registration.showNotification('Add Calendar to Home Screen', {
-                body: 'Use browser menu > "Add to Home Screen" to install as PWA',
-                icon: '/calendar_icon.png',
-                tag: 'widget-instructions',
-                requireInteraction: true
+        if ('serviceWorker' in navigator) {
+          debugLog('info', 'ServiceWorker available, checking readiness');
+          
+          if (navigator.serviceWorker.ready) {
+            debugLog('info', 'ServiceWorker.ready exists, waiting for registration');
+            navigator.serviceWorker.ready.then(registration => {
+              debugLog('info', 'ServiceWorker ready resolved', { 
+                hasRegistration: !!registration,
+                scope: registration?.scope 
               });
-              debugLog('success', 'Web widget notification shown via ServiceWorker');
-            } else {
-              debugLog('warning', 'ServiceWorker registration not available');
-            }
-          }).catch(error => {
-            debugLog('error', 'ServiceWorker ready failed', error);
-          });
-        } else if ('Notification' in window) {
-          // Fallback to Notification constructor if ServiceWorker not available
-          new Notification('Add Calendar to Home Screen', {
-            body: 'Use browser menu > "Add to Home Screen" to install as PWA',
-            icon: '/calendar_icon.png',
-            tag: 'widget-instructions'
-          });
-          debugLog('success', 'Web widget notification shown via Notification constructor');
+              
+              if (registration) {
+                registration.showNotification('Add Calendar to Home Screen', {
+                  body: 'Use browser menu > "Add to Home Screen" to install as PWA',
+                  icon: '/calendar_icon.png',
+                  tag: 'widget-instructions',
+                  requireInteraction: true
+                });
+                debugLog('success', 'Web widget notification shown via ServiceWorker');
+              } else {
+                debugLog('warning', 'ServiceWorker registration is null');
+              }
+            }).catch(error => {
+              debugLog('error', 'ServiceWorker ready failed', error);
+            });
+          } else {
+            debugLog('warning', 'ServiceWorker.ready not available, trying direct registration');
+            // Try to get current registration directly
+            navigator.serviceWorker.getRegistration().then(registration => {
+              if (registration) {
+                registration.showNotification('Add Calendar to Home Screen', {
+                  body: 'Use browser menu > "Add to Home Screen" to install as PWA',
+                  icon: '/calendar_icon.png',
+                  tag: 'widget-instructions',
+                  requireInteraction: true
+                });
+                debugLog('success', 'Web widget notification shown via direct registration');
+              } else {
+                debugLog('warning', 'No ServiceWorker registration found, falling back to Notification API');
+                // Fallback to Notification constructor
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  new Notification('Add Calendar to Home Screen', {
+                    body: 'Use browser menu > "Add to Home Screen" to install as PWA',
+                    icon: '/calendar_icon.png',
+                    tag: 'widget-instructions'
+                  });
+                  debugLog('success', 'Web widget notification shown via Notification constructor fallback');
+                } else {
+                  debugLog('warning', 'Notification API not available or permission not granted');
+                }
+              }
+            }).catch(error => {
+              debugLog('error', 'Direct ServiceWorker registration failed', error);
+            });
+          }
         } else {
-          debugLog('warning', 'Web notifications not available');
+          debugLog('warning', 'ServiceWorker not supported in this browser');
+          // Fallback to Notification constructor if ServiceWorker not available
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Add Calendar to Home Screen', {
+              body: 'Use browser menu > "Add to Home Screen" to install as PWA',
+              icon: '/calendar_icon.png',
+              tag: 'widget-instructions'
+            });
+            debugLog('success', 'Web widget notification shown via Notification constructor fallback');
+          } else {
+            debugLog('warning', 'Notification API not available or permission not granted');
+          }
         }
       }
     } catch (error) {
