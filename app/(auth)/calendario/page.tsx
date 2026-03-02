@@ -2,7 +2,6 @@
 
 import { useUser } from '@clerk/nextjs';
 import { Calendar } from '../../../components/calendar/Calendar';
-import { WidgetRequest } from '../../../components/calendar/WidgetRequest';
 import { useEffect, useState } from 'react';
 
 export default function CalendarPage() {
@@ -35,11 +34,6 @@ export default function CalendarPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* Widget Request Section - Show on mobile */}
-      <div className="mb-6 lg:hidden">
-        <WidgetRequest />
-      </div>
-      
       {/* Main Calendar */}
       <Calendar userId={user.id} userRole={userRole} />
     </div>

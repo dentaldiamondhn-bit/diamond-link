@@ -3,42 +3,70 @@
 import React, { useState, useEffect } from 'react';
 import { PwaCalendarWidget } from '@/components/calendar/PwaCalendarWidget';
 import { useUser } from '@clerk/nextjs';
+import { CalendarService } from '@/services/calendarService';
+import { CalendarTaskService } from '@/services/calendarTaskService';
 
 export default function CalendarWidgetPage() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const [events, setEvents] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load events for the current user
-    const loadEvents = async () => {
+    // Load events and tasks for the current user
+    const loadData = async () => {
       try {
-        const response = await fetch('/api/calendar/events');
-        if (response.ok) {
-          const data = await response.json();
-          setEvents(data.events || []);
-        }
+        const currentMonth = new Date();
+        const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+        const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+        // Load events
+        const eventsData = await CalendarService.getEventsByDateRange(
+          startDate.toISOString(),
+          endDate.toISOString(),
+          user?.id || ''
+        );
+        setEvents(eventsData || []);
+
+        // Load tasks
+        const tasksData = await CalendarTaskService.getTasksByDateRange(
+          startDate.toISOString(),
+          endDate.toISOString(),
+          user?.id || ''
+        );
+        setTasks(tasksData || []);
       } catch (error) {
-        console.error('Error loading events:', error);
+        console.error('Error loading calendar data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    if (user) {
-      loadEvents();
+    if (isLoaded && user) {
+      loadData();
     }
-  }, [user]);
+  }, [user, isLoaded]);
 
   const handleEventClick = (event: any) => {
     // Navigate to full calendar app with event selected
     window.location.href = `/calendario?event=${event.id}`;
   };
 
+  const handleTaskClick = (task: any) => {
+    // Navigate to full calendar app with task selected
+    window.location.href = `/calendario?task=${task.id}`;
+  };
+
   const handleAddEvent = (date: Date) => {
     // Navigate to full calendar app with pre-selected date
     const dateStr = date.toISOString().split('T')[0];
-    window.location.href = `/calendario?date=${dateStr}&action=add`;
+    window.location.href = `/calendario?date=${dateStr}&action=add-event`;
+  };
+
+  const handleAddTask = (date: Date) => {
+    // Navigate to full calendar app with pre-selected date
+    const dateStr = date.toISOString().split('T')[0];
+    window.location.href = `/calendario?date=${dateStr}&action=add-task`;
   };
 
   if (loading) {
@@ -55,8 +83,11 @@ export default function CalendarWidgetPage() {
   return (
     <PwaCalendarWidget
       events={events}
+      tasks={tasks}
       onEventClick={handleEventClick}
+      onTaskClick={handleTaskClick}
       onAddEvent={handleAddEvent}
+      onAddTask={handleAddTask}
     />
   );
 }
