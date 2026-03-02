@@ -312,12 +312,29 @@ export class CalendarHomeWidget {
                 debugLog('warning', 'No ServiceWorker registration found, falling back to Notification API');
                 // Fallback to Notification constructor
                 if ('Notification' in window && Notification.permission === 'granted') {
-                  new Notification('Add Calendar to Home Screen', {
-                    body: 'Use browser menu > "Add to Home Screen" to install as PWA',
-                    icon: '/calendar_icon.png',
-                    tag: 'widget-instructions'
-                  });
-                  debugLog('success', 'Web widget notification shown via Notification constructor fallback');
+                  try {
+                    new Notification('Add Calendar to Home Screen', {
+                      body: 'Use browser menu > "Add to Home Screen" to install as PWA',
+                      icon: '/calendar_icon.png',
+                      tag: 'widget-instructions'
+                    });
+                    debugLog('success', 'Web widget notification shown via Notification constructor fallback');
+                  } catch (error) {
+                    debugLog('error', 'Notification constructor failed', error);
+                    debugLog('info', 'Trying alternative notification method');
+                    
+                    // Alternative: Use alert as last resort
+                    if (confirm('Add Calendar to Home Screen\n\nUse browser menu > "Add to Home Screen" to install as PWA\n\nClick OK to open browser settings')) {
+                      // Try to open browser settings or PWA install prompt
+                      if ('beforeinstallprompt' in window) {
+                        debugLog('info', 'PWA install prompt available');
+                        // Note: beforeinstallprompt event needs to be captured earlier
+                      } else {
+                        debugLog('info', 'PWA install prompt not available, user will need to use browser menu manually');
+                      }
+                    }
+                    debugLog('success', 'Widget instructions shown via alert dialog');
+                  }
                 } else {
                   debugLog('warning', 'Notification API not available or permission not granted');
                 }
@@ -330,12 +347,23 @@ export class CalendarHomeWidget {
           debugLog('warning', 'ServiceWorker not supported in this browser');
           // Fallback to Notification constructor if ServiceWorker not available
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Add Calendar to Home Screen', {
-              body: 'Use browser menu > "Add to Home Screen" to install as PWA',
-              icon: '/calendar_icon.png',
-              tag: 'widget-instructions'
-            });
-            debugLog('success', 'Web widget notification shown via Notification constructor fallback');
+            try {
+              new Notification('Add Calendar to Home Screen', {
+                body: 'Use browser menu > "Add to Home Screen" to install as PWA',
+                icon: '/calendar_icon.png',
+                tag: 'widget-instructions'
+              });
+              debugLog('success', 'Web widget notification shown via Notification constructor fallback');
+            } catch (error) {
+              debugLog('error', 'Notification constructor failed', error);
+              debugLog('info', 'Trying alternative notification method');
+              
+              // Alternative: Use alert as last resort
+              if (confirm('Add Calendar to Home Screen\n\nUse browser menu > "Add to Home Screen" to install as PWA\n\nClick OK to continue')) {
+                debugLog('info', 'User confirmed widget instructions via alert dialog');
+              }
+              debugLog('success', 'Widget instructions shown via alert dialog');
+            }
           } else {
             debugLog('warning', 'Notification API not available or permission not granted');
           }
