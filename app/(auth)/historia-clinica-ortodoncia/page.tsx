@@ -29,6 +29,8 @@ import { useProgressCalculation } from '@/hooks/useProgressCalculation';
 import { useVersionManagement } from '@/hooks/useVersionManagement';
 import { OrthodonticVersion } from '@/utils/versionUtils';
 import { calculateProgress, extractMonthsFromDuration, calculateEstimatedAppointments } from '@/utils/progressUtils';
+import AnimatedLeft from '@/components/AnimatedLeft';
+import AnimatedRight from '@/components/AnimatedRight';
 
 // Utility function to extract filename from URL (matches DocumentDisplay logic)
 const getFileName = (url: string): string => {
@@ -793,10 +795,47 @@ export default function HistoriaClinicaOrtodoncia() {
                         </div>
                         <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[3rem]">50 meses</span>
                       </div>
-                      <div className="text-center">
+                      <div className="flex items-center justify-center space-x-3">
+                        {/* Left Navigation Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentValue = getDuracionMeses(formData.duracion_tratamiento);
+                            if (currentValue > 1) {
+                              handleDuracionChange(currentValue - 1);
+                            }
+                          }}
+                          className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                          disabled={getDuracionMeses(formData.duracion_tratamiento) <= 1}
+                          title="Reducir 1 mes"
+                        >
+                          <div className="w-6 h-6">
+                            <AnimatedLeft />
+                          </div>
+                        </button>
+                        
+                        {/* Duration Indicator */}
                         <span className="inline-block bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 px-4 py-2 rounded-full text-sm font-medium shadow-sm">
                           📅 {formData.duracion_tratamiento}
                         </span>
+                        
+                        {/* Right Navigation Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentValue = getDuracionMeses(formData.duracion_tratamiento);
+                            if (currentValue < 50) {
+                              handleDuracionChange(currentValue + 1);
+                            }
+                          }}
+                          className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                          disabled={getDuracionMeses(formData.duracion_tratamiento) >= 50}
+                          title="Aumentar 1 mes"
+                        >
+                          <div className="w-6 h-6">
+                            <AnimatedRight />
+                          </div>
+                        </button>
                       </div>
                       <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span>Corto (1-12 meses)</span>

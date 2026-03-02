@@ -10,22 +10,32 @@ import './signin-styles.css';
 export default function Page() {
   const [isLoaded, setIsLoaded] = useState(false);
   const { user, isLoaded: userLoaded } = useUser();
+  
+  // Determine redirect URL based on user role
+  const getRedirectUrl = () => {
+    if (!userLoaded || !user) {
+      return '/dashboard'; // Default fallback
+    }
+    
+    const userRole = user.publicMetadata?.role as string;
+    
+    switch (userRole) {
+      case 'tech_support':
+        return '/tech-support/dashboard';
+      case 'admin':
+        return '/dashboard';
+      case 'doctor':
+        return '/dashboard';
+      case 'staff':
+        return '/dashboard';
+      default:
+        return '/dashboard';
+    }
+  };
 
   useEffect(() => {
     setIsLoaded(true);
   }, []);
-
-  // If user is already authenticated, show loading instead of SignIn component
-  if (userLoaded && user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirigiendo...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="login-container">
@@ -132,7 +142,7 @@ export default function Page() {
                 }}
                 routing="path"
                 path="/sign-in"
-                afterSignInUrl="/dashboard"
+                afterSignInUrl={getRedirectUrl()}
               />
             </motion.div>
           )}

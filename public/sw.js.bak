@@ -1,5 +1,5 @@
 // Service Worker for Diamond Link PWA
-const CACHE_NAME = 'diamond-link-v1';
+const CACHE_NAME = 'diamond-link-v2';
 const urlsToCache = [
   '/',
   '/dashboard',
@@ -58,6 +58,11 @@ self.addEventListener('fetch', (event) => {
         return fetch(fetchRequest).then((response) => {
           // Check if valid response
           if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+
+          // Only cache GET requests - POST requests cannot be cached
+          if (event.request.method !== 'GET') {
             return response;
           }
 
