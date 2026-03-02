@@ -115,16 +115,31 @@ export class CalendarHomeWidget {
       if (platform === 'web') {
         // For web, we can create a PWA prompt
         if ('serviceWorker' in navigator && 'PushManager' in window) {
-          // For web, show notification immediately instead of scheduling
-          if ('Notification' in window && Notification.permission === 'granted') {
+          // For web, use ServiceWorkerRegistration.showNotification() if available
+          if (navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready.then(registration => {
+              if (registration) {
+                registration.showNotification('Add to Home Screen', {
+                  body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
+                  icon: '/calendar_icon.png',
+                  tag: 'pwa-instructions',
+                  requireInteraction: true
+                });
+                debugLog('success', 'Web PWA notification shown via ServiceWorker');
+              } else {
+                debugLog('warning', 'ServiceWorker registration not available');
+              }
+            }).catch(error => {
+              debugLog('error', 'ServiceWorker ready failed', error);
+            });
+          } else if ('Notification' in window) {
+            // Fallback to Notification constructor if ServiceWorker not available
             new Notification('Add to Home Screen', {
               body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
               icon: '/calendar_icon.png',
               tag: 'pwa-instructions'
             });
-            debugLog('success', 'Web PWA notification shown immediately');
-          } else {
-            debugLog('warning', 'Web notifications not available or permission not granted');
+            debugLog('success', 'Web PWA notification shown via Notification constructor');
           }
           return true;
         }
@@ -210,16 +225,33 @@ export class CalendarHomeWidget {
         // Show web-specific instructions
         debugLog('info', 'Showing web widget instructions');
         
-        // For web, show notification immediately instead of scheduling
-        if ('Notification' in window && Notification.permission === 'granted') {
+        // For web, use ServiceWorkerRegistration.showNotification() if available
+        if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then(registration => {
+            if (registration) {
+              registration.showNotification('Add Calendar to Home Screen', {
+                body: 'Use browser menu > "Add to Home Screen" to install as PWA',
+                icon: '/calendar_icon.png',
+                tag: 'widget-instructions',
+                requireInteraction: true
+              });
+              debugLog('success', 'Web widget notification shown via ServiceWorker');
+            } else {
+              debugLog('warning', 'ServiceWorker registration not available');
+            }
+          }).catch(error => {
+            debugLog('error', 'ServiceWorker ready failed', error);
+          });
+        } else if ('Notification' in window) {
+          // Fallback to Notification constructor if ServiceWorker not available
           new Notification('Add Calendar to Home Screen', {
             body: 'Use browser menu > "Add to Home Screen" to install as PWA',
             icon: '/calendar_icon.png',
             tag: 'widget-instructions'
           });
-          debugLog('success', 'Web widget notification shown immediately');
+          debugLog('success', 'Web widget notification shown via Notification constructor');
         } else {
-          debugLog('warning', 'Web notifications not available or permission not granted');
+          debugLog('warning', 'Web notifications not available');
         }
       }
     } catch (error) {
