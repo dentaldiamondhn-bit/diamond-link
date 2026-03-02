@@ -115,17 +115,17 @@ export class CalendarHomeWidget {
       if (platform === 'web') {
         // For web, we can create a PWA prompt
         if ('serviceWorker' in navigator && 'PushManager' in window) {
-          await LocalNotifications.schedule({
-            notifications: [{
-              id: 1003,
-              title: 'Add to Home Screen',
+          // For web, show notification immediately instead of scheduling
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Add to Home Screen', {
               body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
-              schedule: { at: new Date(Date.now() + 1000) },
-              sound: 'default',
-              largeIcon: 'calendar_icon'
-            }]
-          });
-          debugLog('success', 'Web PWA notification scheduled');
+              icon: '/calendar_icon.png',
+              tag: 'pwa-instructions'
+            });
+            debugLog('success', 'Web PWA notification shown immediately');
+          } else {
+            debugLog('warning', 'Web notifications not available or permission not granted');
+          }
           return true;
         }
         debugLog('warning', 'Web platform does not support PWA features');
@@ -209,18 +209,18 @@ export class CalendarHomeWidget {
       } else if (platform === 'web') {
         // Show web-specific instructions
         debugLog('info', 'Showing web widget instructions');
-        await LocalNotifications.schedule({
-          notifications: [{
-            id: 1007,
-            title: 'Add Calendar to Home Screen',
+        
+        // For web, show notification immediately instead of scheduling
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Add Calendar to Home Screen', {
             body: 'Use browser menu > "Add to Home Screen" to install as PWA',
-            schedule: { at: new Date(Date.now() + 1000) },
-            sound: 'default',
-            largeIcon: 'calendar_icon',
-            actionTypeId: 'widget_instructions'
-          }]
-        });
-        debugLog('success', 'Web widget instructions notification scheduled');
+            icon: '/calendar_icon.png',
+            tag: 'widget-instructions'
+          });
+          debugLog('success', 'Web widget notification shown immediately');
+        } else {
+          debugLog('warning', 'Web notifications not available or permission not granted');
+        }
       }
     } catch (error) {
       debugLog('error', 'Error showing widget instructions', error);
