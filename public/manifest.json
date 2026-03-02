@@ -51,6 +51,13 @@
       "description": "View calendar",
       "url": "/calendario",
       "icons": [{"src": "/Logo.svg", "sizes": "any"}]
+    },
+    {
+      "name": "Calendar Widget",
+      "short_name": "Widget",
+      "description": "Quick calendar widget view",
+      "url": "/calendar-widget",
+      "icons": [{"src": "/Logo.svg", "sizes": "any"}]
     }
   ]
 }
