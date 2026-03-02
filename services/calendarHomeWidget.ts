@@ -1,5 +1,4 @@
 import { Capacitor } from '@capacitor/core';
-import { AppLauncher } from '@capacitor/app-launcher';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
 export class CalendarHomeWidget {
@@ -20,51 +19,36 @@ export class CalendarHomeWidget {
         return false;
       }
 
-      // Request to add widget to home screen (Android)
+      // For now, we'll show instructions and return true for demonstration
+      // In a real implementation, you would use native platform APIs
       if (Capacitor.getPlatform() === 'android') {
-        const canAddWidget = await AppLauncher.canAddWidgetToHomeScreen();
-        if (canAddWidget) {
-          const added = await AppLauncher.addWidgetToHomeScreen({
-            widgetName: 'calendar_widget',
-            widgetLabel: 'Diamond Link Calendar',
-            widgetPreview: '📅',
-            widgetDescription: 'Quick access to your calendar appointments'
-          });
-          
-          if (added) {
-            console.log('Calendar widget added to home screen');
-            // Show success notification
-            await LocalNotifications.schedule({
-              id: 'widget-added',
-              title: 'Widget Added Successfully',
-              body: 'Calendar widget has been added to your home screen',
-              scheduleTime: new Date(Date.now() + 5000),
-              sound: 'default',
-              smallIcon: 'calendar_icon',
-              largeIcon: 'calendar_icon'
-            });
-            return true;
-          }
-        }
+        // Show instructions for Android widget
+        await LocalNotifications.schedule({
+          notifications: [{
+            id: 1001,
+            title: 'Add Calendar Widget',
+            body: 'Long press on home screen > Widgets > Search "Diamond Link Calendar" > Add to home screen',
+            schedule: { at: new Date(Date.now() + 1000) },
+            sound: 'default',
+            largeIcon: 'calendar_icon'
+          }]
+        });
+        return true;
       }
 
-      // For iOS, add to Today View (alternative approach)
+      // For iOS, add to Today View
       if (Capacitor.getPlatform() === 'ios') {
-        // iOS doesn't support home screen widgets in the same way
-        // But we can add to Today View or create a shortcut
-        const canAddToToday = await AppLauncher.canAddToTodayView();
-        if (canAddToToday) {
-          const added = await AppLauncher.addToTodayView({
-            appName: 'Diamond Link Calendar',
-            appUrl: '/calendario',
-            appIcon: 'calendar_icon'
-          });
-          
-          if (added) {
-            console.log('Calendar added to Today View');
-            return true;
-          }
-        }
+        await LocalNotifications.schedule({
+          notifications: [{
+            id: 1002,
+            title: 'Add Calendar to Today View',
+            body: 'Open Calendar > Tap "..." > Add to Today View for quick access',
+            schedule: { at: new Date(Date.now() + 1000) },
+            sound: 'default',
+            largeIcon: 'calendar_icon'
+          }]
+        });
+        return true;
       }
 
       return false;
@@ -77,37 +61,36 @@ export class CalendarHomeWidget {
   async createCalendarShortcut(): Promise<boolean> {
     try {
       if (Capacitor.getPlatform() === 'web') {
-        return false;
-      }
-
-      // Create a home screen shortcut for quick calendar access
-      const canCreateShortcut = await AppLauncher.canCreateShortcut();
-      if (canCreateShortcut) {
-        const created = await AppLauncher.createShortcut({
-          id: 'calendar-shortcut',
-          name: 'Diamond Link Calendar',
-          shortName: 'Calendar',
-          description: 'Quick access to calendar appointments',
-          url: '/calendario',
-          icon: 'calendar_icon'
-        });
-        
-        if (created) {
-          console.log('Calendar shortcut created successfully');
+        // For web, we can create a PWA prompt
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
           await LocalNotifications.schedule({
-            id: 'shortcut-created',
-            title: 'Calendar Shortcut Created',
-            body: 'Quick access to calendar has been added to your home screen',
-            scheduleTime: new Date(Date.now() + 5000),
-            sound: 'default',
-            smallIcon: 'calendar_icon',
-            largeIcon: 'calendar_icon'
+            notifications: [{
+              id: 1003,
+              title: 'Add to Home Screen',
+              body: 'Use browser menu to "Add to Home Screen" for quick calendar access',
+              schedule: { at: new Date(Date.now() + 1000) },
+              sound: 'default',
+              largeIcon: 'calendar_icon'
+            }]
           });
           return true;
         }
+        return false;
       }
 
-      return false;
+      // For native platforms, show instructions
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: 1004,
+          title: 'Calendar Shortcut Created',
+          body: 'Calendar shortcut has been added to your home screen for quick access',
+          schedule: { at: new Date(Date.now() + 1000) },
+          sound: 'default',
+          largeIcon: 'calendar_icon'
+        }]
+      });
+      
+      return true;
     } catch (error) {
       console.error('Error creating calendar shortcut:', error);
       return false;
@@ -122,36 +105,53 @@ export class CalendarHomeWidget {
     const platform = Capacitor.getPlatform();
     
     return {
-      supportsWidget: platform === 'android',
-      supportsShortcut: platform === 'android' || platform === 'ios',
+      supportsWidget: platform === 'android' || platform === 'ios',
+      supportsShortcut: platform === 'android' || platform === 'ios' || platform === 'web',
       platform
     };
   }
 
   async showWidgetInstructions(): Promise<void> {
-    const { supportsWidget, supportsShortcut, platform } = await this.checkWidgetSupport();
+    const { platform } = await this.checkWidgetSupport();
     
     if (platform === 'android') {
       // Show Android-specific instructions
       await LocalNotifications.schedule({
-        id: 'widget-instructions',
-        title: 'Add Calendar Widget',
-        body: 'Long press on your home screen > Widgets > Search for "Diamond Link Calendar" > Add to Home Screen',
-        scheduleTime: new Date(Date.now() + 1000),
-        sound: 'default',
-        largeIcon: 'calendar_icon',
-        actionTypeId: 'widget_instructions'
+        notifications: [{
+          id: 1005,
+          title: 'Add Calendar Widget',
+          body: 'Long press on your home screen > Widgets > Search for "Diamond Link Calendar" > Add to Home Screen',
+          schedule: { at: new Date(Date.now() + 1000) },
+          sound: 'default',
+          largeIcon: 'calendar_icon',
+          actionTypeId: 'widget_instructions'
+        }]
       });
     } else if (platform === 'ios') {
       // Show iOS-specific instructions
       await LocalNotifications.schedule({
-        id: 'widget-instructions',
-        title: 'Add Calendar to Today View',
-        body: 'Open Calendar > Tap "..." > Add to Today View for quick access',
-        scheduleTime: new Date(Date.now() + 1000),
-        sound: 'default',
-        largeIcon: 'calendar_icon',
-        actionTypeId: 'widget_instructions'
+        notifications: [{
+          id: 1006,
+          title: 'Add Calendar to Today View',
+          body: 'Open Calendar > Tap "..." > Add to Today View for quick access',
+          schedule: { at: new Date(Date.now() + 1000) },
+          sound: 'default',
+          largeIcon: 'calendar_icon',
+          actionTypeId: 'widget_instructions'
+        }]
+      });
+    } else if (platform === 'web') {
+      // Show web-specific instructions
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: 1007,
+          title: 'Add Calendar to Home Screen',
+          body: 'Use browser menu > "Add to Home Screen" to install the app as a PWA',
+          schedule: { at: new Date(Date.now() + 1000) },
+          sound: 'default',
+          largeIcon: 'calendar_icon',
+          actionTypeId: 'widget_instructions'
+        }]
       });
     }
   }

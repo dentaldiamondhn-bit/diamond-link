@@ -10,8 +10,8 @@ import {
   Plus, 
   CheckCircle, 
   AlertCircle,
-  Widget as WidgetIcon,
-  Shortcut
+  Grid3x3 as WidgetIcon,
+  Zap as Shortcut
 } from 'lucide-react';
 
 interface WidgetRequestProps {
@@ -35,7 +35,8 @@ export const WidgetRequest: React.FC<WidgetRequestProps> = ({ className = '' }) 
 
   const checkWidgetSupport = async () => {
     try {
-      const support = await CalendarHomeWidget.checkWidgetSupport();
+      const widgetService = CalendarHomeWidget.getInstance();
+      const support = await widgetService.checkWidgetSupport();
       setWidgetSupport(support);
     } catch (error) {
       console.error('Error checking widget support:', error);
@@ -49,7 +50,8 @@ export const WidgetRequest: React.FC<WidgetRequestProps> = ({ className = '' }) 
     setSuccessMessage('');
 
     try {
-      const success = await CalendarHomeWidget.requestHomeScreenWidget();
+      const widgetService = CalendarHomeWidget.getInstance();
+      const success = await widgetService.requestHomeScreenWidget();
       if (success) {
         setSuccessMessage('Widget added to home screen successfully! 🎉');
       } else {
@@ -69,7 +71,8 @@ export const WidgetRequest: React.FC<WidgetRequestProps> = ({ className = '' }) 
     setSuccessMessage('');
 
     try {
-      const success = await CalendarHomeWidget.createCalendarShortcut();
+      const widgetService = CalendarHomeWidget.getInstance();
+      const success = await widgetService.createCalendarShortcut();
       if (success) {
         setSuccessMessage('Calendar shortcut created successfully! 🚀');
       } else {
@@ -85,7 +88,8 @@ export const WidgetRequest: React.FC<WidgetRequestProps> = ({ className = '' }) 
 
   const handleShowInstructions = async () => {
     try {
-      await CalendarHomeWidget.showWidgetInstructions();
+      const widgetService = CalendarHomeWidget.getInstance();
+      await widgetService.showWidgetInstructions();
       setSuccessMessage('Instructions sent to your notifications! 📱');
     } catch (error) {
       console.error('Error showing instructions:', error);
