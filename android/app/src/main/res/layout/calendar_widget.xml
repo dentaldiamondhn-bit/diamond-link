@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="16dp">
+
+    <!-- Widget Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_calendar"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Diamond Link Calendar"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/refresh_button"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_refresh"
+            android:background="?android:attr/selectableItemBackground"
+            android:padding="4dp" />
+
+    </LinearLayout>
+
+    <!-- Current Date -->
+    <TextView
+        android:id="@+id/current_date"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="March 15, 2024"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/date_background" />
+
+    <!-- Events Count -->
+    <TextView
+        android:id="@+id/events_count"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="5 events/tasks today"
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
+        android:gravity="center"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/count_background" />
+
+    <!-- Today's Events -->
+    <TextView
+        android:id="@+id/today_events"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="• 09:00 Patient Consultation\n• 14:00 Dental Checkup\n• 16:30 Follow-up"
+        android:textColor="@android:color/white"
+        android:textSize="11sp"
+        android:gravity="top"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/events_background"
+        android:padding="12dp"
+        android:lineSpacingExtra="4dp" />
+
+    <!-- Upcoming Events -->
+    <TextView
+        android:id="@+id/upcoming_events"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="Mar 16: Team Meeting\nMar 17: Surgery\nMar 18: Patient Review"
+        android:textColor="@android:color/white"
+        android:textSize="10sp"
+        android:gravity="top"
+        android:background="@drawable/upcoming_background"
+        android:padding="12dp"
+        android:lineSpacingExtra="2dp" />
+
+    <!-- Click to open app -->
+    <LinearLayout
+        android:id="@+id/widget_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground" />
+
+</LinearLayout>
