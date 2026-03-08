@@ -22,18 +22,14 @@ export function useClerkUsers() {
       try {
         // Check if current user is admin or tech-support (handle both formats)
         if (!user?.id || !['admin', 'tech_support', 'tech-support'].includes(user?.publicMetadata?.role as string)) {
-          console.log('User is not admin or tech-support, skipping user fetch. Current role:', user?.publicMetadata?.role);
           setLoading(false);
           return;
         }
 
-        console.log('Fetching doctor users from API...');
-        
         // Use the real API endpoint
         const response = await fetch('/api/admin/doctor-users');
         
         if (response.status === 401) {
-          console.log('Authentication failed, user may need to sign in again');
           setLoading(false);
           return;
         }
@@ -43,13 +39,12 @@ export function useClerkUsers() {
         }
         
         const data = await response.json();
-        console.log('Doctor users loaded successfully:', data.users?.length || 0);
         setUsers(data.users || []);
       } catch (error) {
         console.error('Error fetching doctor users:', error);
         // Only show alert for network errors, not auth errors
         if (!error.message.includes('401')) {
-          console.error('Network error loading users:', error.message);
+          // Network error handling
         }
       } finally {
         setLoading(false);

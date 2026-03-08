@@ -35,14 +35,6 @@ export default function DoctorsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(pagePrefs?.sortOrder || 'asc');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Debug: Log user data to verify structure
-  useEffect(() => {
-    if (clerkUsers.length > 0) {
-      console.log('Clerk users data:', clerkUsers);
-      console.log('First user structure:', clerkUsers[0]);
-    }
-  }, [clerkUsers]);
-
   // Load doctors from service on component mount and when window gains focus
   useEffect(() => {
     const loadDoctors = async () => {
