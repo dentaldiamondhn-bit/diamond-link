@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/api/(.*)',
   '/api/terminal/(.*)',
+  '/api/tickets/(.*)',  // Add tickets API routes
   '/tech-support/terminal',
   '/tech-support/(.*)',
 ]);
@@ -51,6 +52,7 @@ export default clerkMiddleware(async (auth, req) => {
         req.nextUrl.pathname === '/calendario' ||
         req.nextUrl.pathname === '/tratamientos' ||
         req.nextUrl.pathname === '/presupuestos' ||
+        req.nextUrl.pathname === '/tickets' ||  // Add tickets route
         req.nextUrl.pathname.startsWith('/xray-viewer') ||
         req.nextUrl.pathname.startsWith('/historia-clinica-ortodoncia') ||
         req.nextUrl.pathname.startsWith('/tratamientos-completados')) {

@@ -17,6 +17,7 @@ const staffNavItems = [
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+  { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
 ];
 
 interface StaffSidebarProps {

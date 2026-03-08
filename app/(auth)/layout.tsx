@@ -159,6 +159,12 @@ export default function AuthLayout({
                       Dashboard de Soporte Técnico
                     </h1>
                   )}
+                  {pathname === '/tickets' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-ticket-alt mr-2"></i>
+                      Tickets
+                    </h1>
+                  )}
                   {pathname === '/tech-support/tickets' && (
                     <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                       <i className="fas fa-ticket-alt mr-2"></i>

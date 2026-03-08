@@ -22,6 +22,7 @@ const doctorNavItems = [
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
   { href: '/reportes', label: 'Reportes', icon: 'fas fa-chart-bar' },
+  { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
 ];
 
 interface DoctorSidebarProps {
