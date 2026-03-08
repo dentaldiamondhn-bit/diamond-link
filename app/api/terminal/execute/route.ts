@@ -109,7 +109,7 @@ Environment Variables:
   }
 }
 
-async function handleDiamondLinkCommand(cmd: string, args: string[], cwd: string) {
+async function handleDiamondLinkCommand(cmd: string, args: string[], cwd: string): Promise<NextResponse> {
   try {
     switch (cmd) {
       case 'diamond-status':
@@ -196,7 +196,7 @@ async function handleDiamondLinkCommand(cmd: string, args: string[], cwd: string
   }
 }
 
-async function handleFileCommand(cmd: string, args: string[], cwd: string) {
+async function handleFileCommand(cmd: string, args: string[], cwd: string): Promise<NextResponse> {
   try {
     let result = '';
     
@@ -288,7 +288,7 @@ async function handleFileCommand(cmd: string, args: string[], cwd: string) {
   }
 }
 
-async function handleSystemCommand(cmd: string, args: string[], cwd: string) {
+async function handleSystemCommand(cmd: string, args: string[], cwd: string): Promise<NextResponse> {
   return new Promise((resolve) => {
     const fullCommand = `${cmd} ${args.join(' ')}`;
     

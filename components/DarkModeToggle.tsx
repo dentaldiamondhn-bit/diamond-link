@@ -8,9 +8,7 @@ export function DarkModeToggle() {
   const { theme, setTheme } = useTheme();
 
   const handleToggle = () => {
-    console.log('Toggle clicked, current theme:', theme);
     const newTheme = theme === 'light' ? 'dark' : 'light';
-    console.log('Setting theme to:', newTheme);
     setTheme(newTheme);
   };
 

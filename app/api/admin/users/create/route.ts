@@ -13,12 +13,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user is admin or tech-support
     const client = await clerkClient();
     const currentUser = await client.users.getUser(userId);
     const userRole = currentUser.publicMetadata?.role;
 
-    if (userRole !== 'admin') {
+    if (!['admin', 'tech_support', 'tech-support'].includes(userRole as string)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

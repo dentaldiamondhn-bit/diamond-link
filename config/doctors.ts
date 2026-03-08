@@ -25,7 +25,8 @@ export const DEFAULT_DOCTORS: Doctor[] = [
   { id: 'dra-melissa-escalante', name: 'Dra. Melissa Escalante', specialty: 'Ortodoncia' },
   { id: 'dr-gustavo-urtecho', name: 'Dr. Gustavo Urtecho', specialty: 'Odontología General' },
   { id: 'dr-jain-reyes', name: 'Dr. Jain Reyes', specialty: 'Odontología General' },
-  { id: 'dra-daniela-lopez', name: 'Dra. Daniela Lopez', specialty: 'Odontología General' }
+  { id: 'dra-daniela-lopez', name: 'Dra. Daniela Lopez', specialty: 'Odontología General' },
+  { id: 'dra-maria-fernandez', name: 'Dra. Maria Fernandez', specialty: 'Odontopediatría' }
 ];
 
 // Available specialties - these can be extended as needed

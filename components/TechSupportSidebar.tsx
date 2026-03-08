@@ -15,6 +15,8 @@ const techSupportNavItems = [
   { href: '/tech-support/system-settings', label: 'Configuración del Sistema', icon: 'fas fa-cogs' },
   { href: '/tech-support/terminal', label: 'Terminal', icon: 'fas fa-terminal' },
   { href: '/tech-support/code-runner', label: 'Code Runner', icon: 'fas fa-code' },
+  { href: '/tech-support/codespaces', label: 'Local Android Dev', icon: 'fas fa-mobile-alt' },
+  { href: '/tech-support/github-codespaces', label: 'GitHub Codespaces', icon: 'fas fa-code-branch' },
   { href: '/tech-support/access-portal', label: 'Portal de Acceso', icon: 'fas fa-th-large' },
   // User management (usuarios only - doctores handled by admin)
   { href: '/tech-support/users', label: 'Usuarios', icon: 'fas fa-users-cog' },
@@ -37,14 +39,14 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
   };
 
   return (
-    <div className="w-64 bg-gradient-to-b from-red-900 to-red-800 text-white flex flex-col h-screen overflow-y-auto">
+    <div className="w-64 text-white flex flex-col h-screen overflow-y-auto" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #b91c1c 100%)' }}>
       {/* Logo Section */}
-      <div className="p-6 border-b border-red-700">
+      <div className="p-6 border-b border-white/20">
         <div className="flex items-center space-x-3">
           <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10" />
           <div>
             <h1 className="text-xl font-bold text-white">Diamond Link</h1>
-            <p className="text-xs text-red-200">Soporte Técnico</p>
+            <p className="text-xs text-white/80">Soporte Técnico</p>
           </div>
         </div>
       </div>
@@ -53,7 +55,7 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
       <nav className="flex-1 p-4 space-y-2">
         {techSupportNavItems.map((item) => {
           // Add GlobalSearch after dashboard item
-          if (item.href === '/dashboard') {
+          if (item.href === '/tech-support/dashboard') {
             return (
               <React.Fragment key={item.href}>
                 <Link
@@ -61,8 +63,8 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
                   onClick={handleLinkClick}
                   className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                     pathname === item.href || pathname.startsWith(item.href + '/')
-                      ? 'bg-red-700 text-white shadow-lg'
-                      : 'text-red-100 hover:bg-red-800 hover:text-white'
+                      ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {typeof item.icon === 'string' ? (
@@ -87,8 +89,8 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
               onClick={handleLinkClick}
               className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                 pathname === item.href || pathname.startsWith(item.href + '/')
-                  ? 'bg-red-700 text-white shadow-lg'
-                  : 'text-red-100 hover:bg-red-800 hover:text-white'
+                  ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
               }`}
             >
               {typeof item.icon === 'string' ? (
@@ -103,7 +105,7 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
       </nav>
 
       {/* User Section */}
-      <div className="p-4 border-t border-red-700">
+      <div className="p-4 border-t border-white/20">
         <div className="flex items-center space-x-3 px-4 py-3">
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-1">
@@ -111,12 +113,12 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
                 {user?.firstName || 'Usuario'} {user?.lastName || ''}
               </p>
               {/* Tech Support Role Badge */}
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white border border-white/30">
                 <i className="fas fa-tools mr-1"></i>
                 Tech Support
               </span>
             </div>
-            <p className="text-xs text-red-200">
+            <p className="text-xs text-white/70">
               {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
             </p>
             {/* Tutorial Button */}
@@ -129,7 +131,7 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
               appearance={{
                 elements: {
                   avatarBox: "w-8 h-8",
-                  userButton: "hover:bg-red-800 rounded-lg transition-colors"
+                  userButton: "hover:bg-white/10 rounded-lg transition-colors"
                 }
               }}
             />

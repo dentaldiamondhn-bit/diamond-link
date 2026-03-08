@@ -20,9 +20,9 @@ export function useClerkUsers() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        // Check if current user is admin
-        if (!user?.id || user?.publicMetadata?.role !== 'admin') {
-          console.log('User is not admin, skipping user fetch');
+        // Check if current user is admin or tech-support (handle both formats)
+        if (!user?.id || !['admin', 'tech_support', 'tech-support'].includes(user?.publicMetadata?.role as string)) {
+          console.log('User is not admin or tech-support, skipping user fetch. Current role:', user?.publicMetadata?.role);
           setLoading(false);
           return;
         }

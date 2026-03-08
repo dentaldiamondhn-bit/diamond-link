@@ -44,7 +44,6 @@ class CalendarRealtimeService {
       await this.enableRealtimeForTable('calendar_invitees');
 
       this.isConnected = true;
-      console.log('✅ Calendar Realtime initialized');
     } catch (error) {
       console.error('❌ Error initializing Calendar Realtime:', error);
     }
@@ -222,17 +221,12 @@ class CalendarRealtimeService {
   }
 
   private async notifyListeners(notification: CalendarRealtimeNotification) {
-    console.log('📡 Realtime notification created:', notification);
-    
     // Get all relevant users for this notification
     const relevantUsers = await this.getRelevantUsers(notification.data);
-    console.log(`👥 Found ${relevantUsers.length} relevant users for notification:`, relevantUsers);
     
     // Create personalized notifications for each relevant user
     relevantUsers.forEach(userId => {
       const personalizedNotification = { ...notification, userId };
-      
-      console.log(`📤 Sending realtime notification to user ${userId}:`, personalizedNotification);
       
       // Dispatch to all notification callbacks
       this.notificationCallbacks.forEach(callback => callback(personalizedNotification));
@@ -261,25 +255,22 @@ class CalendarRealtimeService {
         const { CalendarInviteesService } = await import('./calendarInviteesService');
         const invitees = await CalendarInviteesService.getInviteesForItem('event', record.id);
         
-        console.log(`📋 Fetched ${invitees.length} invitees for event ${record.id}:`, invitees);
-        
         invitees.forEach((invitee: any) => {
           if (invitee.user_id) {
             users.add(invitee.user_id);
           }
         });
       } catch (error) {
-        console.error('❌ Error fetching invitees for realtime notification:', error);
+        console.error('Error fetching invitees for event:', error);
       }
     }
     
-    // For tasks, fetch all invitees from database
-    if (record.id && (record.table === 'calendar_tasks' || record.due_date || !record.start_date)) {
+    // For tasks, fetch all assignees from database
+    if (record.id && (record.table === 'calendar_tasks' || record.due_date || record.title)) {
       try {
+        // Import dynamically to avoid circular dependencies
         const { CalendarInviteesService } = await import('./calendarInviteesService');
         const invitees = await CalendarInviteesService.getInviteesForItem('task', record.id);
-        
-        console.log(`📋 Fetched ${invitees.length} invitees for task ${record.id}:`, invitees);
         
         invitees.forEach((invitee: any) => {
           if (invitee.user_id) {
@@ -287,7 +278,7 @@ class CalendarRealtimeService {
           }
         });
       } catch (error) {
-        console.error('❌ Error fetching invitees for realtime notification:', error);
+        console.error('Error fetching invitees for task:', error);
       }
     }
     
@@ -302,7 +293,6 @@ class CalendarRealtimeService {
     }
     
     const userList = Array.from(users);
-    console.log(`👥 Final relevant users for realtime notification:`, userList);
     return userList;
   }
 
@@ -323,7 +313,6 @@ class CalendarRealtimeService {
       // Check if the event is relevant to this user
       if (this.isUserRelevantEvent(update, userId)) {
         // Process the event
-        console.log(`👤 User ${userId} relevant event:`, update);
       }
     };
 

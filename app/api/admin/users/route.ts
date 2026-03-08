@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user has tech_support privileges only
+    // Check if user has tech_support privileges only (handle both formats)
     try {
       const client = await clerkClient();
       const currentUser = await client.users.getUser(userId);
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       const userRole = currentUser.publicMetadata?.role;
       console.log('API: User role:', userRole);
 
-      if (userRole !== 'tech_support') {
+      if (!['tech_support', 'tech-support'].includes(userRole as string)) {
         console.log('API: User is not tech_support, returning 403. User role:', userRole);
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
@@ -74,12 +74,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user has tech_support privileges only
+    // Check if user has tech_support privileges only (handle both formats)
     const client = await clerkClient();
     const currentUser = await client.users.getUser(userId);
     const userRole = currentUser.publicMetadata?.role;
 
-    if (userRole !== 'tech_support') {
+    if (!['tech_support', 'tech-support'].includes(userRole as string)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

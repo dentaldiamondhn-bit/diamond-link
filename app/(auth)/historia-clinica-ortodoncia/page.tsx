@@ -145,12 +145,14 @@ export default function HistoriaClinicaOrtodoncia() {
     fecha_inicio_tratamiento: '',
     fecha_fin_tratamiento: '',
     observaciones_ortodoncia: '',
-    radiografias_realizadas: '',
+    radiografias_realizadas: [] as string[],
     modelos_estudio: '',
     analisis_cefalometrico: '',
     extracciones_realizadas: '',
     retenedor_tipo: '',
     retenedor_uso: '',
+    retenedor_inferior_tipo: '',
+    retenedor_inferior_uso: '',
     seguimiento_post_tratamiento: '',
     
     // Documents and signature
@@ -282,12 +284,14 @@ export default function HistoriaClinicaOrtodoncia() {
             fecha_inicio_tratamiento: orthodonticData.fecha_inicio_tratamiento || '',
             fecha_fin_tratamiento: orthodonticData.fecha_fin_tratamiento || '',
             observaciones_ortodoncia: orthodonticData.observaciones_ortodoncia || '',
-            radiografias_realizadas: orthodonticData.radiografias_realizadas || '',
+            radiografias_realizadas: orthodonticData.radiografias_realizadas || [],
             modelos_estudio: orthodonticData.modelos_estudio || '',
             analisis_cefalometrico: orthodonticData.analisis_cefalometrico || '',
             extracciones_realizadas: orthodonticData.extracciones_realizadas || '',
             retenedor_tipo: orthodonticData.retenedor_tipo || '',
             retenedor_uso: orthodonticData.retenedor_uso || '',
+            retenedor_inferior_tipo: orthodonticData.retenedor_inferior_tipo || '',
+            retenedor_inferior_uso: orthodonticData.retenedor_inferior_uso || '',
             seguimiento_post_tratamiento: orthodonticData.seguimiento_post_tratamiento || '',
             
             // Documents and signature
@@ -368,6 +372,16 @@ export default function HistoriaClinicaOrtodoncia() {
     }));
     
     updateFieldValidation(name, value);
+  };
+
+  const handleRadiographyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      radiografias_realizadas: checked
+        ? [...prev.radiografias_realizadas, value]
+        : prev.radiografias_realizadas.filter(item => item !== value)
+    }));
   };
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -458,12 +472,14 @@ export default function HistoriaClinicaOrtodoncia() {
         fecha_inicio_tratamiento: formFormData.get('fecha_inicio_tratamiento') as string,
         fecha_fin_tratamiento: formFormData.get('fecha_fin_tratamiento') as string,
         observaciones_ortodoncia: formFormData.get('observaciones_ortodoncia') as string,
-        radiografias_realizadas: formFormData.get('radiografias_realizadas') as string,
+        radiografias_realizadas: formData.radiografias_realizadas,
         modelos_estudio: formFormData.get('modelos_estudio') as string,
         analisis_cefalometrico: formFormData.get('analisis_cefalometrico') as string,
         extracciones_realizadas: formFormData.get('extracciones_realizadas') as string,
         retenedor_tipo: formFormData.get('retenedor_tipo') as string,
         retenedor_uso: formFormData.get('retenedor_uso') as string,
+        retenedor_inferior_tipo: formFormData.get('retenedor_inferior_tipo') as string,
+        retenedor_inferior_uso: formFormData.get('retenedor_inferior_uso') as string,
         seguimiento_post_tratamiento: formFormData.get('seguimiento_post_tratamiento') as string,
         documentos_ortodoncia: formData.documentos_ortodoncia || [],
         firma_digital_ortodoncia: signatureData,
@@ -565,7 +581,7 @@ export default function HistoriaClinicaOrtodoncia() {
             fechaInicioTratamiento: formData.fecha_inicio_tratamiento,
             fechaFinTratamiento: formData.fecha_fin_tratamiento,
             observacionesOrtodoncia: formData.observaciones_ortodoncia,
-            radiografiasRealizadas: formData.radiografias_realizadas,
+            radiografiasRealizadas: formData.radiografias_realizadas.join(', '),
             modelosEstudio: formData.modelos_estudio,
             analisisCefalometrico: formData.analisis_cefalometrico,
             extraccionesRealizadas: formData.extracciones_realizadas,
@@ -706,10 +722,13 @@ export default function HistoriaClinicaOrtodoncia() {
                     >
                       <option value="">Seleccione...</option>
                       <option value="clase_i">Clase I</option>
-                      <option value="clase_ii">Clase II</option>
+                      <option value="clase_ii_division_1">Clase II Division 1</option>
+                      <option value="clase_ii_division_2">Clase II Division 2</option>
                       <option value="clase_iii">Clase III</option>
-                      <option value="mordida_abierta">Mordida Abierta</option>
-                      <option value="mordida_cruzada">Mordida Cruzada</option>
+                      <option value="mordida_abierta_anterior">Mordida Abierta Anterior</option>
+                      <option value="mordida_abierta_posterior">Mordida Abierta Posterior</option>
+                      <option value="mordida_cruzada_anterior">Mordida Cruzada Anterior</option>
+                      <option value="mordida_cruzada_posterior">Mordida Cruzada Posterior</option>
                       <option value="mordida_profunda">Mordida Profunda</option>
                     </select>
                   </div>
@@ -903,19 +922,26 @@ export default function HistoriaClinicaOrtodoncia() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block mb-1 font-medium">Radiografías Realizadas:</label>
-                    <select
-                      name="radiografias_realizadas"
-                      value={formData.radiografias_realizadas}
-                      onChange={handleInputChange}
-                      className="input"
-                    >
-                      <option value="">Seleccione...</option>
-                      <option value="panoramica">Panorámica</option>
-                      <option value="periapical">Periapical</option>
-                      <option value="oclusal">Oclusal</option>
-                      <option value="lateral_craneo">Lateral de Cráneo</option>
-                      <option value="todas">Todas las anteriores</option>
-                    </select>
+                    <div className="space-y-2">
+                      {[
+                        { value: 'panoramica', label: 'Panorámica' },
+                        { value: 'periapical', label: 'Periapical' },
+                        { value: 'oclusal', label: 'Oclusal' },
+                        { value: 'lateral_craneo', label: 'Lateral de Cráneo' }
+                      ].map((option) => (
+                        <label key={option.value} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            name="radiografias_realizadas"
+                            value={option.value}
+                            checked={formData.radiografias_realizadas.includes(option.value)}
+                            onChange={handleRadiographyChange}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   
                   <div>
@@ -969,7 +995,7 @@ export default function HistoriaClinicaOrtodoncia() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block mb-1 font-medium">Tipo de Retenedor:</label>
+                    <label className="block mb-1 font-medium">Tipo de Retenedor Superior:</label>
                     <select
                       name="retenedor_tipo"
                       value={formData.retenedor_tipo}
@@ -986,10 +1012,45 @@ export default function HistoriaClinicaOrtodoncia() {
                   </div>
                   
                   <div>
-                    <label className="block mb-1 font-medium">Uso de Retenedor:</label>
+                    <label className="block mb-1 font-medium">Uso de Retenedor Superior:</label>
                     <select
                       name="retenedor_uso"
                       value={formData.retenedor_uso}
+                      onChange={handleInputChange}
+                      className="input"
+                    >
+                      <option value="">Seleccione...</option>
+                      <option value="tiempo_completo">Tiempo completo</option>
+                      <option value="noche">Solo noche</option>
+                      <option value="ocasional">Ocasional</option>
+                      <option value="no_usa">No usa</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block mb-1 font-medium">Tipo de Retenedor Inferior:</label>
+                    <select
+                      name="retenedor_inferior_tipo"
+                      value={formData.retenedor_inferior_tipo}
+                      onChange={handleInputChange}
+                      className="input"
+                    >
+                      <option value="">Seleccione...</option>
+                      <option value="fijo">Fijo</option>
+                      <option value="removible">Removible</option>
+                      <option value="hawley">Hawley</option>
+                      <option value="invisible">Invisible</option>
+                      <option value="sin_retenedor">Sin retenedor</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block mb-1 font-medium">Uso de Retenedor Inferior:</label>
+                    <select
+                      name="retenedor_inferior_uso"
+                      value={formData.retenedor_inferior_uso}
                       onChange={handleInputChange}
                       className="input"
                     >

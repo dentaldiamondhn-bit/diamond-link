@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user is admin or tech-support
     try {
       const client = await clerkClient();
       const currentUser = await client.users.getUser(userId);
@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
       const userRole = currentUser.publicMetadata?.role;
       console.log('API: User role:', userRole);
 
-      if (userRole !== 'admin') {
-        console.log('API: User is not admin, returning 403');
+      if (!['admin', 'tech_support', 'tech-support'].includes(userRole as string)) {
+        console.log('API: User is not admin or tech-support, returning 403. Current role:', userRole);
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
