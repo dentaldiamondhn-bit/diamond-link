@@ -52,7 +52,12 @@ export default function TicketsPage() {
       }
 
       if (result.data) {
-        setTickets(result.data);
+        // Filter out MAINTENANCE tickets for non-tech-support roles
+        let filteredData = result.data;
+        if (userRole !== UserRole.TECH_SUPPORT) {
+          filteredData = result.data.filter(ticket => ticket.type !== 'MAINTENANCE');
+        }
+        setTickets(filteredData);
       }
     } catch (error) {
       console.error('Error loading tickets:', error);

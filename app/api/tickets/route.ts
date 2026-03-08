@@ -61,10 +61,10 @@ export async function POST(request: NextRequest) {
     const token = await auth().then((auth) => auth?.getToken());
     
     if (!token) {
-      return NextResponse.json({ error: 'No authentication token' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Create Supabase client with user token
+    // Create authenticated Supabase client
     const supabaseWithAuth = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -77,7 +77,10 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const { title, description, type, priority, due_date, is_reminder, maintenance_start, maintenance_end, patient_id } = await request.json();
+    const requestBody = await request.json();
+    console.log('DEBUG: Request body:', requestBody); // DEBUG LOG
+    
+    const { title, description, type, priority, due_date, is_reminder, maintenance_start, maintenance_end, patient_id, assignee_ids } = requestBody;
     
     const ticketData = {
       title,
@@ -89,16 +92,19 @@ export async function POST(request: NextRequest) {
       maintenance_start: maintenance_start || null,
       maintenance_end: maintenance_end || null,
       creator_id: userId,
-      patient_id: patient_id || null
+      patient_id: patient_id || null,
+      assignee_ids: assignee_ids || []
     };
 
     // Validate required fields
     if (!ticketData.title) {
+      console.log('DEBUG: Missing title'); // DEBUG LOG
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
     // Validate maintenance window if type is maintenance
     if (ticketData.type === 'maintenance' && (!ticketData.maintenance_start || !ticketData.maintenance_end)) {
+      console.log('DEBUG: Missing maintenance window', { type: ticketData.type, start: ticketData.maintenance_start, end: ticketData.maintenance_end }); // DEBUG LOG
       return NextResponse.json({ error: 'Maintenance start and end times are required for maintenance tickets' }, { status: 400 });
     }
 
@@ -107,12 +113,19 @@ export async function POST(request: NextRequest) {
       const startTime = new Date(ticketData.maintenance_start);
       const endTime = new Date(ticketData.maintenance_end);
       if (endTime <= startTime) {
+        console.log('DEBUG: Invalid time range', { start: startTime, end: endTime }); // DEBUG LOG
         return NextResponse.json({ error: 'Maintenance end time must be after start time' }, { status: 400 });
       }
     }
 
+    // For non-maintenance tickets, assignees are required
+    if (ticketData.type !== 'MAINTENANCE' && (!assignee_ids || assignee_ids.length === 0)) {
+      console.log('DEBUG: Missing assignees for non-maintenance ticket', { type: ticketData.type, assignee_ids }); // DEBUG LOG
+      return NextResponse.json({ error: 'At least one assignee is required for non-maintenance tickets' }, { status: 400 });
+    }
+
     // Check permission for patient case tickets
-    if (ticketData.type === 'PATIENT_CASE' && !checkPermission(userRole, 'CREATE_PATIENT_CASE')) {
+    if (ticketData.type === 'patient_case' && !checkPermission(userRole, 'CREATE_PATIENT_CASE')) {
       return NextResponse.json({ error: 'Insufficient permissions to create patient cases' }, { status: 403 });
     }
 
@@ -120,6 +133,35 @@ export async function POST(request: NextRequest) {
     
     if (result.error) {
       return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 });
+    }
+
+    // If this is a maintenance ticket, create a maintenance alert
+    if (ticketData.type === 'MAINTENANCE' && ticketData.maintenance_start && ticketData.maintenance_end) {
+      try {
+        const { MaintenanceService } = await import('@/services/maintenanceService');
+        const maintenanceService = new MaintenanceService(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
+        const alertResult = await maintenanceService.createMaintenanceAlert({
+          ticket_id: result.data!.id,
+          title: ticketData.title,
+          description: ticketData.description,
+          maintenance_start: ticketData.maintenance_start,
+          maintenance_end: ticketData.maintenance_end,
+          alert_type: 'MAINTENANCE',
+          severity: 'MEDIUM'
+        }, userId);
+
+        if (alertResult.error) {
+          console.error('Failed to create maintenance alert:', alertResult.error);
+          // Don't fail the ticket creation, just log the error
+        }
+      } catch (error) {
+        console.error('Error creating maintenance alert:', error);
+        // Don't fail the ticket creation, just log the error
+      }
     }
 
     return NextResponse.json({ ticket: result.data }, { status: 201 });

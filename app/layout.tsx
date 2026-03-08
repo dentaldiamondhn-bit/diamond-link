@@ -1,6 +1,7 @@
 import { ClerkProvider } from '@clerk/nextjs'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import BannerAlert from '@/components/BannerAlert'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -102,6 +103,7 @@ export default function RootLayout({
           />
         </head>
         <body className={`${inter.className} h-screen overflow-hidden bg-gray-800`} suppressHydrationWarning>
+          <BannerAlert />
           {children}
         </body>
       </html>

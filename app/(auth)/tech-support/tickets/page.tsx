@@ -101,14 +101,28 @@ export default function TechSupportTickets() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedUsers.length === 0) {
-      alert('Debe asignar al menos un usuario a este ticket');
+    // Validate required fields
+    if (!formData.title) {
+      alert('El título es requerido');
       return;
     }
-    
+
+    // For non-maintenance tickets, assignees are required
+    if (formData.type !== 'MAINTENANCE' && selectedUsers.length === 0) {
+      alert('Debe asignar al menos un usuario');
+      return;
+    }
+
+    // For maintenance tickets, maintenance window is required
+    if (formData.type === 'MAINTENANCE' && (!formData.maintenance_start || !formData.maintenance_end)) {
+      alert('Las fechas de inicio y fin de mantenimiento son requeridas');
+      return;
+    }
+
     const submitData = {
       ...formData,
-      assignee_ids: selectedUsers.map(u => u.id),
+      // Only include assignee_ids for non-maintenance tickets
+      ...(formData.type !== 'MAINTENANCE' && { assignee_ids: selectedUsers.map(u => u.id) }),
       attachments: attachments.filter(a => a.selected).map(a => ({
         attachment_type: a.type,
         attachment_id: a.id,
@@ -118,6 +132,10 @@ export default function TechSupportTickets() {
       })),
       patient_id: selectedPatient?.paciente_id || ''
     };
+    
+    console.log('DEBUG: Frontend submitting data:', JSON.stringify(submitData, null, 2)); // DEBUG LOG
+    console.log('DEBUG: formData.type value:', formData.type); // DEBUG LOG
+    console.log('DEBUG: TicketType.MAINTENANCE value:', TicketType.MAINTENANCE); // DEBUG LOG
     
     handleCreateTicket(submitData);
   };
@@ -650,7 +668,7 @@ export default function TechSupportTickets() {
                 </div>
 
                 {/* Maintenance Window */}
-                {formData.type === 'maintenance' && (
+                {formData.type === 'MAINTENANCE' && (
                   <div className="space-y-4">
                     <div className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-orange-900/20 border-orange-600' : 'bg-orange-50 border-orange-200'}`}>
                       <div className="flex items-center mb-2">
@@ -764,15 +782,17 @@ export default function TechSupportTickets() {
                   </div>
                 )}
 
-                {/* User Assignment */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Asignar a *</label>
-                  <UserSelect
-                    selectedUsers={selectedUsers}
-                    onUsersChange={setSelectedUsers}
-                    placeholder="Seleccionar usuarios para asignar..."
-                  />
-                </div>
+                {/* User Assignment - Hide for maintenance tickets since they're system-wide */}
+                {formData.type !== 'MAINTENANCE' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Asignar a *</label>
+                    <UserSelect
+                      selectedUsers={selectedUsers}
+                      onUsersChange={setSelectedUsers}
+                      placeholder="Seleccionar usuarios para asignar..."
+                    />
+                  </div>
+                )}
 
                 {/* Is Reminder */}
                 <div>

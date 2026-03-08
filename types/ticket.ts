@@ -14,7 +14,7 @@ export enum TicketType {
   IMPLEMENTATION = 'implementation',
   REMINDER = 'reminder',
   PATIENT_CASE = 'patient_case',
-  MAINTENANCE = 'maintenance'
+  MAINTENANCE = 'MAINTENANCE'
 }
 
 export enum TicketPriority {

@@ -139,19 +139,61 @@ export class TicketService {
       // Use provided client or default client
       const client = supabaseClient || supabase;
       
-      // Create ticket - exclude patient_id as it's not in tickets table
+      // Create ticket - patient_id is handled in attachments, not tickets table
+      const insertData = {
+        ...ticketFields,
+        creator_id: creatorId,
+        due_date: ticketData.due_date ? new Date(ticketData.due_date).toISOString() : null,
+        is_reminder: ticketData.is_reminder || false
+      };
+      
+      console.log('DEBUG: Inserting ticket data:', JSON.stringify(insertData, null, 2)); // DEBUG LOG
+      console.log('DEBUG: ticketFields.type:', JSON.stringify(ticketFields.type, null, 2)); // DEBUG LOG
+      console.log('DEBUG: ticketFields.type typeof:', typeof ticketFields.type); // DEBUG LOG
+      console.log('DEBUG: ticketFields.type length:', ticketFields.type ? ticketFields.type.length : 'null'); // DEBUG LOG
+      
+      // Create new ticket - try direct Supabase client approach for maintenance tickets
       const { data: ticket, error: ticketError } = await client
         .from('tickets')
-        .insert({
-          ...ticketFields,
-          creator_id: creatorId,
-          due_date: ticketData.due_date ? new Date(ticketData.due_date).toISOString() : null,
-          is_reminder: ticketData.is_reminder || false
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (ticketError || !ticket) {
+        console.log('DEBUG: Ticket creation error:', ticketError); // DEBUG LOG
+        
+        // If this is a maintenance ticket with enum error, try direct RPC
+        if (ticketError?.message?.includes('invalid input value for enum') && ticketFields.type === 'maintenance') {
+          console.log('DEBUG: Trying direct SQL approach for maintenance ticket'); // DEBUG LOG
+          
+          try {
+            const { data: directTicket, error: directError } = await client
+              .rpc('create_maintenance_ticket_direct', {
+                p_title: ticketFields.title,
+                p_description: ticketFields.description,
+                p_type: 'maintenance',
+                p_priority: ticketFields.priority,
+                p_creator_id: creatorId,
+                p_maintenance_start: ticketFields.maintenance_start,
+                p_maintenance_end: ticketFields.maintenance_end,
+                p_due_date: ticketFields.due_date,
+                p_is_reminder: ticketFields.is_reminder || false
+              });
+            
+            if (directError) {
+              console.log('DEBUG: Direct SQL approach also failed:', directError); // DEBUG LOG
+              return { data: null, error: directError };
+            }
+            
+            console.log('DEBUG: Direct SQL approach succeeded:', directTicket); // DEBUG LOG
+            return { data: directTicket, error: null };
+            
+          } catch (directErr) {
+            console.log('DEBUG: Direct SQL approach exception:', directErr); // DEBUG LOG
+            return { data: null, error: ticketError };
+          }
+        }
+        
         return { data: null, error: ticketError };
       }
 
