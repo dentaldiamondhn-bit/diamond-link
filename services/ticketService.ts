@@ -10,14 +10,11 @@ export class TicketService {
         .from('tickets')
         .select(`
           *,
-          creator:creator_id(id, name, email, role, department),
-          assignee:assignee_id(id, name, email, role, department),
           assignees:ticket_assignees(
             id,
             user_id,
             assigned_at,
-            assigned_by,
-            user:user_id(id, name, email, role, department)
+            assigned_by
           ),
           attachments:ticket_attachments(
             id,
@@ -34,8 +31,7 @@ export class TicketService {
             activity_type,
             content,
             metadata,
-            created_at,
-            user:user_id(id, name, email, role, department)
+            created_at
           )
         `);
 
@@ -86,14 +82,11 @@ export class TicketService {
         .from('tickets')
         .select(`
           *,
-          creator:creator_id(id, name, email, role, department),
-          assignee:assignee_id(id, name, email, role, department),
           assignees:ticket_assignees(
             id,
             user_id,
             assigned_at,
-            assigned_by,
-            user:user_id(id, name, email, role, department)
+            assigned_by
           ),
           attachments:ticket_attachments(
             id,
@@ -110,8 +103,7 @@ export class TicketService {
             activity_type,
             content,
             metadata,
-            created_at,
-            user:user_id(id, name, email, role, department)
+            created_at
           )
         `)
         .eq('id', ticketId)
@@ -163,7 +155,7 @@ export class TicketService {
         console.log('DEBUG: Ticket creation error:', ticketError); // DEBUG LOG
         
         // If this is a maintenance ticket with enum error, try direct RPC
-        if (ticketError?.message?.includes('invalid input value for enum') && ticketFields.type === 'maintenance') {
+        if (ticketError?.message?.includes('invalid input value for enum') && ticketFields.type === 'MAINTENANCE') {
           console.log('DEBUG: Trying direct SQL approach for maintenance ticket'); // DEBUG LOG
           
           try {
@@ -171,7 +163,7 @@ export class TicketService {
               .rpc('create_maintenance_ticket_direct', {
                 p_title: ticketFields.title,
                 p_description: ticketFields.description,
-                p_type: 'maintenance',
+                p_type: 'MAINTENANCE',
                 p_priority: ticketFields.priority,
                 p_creator_id: creatorId,
                 p_maintenance_start: ticketFields.maintenance_start,
@@ -226,6 +218,8 @@ export class TicketService {
           metadata: attachment.metadata
         }));
 
+        console.log('DEBUG: Attachment data to insert:', attachmentData); // DEBUG LOG
+
         const { error: attachmentError } = await client
           .from('ticket_attachments')
           .insert(attachmentData);
@@ -241,7 +235,7 @@ export class TicketService {
         activity_type: ActivityType.STATUS_CHANGE,
         content: `Ticket created with status: ${TicketStatus.OPEN}`,
         metadata: { old_status: null, new_status: TicketStatus.OPEN }
-      });
+      }, creatorId);
 
       return { data: ticket, error: null };
     } catch (error) {
@@ -277,7 +271,7 @@ export class TicketService {
             activity_type: ActivityType.STATUS_CHANGE,
             content: `Status changed from ${currentTicket.status} to ${updates.status}`,
             metadata: { old_status: currentTicket.status, new_status: updates.status }
-          });
+          }, userId);
         }
 
         // Create activity for assignment change
@@ -287,7 +281,7 @@ export class TicketService {
             activity_type: ActivityType.ASSIGNMENT,
             content: `Assigned to user ${updates.assignee_id}`,
             metadata: { old_assignee: currentTicket.assignee_id, new_assignee: updates.assignee_id }
-          });
+          }, userId);
         }
 
         // Create activity for priority change
@@ -297,7 +291,7 @@ export class TicketService {
             activity_type: ActivityType.EDIT,
             content: `Priority changed from ${currentTicket.priority} to ${updates.priority}`,
             metadata: { old_priority: currentTicket.priority, new_priority: updates.priority }
-          });
+          }, userId);
         }
       }
 

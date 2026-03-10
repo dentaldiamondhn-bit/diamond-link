@@ -141,13 +141,16 @@ export default function TechSupportTickets() {
   };
 
   const handleSelectPatient = (patient: any) => {
+    console.log('DEBUG: Patient selected:', patient); // DEBUG LOG
     setSelectedPatient(patient);
     setShowPatientSearch(false);
     // Clear attachments when patient changes
     setAttachments([]);
+    console.log('DEBUG: Patient set, formData.type:', formData.type); // DEBUG LOG
   };
 
   const loadPatientAttachments = async (patientId: string) => {
+    console.log('DEBUG: Loading patient attachments for:', patientId); // DEBUG LOG
     setLoadingAttachments(true);
     try {
       // Load consents
@@ -159,12 +162,19 @@ export default function TechSupportTickets() {
       const odontogram = odontogramResponse.ok ? await odontogramResponse.json() : null;
       
       // Load treatments
-      const treatmentsResponse = await fetch(`/api/patients/${patientId}/treatments`);
+      console.log('DEBUG: Fetching tratamientos-completados for patient:', patientId); // DEBUG LOG
+      const treatmentsResponse = await fetch(`/api/patients/${patientId}/tratamientos-completados`);
       const treatments = treatmentsResponse.ok ? await treatmentsResponse.json() : [];
+      console.log('DEBUG: Treatments response:', treatmentsResponse.ok, treatments.length, 'items'); // DEBUG LOG
       
       // Load events
       const eventsResponse = await fetch(`/api/patients/${patientId}/events`);
       const events = eventsResponse.ok ? await eventsResponse.json() : [];
+      
+      // Load presupuestos
+      const presupuestosResponse = await fetch(`/api/presupuestos`);
+      const presupuestos = presupuestosResponse.ok ? await presupuestosResponse.json() : [];
+      const patientPresupuestos = presupuestos.filter(p => p.paciente_id === patientId);
 
       const allAttachments = [
         ...consents.map(c => ({
@@ -185,15 +195,17 @@ export default function TechSupportTickets() {
           data: odontogram,
           selected: false
         }] : []),
-        ...treatments.map(t => ({
+        ...treatments.map(t => {
+          console.log('DEBUG: Treatment data:', t); // DEBUG LOG
+          return {
           id: t.id,
           type: 'treatment',
           title: t.nombre_tratamiento || 'Tratamiento',
           description: t.descripcion,
-          date: t.fecha_inicio,
+          date: t.fecha_cita,
           data: t,
           selected: false
-        })),
+        }}),
         ...events.map(e => ({
           id: e.id,
           type: 'event',
@@ -201,6 +213,15 @@ export default function TechSupportTickets() {
           description: e.description,
           date: e.start_date,
           data: e,
+          selected: false
+        })),
+        ...patientPresupuestos.map(p => ({
+          id: p.id,
+          type: 'presupuesto',
+          title: p.nombre || 'Presupuesto',
+          description: p.descripcion || `Presupuesto #${p.id}`,
+          date: p.created_at,
+          data: p,
           selected: false
         }))
       ];
@@ -214,7 +235,10 @@ export default function TechSupportTickets() {
   };
 
   useEffect(() => {
-    if (selectedPatient && formData.type === TicketType.PATIENT_CASE) {
+    console.log('DEBUG: useEffect triggered - selectedPatient:', selectedPatient, 'formData.type:', formData.type); // DEBUG LOG
+    console.log('DEBUG: TicketType.PATIENT_CASE value:', TicketType.PATIENT_CASE); // DEBUG LOG
+    if (selectedPatient && formData.type === 'PATIENT_CASE') {
+      console.log('DEBUG: Loading attachments for patient case'); // DEBUG LOG
       loadPatientAttachments(selectedPatient.paciente_id);
     }
   }, [selectedPatient, formData.type]);
@@ -553,7 +577,10 @@ export default function TechSupportTickets() {
                   <label className="block text-sm font-medium mb-2">Tipo *</label>
                   <select
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as TicketType })}
+                    onChange={(e) => {
+                    console.log('DEBUG: Form type changed to:', e.target.value); // DEBUG LOG
+                    setFormData({ ...formData, type: e.target.value as TicketType });
+                  }}
                     className={`w-full rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
                   >
                     <option value={TicketType.TASK}>Tarea</option>
@@ -566,7 +593,7 @@ export default function TechSupportTickets() {
                 </div>
 
                 {/* Patient Case Selection */}
-                {formData.type === 'patient_case' && (
+                {formData.type === TicketType.PATIENT_CASE && (
                   <div>
                     <label className="block text-sm font-medium mb-2">Paciente</label>
                     <div className="flex gap-2">
@@ -722,7 +749,7 @@ export default function TechSupportTickets() {
                 )}
 
                 {/* Patient Information Attachments */}
-                {formData.type === 'patient_case' && selectedPatient && (
+                {formData.type === TicketType.PATIENT_CASE && selectedPatient && (
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-sm font-medium">Información del Paciente Adjunta</label>
@@ -756,7 +783,7 @@ export default function TechSupportTickets() {
                               <div>
                                 <div className="font-medium text-sm">{attachment.title}</div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {attachment.type} • {new Date(attachment.date).toLocaleDateString()}
+                                  {attachment.type} • {attachment.date ? new Date(attachment.date).toLocaleDateString('es-HN') : 'Sin fecha'}
                                 </div>
                               </div>
                               <div className={`w-4 h-4 rounded-full border-2 ${

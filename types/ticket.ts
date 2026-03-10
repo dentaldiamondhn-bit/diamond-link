@@ -9,11 +9,11 @@ export enum UserRole {
 }
 
 export enum TicketType {
-  TASK = 'task',
-  SYSTEM_ISSUE = 'system_issue',
-  IMPLEMENTATION = 'implementation',
-  REMINDER = 'reminder',
-  PATIENT_CASE = 'patient_case',
+  TASK = 'TASK',
+  SYSTEM_ISSUE = 'SYSTEM_ISSUE',
+  IMPLEMENTATION = 'IMPLEMENTATION',
+  REMINDER = 'REMINDER',
+  PATIENT_CASE = 'PATIENT_CASE',
   MAINTENANCE = 'MAINTENANCE'
 }
 

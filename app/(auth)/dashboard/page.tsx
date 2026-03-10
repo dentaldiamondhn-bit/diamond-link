@@ -245,7 +245,7 @@ export default function DashboardPage() {
                 Próximos Eventos
               </h3>
               <Link
-                href="/calendar"
+                href="/calendario"
                 className="text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal300 text-sm font-medium"
               >
                 Ver Calendario →

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, Currency } from '../../../../../utils/currencyUtils';
 import { formatDateForDisplay } from '../../../../../utils/dateUtils';
+import { SimpleTimezoneFix } from '../../../../../services/simpleTimezoneFix';
 import { Patient } from '../../../../../types/patient';
 import SignatureDisplay from '../../../../../components/SignatureDisplay';
 import { CompletedTreatmentService } from '../../../../../services/completedTreatmentService';
@@ -182,7 +183,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
             <button
               onClick={() => {
                 const url = treatment.paciente_id 
-                  ? `/menu-navegacion?id=${encodeURIComponent(treatment.paciente_id)}`
+                  ? `/paciente/${encodeURIComponent(treatment.paciente_id)}?tab=tratamientos-completados`
                   : '/menu-navegacion';
                 router.push(url);
               }}
@@ -275,7 +276,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Fecha de Cita</p>
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {formatDateForDisplay(treatment.fecha_cita)}
+                        {SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}
                       </p>
                     </div>
                   </div>
@@ -303,7 +304,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Fecha del Tratamiento</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {formatDateForDisplay(treatment.fecha_cita)}
+                    {SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}
                   </p>
                 </div>
                 <div>

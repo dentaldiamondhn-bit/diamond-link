@@ -201,7 +201,8 @@ export function canAccessRoute(userRole: string, pathname: string): boolean {
     // Block staff from sensitive clinical functions
     if (pathname.startsWith('/xray-viewer') ||
         pathname === '/tratamientos' || // Block only main treatments page, not completed
-        pathname === '/reports') { // Block staff from reports
+        pathname === '/reports' || 
+        pathname === '/reportes') { // Block staff from reports (both English and Spanish)
       return false;
     }
     // Staff can access odontogram for viewing dental charts (read-only)
@@ -228,6 +229,7 @@ export function canAccessRoute(userRole: string, pathname: string): boolean {
     '/menu-navegacion': 'canViewMenuNavegacion',
     '/doctores': 'canManageDoctores',
     '/reports': 'canViewDashboard', // Reports use dashboard permission
+    '/reportes': 'canViewDashboard', // Spanish reports route also uses dashboard permission
     '/admin': 'canManageUsers',
     '/admin/users': 'canManageUsers',
     '/tech-support/users': 'canManageUsers',

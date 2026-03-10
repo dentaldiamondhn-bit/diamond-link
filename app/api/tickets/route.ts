@@ -135,33 +135,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 });
     }
 
-    // If this is a maintenance ticket, create a maintenance alert
+    // If this is a maintenance ticket, no need to create separate alert
+    // The maintenance ticket itself serves as the alert for the banner
     if (ticketData.type === 'MAINTENANCE' && ticketData.maintenance_start && ticketData.maintenance_end) {
-      try {
-        const { MaintenanceService } = await import('@/services/maintenanceService');
-        const maintenanceService = new MaintenanceService(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-
-        const alertResult = await maintenanceService.createMaintenanceAlert({
-          ticket_id: result.data!.id,
-          title: ticketData.title,
-          description: ticketData.description,
-          maintenance_start: ticketData.maintenance_start,
-          maintenance_end: ticketData.maintenance_end,
-          alert_type: 'MAINTENANCE',
-          severity: 'MEDIUM'
-        }, userId);
-
-        if (alertResult.error) {
-          console.error('Failed to create maintenance alert:', alertResult.error);
-          // Don't fail the ticket creation, just log the error
-        }
-      } catch (error) {
-        console.error('Error creating maintenance alert:', error);
-        // Don't fail the ticket creation, just log the error
-      }
+      console.log('Maintenance ticket created, will appear in banner:', result.data!.id);
     }
 
     return NextResponse.json({ ticket: result.data }, { status: 201 });

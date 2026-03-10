@@ -60,7 +60,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     // Reports page - restricted to doctors, admins, and tech-support only
-    if (req.nextUrl.pathname === '/reports') {
+    if (req.nextUrl.pathname === '/reports' || req.nextUrl.pathname === '/reportes') {
       // TEMPORARY: Allow all authenticated users to access reports for testing
       return NextResponse.next();
       

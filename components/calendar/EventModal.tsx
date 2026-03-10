@@ -253,7 +253,39 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
       newErrors.end_date = 'La fecha de fin debe ser posterior a la de inicio';
     }
 
+    // Additional mobile-specific validation
+    if (formData.start_date) {
+      try {
+        const startDate = new Date(formData.start_date);
+        if (isNaN(startDate.getTime())) {
+          newErrors.start_date = 'Fecha de inicio inválida';
+        }
+      } catch (error) {
+        console.error('Error parsing start date on mobile:', error);
+        newErrors.start_date = 'Error en formato de fecha';
+      }
+    }
+
+    if (formData.end_date) {
+      try {
+        const endDate = new Date(formData.end_date);
+        if (isNaN(endDate.getTime())) {
+          newErrors.end_date = 'Fecha de fin inválida';
+        }
+      } catch (error) {
+        console.error('Error parsing end date on mobile:', error);
+        newErrors.end_date = 'Error en formato de fecha';
+      }
+    }
+
     setErrors(newErrors);
+    
+    // Log validation errors for mobile debugging
+    if (Object.keys(newErrors).length > 0) {
+      console.error('🚨 Mobile Event Form Validation Errors:', newErrors);
+      console.error('📱 Form Data:', formData);
+    }
+    
     return Object.keys(newErrors).length === 0;
   };
 
@@ -299,11 +331,16 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('📱 Mobile Event Submit - Form Data:', formData);
+    console.log('📱 Mobile Event Submit - Selected Patient:', selectedPatient);
+    
     if (!validateForm()) {
+      console.log('❌ Mobile Event Submit - Validation Failed');
       return;
     }
 
     setLoading(true);
+    
     try {
       const eventData: CalendarEvent = {
         ...formData as CalendarEvent,
@@ -311,10 +348,14 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
         patient_id: formData.patient_id || null, // Convert empty string to null
       };
 
+      console.log('📱 Mobile Event Submit - Event Data:', eventData);
+
       let savedEvent: CalendarEventWithPatient;
       
       if (event?.id) {
+        console.log('📱 Mobile Event Submit - Updating Event:', event.id);
         savedEvent = await CalendarService.updateEvent(event.id, eventData);
+        console.log('✅ Mobile Event Submit - Event Updated:', savedEvent);
         // Create notification for updated event
         await CalendarReminderService.createEventNotification(
           { ...savedEvent, patient: selectedPatient },
@@ -326,7 +367,9 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           'updated'
         );
       } else {
+        console.log('📱 Mobile Event Submit - Creating New Event');
         savedEvent = await CalendarService.createEvent(eventData);
+        console.log('✅ Mobile Event Submit - Event Created:', savedEvent);
         // Create notification for new event
         await CalendarReminderService.createEventNotification(
           { ...savedEvent, patient: selectedPatient },
@@ -341,15 +384,16 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
 
       // Handle invitees
       if (savedEvent.id) {
+        console.log('📱 Mobile Event Submit - Handling Invitees');
         // Delete existing invitees
         await CalendarInviteesService.deleteInviteesForItem('event', savedEvent.id);
         
-        // Create new invitees
+        // Add new invitees
         if (selectedUsers.length > 0) {
           const inviteesData = selectedUsers.map(user => ({
+            user_id: user.id,
             item_type: 'event' as const,
             item_id: savedEvent.id,
-            user_id: user.id, // Use original Clerk user ID
             status: 'pending' as const,
             created_by: userId // Use original Clerk user ID
           }));
@@ -361,10 +405,19 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
         await saveReminders(savedEvent.id, 'event');
       }
 
+      console.log('🎉 Mobile Event Submit - Success! Calling onSave');
       onSave(eventData);
       onClose();
     } catch (error) {
-      setErrors({ submit: 'Error al guardar el evento' });
+      console.error('❌ Mobile Event Submit Error:', error);
+      console.error('❌ Error Details:', {
+        message: error?.message,
+        stack: error?.stack,
+        formData: formData,
+        userId: userId,
+        eventId: event?.id
+      });
+      setErrors({ submit: 'Error al guardar el evento. Por favor revise los datos e intente nuevamente.' });
     } finally {
       setLoading(false);
     }
@@ -545,12 +598,20 @@ const handlePatientSelect = (patient: any) => {
                 <input
                   type="datetime-local"
                   value={formData.start_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                  onChange={(e) => {
+                    console.log('📱 Mobile - Start Date Changed:', e.target.value);
+                    setFormData(prev => ({ ...prev, start_date: e.target.value }));
+                  }}
                   className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 ${
                     errors.start_date ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
+                  min={new Date().toISOString().slice(0, 16)} // Prevent past dates on mobile
                 />
-                {errors.start_date && <p className="text-red-500 text-sm mt-1">{errors.start_date}</p>}
+                {errors.start_date && (
+                  <div className="mt-1 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+                    <p className="text-red-600 dark:text-red-400 text-sm font-medium">⚠️ {errors.start_date}</p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -560,12 +621,20 @@ const handlePatientSelect = (patient: any) => {
                 <input
                   type="datetime-local"
                   value={formData.end_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                  onChange={(e) => {
+                    console.log('📱 Mobile - End Date Changed:', e.target.value);
+                    setFormData(prev => ({ ...prev, end_date: e.target.value }));
+                  }}
                   className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 ${
                     errors.end_date ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
+                  min={formData.start_date || new Date().toISOString().slice(0, 16)} // Prevent end before start
                 />
-                {errors.end_date && <p className="text-red-500 text-sm mt-1">{errors.end_date}</p>}
+                {errors.end_date && (
+                  <div className="mt-1 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+                    <p className="text-red-600 dark:text-red-400 text-sm font-medium">⚠️ {errors.end_date}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -760,7 +829,7 @@ const handlePatientSelect = (patient: any) => {
               )}
               
               {/* Save/Cancel buttons */}
-              <div className="flex space-x-3">
+              <div className="flex gap-3 justify-end">
                 <button
                   type="button"
                   onClick={onClose}
@@ -771,11 +840,36 @@ const handlePatientSelect = (patient: any) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed relative"
                 >
-                  {loading ? 'Guardando...' : (event ? 'Actualizar' : 'Crear')}
+                  {loading ? (
+                    <span className="flex items-center">
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Guardando...
+                    </span>
+                  ) : (
+                    <span>{event ? 'Actualizar' : 'Crear'}</span>
+                  )}
                 </button>
               </div>
+              
+              {/* Mobile-specific error display */}
+              {errors.submit && (
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg sm:hidden">
+                  <div className="flex items-start">
+                    <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 mt-1 mr-3"></i>
+                    <div>
+                      <p className="text-red-600 dark:text-red-400 font-medium">❌ Error al guardar evento</p>
+                      <p className="text-red-500 dark:text-red-500 text-sm mt-1">
+                        Por favor revise los datos e intente nuevamente. Si el problema persiste, 
+                        <span className="block mt-1">
+                          <strong>Para móviles:</strong> Verifique que las fechas sean correctas y que tenga conexión a internet estable.
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </form>
         </div>

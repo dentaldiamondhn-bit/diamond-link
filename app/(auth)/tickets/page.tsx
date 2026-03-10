@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { TicketService } from '@/services/ticketService';
-import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData } from '@/types/ticket';
+import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData, ActivityType } from '@/types/ticket';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Plus, Filter, Clock, AlertCircle, CheckCircle, User, Calendar, MessageSquare, Settings, TrendingUp } from 'lucide-react';
+import { Plus, Filter, Clock, AlertCircle, CheckCircle, User, Calendar, MessageSquare, Settings, TrendingUp, Paperclip } from 'lucide-react';
 import { UserSelect } from '@/components/calendar/UserSelect';
 
 export default function TicketsPage() {
@@ -16,6 +16,8 @@ export default function TicketsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [selectedAttachment, setSelectedAttachment] = useState<any | null>(null);
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
   const [filters, setFilters] = useState({
     status: '',
     type: '',
@@ -52,11 +54,23 @@ export default function TicketsPage() {
       }
 
       if (result.data) {
-        // Filter out MAINTENANCE tickets for non-tech-support roles
+        // Filter tickets based on user role
         let filteredData = result.data;
-        if (userRole !== UserRole.TECH_SUPPORT) {
-          filteredData = result.data.filter(ticket => ticket.type !== 'MAINTENANCE');
+        
+        if (userRole !== UserRole.TECH_SUPPORT && userRole !== UserRole.ADMIN) {
+          // For non-admin users, only show tickets they created or are assigned to
+          filteredData = result.data.filter(ticket => {
+            const isCreator = ticket.creator_id === user?.id;
+            const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === user?.id);
+            return isCreator || isAssignee;
+          });
         }
+        
+        // Filter out MAINTENANCE tickets for non-tech-support roles
+        if (userRole !== UserRole.TECH_SUPPORT) {
+          filteredData = filteredData.filter(ticket => ticket.type !== 'MAINTENANCE');
+        }
+        
         setTickets(filteredData);
       }
     } catch (error) {
@@ -155,6 +169,51 @@ export default function TicketsPage() {
            ticket.assignee_id === user?.id || 
            userRole === UserRole.ADMIN || 
            userRole === UserRole.TECH_SUPPORT;
+  };
+
+  const canChangeTicketStatus = (ticket: Ticket) => {
+    // Only assignees can change ticket status (not creators)
+    // Admin and tech support can also change status for oversight
+    const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === user?.id);
+    return isAssignee || 
+           userRole === UserRole.ADMIN || 
+           userRole === UserRole.TECH_SUPPORT;
+  };
+
+  const canViewTicketDetails = (ticket: Ticket) => {
+    // Both creators and assignees can view ticket details
+    // Admin and tech support can also view for oversight
+    const isCreator = ticket.creator_id === user?.id;
+    const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === user?.id);
+    return isCreator || isAssignee || 
+           userRole === UserRole.ADMIN || 
+           userRole === UserRole.TECH_SUPPORT;
+  };
+
+  const handleViewAttachment = (attachment: any) => {
+    setSelectedAttachment(attachment);
+    setShowAttachmentModal(true);
+  };
+
+  const handleCloseAttachmentModal = () => {
+    setSelectedAttachment(null);
+    setShowAttachmentModal(false);
+  };
+
+  const getAttachmentUrl = (attachment: any) => {
+    // Generate appropriate URLs based on attachment type
+    switch (attachment.attachment_type) {
+      case 'treatment':
+        return `/tratamientos-completados/${attachment.attachment_id}/view`;
+      case 'consent':
+        return `/paciente/${attachment.metadata?.paciente_id}?tab=consents&consent=${attachment.attachment_id}`;
+      case 'odontogram':
+        return `/paciente/${attachment.metadata?.paciente_id}?tab=odontogram&odontogram=${attachment.attachment_id}`;
+      case 'event':
+        return `/calendar?event=${attachment.attachment_id}`;
+      default:
+        return '#';
+    }
   };
 
   if (loading) {
@@ -276,7 +335,7 @@ export default function TicketsPage() {
                     </div>
                   </div>
                   
-                  {canEditTicket(ticket) && (
+                  {canViewTicketDetails(ticket) && (
                     <button
                       onClick={() => setSelectedTicket(ticket)}
                       className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
@@ -302,7 +361,9 @@ export default function TicketsPage() {
                     <div className="flex items-center">
                       <User className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-400" />
                       <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                        {ticket.assignee?.name || 'Unassigned'}
+                        {ticket.assignees && ticket.assignees.length > 0 
+                          ? `${ticket.assignees.length} asignado(s)` 
+                          : 'Sin asignar'}
                       </span>
                     </div>
                     
@@ -317,7 +378,15 @@ export default function TicketsPage() {
                   </div>
 
                   <div className="flex gap-2">
-                    {ticket.status === TicketStatus.OPEN && canEditTicket(ticket) && (
+                    {ticket.attachments && ticket.attachments.length > 0 && (
+                      <div className="flex items-center">
+                        <Paperclip className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                        <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
+                          {ticket.attachments.length} adjunto(s)
+                        </span>
+                      </div>
+                    )}
+                    {ticket.status === TicketStatus.OPEN && canChangeTicketStatus(ticket) && (
                       <button
                         onClick={() => handleStatusChange(ticket.id, TicketStatus.IN_PROGRESS)}
                         className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
@@ -326,7 +395,7 @@ export default function TicketsPage() {
                       </button>
                     )}
                     
-                    {ticket.status === TicketStatus.IN_PROGRESS && canEditTicket(ticket) && (
+                    {ticket.status === TicketStatus.IN_PROGRESS && canChangeTicketStatus(ticket) && (
                       <button
                         onClick={() => handleStatusChange(ticket.id, TicketStatus.RESOLVED)}
                         className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
@@ -372,7 +441,119 @@ export default function TicketsPage() {
           onClose={() => setSelectedTicket(null)}
           userRole={userRole}
           onUpdate={loadTickets}
+          onViewAttachment={handleViewAttachment}
         />
+      )}
+
+      {/* Attachment Detail Modal */}
+      {showAttachmentModal && selectedAttachment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto`}>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">
+                  {selectedAttachment.attachment_type === 'treatment' ? 'Detalles del Tratamiento' :
+                   selectedAttachment.attachment_type === 'consent' ? 'Documento de Consentimiento' :
+                   selectedAttachment.attachment_type === 'odontogram' ? 'Odontograma' :
+                   selectedAttachment.attachment_type === 'event' ? 'Detalles del Evento' :
+                   'Adjunto'}
+                </h2>
+                <button
+                  onClick={handleCloseAttachmentModal}
+                  className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Attachment Info */}
+                <div>
+                  <h3 className="font-semibold mb-2">Información</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="font-medium">Título:</span> {selectedAttachment.attachment_title}
+                    </div>
+                    <div>
+                      <span className="font-medium">Descripción:</span> {selectedAttachment.attachment_description}
+                    </div>
+                    <div>
+                      <span className="font-medium">Tipo:</span> 
+                      <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                        selectedAttachment.attachment_type === 'treatment' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                        selectedAttachment.attachment_type === 'consent' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                        selectedAttachment.attachment_type === 'odontogram' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                        selectedAttachment.attachment_type === 'event' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                        'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                      }`}>
+                        {selectedAttachment.attachment_type === 'treatment' ? 'Tratamiento' :
+                         selectedAttachment.attachment_type === 'consent' ? 'Consentimiento' :
+                         selectedAttachment.attachment_type === 'odontogram' ? 'Odontograma' :
+                         selectedAttachment.attachment_type === 'event' ? 'Evento' :
+                         selectedAttachment.attachment_type}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metadata */}
+                {selectedAttachment.metadata && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Detalles Adicionales</h3>
+                    <div className="space-y-2 text-sm">
+                      {selectedAttachment.metadata.fecha_cita && (
+                        <div>
+                          <span className="font-medium">Fecha:</span> {new Date(selectedAttachment.metadata.fecha_cita).toLocaleDateString()}
+                        </div>
+                      )}
+                      {selectedAttachment.metadata.total_final && (
+                        <div>
+                          <span className="font-medium">Total:</span> Lps. {selectedAttachment.metadata.total_final}
+                        </div>
+                      )}
+                      {selectedAttachment.metadata.estado && (
+                        <div>
+                          <span className="font-medium">Estado:</span> {selectedAttachment.metadata.estado}
+                        </div>
+                      )}
+                      {selectedAttachment.metadata.estado_pago && (
+                        <div>
+                          <span className="font-medium">Estado de Pago:</span> {selectedAttachment.metadata.estado_pago}
+                        </div>
+                      )}
+                      {selectedAttachment.metadata.paciente && (
+                        <div>
+                          <span className="font-medium">Paciente:</span> {selectedAttachment.metadata.paciente.nombre_completo}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      const url = getAttachmentUrl(selectedAttachment);
+                      if (url !== '#') {
+                        window.open(url, '_blank');
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Ver en Sistema
+                  </button>
+                  <button
+                    onClick={handleCloseAttachmentModal}
+                    className={`px-4 py-2 ${theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} rounded-md transition-colors`}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
@@ -402,18 +583,20 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   const [showAttachmentSearch, setShowAttachmentSearch] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedUsers.length === 0) {
-      alert('Debe asignar al menos un usuario a este ticket');
-      return;
-    }
+    // Allow ticket creation without assignees for now
+    // if (selectedUsers.length === 0) {
+    //   alert('Debe asignar al menos un usuario a este ticket');
+    //   return;
+    // }
     
     const submitData = {
       ...formData,
       assignee_ids: selectedUsers.map(u => u.id),
-      attachments,
+      attachments: getSelectedAttachments(),
       patient_id: selectedPatient?.paciente_id || ''
     };
     
@@ -421,13 +604,16 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   };
 
   const handleSelectPatient = (patient: any) => {
+    console.log('DEBUG: Patient selected:', patient); // DEBUG LOG
     setSelectedPatient(patient);
     setShowPatientSearch(false);
     // Clear attachments when patient changes
     setAttachments([]);
+    console.log('DEBUG: Patient set, formData.type:', formData.type); // DEBUG LOG
   };
 
   const loadPatientAttachments = async (patientId: string) => {
+    console.log('DEBUG: Loading patient attachments for:', patientId); // DEBUG LOG
     setLoadingAttachments(true);
     try {
       // Load consents
@@ -439,8 +625,10 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
       const odontogram = odontogramResponse.ok ? await odontogramResponse.json() : null;
       
       // Load treatments
-      const treatmentsResponse = await fetch(`/api/patients/${patientId}/treatments`);
+      console.log('DEBUG: Fetching tratamientos-completados for patient:', patientId); // DEBUG LOG
+      const treatmentsResponse = await fetch(`/api/tratamientos-completados?paciente_id=${patientId}`);
       const treatments = treatmentsResponse.ok ? await treatmentsResponse.json() : [];
+      console.log('DEBUG: Treatments response:', treatmentsResponse.ok, treatments.length, 'items'); // DEBUG LOG
       
       // Load events
       const eventsResponse = await fetch(`/api/patients/${patientId}/events`);
@@ -463,14 +651,29 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
           date: odontogram.updated_at,
           data: odontogram
         }] : []),
-        ...treatments.map(t => ({
-          id: t.id,
-          type: 'treatment',
-          title: t.nombre_tratamiento || 'Tratamiento',
-          description: t.descripcion,
-          date: t.fecha_inicio,
-          data: t
-        })),
+        ...treatments.map(t => {
+          console.log('DEBUG: Treatment data:', t); // DEBUG LOG
+          const treatmentItems = t.tratamientos_realizados || [];
+          console.log('DEBUG: Treatment items array:', JSON.stringify(treatmentItems)); // DEBUG LOG
+          console.log('DEBUG: Treatment items length:', treatmentItems.length); // DEBUG LOG
+          console.log('DEBUG: Treatment items type:', Array.isArray(treatmentItems)); // DEBUG LOG
+          const treatmentCount = treatmentItems.reduce((sum, tr) => sum + (tr.cantidad || 1), 0);
+          const treatmentTotal = treatmentItems.reduce((sum, tr) => sum + ((tr.precio_final || 0) * (tr.cantidad || 1)), 0) || t.total_final || 0;
+          console.log('DEBUG: Calculated total:', treatmentTotal, 'vs total_final:', t.total_final); // DEBUG LOG
+          console.log('DEBUG: Total treatment count:', treatmentCount); // DEBUG LOG
+          const treatmentNames = treatmentItems.length > 0 
+            ? treatmentItems.map(tr => tr.nombre_tratamiento).join(', ')
+            : t.nombre_tratamiento || 'Tratamiento';
+          console.log('DEBUG: Treatment names:', treatmentNames); // DEBUG LOG
+          return {
+            id: t.id,
+            type: 'treatment',
+            title: `${t.nombre_tratamiento || 'Tratamiento'} (${treatmentCount} tratamiento${treatmentCount > 1 ? 's' : ''})`,
+            description: `${treatmentNames} • Lps. ${treatmentTotal} • ${t.estado || ''}`,
+            date: t.fecha_cita,
+            data: t
+          }
+        }),
         ...events.map(e => ({
           id: e.id,
           type: 'event',
@@ -490,7 +693,10 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   };
 
   useEffect(() => {
+    console.log('DEBUG: useEffect triggered - selectedPatient:', selectedPatient, 'formData.type:', formData.type); // DEBUG LOG
+    console.log('DEBUG: TicketType.PATIENT_CASE value:', TicketType.PATIENT_CASE); // DEBUG LOG
     if (selectedPatient && formData.type === TicketType.PATIENT_CASE) {
+      console.log('DEBUG: Loading attachments for patient case'); // DEBUG LOG
       loadPatientAttachments(selectedPatient.paciente_id);
     }
   }, [selectedPatient, formData.type]);
@@ -510,13 +716,17 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   };
 
   const getSelectedAttachments = () => {
-    return attachments.filter(a => a.selected).map(a => ({
+    console.log('DEBUG: All attachments:', attachments);
+    console.log('DEBUG: Selected attachments:', attachments.filter(a => a.selected));
+    const selected = attachments.filter(a => a.selected).map(a => ({
       attachment_type: a.type,
       attachment_id: a.id,
       attachment_title: a.title,
       attachment_description: a.description,
       metadata: a.data
     }));
+    console.log('DEBUG: Mapped attachments:', selected);
+    return selected;
   };
 
   useEffect(() => {
@@ -528,35 +738,39 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto`}>
         <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Crear Nuevo Ticket</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Crear Nuevo Ticket
+            </h2>
             <button
               onClick={onClose}
               className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
             >
-              ×
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Type - Moved to top */}
             <div>
-              <label className="block text-sm font-medium mb-2">Tipo *</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as TicketType })}
-                className={`w-full rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
-              >
-                <option value={TicketType.TASK}>Tarea</option>
-                <option value={TicketType.SYSTEM_ISSUE}>Problema del Sistema</option>
-                <option value={TicketType.IMPLEMENTATION}>Implementación (Sugerencia)</option>
-                <option value={TicketType.REMINDER}>Recordatorio</option>
-                <option value={TicketType.PATIENT_CASE}>Caso de Paciente</option>
-              </select>
-            </div>
+                <label className="block text-sm font-medium mb-2">Tipo de Ticket</label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as TicketType })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value={TicketType.TASK}>Tarea</option>
+                  <option value={TicketType.SYSTEM_ISSUE}>Problema del Sistema</option>
+                  <option value={TicketType.IMPLEMENTATION}>Implementación (Sugerencia)</option>
+                  <option value={TicketType.REMINDER}>Recordatorio</option>
+                  <option value={TicketType.PATIENT_CASE}>Caso de Paciente</option>
+                </select>
+              </div>
 
             {/* Patient Case Selection */}
-            {formData.type === 'patient_case' && (
+            {formData.type === TicketType.PATIENT_CASE && (
               <div>
                 <label className="block text-sm font-medium mb-2">Paciente</label>
                 <div className="flex gap-2">
@@ -648,7 +862,7 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                               {attachment.description}
                             </p>
                             <p className="text-xs text-gray-400 dark:text-gray-500">
-                              {attachment.type} • {new Date(attachment.date).toLocaleDateString()}
+                              {attachment.type} • {attachment.date ? new Date(attachment.date).toLocaleDateString('es-HN', { timeZone: 'UTC' }) : 'Sin fecha'}
                             </p>
                           </div>
                           <div className="ml-2">
@@ -673,33 +887,35 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
             )}
 
             <div>
-              <label className="block text-sm font-medium mb-2">Título *</label>
+              <label className="block text-sm font-medium mb-2">Título del Ticket *</label>
               <input
                 type="text"
-                required
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 className={`w-full rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                placeholder="Ej: Problema con tratamiento del paciente"
+                required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Descripción</label>
+              <label className="block text-sm font-medium mb-2">Descripción del Caso</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={4}
                 className={`w-full rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                rows={3}
+                placeholder="Describa el problema o caso del paciente..."
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Prioridad *</label>
+                <label className="block text-sm font-medium mb-2">Prioridad del Ticket *</label>
                 <select
                   value={formData.priority}
                   onChange={(e) => setFormData({ ...formData, priority: e.target.value as TicketPriority })}
-                  className={`w-full rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value={TicketPriority.LOW}>Baja</option>
                   <option value={TicketPriority.MEDIUM}>Media</option>
@@ -737,19 +953,20 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-600">
               <button
                 type="button"
                 onClick={onClose}
-                className={`px-4 py-2 rounded-md ${theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition-colors`}
+                className={`px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md ${theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'} transition-colors`}
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Crear Ticket
+                {loading ? 'Creando...' : 'Crear Ticket'}
               </button>
             </div>
           </form>
@@ -890,24 +1107,26 @@ function TicketDetailModal({
   ticket, 
   onClose, 
   userRole, 
-  onUpdate 
+  onUpdate,
+  onViewAttachment 
 }: { 
   ticket: Ticket; 
   onClose: () => void; 
   userRole: UserRole;
   onUpdate: () => void;
+  onViewAttachment: (attachment: any) => void;
 }) {
   const { theme } = useTheme();
   const { user } = useUser();
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleAddComment = async () => {
+  const handleAddComment = async (ticketId?: string) => {
     if (!comment.trim() || !user?.id) return;
 
     try {
       setLoading(true);
-      await TicketService.addComment(ticket.id, user.id, comment);
+      await TicketService.addComment(ticketId || ticket.id, user.id, comment);
       setComment('');
       onUpdate(); // Refresh ticket data
     } catch (error) {
@@ -944,37 +1163,121 @@ function TicketDetailModal({
                 </div>
               )}
 
-              {/* Comments/Activities */}
-              <div>
-                <h3 className="font-semibold mb-4">Línea de Tiempo de Actividad</h3>
-                <div className="space-y-3">
-                  {ticket.activities?.map((activity) => (
-                    <div key={activity.id} className="flex gap-3">
-                      <div className="flex-shrink-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${
-                          activity.activity_type === 'STATUS_CHANGE' ? 'bg-blue-600' :
-                          activity.activity_type === 'COMMENT' ? 'bg-green-600' :
-                          activity.activity_type === 'ASSIGNMENT' ? 'bg-purple-600' :
-                          'bg-gray-600'
-                        }`}>
-                          {activity.user?.name?.charAt(0).toUpperCase() || 'U'}
+              {/* Attachments */}
+              {ticket.attachments && ticket.attachments.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3">Adjuntos</h3>
+                  <div className="space-y-2">
+                    {ticket.attachments.map((attachment) => (
+                      <div key={attachment.id} className={`p-3 rounded-lg border ${
+                        theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Paperclip className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                              <h4 className="font-medium text-sm">{attachment.attachment_title}</h4>
+                              <span className={`text-xs px-2 py-1 rounded ${
+                                attachment.attachment_type === 'treatment' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                attachment.attachment_type === 'consent' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                attachment.attachment_type === 'odontogram' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                                attachment.attachment_type === 'event' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                              }`}>
+                                {attachment.attachment_type === 'treatment' ? 'Tratamiento' :
+                                 attachment.attachment_type === 'consent' ? 'Consentimiento' :
+                                 attachment.attachment_type === 'odontogram' ? 'Odontograma' :
+                                 attachment.attachment_type === 'event' ? 'Evento' :
+                                 attachment.attachment_type}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              {attachment.attachment_description}
+                            </p>
+                            {attachment.metadata && (
+                              <div className="text-xs text-gray-500 dark:text-gray-500">
+                                {attachment.metadata.fecha_cita && (
+                                  <span>Fecha: {new Date(attachment.metadata.fecha_cita).toLocaleDateString()}</span>
+                                )}
+                                {attachment.metadata.total_final && (
+                                  <span className="ml-3">Total: Lps. {attachment.metadata.total_final}</span>
+                                )}
+                                {attachment.metadata.estado && (
+                                  <span className="ml-3">Estado: {attachment.metadata.estado}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {attachment.attachment_type === 'treatment' && attachment.metadata && (
+                              <button
+                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                onClick={() => onViewAttachment(attachment)}
+                              >
+                                Ver Detalles
+                              </button>
+                            )}
+                            {attachment.attachment_type === 'consent' && attachment.metadata && (
+                              <button
+                                className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                                onClick={() => onViewAttachment(attachment)}
+                              >
+                                Ver Documento
+                              </button>
+                            )}
+                            {attachment.attachment_type === 'odontogram' && attachment.metadata && (
+                              <button
+                                className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                                onClick={() => onViewAttachment(attachment)}
+                              >
+                                Ver Odontograma
+                              </button>
+                            )}
+                            {attachment.attachment_type === 'event' && attachment.metadata && (
+                              <button
+                                className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                                onClick={() => onViewAttachment(attachment)}
+                              >
+                                Ver Evento
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{activity.user?.name}</span>
-                          <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Activity Timeline */}
+              <div>
+                <h4 className="text-lg font-semibold mb-4">Línea de Tiempo de Actividad</h4>
+                {ticket.activities && ticket.activities.length > 0 ? (
+                  <div className="space-y-3">
+                    {ticket.activities.map((activity) => (
+                      <div key={activity.id} className={`p-3 rounded-lg border ${
+                        theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {activity.activity_type === ActivityType.STATUS_CHANGE && 'Cambio de estado'}
+                              {activity.activity_type === ActivityType.COMMENT && 'Comentario'}
+                              {activity.activity_type === ActivityType.ASSIGNMENT && 'Asignación'}
+                              {activity.activity_type === ActivityType.EDIT && 'Edición'}
+                            </p>
+                            <p className="text-sm mt-1">{activity.content}</p>
+                          </div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
                             {new Date(activity.created_at).toLocaleString()}
                           </span>
                         </div>
-                        <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                          {activity.content}
-                        </p>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">No hay actividades</p>
+                )}
 
               {/* Add Comment */}
               <div>
@@ -985,18 +1288,18 @@ function TicketDetailModal({
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="Escribe tu comentario..."
-                    className={`flex-1 rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                    className={`flex-1 px-3 py-2 border rounded-md ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
                   />
                   <button
-                    onClick={handleAddComment}
-                    disabled={loading || !comment.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    onClick={() => handleAddComment(ticket.id)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                   >
-                    {loading ? 'Agregando...' : 'Agregar'}
+                    Agregar
                   </button>
                 </div>
               </div>
             </div>
+          </div>
 
             {/* Sidebar */}
             <div className="space-y-4">
@@ -1005,7 +1308,7 @@ function TicketDetailModal({
                 <h3 className="font-semibold mb-3">Detalles</h3>
                 <div className="space-y-2">
                   <div>
-                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Tipo</span>
+                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Tipo de Ticket</span>
                     <p className="font-medium">{ticket.type.replace('_', ' ')}</p>
                   </div>
                   <div>
@@ -1014,21 +1317,19 @@ function TicketDetailModal({
                   </div>
                   <div>
                     <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Estado</span>
-                    <p className="font-medium">{ticket.status.replace('_', ' ')}</p>
+                    <p className="font-medium">{ticket.status}</p>
                   </div>
-                  {ticket.due_date && (
-                    <div>
-                      <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Fecha de Vencimiento</span>
-                      <p className="font-medium">{new Date(ticket.due_date).toLocaleString()}</p>
-                    </div>
-                  )}
                   <div>
                     <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Creado por</span>
-                    <p className="font-medium">{ticket.creator?.name}</p>
+                    <p className="font-medium">{ticket.creator?.name || 'Usuario'}</p>
                   </div>
                   <div>
                     <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Asignado a</span>
-                    <p className="font-medium">{ticket.assignee?.name || 'Sin asignar'}</p>
+                    <p className="font-medium">
+                      {ticket.assignees && ticket.assignees.length > 0 
+                        ? `${ticket.assignees.length} usuario(s)` 
+                        : 'Sin asignar'}
+                    </p>
                   </div>
                 </div>
               </div>
