@@ -5,7 +5,7 @@ import { CalendarEventWithPatient, CalendarView } from '../../types/calendar';
 import { CalendarTaskWithPatient } from '../../types/calendarTasks';
 import { CalendarService } from '../../services/calendarService';
 import { CalendarTaskService } from '../../services/calendarTaskService';
-import { EventModal } from './EventModal';
+import EventModal from './EventModal';
 import { TaskModal } from './TaskModal';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';

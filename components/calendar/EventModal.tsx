@@ -131,59 +131,66 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({ isOpen, onClose
 
 // Error boundary wrapper for mobile safety
 const SafeEventModal: React.FC<EventModalProps> = (props) => {
-  return (
-    <ErrorBoundary
-      fallback={
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
-              Error al abrir el evento
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Ha ocurrido un error al cargar el formulario de evento. Por favor intente nuevamente.
-            </p>
-            <button
-              onClick={props.onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              Cerrar
-            </button>
-          </div>
+  const [hasError, setHasError] = React.useState(false);
+  const [error, setError] = React.useState<Error | null>(null);
+
+  React.useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('📱 Mobile EventModal Global Error:', event.error);
+      setHasError(true);
+      setError(event.error);
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      console.error('📱 Mobile EventModal Promise Rejection:', event.reason);
+      setHasError(true);
+      setError(new Error(event.reason));
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
+          <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+            Error al abrir el evento
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Ha ocurrido un error al cargar el formulario de evento. Por favor intente nuevamente.
+          </p>
+          {process.env.NODE_ENV === 'development' && error && (
+            <details className="mb-4">
+              <summary className="text-sm text-gray-500 cursor-pointer">Detalles del error</summary>
+              <pre className="text-xs text-red-500 mt-2 whitespace-pre-wrap">
+                {error.stack}
+              </pre>
+            </details>
+          )}
+          <button
+            onClick={() => {
+              setHasError(false);
+              setError(null);
+              props.onClose();
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Cerrar
+          </button>
         </div>
-      }
-    >
-      <EventModal {...props} />
-    </ErrorBoundary>
-  );
+      </div>
+    );
+  }
+
+  return <EventModal {...props} />;
 };
-
-// Simple error boundary component
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
-  { hasError: boolean; error?: Error }
-> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('📱 Mobile EventModal Error Boundary:', error);
-    console.error('📱 Mobile EventModal Error Info:', errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback;
-    }
-
-    return this.props.children;
-  }
-}
 
 export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, onSave, userId }) => {
   const [formData, setFormData] = useState<Partial<CalendarEvent>>({
