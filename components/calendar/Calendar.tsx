@@ -208,14 +208,22 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     setShowEventModal(true);
   };
 
-  const handleEventSave = (eventType: 'created' | 'updated' = 'created', eventData?: any) => {
-    loadEvents();
-    setSelectedEvent(null);
+  const handleEventSave = async (eventType: 'created' | 'updated' = 'created', eventData?: any) => {
+    try {
+      await loadEvents();
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('📱 Mobile Calendar - Error in handleEventSave:', error);
+    }
   };
 
-  const handleTaskSave = (taskType: 'created' | 'updated' = 'created', taskData?: any) => {
-    loadTasks();
-    setSelectedTask(null);
+  const handleTaskSave = async (taskType: 'created' | 'updated' = 'created', taskData?: any) => {
+    try {
+      await loadTasks();
+      setSelectedTask(null);
+    } catch (error) {
+      console.error('📱 Mobile Calendar - Error in handleTaskSave:', error);
+    }
   };
 
   const navigatePrevious = () => {
@@ -673,9 +681,9 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           setSelectedDate(null);
         }}
         event={selectedEvent}
-        onSave={(event) => {
+        onSave={async (event) => {
           const eventType = selectedEvent ? 'updated' : 'created';
-          handleEventSave(eventType, event);
+          await handleEventSave(eventType, event);
         }}
         userId={userId}
       />
@@ -689,9 +697,9 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           setSelectedDate(null);
         }}
         task={selectedTask}
-        onSave={(task) => {
+        onSave={async (task) => {
           const taskType = selectedTask ? 'updated' : 'created';
-          handleTaskSave(taskType, task);
+          await handleTaskSave(taskType, task);
         }}
         userId={userId}
       />
