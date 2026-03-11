@@ -299,17 +299,31 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
       // Create new reminders
       const validReminders = reminders.filter(r => r.minutes_before > 0);
       if (validReminders.length > 0) {
+        // Better date parsing for mobile
+        let startDate;
+        try {
+          startDate = new Date(formData.start_date);
+          if (isNaN(startDate.getTime())) {
+            throw new Error('Invalid start date');
+          }
+        } catch (dateError) {
+          console.error('❌ Mobile Event - Date parsing error:', dateError);
+          throw new Error('Fecha de inicio inválida');
+        }
+
         const reminderData = validReminders.map(reminder => ({
           item_type: itemType,
           item_id: itemId,
           minutes_before: reminder.minutes_before,
           reminder_time: new Date(
-            new Date(formData.start_date).getTime() - 
+            startDate.getTime() - 
             reminder.minutes_before * 60000
           ).toISOString(),
           created_by: userId,
           sent: false
         }));
+
+        console.log('📱 Mobile Event - Creating reminders:', reminderData);
 
         const createResponse = await fetch(`/api/calendar/${itemType}s/${itemId}/reminders`, {
           method: 'POST',
@@ -321,10 +335,13 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
 
         if (!createResponse.ok) {
           console.error('Error saving reminders:', await createResponse.text());
+          throw new Error('Failed to save reminders');
         }
       }
     } catch (error) {
       console.error('Error saving reminders:', error);
+      // Don't throw error for reminder failures - just log them
+      // This prevents the entire event creation from failing
     }
   };
 
@@ -354,59 +371,109 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
       
       if (event?.id) {
         console.log('📱 Mobile Event Submit - Updating Event:', event.id);
-        savedEvent = await CalendarService.updateEvent(event.id, eventData);
-        console.log('✅ Mobile Event Submit - Event Updated:', savedEvent);
-        // Create notification for updated event
-        await CalendarReminderService.createEventNotification(
-          { ...savedEvent, patient: selectedPatient },
-          'updated'
-        );
-        // Notify invitees of updated event
-        await InviteeNotificationService.notifyEventInvitees(
-          { ...savedEvent, patient: selectedPatient },
-          'updated'
-        );
+        try {
+          savedEvent = await CalendarService.updateEvent(event.id, eventData);
+          console.log('✅ Mobile Event Submit - Event Updated:', savedEvent);
+        } catch (updateError) {
+          console.error('❌ Mobile Event Update Error:', updateError);
+          throw new Error(`Failed to update event: ${updateError?.message || 'Unknown error'}`);
+        }
+        
+        // Create notification for updated event (with error handling)
+        try {
+          await CalendarReminderService.createEventNotification(
+            { ...savedEvent, patient: selectedPatient },
+            'updated'
+          );
+        } catch (notificationError) {
+          console.warn('⚠️ Mobile Event - Notification failed:', notificationError);
+          // Don't fail the entire operation if notification fails
+        }
+        
+        // Notify invitees of updated event (with error handling)
+        try {
+          await InviteeNotificationService.notifyEventInvitees(
+            { ...savedEvent, patient: selectedPatient },
+            'updated'
+          );
+        } catch (inviteeError) {
+          console.warn('⚠️ Mobile Event - Invitee notification failed:', inviteeError);
+          // Don't fail the entire operation if invitee notification fails
+        }
       } else {
         console.log('📱 Mobile Event Submit - Creating New Event');
-        savedEvent = await CalendarService.createEvent(eventData);
-        console.log('✅ Mobile Event Submit - Event Created:', savedEvent);
-        // Create notification for new event
-        await CalendarReminderService.createEventNotification(
-          { ...savedEvent, patient: selectedPatient },
-          'created'
-        );
-        // Notify invitees of new event
-        await InviteeNotificationService.notifyEventInvitees(
-          { ...savedEvent, patient: selectedPatient },
-          'created'
-        );
+        try {
+          savedEvent = await CalendarService.createEvent(eventData);
+          console.log('✅ Mobile Event Submit - Event Created:', savedEvent);
+        } catch (createError) {
+          console.error('❌ Mobile Event Create Error:', createError);
+          throw new Error(`Failed to create event: ${createError?.message || 'Unknown error'}`);
+        }
+        
+        // Create notification for new event (with error handling)
+        try {
+          await CalendarReminderService.createEventNotification(
+            { ...savedEvent, patient: selectedPatient },
+            'created'
+          );
+        } catch (notificationError) {
+          console.warn('⚠️ Mobile Event - Notification failed:', notificationError);
+          // Don't fail the entire operation if notification fails
+        }
+        
+        // Notify invitees of new event (with error handling)
+        try {
+          await InviteeNotificationService.notifyEventInvitees(
+            { ...savedEvent, patient: selectedPatient },
+            'created'
+          );
+        } catch (inviteeError) {
+          console.warn('⚠️ Mobile Event - Invitee notification failed:', inviteeError);
+          // Don't fail the entire operation if invitee notification fails
+        }
       }
 
-      // Handle invitees
-      if (savedEvent.id) {
+      // Handle invitees (with error handling)
+      if (savedEvent?.id) {
         console.log('📱 Mobile Event Submit - Handling Invitees');
-        // Delete existing invitees
-        await CalendarInviteesService.deleteInviteesForItem('event', savedEvent.id);
-        
-        // Add new invitees
-        if (selectedUsers.length > 0) {
-          const inviteesData = selectedUsers.map(user => ({
-            user_id: user.id,
-            item_type: 'event' as const,
-            item_id: savedEvent.id,
-            status: 'pending' as const,
-            created_by: userId // Use original Clerk user ID
-          }));
+        try {
+          // Delete existing invitees
+          await CalendarInviteesService.deleteInviteesForItem('event', savedEvent.id);
           
-          await CalendarInviteesService.createMultipleInvitees(inviteesData);
+          // Add new invitees
+          if (selectedUsers.length > 0) {
+            const inviteesData = selectedUsers.map(user => ({
+              user_id: user.id,
+              item_type: 'event' as const,
+              item_id: savedEvent.id,
+              status: 'pending' as const,
+              created_by: userId // Use original Clerk user ID
+            }));
+            
+            await CalendarInviteesService.createMultipleInvitees(inviteesData);
+          }
+        } catch (inviteeError) {
+          console.warn('⚠️ Mobile Event - Invitee handling failed:', inviteeError);
+          // Don't fail the entire operation if invitee handling fails
         }
 
-        // Handle reminders
-        await saveReminders(savedEvent.id, 'event');
+        // Handle reminders (with error handling)
+        try {
+          await saveReminders(savedEvent.id, 'event');
+        } catch (reminderError) {
+          console.warn('⚠️ Mobile Event - Reminder handling failed:', reminderError);
+          // Don't fail the entire operation if reminder handling fails
+        }
       }
 
       console.log('🎉 Mobile Event Submit - Success! Calling onSave');
-      onSave(eventData);
+      try {
+        onSave(eventData);
+        console.log('✅ Mobile Event - onSave callback completed');
+      } catch (onSaveError) {
+        console.error('❌ Mobile Event - onSave callback error:', onSaveError);
+        // Don't throw error - the event was saved successfully, just the callback failed
+      }
       onClose();
     } catch (error) {
       console.error('❌ Mobile Event Submit Error:', error);
@@ -417,7 +484,19 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
         userId: userId,
         eventId: event?.id
       });
-      setErrors({ submit: 'Error al guardar el evento. Por favor revise los datos e intente nuevamente.' });
+      
+      // Set user-friendly error message
+      let errorMessage = 'Error al guardar el evento. Por favor revise los datos e intente nuevamente.';
+      
+      if (error?.message?.includes('Failed to create event')) {
+        errorMessage = 'No se pudo crear el evento. Por favor verifique los datos e intente nuevamente.';
+      } else if (error?.message?.includes('Failed to update event')) {
+        errorMessage = 'No se pudo actualizar el evento. Por favor verifique los datos e intente nuevamente.';
+      } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        errorMessage = 'Error de conexión. Por favor verifique su conexión a internet e intente nuevamente.';
+      }
+      
+      setErrors({ submit: errorMessage });
     } finally {
       setLoading(false);
     }
