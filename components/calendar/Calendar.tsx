@@ -5,7 +5,7 @@ import { CalendarEventWithPatient, CalendarView } from '../../types/calendar';
 import { CalendarTaskWithPatient } from '../../types/calendarTasks';
 import { CalendarService } from '../../services/calendarService';
 import { CalendarTaskService } from '../../services/calendarTaskService';
-import EventModal from './EventModal';
+import { EventModal } from './EventModal';
 import { TaskModal } from './TaskModal';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -208,22 +208,14 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     setShowEventModal(true);
   };
 
-  const handleEventSave = async (eventType: 'created' | 'updated' = 'created', eventData?: any) => {
-    try {
-      await loadEvents();
-      setSelectedEvent(null);
-    } catch (error) {
-      console.error('📱 Mobile Calendar - Error in handleEventSave:', error);
-    }
+  const handleEventSave = (eventType: 'created' | 'updated' = 'created', eventData?: any) => {
+    loadEvents();
+    setSelectedEvent(null);
   };
 
-  const handleTaskSave = async (taskType: 'created' | 'updated' = 'created', taskData?: any) => {
-    try {
-      await loadTasks();
-      setSelectedTask(null);
-    } catch (error) {
-      console.error('📱 Mobile Calendar - Error in handleTaskSave:', error);
-    }
+  const handleTaskSave = (taskType: 'created' | 'updated' = 'created', taskData?: any) => {
+    loadTasks();
+    setSelectedTask(null);
   };
 
   const navigatePrevious = () => {
@@ -681,9 +673,9 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           setSelectedDate(null);
         }}
         event={selectedEvent}
-        onSave={async (event) => {
+        onSave={(event) => {
           const eventType = selectedEvent ? 'updated' : 'created';
-          await handleEventSave(eventType, event);
+          handleEventSave(eventType, event);
         }}
         userId={userId}
       />
@@ -697,9 +689,9 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           setSelectedDate(null);
         }}
         task={selectedTask}
-        onSave={async (task) => {
+        onSave={(task) => {
           const taskType = selectedTask ? 'updated' : 'created';
-          await handleTaskSave(taskType, task);
+          handleTaskSave(taskType, task);
         }}
         userId={userId}
       />

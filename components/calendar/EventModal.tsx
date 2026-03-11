@@ -129,69 +129,6 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({ isOpen, onClose
   );
 };
 
-// Error boundary wrapper for mobile safety
-const SafeEventModal: React.FC<EventModalProps> = (props) => {
-  const [hasError, setHasError] = React.useState(false);
-  const [error, setError] = React.useState<Error | null>(null);
-
-  React.useEffect(() => {
-    const handleError = (event: ErrorEvent) => {
-      console.error('📱 Mobile EventModal Global Error:', event.error);
-      setHasError(true);
-      setError(event.error);
-    };
-
-    const handleRejection = (event: PromiseRejectionEvent) => {
-      console.error('📱 Mobile EventModal Promise Rejection:', event.reason);
-      setHasError(true);
-      setError(new Error(event.reason));
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
-    };
-  }, []);
-
-  if (hasError) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
-          <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
-            Error al abrir el evento
-          </h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Ha ocurrido un error al cargar el formulario de evento. Por favor intente nuevamente.
-          </p>
-          {process.env.NODE_ENV === 'development' && error && (
-            <details className="mb-4">
-              <summary className="text-sm text-gray-500 cursor-pointer">Detalles del error</summary>
-              <pre className="text-xs text-red-500 mt-2 whitespace-pre-wrap">
-                {error.stack}
-              </pre>
-            </details>
-          )}
-          <button
-            onClick={() => {
-              setHasError(false);
-              setError(null);
-              props.onClose();
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return <EventModal {...props} />;
-};
-
 export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, onSave, userId }) => {
   const [formData, setFormData] = useState<Partial<CalendarEvent>>({
     title: '',
@@ -220,91 +157,43 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
   const [deleteSuccess, setDeleteSuccess] = useState(false);
 
   useEffect(() => {
-    try {
-      console.log('📱 Mobile EventModal - useEffect triggered with event:', event);
+    if (event) {
+      setFormData({
+        title: event.title || '',
+        description: event.description || '',
+        start_date: formatDateTimeLocal(event.start_date),
+        end_date: formatDateTimeLocal(event.end_date),
+        all_day: event.all_day || false,
+        location: event.location || '',
+        event_type: event.event_type || 'appointment',
+        status: event.status || 'scheduled',
+        priority: event.priority || 'medium',
+        patient_id: event.patient_id || '',
+        notes: event.notes || '',
+      });
+      setSelectedPatient(event.patient || null);
       
-      if (event) {
-        // Safe date formatting with fallbacks
-        let startDate = '';
-        let endDate = '';
-        
-        try {
-          startDate = formatDateTimeLocal(event.start_date);
-        } catch (dateError) {
-          console.error('📱 Mobile EventModal - Error formatting start date:', dateError);
-          startDate = '';
-        }
-        
-        try {
-          endDate = formatDateTimeLocal(event.end_date);
-        } catch (dateError) {
-          console.error('📱 Mobile EventModal - Error formatting end date:', dateError);
-          endDate = '';
-        }
-        
-        setFormData({
-          title: event.title || '',
-          description: event.description || '',
-          start_date: startDate,
-          end_date: endDate,
-          all_day: event.all_day || false,
-          location: event.location || '',
-          event_type: event.event_type || 'appointment',
-          status: event.status || 'scheduled',
-          priority: event.priority || 'medium',
-          patient_id: event.patient_id || '',
-          notes: event.notes || '',
-        });
-        setSelectedPatient(event.patient || null);
-        
-        // Load existing reminders
-        if (event.id) {
-          try {
-            loadReminders(event.id);
-            loadInvitees(event.id);
-          } catch (loadError) {
-            console.error('📱 Mobile EventModal - Error loading reminders/invitees:', loadError);
-            // Don't fail the entire modal if loading fails
-          }
-        } else {
-          // Set default reminder for new events
-          setReminders([{ minutes_before: 30 }]);
-        }
+      // Load existing reminders
+      if (event.id) {
+        loadReminders(event.id);
+        loadInvitees(event.id);
       } else {
-        // Reset form when no event
-        setFormData({
-          title: '',
-          description: '',
-          start_date: '',
-          end_date: '',
-          all_day: false,
-          location: '',
-          event_type: 'appointment',
-          status: 'scheduled',
-          priority: 'medium',
-          patient_id: '',
-          notes: '',
-        });
-        setSelectedPatient(null);
+        // Set default reminder for new events
         setReminders([{ minutes_before: 30 }]);
       }
-    } catch (error) {
-      console.error('📱 Mobile EventModal - useEffect error:', error);
-      // Set safe defaults if anything fails
-      setFormData({
-        title: '',
-        description: '',
-        start_date: '',
-        end_date: '',
-        all_day: false,
-        location: '',
-        event_type: 'appointment',
-        status: 'scheduled',
-        priority: 'medium',
-        patient_id: '',
-        notes: '',
-      });
-      setSelectedPatient(null);
+    } else {
+      // Set default values for new event
+      const now = new Date();
+      // Format for HTML datetime-local input (yyyy-MM-ddThh:mm)
+      const startTime = format(now, "yyyy-MM-dd'T'HH:mm", { locale: es });
+      const endTime = format(addMinutes(now, 60), "yyyy-MM-dd'T'HH:mm", { locale: es });
+      
+      setFormData(prev => ({
+        ...prev,
+        start_date: startTime,
+        end_date: endTime,
+      }));
+      setSelectedUsers([]);
       setReminders([{ minutes_before: 30 }]);
     }
   }, [event]);
@@ -410,31 +299,17 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
       // Create new reminders
       const validReminders = reminders.filter(r => r.minutes_before > 0);
       if (validReminders.length > 0) {
-        // Better date parsing for mobile
-        let startDate;
-        try {
-          startDate = new Date(formData.start_date);
-          if (isNaN(startDate.getTime())) {
-            throw new Error('Invalid start date');
-          }
-        } catch (dateError) {
-          console.error('❌ Mobile Event - Date parsing error:', dateError);
-          throw new Error('Fecha de inicio inválida');
-        }
-
         const reminderData = validReminders.map(reminder => ({
           item_type: itemType,
           item_id: itemId,
           minutes_before: reminder.minutes_before,
           reminder_time: new Date(
-            startDate.getTime() - 
+            new Date(formData.start_date).getTime() - 
             reminder.minutes_before * 60000
           ).toISOString(),
           created_by: userId,
           sent: false
         }));
-
-        console.log('📱 Mobile Event - Creating reminders:', reminderData);
 
         const createResponse = await fetch(`/api/calendar/${itemType}s/${itemId}/reminders`, {
           method: 'POST',
@@ -446,174 +321,122 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
 
         if (!createResponse.ok) {
           console.error('Error saving reminders:', await createResponse.text());
-          throw new Error('Failed to save reminders');
         }
       }
     } catch (error) {
       console.error('Error saving reminders:', error);
-      // Don't throw error for reminder failures - just log them
-      // This prevents the entire event creation from failing
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('📱 Mobile Event Submit - Form Data:', formData);
-    console.log('📱 Mobile Event Submit - Selected Patient:', selectedPatient);
-    
-    if (!validateForm()) {
-      console.log('❌ Mobile Event Submit - Validation Failed');
-      return;
-    }
-
-    setLoading(true);
-    
     try {
-      const eventData: CalendarEvent = {
-        ...formData as CalendarEvent,
-        created_by: userId, // Use original Clerk user ID
-        patient_id: formData.patient_id || null, // Convert empty string to null
-      };
-
-      console.log('📱 Mobile Event Submit - Event Data:', eventData);
-
-      let savedEvent: CalendarEventWithPatient;
+      // Clear previous errors
+      setErrors({});
       
-      if (event?.id) {
-        console.log('📱 Mobile Event Submit - Updating Event:', event.id);
+      console.log('📱 Mobile Event Submit - Form Data:', formData);
+      console.log('📱 Mobile Event Submit - Selected Patient:', selectedPatient);
+      
+      // Mobile-specific validation with detailed feedback
+      const validationErrors: Record<string, string> = {};
+      
+      if (!formData.title?.trim()) {
+        validationErrors.title = 'El título es requerido';
+      }
+      if (!formData.start_date) {
+        validationErrors.start_date = 'La fecha de inicio es requerida';
+      }
+      if (!formData.end_date) {
+        validationErrors.end_date = 'La fecha de fin es requerida';
+      }
+      if (formData.start_date && formData.end_date && formData.start_date >= formData.end_date) {
+        validationErrors.end_date = 'La fecha de fin debe ser posterior a la de inicio';
+      }
+
+      // Mobile-specific date validation
+      if (formData.start_date) {
         try {
+          const startDate = new Date(formData.start_date);
+          if (isNaN(startDate.getTime())) {
+            validationErrors.start_date = 'Fecha de inicio inválida';
+          }
+        } catch (error) {
+          validationErrors.start_date = 'Error en formato de fecha de inicio';
+        }
+      }
+
+      if (formData.end_date) {
+        try {
+          const endDate = new Date(formData.end_date);
+          if (isNaN(endDate.getTime())) {
+            validationErrors.end_date = 'Fecha de fin inválida';
+          }
+        } catch (error) {
+          validationErrors.end_date = 'Error en formato de fecha de fin';
+        }
+      }
+
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        return;
+      }
+
+      setLoading(true);
+      
+      try {
+        const eventData: CalendarEvent = {
+          ...formData as CalendarEvent,
+          created_by: userId,
+          patient_id: formData.patient_id || null,
+        };
+
+        console.log('📱 Mobile Event Submit - Event Data:', eventData);
+
+        let savedEvent: CalendarEventWithPatient;
+        
+        if (event?.id) {
+          console.log('📱 Mobile Event Submit - Updating Event:', event.id);
           savedEvent = await CalendarService.updateEvent(event.id, eventData);
           console.log('✅ Mobile Event Submit - Event Updated:', savedEvent);
-        } catch (updateError) {
-          console.error('❌ Mobile Event Update Error:', updateError);
-          throw new Error(`Failed to update event: ${updateError?.message || 'Unknown error'}`);
-        }
-        
-        // Create notification for updated event (with error handling)
-        try {
-          await CalendarReminderService.createEventNotification(
-            { ...savedEvent, patient: selectedPatient },
-            'updated'
-          );
-        } catch (notificationError) {
-          console.warn('⚠️ Mobile Event - Notification failed:', notificationError);
-          // Don't fail the entire operation if notification fails
-        }
-        
-        // Notify invitees of updated event (with error handling)
-        try {
-          await InviteeNotificationService.notifyEventInvitees(
-            { ...savedEvent, patient: selectedPatient },
-            'updated'
-          );
-        } catch (inviteeError) {
-          console.warn('⚠️ Mobile Event - Invitee notification failed:', inviteeError);
-          // Don't fail the entire operation if invitee notification fails
-        }
-      } else {
-        console.log('📱 Mobile Event Submit - Creating New Event');
-        try {
+        } else {
+          console.log('📱 Mobile Event Submit - Creating New Event');
           savedEvent = await CalendarService.createEvent(eventData);
           console.log('✅ Mobile Event Submit - Event Created:', savedEvent);
-        } catch (createError) {
-          console.error('❌ Mobile Event Create Error:', createError);
-          throw new Error(`Failed to create event: ${createError?.message || 'Unknown error'}`);
-        }
-        
-        // Create notification for new event (with error handling)
-        try {
-          await CalendarReminderService.createEventNotification(
-            { ...savedEvent, patient: selectedPatient },
-            'created'
-          );
-        } catch (notificationError) {
-          console.warn('⚠️ Mobile Event - Notification failed:', notificationError);
-          // Don't fail the entire operation if notification fails
-        }
-        
-        // Notify invitees of new event (with error handling)
-        try {
-          await InviteeNotificationService.notifyEventInvitees(
-            { ...savedEvent, patient: selectedPatient },
-            'created'
-          );
-        } catch (inviteeError) {
-          console.warn('⚠️ Mobile Event - Invitee notification failed:', inviteeError);
-          // Don't fail the entire operation if invitee notification fails
-        }
-      }
-
-      // Handle invitees (with error handling)
-      if (savedEvent?.id) {
-        console.log('📱 Mobile Event Submit - Handling Invitees');
-        try {
-          // Delete existing invitees
-          await CalendarInviteesService.deleteInviteesForItem('event', savedEvent.id);
-          
-          // Add new invitees
-          if (selectedUsers.length > 0) {
-            const inviteesData = selectedUsers.map(user => ({
-              user_id: user.id,
-              item_type: 'event' as const,
-              item_id: savedEvent.id,
-              status: 'pending' as const,
-              created_by: userId // Use original Clerk user ID
-            }));
-            
-            await CalendarInviteesService.createMultipleInvitees(inviteesData);
-          }
-        } catch (inviteeError) {
-          console.warn('⚠️ Mobile Event - Invitee handling failed:', inviteeError);
-          // Don't fail the entire operation if invitee handling fails
         }
 
-        // Handle reminders (with error handling)
-        try {
-          await saveReminders(savedEvent.id, 'event');
-        } catch (reminderError) {
-          console.warn('⚠️ Mobile Event - Reminder handling failed:', reminderError);
-          // Don't fail the entire operation if reminder handling fails
-        }
-      }
-
-      console.log('🎉 Mobile Event Submit - Success! Calling onSave');
-      try {
+        console.log('🎉 Mobile Event Submit - Success! Calling onSave');
         onSave(eventData);
-        console.log('✅ Mobile Event - onSave callback completed');
-      } catch (onSaveError) {
-        console.error('❌ Mobile Event - onSave callback error:', onSaveError);
-        // Don't throw error - the event was saved successfully, just the callback failed
+        onClose();
+      } catch (error) {
+        console.error('❌ Mobile Event Submit Error:', error);
+        
+        // Mobile-friendly error message
+        let errorMessage = 'Error al guardar el evento. Por favor intente nuevamente.';
+        
+        if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+          errorMessage = 'Error de conexión. Verifique su internet e intente nuevamente.';
+        } else if (error?.message?.includes('validation')) {
+          errorMessage = 'Error en los datos. Revise la información del evento.';
+        } else if (error?.message?.includes('permission')) {
+          errorMessage = 'No tiene permiso para crear este evento.';
+        }
+        
+        setErrors({ submit: errorMessage });
+      } finally {
+        setLoading(false);
       }
-      onClose();
-    } catch (error) {
-      console.error('❌ Mobile Event Submit Error:', error);
-      console.error('❌ Error Details:', {
-        message: error?.message,
-        stack: error?.stack,
-        formData: formData,
-        userId: userId,
-        eventId: event?.id
+    } catch (globalError) {
+      // Catch any unexpected client-side exceptions
+      console.error('❌ Mobile Global Error:', globalError);
+      
+      setErrors({ 
+        submit: `Error inesperado: ${globalError?.message || 'Error desconocido'}. Por favor recargue la página.` 
       });
-      
-      // Set user-friendly error message
-      let errorMessage = 'Error al guardar el evento. Por favor revise los datos e intente nuevamente.';
-      
-      if (error?.message?.includes('Failed to create event')) {
-        errorMessage = 'No se pudo crear el evento. Por favor verifique los datos e intente nuevamente.';
-      } else if (error?.message?.includes('Failed to update event')) {
-        errorMessage = 'No se pudo actualizar el evento. Por favor verifique los datos e intente nuevamente.';
-      } else if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
-        errorMessage = 'Error de conexión. Por favor verifique su conexión a internet e intente nuevamente.';
-      }
-      
-      setErrors({ submit: errorMessage });
-    } finally {
       setLoading(false);
     }
   };
 
-  // Delete event functions
   const openDeleteModal = () => {
     if (!event?.id) return;
     setShowDeleteModal(true);
@@ -666,52 +489,23 @@ const formatDateTimeLocal = (date: string | Date): string => {
   if (!date) return '';
   
   try {
-    console.log('📱 Mobile - formatDateTimeLocal input:', date);
+    // Use SimpleTimezoneFix to convert UTC to local time
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
     
-    // More robust date parsing for mobile
-    let dateObj: Date;
+    // Get local date using timezone fix
+    const localDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
     
-    if (typeof date === 'string') {
-      // Handle different date string formats that mobile might produce
-      if (date.includes('T')) {
-        // ISO format
-        dateObj = new Date(date);
-      } else if (date.includes(' ')) {
-        // Space separated format
-        dateObj = new Date(date.replace(' ', 'T'));
-      } else {
-        // Simple date format
-        dateObj = new Date(date);
-      }
-    } else {
-      dateObj = date;
-    }
+    // Format as yyyy-MM-ddThh:mm (local time)
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    const hours = String(localDate.getHours()).padStart(2, '0');
+    const minutes = String(localDate.getMinutes()).padStart(2, '0');
     
-    // Validate the date object
-    if (isNaN(dateObj.getTime())) {
-      console.error('📱 Mobile - Invalid date object:', date);
-      return '';
-    }
-    
-    console.log('📱 Mobile - Parsed date object:', dateObj);
-    
-    // Simple approach - use the date as-is without timezone manipulation
-    // This avoids mobile timezone issues
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    const hours = String(dateObj.getHours()).padStart(2, '0');
-    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-    
-    const result = `${year}-${month}-${day}T${hours}:${minutes}`;
-    console.log('📱 Mobile - formatDateTimeLocal result:', result);
-    
-    return result;
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   } catch (error) {
-    console.error('📱 Mobile - Error formatting date time local:', error);
-    console.error('📱 Mobile - Date input was:', date);
-    // Return empty string instead of throwing
-    return '';
+    console.error('Error formatting date time local:', error);
+    return typeof date === 'string' ? date : '';
   }
 };
 
@@ -1077,14 +871,59 @@ const handlePatientSelect = (patient: any) => {
                 <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg sm:hidden">
                   <div className="flex items-start">
                     <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 mt-1 mr-3"></i>
-                    <div>
+                    <div className="flex-1">
                       <p className="text-red-600 dark:text-red-400 font-medium">❌ Error al guardar evento</p>
                       <p className="text-red-500 dark:text-red-500 text-sm mt-1">
-                        Por favor revise los datos e intente nuevamente. Si el problema persiste, 
-                        <span className="block mt-1">
-                          <strong>Para móviles:</strong> Verifique que las fechas sean correctas y que tenga conexión a internet estable.
-                        </span>
+                        {errors.submit}
                       </p>
+                      
+                      {/* Mobile Debugging Info */}
+                      <div className="mt-2 p-2 bg-red-100 dark:bg-red-800/30 rounded text-xs">
+                        <p className="font-mono text-red-700 dark:text-red-300">
+                          📱 Debug Info:
+                        </p>
+                        <div className="mt-1 space-y-1">
+                          <p className="text-red-600 dark:text-red-400">
+                            • Título: {formData.title ? '✓' : '✗'}
+                          </p>
+                          <p className="text-red-600 dark:text-red-400">
+                            • Fecha Inicio: {formData.start_date ? '✓' : '✗'}
+                          </p>
+                          <p className="text-red-600 dark:text-red-400">
+                            • Fecha Fin: {formData.end_date ? '✓' : '✗'}
+                          </p>
+                          <p className="text-red-600 dark:text-red-400">
+                            • Paciente: {selectedPatient ? '✓' : '✗'}
+                          </p>
+                          <p className="text-red-600 dark:text-red-400">
+                            • Usuario ID: {userId ? '✓' : '✗'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Mobile Troubleshooting Tips */}
+                      <div className="mt-2 text-xs">
+                        <p className="font-medium text-red-700 dark:text-red-300">Soluciones sugeridas:</p>
+                        <ul className="mt-1 space-y-1 text-red-600 dark:text-red-400">
+                          <li>• Verifique que todos los campos requeridos estén completos</li>
+                          <li>• Asegúrese de tener conexión a internet estable</li>
+                          <li>• Intente recargar la página y crear el evento nuevamente</li>
+                          <li>• Si el problema persiste, contacte al administrador</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Desktop error display */}
+              {errors.submit && (
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg hidden sm:block">
+                  <div className="flex items-center">
+                    <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 mr-3"></i>
+                    <div>
+                      <p className="text-red-600 dark:text-red-400 font-medium">Error al guardar evento</p>
+                      <p className="text-red-500 dark:text-red-500 text-sm mt-1">{errors.submit}</p>
                     </div>
                   </div>
                 </div>
@@ -1211,6 +1050,3 @@ const handlePatientSelect = (patient: any) => {
     </>
   );
 };
-
-// Export the safe version for mobile compatibility
-export default SafeEventModal;
