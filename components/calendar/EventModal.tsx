@@ -377,34 +377,52 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
         debugSteps.push('✅ Event updated successfully');
         setMobileDebugInfo([...debugSteps]);
         
-        await CalendarReminderService.createEventNotification(
-          { ...savedEvent, patient: selectedPatient },
-          'updated'
-        );
-        await InviteeNotificationService.notifyEventInvitees(
-          { ...savedEvent, patient: selectedPatient },
-          'updated'
-        );
+        await CalendarInviteesService.deleteInviteesForItem('event', savedEvent.id);
+        
+        if (selectedUsers.length > 0) {
+          const inviteesData = selectedUsers.map(user => ({
+            user_id: user.id,
+            item_type: 'event' as const,
+            item_id: savedEvent.id,
+            status: 'pending' as const,
+            created_by: userId
+          }));
+          
+          await CalendarInviteesService.createMultipleInvitees(inviteesData);
+        }
+
+        await saveReminders(savedEvent.id, 'event');
+        
+        // Handle notifications in background (non-blocking)
+        debugSteps.push('📱 Starting notification process...');
+        setMobileDebugInfo([...debugSteps]);
+        
+        try {
+          await CalendarReminderService.createEventNotification(
+            { ...savedEvent, patient: selectedPatient },
+            'updated'
+          );
+          debugSteps.push('✅ Update notification sent');
+        } catch (notifError) {
+          debugSteps.push(`⚠️ Update notification failed: ${notifError?.message || 'Unknown error'}`);
+          console.warn('⚠️ Update notification warning:', notifError);
+        }
+        
+        try {
+          await InviteeNotificationService.notifyEventInvitees(
+            { ...savedEvent, patient: selectedPatient },
+            'updated'
+          );
+          debugSteps.push('✅ Invitee notifications sent');
+        } catch (notifError) {
+          debugSteps.push(`⚠️ Invitee notification failed: ${notifError?.message || 'Unknown error'}`);
+          console.warn('⚠️ Invitee notification warning:', notifError);
+        }
       } else {
         debugSteps.push('📱 Creating new event');
         setMobileDebugInfo([...debugSteps]);
         savedEvent = await CalendarService.createEvent(eventData);
         debugSteps.push('✅ Event created successfully');
-        setMobileDebugInfo([...debugSteps]);
-        
-        await CalendarReminderService.createEventNotification(
-          { ...savedEvent, patient: selectedPatient },
-          'created'
-        );
-        await InviteeNotificationService.notifyEventInvitees(
-          { ...savedEvent, patient: selectedPatient },
-          'created'
-        );
-      }
-
-      // Handle invitees
-      if (savedEvent.id) {
-        debugSteps.push('📱 Handling invitees');
         setMobileDebugInfo([...debugSteps]);
         
         await CalendarInviteesService.deleteInviteesForItem('event', savedEvent.id);
@@ -422,6 +440,32 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
         }
 
         await saveReminders(savedEvent.id, 'event');
+        
+        // Handle notifications in background (non-blocking)
+        debugSteps.push('📱 Starting notification process...');
+        setMobileDebugInfo([...debugSteps]);
+        
+        try {
+          await CalendarReminderService.createEventNotification(
+            { ...savedEvent, patient: selectedPatient },
+            'created'
+          );
+          debugSteps.push('✅ Creation notification sent');
+        } catch (notifError) {
+          debugSteps.push(`⚠️ Creation notification failed: ${notifError?.message || 'Unknown error'}`);
+          console.warn('⚠️ Creation notification warning:', notifError);
+        }
+        
+        try {
+          await InviteeNotificationService.notifyEventInvitees(
+            { ...savedEvent, patient: selectedPatient },
+            'created'
+          );
+          debugSteps.push('✅ Invitee notifications sent');
+        } catch (notifError) {
+          debugSteps.push(`⚠️ Invitee notification failed: ${notifError?.message || 'Unknown error'}`);
+          console.warn('⚠️ Invitee notification warning:', notifError);
+        }
       }
 
       debugSteps.push('🎉 Event creation completed successfully!');
