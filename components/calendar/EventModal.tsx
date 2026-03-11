@@ -149,6 +149,9 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
   const [showPatientSearch, setShowPatientSearch] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [mobileError, setMobileError] = useState<string | null>(null);
+  const [mobileDebugInfo, setMobileDebugInfo] = useState<string[]>([]);
+  const [mobileSuccess, setMobileSuccess] = useState<string | null>(null);
   
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -331,51 +334,68 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('📱 Mobile Event Submit - Form Data:', formData);
-    console.log('📱 Mobile Event Submit - Selected Patient:', selectedPatient);
+    // Clear previous mobile errors and success messages
+    setMobileError(null);
+    setMobileDebugInfo([]);
+    setMobileSuccess(null);
+    
+    // Mobile-friendly debug info collection
+    const debugSteps: string[] = [];
+    debugSteps.push('📱 Form submission started');
+    
+    debugSteps.push(`📱 Form Data: ${JSON.stringify(formData)}`);
+    debugSteps.push(`📱 Selected Patient: ${selectedPatient ? JSON.stringify(selectedPatient) : 'None'}`);
     
     if (!validateForm()) {
-      console.log('❌ Mobile Event Submit - Validation Failed');
+      debugSteps.push('❌ Form validation failed');
+      setMobileDebugInfo(debugSteps);
+      setMobileError('❌ Error de validación. Por favor revise todos los campos.');
       return;
     }
+    
+    debugSteps.push('✅ Form validation passed');
+    setMobileDebugInfo(debugSteps);
 
     setLoading(true);
     
     try {
       const eventData: CalendarEvent = {
         ...formData as CalendarEvent,
-        created_by: userId, // Use original Clerk user ID
-        patient_id: formData.patient_id || null, // Convert empty string to null
+        created_by: userId,
+        patient_id: formData.patient_id || null,
       };
 
-      console.log('📱 Mobile Event Submit - Event Data:', eventData);
+      debugSteps.push(`📱 Event Data: ${JSON.stringify(eventData)}`);
+      setMobileDebugInfo([...debugSteps]);
 
       let savedEvent: CalendarEventWithPatient;
       
       if (event?.id) {
-        console.log('📱 Mobile Event Submit - Updating Event:', event.id);
+        debugSteps.push(`📱 Updating event: ${event.id}`);
+        setMobileDebugInfo([...debugSteps]);
         savedEvent = await CalendarService.updateEvent(event.id, eventData);
-        console.log('✅ Mobile Event Submit - Event Updated:', savedEvent);
-        // Create notification for updated event
+        debugSteps.push('✅ Event updated successfully');
+        setMobileDebugInfo([...debugSteps]);
+        
         await CalendarReminderService.createEventNotification(
           { ...savedEvent, patient: selectedPatient },
           'updated'
         );
-        // Notify invitees of updated event
         await InviteeNotificationService.notifyEventInvitees(
           { ...savedEvent, patient: selectedPatient },
           'updated'
         );
       } else {
-        console.log('📱 Mobile Event Submit - Creating New Event');
+        debugSteps.push('📱 Creating new event');
+        setMobileDebugInfo([...debugSteps]);
         savedEvent = await CalendarService.createEvent(eventData);
-        console.log('✅ Mobile Event Submit - Event Created:', savedEvent);
-        // Create notification for new event
+        debugSteps.push('✅ Event created successfully');
+        setMobileDebugInfo([...debugSteps]);
+        
         await CalendarReminderService.createEventNotification(
           { ...savedEvent, patient: selectedPatient },
           'created'
         );
-        // Notify invitees of new event
         await InviteeNotificationService.notifyEventInvitees(
           { ...savedEvent, patient: selectedPatient },
           'created'
@@ -384,40 +404,44 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
 
       // Handle invitees
       if (savedEvent.id) {
-        console.log('📱 Mobile Event Submit - Handling Invitees');
-        // Delete existing invitees
+        debugSteps.push('📱 Handling invitees');
+        setMobileDebugInfo([...debugSteps]);
+        
         await CalendarInviteesService.deleteInviteesForItem('event', savedEvent.id);
         
-        // Add new invitees
         if (selectedUsers.length > 0) {
           const inviteesData = selectedUsers.map(user => ({
             user_id: user.id,
             item_type: 'event' as const,
             item_id: savedEvent.id,
             status: 'pending' as const,
-            created_by: userId // Use original Clerk user ID
+            created_by: userId
           }));
           
           await CalendarInviteesService.createMultipleInvitees(inviteesData);
         }
 
-        // Handle reminders
         await saveReminders(savedEvent.id, 'event');
       }
 
-      console.log('🎉 Mobile Event Submit - Success! Calling onSave');
-      onSave(eventData);
-      onClose();
+      debugSteps.push('🎉 Event creation completed successfully!');
+      setMobileDebugInfo([...debugSteps]);
+      setMobileSuccess('🎉 Evento creado exitosamente!');
+      
+      setTimeout(() => {
+        onSave(eventData);
+        onClose();
+      }, 2000); // Delay to show success message
+      
     } catch (error) {
+      debugSteps.push(`❌ Error: ${error?.message || 'Unknown error'}`);
+      debugSteps.push(`❌ Error details: ${JSON.stringify(error, null, 2)}`);
+      setMobileDebugInfo([...debugSteps]);
+      
+      const errorMessage = error?.message || 'Error desconocido al crear el evento';
+      setMobileError(`❌ ${errorMessage}. Por favor intente nuevamente.`);
+      
       console.error('❌ Mobile Event Submit Error:', error);
-      console.error('❌ Error Details:', {
-        message: error?.message,
-        stack: error?.stack,
-        formData: formData,
-        userId: userId,
-        eventId: event?.id
-      });
-      setErrors({ submit: 'Error al guardar el evento. Por favor revise los datos e intente nuevamente.' });
     } finally {
       setLoading(false);
     }
@@ -854,8 +878,67 @@ const handlePatientSelect = (patient: any) => {
               </div>
               
               {/* Mobile-specific error display */}
+              {mobileError && (
+                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg sm:hidden">
+                  <div className="flex items-start">
+                    <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 mt-1 mr-3"></i>
+                    <div className="flex-1">
+                      <p className="text-red-600 dark:text-red-400 font-medium mb-2">{mobileError}</p>
+                      <button
+                        type="button"
+                        onClick={() => setMobileError(null)}
+                        className="text-red-500 dark:text-red-400 text-sm underline"
+                      >
+                        Cerrar mensaje de error
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile success display */}
+              {mobileSuccess && (
+                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg sm:hidden">
+                  <div className="flex items-start">
+                    <i className="fas fa-check-circle text-green-600 dark:text-green-400 mt-1 mr-3"></i>
+                    <div className="flex-1">
+                      <p className="text-green-600 dark:text-green-400 font-medium">{mobileSuccess}</p>
+                      <p className="text-green-500 dark:text-green-500 text-sm mt-1">
+                        El evento se está guardando y la ventana se cerrará automáticamente.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile debug info display */}
+              {mobileDebugInfo.length > 0 && (
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg sm:hidden">
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="text-blue-600 dark:text-blue-400 font-medium text-sm">
+                      📱 Información de Depuración
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setMobileDebugInfo([])}
+                      className="text-blue-500 dark:text-blue-400 text-sm underline"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {mobileDebugInfo.map((step, index) => (
+                      <div key={index} className="text-xs text-blue-700 dark:text-blue-300 font-mono">
+                        {step}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Desktop error display */}
               {errors.submit && (
-                <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg sm:hidden">
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg hidden sm:block">
                   <div className="flex items-start">
                     <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 mt-1 mr-3"></i>
                     <div>
