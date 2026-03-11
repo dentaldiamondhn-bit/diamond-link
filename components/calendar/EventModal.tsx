@@ -129,6 +129,62 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({ isOpen, onClose
   );
 };
 
+// Error boundary wrapper for mobile safety
+const SafeEventModal: React.FC<EventModalProps> = (props) => {
+  return (
+    <ErrorBoundary
+      fallback={
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+              Error al abrir el evento
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              Ha ocurrido un error al cargar el formulario de evento. Por favor intente nuevamente.
+            </p>
+            <button
+              onClick={props.onClose}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      }
+    >
+      <EventModal {...props} />
+    </ErrorBoundary>
+  );
+};
+
+// Simple error boundary component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('📱 Mobile EventModal Error Boundary:', error);
+    console.error('📱 Mobile EventModal Error Info:', errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+
 export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, onSave, userId }) => {
   const [formData, setFormData] = useState<Partial<CalendarEvent>>({
     title: '',
@@ -157,43 +213,91 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
   const [deleteSuccess, setDeleteSuccess] = useState(false);
 
   useEffect(() => {
-    if (event) {
-      setFormData({
-        title: event.title || '',
-        description: event.description || '',
-        start_date: formatDateTimeLocal(event.start_date),
-        end_date: formatDateTimeLocal(event.end_date),
-        all_day: event.all_day || false,
-        location: event.location || '',
-        event_type: event.event_type || 'appointment',
-        status: event.status || 'scheduled',
-        priority: event.priority || 'medium',
-        patient_id: event.patient_id || '',
-        notes: event.notes || '',
-      });
-      setSelectedPatient(event.patient || null);
+    try {
+      console.log('📱 Mobile EventModal - useEffect triggered with event:', event);
       
-      // Load existing reminders
-      if (event.id) {
-        loadReminders(event.id);
-        loadInvitees(event.id);
+      if (event) {
+        // Safe date formatting with fallbacks
+        let startDate = '';
+        let endDate = '';
+        
+        try {
+          startDate = formatDateTimeLocal(event.start_date);
+        } catch (dateError) {
+          console.error('📱 Mobile EventModal - Error formatting start date:', dateError);
+          startDate = '';
+        }
+        
+        try {
+          endDate = formatDateTimeLocal(event.end_date);
+        } catch (dateError) {
+          console.error('📱 Mobile EventModal - Error formatting end date:', dateError);
+          endDate = '';
+        }
+        
+        setFormData({
+          title: event.title || '',
+          description: event.description || '',
+          start_date: startDate,
+          end_date: endDate,
+          all_day: event.all_day || false,
+          location: event.location || '',
+          event_type: event.event_type || 'appointment',
+          status: event.status || 'scheduled',
+          priority: event.priority || 'medium',
+          patient_id: event.patient_id || '',
+          notes: event.notes || '',
+        });
+        setSelectedPatient(event.patient || null);
+        
+        // Load existing reminders
+        if (event.id) {
+          try {
+            loadReminders(event.id);
+            loadInvitees(event.id);
+          } catch (loadError) {
+            console.error('📱 Mobile EventModal - Error loading reminders/invitees:', loadError);
+            // Don't fail the entire modal if loading fails
+          }
+        } else {
+          // Set default reminder for new events
+          setReminders([{ minutes_before: 30 }]);
+        }
       } else {
-        // Set default reminder for new events
+        // Reset form when no event
+        setFormData({
+          title: '',
+          description: '',
+          start_date: '',
+          end_date: '',
+          all_day: false,
+          location: '',
+          event_type: 'appointment',
+          status: 'scheduled',
+          priority: 'medium',
+          patient_id: '',
+          notes: '',
+        });
+        setSelectedPatient(null);
         setReminders([{ minutes_before: 30 }]);
       }
-    } else {
-      // Set default values for new event
-      const now = new Date();
-      // Format for HTML datetime-local input (yyyy-MM-ddThh:mm)
-      const startTime = format(now, "yyyy-MM-dd'T'HH:mm", { locale: es });
-      const endTime = format(addMinutes(now, 60), "yyyy-MM-dd'T'HH:mm", { locale: es });
-      
-      setFormData(prev => ({
-        ...prev,
-        start_date: startTime,
-        end_date: endTime,
-      }));
-      setSelectedUsers([]);
+    } catch (error) {
+      console.error('📱 Mobile EventModal - useEffect error:', error);
+      // Set safe defaults if anything fails
+      setFormData({
+        title: '',
+        description: '',
+        start_date: '',
+        end_date: '',
+        all_day: false,
+        location: '',
+        event_type: 'appointment',
+        status: 'scheduled',
+        priority: 'medium',
+        patient_id: '',
+        notes: '',
+      });
+      setSelectedPatient(null);
       setReminders([{ minutes_before: 30 }]);
     }
   }, [event]);
@@ -555,23 +659,52 @@ const formatDateTimeLocal = (date: string | Date): string => {
   if (!date) return '';
   
   try {
-    // Use SimpleTimezoneFix to convert UTC to local time
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    console.log('📱 Mobile - formatDateTimeLocal input:', date);
     
-    // Get local date using timezone fix
-    const localDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
+    // More robust date parsing for mobile
+    let dateObj: Date;
     
-    // Format as yyyy-MM-ddThh:mm (local time)
-    const year = localDate.getFullYear();
-    const month = String(localDate.getMonth() + 1).padStart(2, '0');
-    const day = String(localDate.getDate()).padStart(2, '0');
-    const hours = String(localDate.getHours()).padStart(2, '0');
-    const minutes = String(localDate.getMinutes()).padStart(2, '0');
+    if (typeof date === 'string') {
+      // Handle different date string formats that mobile might produce
+      if (date.includes('T')) {
+        // ISO format
+        dateObj = new Date(date);
+      } else if (date.includes(' ')) {
+        // Space separated format
+        dateObj = new Date(date.replace(' ', 'T'));
+      } else {
+        // Simple date format
+        dateObj = new Date(date);
+      }
+    } else {
+      dateObj = date;
+    }
     
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    // Validate the date object
+    if (isNaN(dateObj.getTime())) {
+      console.error('📱 Mobile - Invalid date object:', date);
+      return '';
+    }
+    
+    console.log('📱 Mobile - Parsed date object:', dateObj);
+    
+    // Simple approach - use the date as-is without timezone manipulation
+    // This avoids mobile timezone issues
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    
+    const result = `${year}-${month}-${day}T${hours}:${minutes}`;
+    console.log('📱 Mobile - formatDateTimeLocal result:', result);
+    
+    return result;
   } catch (error) {
-    console.error('Error formatting date time local:', error);
-    return typeof date === 'string' ? date : '';
+    console.error('📱 Mobile - Error formatting date time local:', error);
+    console.error('📱 Mobile - Date input was:', date);
+    // Return empty string instead of throwing
+    return '';
   }
 };
 
@@ -1071,3 +1204,6 @@ const handlePatientSelect = (patient: any) => {
     </>
   );
 };
+
+// Export the safe version for mobile compatibility
+export default SafeEventModal;
