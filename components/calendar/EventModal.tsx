@@ -331,112 +331,99 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('📱 Mobile Event Submit - Form Data:', formData);
+    console.log('📱 Mobile Event Submit - Selected Patient:', selectedPatient);
+    
+    if (!validateForm()) {
+      console.log('❌ Mobile Event Submit - Validation Failed');
+      return;
+    }
+
+    setLoading(true);
+    
     try {
-      // Clear previous errors
-      setErrors({});
+      const eventData: CalendarEvent = {
+        ...formData as CalendarEvent,
+        created_by: userId, // Use original Clerk user ID
+        patient_id: formData.patient_id || null, // Convert empty string to null
+      };
+
+      console.log('📱 Mobile Event Submit - Event Data:', eventData);
+
+      let savedEvent: CalendarEventWithPatient;
       
-      console.log('📱 Mobile Event Submit - Form Data:', formData);
-      console.log('📱 Mobile Event Submit - Selected Patient:', selectedPatient);
-      
-      // Mobile-specific validation with detailed feedback
-      const validationErrors: Record<string, string> = {};
-      
-      if (!formData.title?.trim()) {
-        validationErrors.title = 'El título es requerido';
-      }
-      if (!formData.start_date) {
-        validationErrors.start_date = 'La fecha de inicio es requerida';
-      }
-      if (!formData.end_date) {
-        validationErrors.end_date = 'La fecha de fin es requerida';
-      }
-      if (formData.start_date && formData.end_date && formData.start_date >= formData.end_date) {
-        validationErrors.end_date = 'La fecha de fin debe ser posterior a la de inicio';
-      }
-
-      // Mobile-specific date validation
-      if (formData.start_date) {
-        try {
-          const startDate = new Date(formData.start_date);
-          if (isNaN(startDate.getTime())) {
-            validationErrors.start_date = 'Fecha de inicio inválida';
-          }
-        } catch (error) {
-          validationErrors.start_date = 'Error en formato de fecha de inicio';
-        }
-      }
-
-      if (formData.end_date) {
-        try {
-          const endDate = new Date(formData.end_date);
-          if (isNaN(endDate.getTime())) {
-            validationErrors.end_date = 'Fecha de fin inválida';
-          }
-        } catch (error) {
-          validationErrors.end_date = 'Error en formato de fecha de fin';
-        }
+      if (event?.id) {
+        console.log('📱 Mobile Event Submit - Updating Event:', event.id);
+        savedEvent = await CalendarService.updateEvent(event.id, eventData);
+        console.log('✅ Mobile Event Submit - Event Updated:', savedEvent);
+        // Create notification for updated event
+        await CalendarReminderService.createEventNotification(
+          { ...savedEvent, patient: selectedPatient },
+          'updated'
+        );
+        // Notify invitees of updated event
+        await InviteeNotificationService.notifyEventInvitees(
+          { ...savedEvent, patient: selectedPatient },
+          'updated'
+        );
+      } else {
+        console.log('📱 Mobile Event Submit - Creating New Event');
+        savedEvent = await CalendarService.createEvent(eventData);
+        console.log('✅ Mobile Event Submit - Event Created:', savedEvent);
+        // Create notification for new event
+        await CalendarReminderService.createEventNotification(
+          { ...savedEvent, patient: selectedPatient },
+          'created'
+        );
+        // Notify invitees of new event
+        await InviteeNotificationService.notifyEventInvitees(
+          { ...savedEvent, patient: selectedPatient },
+          'created'
+        );
       }
 
-      if (Object.keys(validationErrors).length > 0) {
-        setErrors(validationErrors);
-        return;
-      }
-
-      setLoading(true);
-      
-      try {
-        const eventData: CalendarEvent = {
-          ...formData as CalendarEvent,
-          created_by: userId,
-          patient_id: formData.patient_id || null,
-        };
-
-        console.log('📱 Mobile Event Submit - Event Data:', eventData);
-
-        let savedEvent: CalendarEventWithPatient;
+      // Handle invitees
+      if (savedEvent.id) {
+        console.log('📱 Mobile Event Submit - Handling Invitees');
+        // Delete existing invitees
+        await CalendarInviteesService.deleteInviteesForItem('event', savedEvent.id);
         
-        if (event?.id) {
-          console.log('📱 Mobile Event Submit - Updating Event:', event.id);
-          savedEvent = await CalendarService.updateEvent(event.id, eventData);
-          console.log('✅ Mobile Event Submit - Event Updated:', savedEvent);
-        } else {
-          console.log('📱 Mobile Event Submit - Creating New Event');
-          savedEvent = await CalendarService.createEvent(eventData);
-          console.log('✅ Mobile Event Submit - Event Created:', savedEvent);
+        // Add new invitees
+        if (selectedUsers.length > 0) {
+          const inviteesData = selectedUsers.map(user => ({
+            user_id: user.id,
+            item_type: 'event' as const,
+            item_id: savedEvent.id,
+            status: 'pending' as const,
+            created_by: userId // Use original Clerk user ID
+          }));
+          
+          await CalendarInviteesService.createMultipleInvitees(inviteesData);
         }
 
-        console.log('🎉 Mobile Event Submit - Success! Calling onSave');
-        onSave(eventData);
-        onClose();
-      } catch (error) {
-        console.error('❌ Mobile Event Submit Error:', error);
-        
-        // Mobile-friendly error message
-        let errorMessage = 'Error al guardar el evento. Por favor intente nuevamente.';
-        
-        if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
-          errorMessage = 'Error de conexión. Verifique su internet e intente nuevamente.';
-        } else if (error?.message?.includes('validation')) {
-          errorMessage = 'Error en los datos. Revise la información del evento.';
-        } else if (error?.message?.includes('permission')) {
-          errorMessage = 'No tiene permiso para crear este evento.';
-        }
-        
-        setErrors({ submit: errorMessage });
-      } finally {
-        setLoading(false);
+        // Handle reminders
+        await saveReminders(savedEvent.id, 'event');
       }
-    } catch (globalError) {
-      // Catch any unexpected client-side exceptions
-      console.error('❌ Mobile Global Error:', globalError);
-      
-      setErrors({ 
-        submit: `Error inesperado: ${globalError?.message || 'Error desconocido'}. Por favor recargue la página.` 
+
+      console.log('🎉 Mobile Event Submit - Success! Calling onSave');
+      onSave(eventData);
+      onClose();
+    } catch (error) {
+      console.error('❌ Mobile Event Submit Error:', error);
+      console.error('❌ Error Details:', {
+        message: error?.message,
+        stack: error?.stack,
+        formData: formData,
+        userId: userId,
+        eventId: event?.id
       });
+      setErrors({ submit: 'Error al guardar el evento. Por favor revise los datos e intente nuevamente.' });
+    } finally {
       setLoading(false);
     }
   };
 
+  // Delete event functions
   const openDeleteModal = () => {
     if (!event?.id) return;
     setShowDeleteModal(true);
@@ -871,59 +858,14 @@ const handlePatientSelect = (patient: any) => {
                 <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg sm:hidden">
                   <div className="flex items-start">
                     <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 mt-1 mr-3"></i>
-                    <div className="flex-1">
+                    <div>
                       <p className="text-red-600 dark:text-red-400 font-medium">❌ Error al guardar evento</p>
                       <p className="text-red-500 dark:text-red-500 text-sm mt-1">
-                        {errors.submit}
+                        Por favor revise los datos e intente nuevamente. Si el problema persiste, 
+                        <span className="block mt-1">
+                          <strong>Para móviles:</strong> Verifique que las fechas sean correctas y que tenga conexión a internet estable.
+                        </span>
                       </p>
-                      
-                      {/* Mobile Debugging Info */}
-                      <div className="mt-2 p-2 bg-red-100 dark:bg-red-800/30 rounded text-xs">
-                        <p className="font-mono text-red-700 dark:text-red-300">
-                          📱 Debug Info:
-                        </p>
-                        <div className="mt-1 space-y-1">
-                          <p className="text-red-600 dark:text-red-400">
-                            • Título: {formData.title ? '✓' : '✗'}
-                          </p>
-                          <p className="text-red-600 dark:text-red-400">
-                            • Fecha Inicio: {formData.start_date ? '✓' : '✗'}
-                          </p>
-                          <p className="text-red-600 dark:text-red-400">
-                            • Fecha Fin: {formData.end_date ? '✓' : '✗'}
-                          </p>
-                          <p className="text-red-600 dark:text-red-400">
-                            • Paciente: {selectedPatient ? '✓' : '✗'}
-                          </p>
-                          <p className="text-red-600 dark:text-red-400">
-                            • Usuario ID: {userId ? '✓' : '✗'}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {/* Mobile Troubleshooting Tips */}
-                      <div className="mt-2 text-xs">
-                        <p className="font-medium text-red-700 dark:text-red-300">Soluciones sugeridas:</p>
-                        <ul className="mt-1 space-y-1 text-red-600 dark:text-red-400">
-                          <li>• Verifique que todos los campos requeridos estén completos</li>
-                          <li>• Asegúrese de tener conexión a internet estable</li>
-                          <li>• Intente recargar la página y crear el evento nuevamente</li>
-                          <li>• Si el problema persiste, contacte al administrador</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Desktop error display */}
-              {errors.submit && (
-                <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg hidden sm:block">
-                  <div className="flex items-center">
-                    <i className="fas fa-exclamation-triangle text-red-600 dark:text-red-400 mr-3"></i>
-                    <div>
-                      <p className="text-red-600 dark:text-red-400 font-medium">Error al guardar evento</p>
-                      <p className="text-red-500 dark:text-red-500 text-sm mt-1">{errors.submit}</p>
                     </div>
                   </div>
                 </div>
