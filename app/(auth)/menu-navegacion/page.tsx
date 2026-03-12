@@ -786,7 +786,7 @@ export default function MenuNavegacion() {
     },
     {
       id: 'gestion-documental',
-      icon: <AnimatedFolder className="w-6 h-6" />,
+      icon: <AnimatedFolder className="w-7 h-7" />,
       title: 'Gestión Documental',
       description: 'Administre todos los documentos del paciente, incluyendo informes, radiografías y archivos adjuntos.',
       href: `/dashboard/documents?id=${validPacienteId}`
