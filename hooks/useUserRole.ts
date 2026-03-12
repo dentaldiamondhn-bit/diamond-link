@@ -24,13 +24,6 @@ export function useUserRole() {
   // Get role from user object public metadata
   const userRole = user?.publicMetadata?.role as UserRole | undefined;
   
-  // Debug logging for multi-user issues
-  console.log('=== useUserRole DEBUG ===');
-  console.log('User ID:', user?.id);
-  console.log('User loaded:', isLoaded);
-  console.log('Public metadata:', user?.publicMetadata);
-  console.log('Detected role:', userRole);
-  
   return {
     userRole,
     userId: user?.id,
