@@ -27,6 +27,7 @@ import AnimatedWallet from '@/components/AnimatedWallet';
 import AnimatedReport from '@/components/AnimatedReport';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
+import AnimatedFolder from '@/components/AnimatedFolder';
 
 export default function MenuNavegacion() {
   const { user } = useUser();
@@ -785,7 +786,7 @@ export default function MenuNavegacion() {
     },
     {
       id: 'gestion-documental',
-      icon: 'fas fa-folder-open',
+      icon: <AnimatedFolder className="w-6 h-6" />,
       title: 'Gestión Documental',
       description: 'Administre todos los documentos del paciente, incluyendo informes, radiografías y archivos adjuntos.',
       href: `/dashboard/documents?id=${validPacienteId}`
