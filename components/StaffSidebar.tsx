@@ -14,7 +14,7 @@ const staffNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
   { href: '/patient-form', label: 'Nueva Historia Clínica', icon: 'fas fa-file-medical' },
   { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-users' },
-  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
+  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados /> },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
   { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },

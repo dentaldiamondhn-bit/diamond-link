@@ -17,7 +17,7 @@ const adminNavItems = [
   { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-users' },
   { href: '/doctores', label: 'Doctores', icon: 'fas fa-user-md' },
   { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
-  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle' },
+  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados /> },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
   { href: '/reportes', label: 'Reportes', icon: 'fas fa-chart-bar' },
