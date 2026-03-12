@@ -85,7 +85,9 @@ const getImprovedConditionSeverity = (patient: Patient) => {
       'cancer', 'cáncer', 'tumor', 'epilepsia', 'epilepsia', 'asma', 'asma',
       'renal', 'rinon', 'riñón', 'hepatico', 'hepático', 'higado', 'hígado',
       'insuficiencia', 'infarto', 'derrame cerebral', 'accidente cerebrovascular',
-      'acv', 'ictus', 'derrame', 'accidente vascular'
+      'acv', 'ictus', 'derrame', 'accidente vascular',
+      // Added for current patient
+      'neuralgia', 'colon', 'colon irritable', 'colitis', 'estres', 'estrés'
     ];
     const lifeThreateningDiseases = [
       'cancer', 'cáncer', 'tumor', 'insuficiencia cardiaca', 'insuficiencia cardíaca',
@@ -141,7 +143,9 @@ const getImprovedConditionSeverity = (patient: Patient) => {
       'anafilaxia', 'anafilaxis', 'penicilina', 'penicilina', 'mani', 'maní',
       'mariscos', 'mariscos', 'latex', 'látex', 'abeja', 'avispa', 'avispas',
       'huevo', 'huevo', 'leche', 'leche', 'gluten', 'gluten', 'soja', 'soja',
-      'frutos secos', 'frutos secos', 'cacahuates', 'cacahuetes', 'nueces', 'nueces'
+      'frutos secos', 'frutos secos', 'cacahuates', 'cacahuetes', 'nueces', 'nueces',
+      // Added for current patient
+      'pina', 'piña', 'piña', 'pineapple', 'granola'
     ];
     
     // Flexible matching function (reuse from above)
