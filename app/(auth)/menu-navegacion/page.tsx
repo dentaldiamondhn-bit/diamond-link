@@ -717,7 +717,21 @@ export default function MenuNavegacion() {
       id: 'editar-datos-btn',
       icon: 'fas fa-user-edit',
       title: 'Datos Generales',
-      description: 'Actualice la información personal, contacto y antecedentes médicos del paciente.',
+      description: (
+        <div>
+          <span>Actualice la información personal, contacto y antecedentes médicos del paciente.</span>
+          {patient?.edad_al_momento_consulta && (
+            <div className="mt-2 text-green-600 font-medium">
+              Edad al momento: {patient.edad_al_momento_consulta} años 
+              {patient.fecha_inicio && (
+                <span className="text-green-500 text-sm ml-1">
+                  ({SimpleTimezoneFix.formatDateForConsultationAge(patient.fecha_inicio)})
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      ),
       href: `/patient-form?id=${validPacienteId}`
     },
     {
