@@ -484,26 +484,16 @@ export default function PatientForm() {
       const patient = await PatientService.getPatientById(patientId);
       setIsEditing(true);
       
-      console.log('Patient data loaded:', patient);
-      console.log('Signature URL from database:', patient.firma_digital);
-      console.log('Document URLs from database:', patient.documentos);
-      
       // Load patient historical mode settings
       await loadPatientSettings(patientId);
       
       // Set record category info based on patient's fecha_inicio or fecha_inicio_consulta
       if (patient.fecha_inicio_consulta) {
-        console.log('🔍 Using fecha_inicio_consulta:', patient.fecha_inicio_consulta);
         const categoryInfo = await getRecordCategoryInfo(patient.fecha_inicio_consulta);
         setRecordCategoryInfo(categoryInfo);
-        console.log('Record category info set:', categoryInfo);
       } else if (patient.fecha_inicio) {
-        console.log('🔍 Using fecha_inicio:', patient.fecha_inicio);
         const categoryInfo = await getRecordCategoryInfo(patient.fecha_inicio);
         setRecordCategoryInfo(categoryInfo);
-        console.log('Record category info set:', categoryInfo);
-      } else {
-        console.log('🔍 No fecha_inicio or fecha_inicio_consulta found');
       }
       
       setExistingSignature(patient.firma_digital);
@@ -594,7 +584,7 @@ export default function PatientForm() {
       setAzucarados(patient.azucarados || '');
       setObs(patient.obs || '');
       setVisitasDentista(patient.visitas_dentista || '');
-      setObsGen(patient.obsgen || '');
+      setObsgen(patient.obsgen || '');
       setMotivo(patient.motivo || '');
       setHistorial(patient.historial || '');
       setSangradoEncia(patient.sangrado_encia || '');
@@ -618,6 +608,14 @@ export default function PatientForm() {
       setFinalizoTratamiento(patient.orto_finalizado || '');
       setOrtodonciaMotivoNoFinalizado(patient.orto_motivo_no_finalizado || '');
       setDiagnostico(patient.diagnostico || '');
+      
+      // Set missing fields that were not being loaded
+      setBruxismo(patient.bruxismo || '');
+      setDolorCabeza(patient.dolor_cabeza || '');
+      setChasquidos(patient.chasquidos || '');
+      setDolorOido(patient.dolor_oido || '');
+      setProtesis(patient.protesis || '');
+      setSensibilidad(patient.sensibilidad || '');
       
       // Set new dental evaluation fields
       setReaccionAdversaAnestesico(patient.reaccion_adversa_anestesico || '');
@@ -752,8 +750,8 @@ export default function PatientForm() {
           const enciasSelect = form.querySelector('#sangradoEnciasSelect') as HTMLSelectElement;
           if (enciasSelect) enciasSelect.value = patient.encias;
           
-          const dolorSelect = form.querySelector('#dolorMasticarSelect') as HTMLSelectElement;
-          if (dolorSelect) dolorSelect.value = patient.dolor;
+          const dolorMasticarSelect = form.querySelector('#dolorMasticarSelect') as HTMLSelectElement;
+          if (dolorMasticarSelect) dolorMasticarSelect.value = patient.dolor;
           
           const dolorCabezaSelect = form.querySelector('#dolorCabezaSelect') as HTMLSelectElement;
           if (dolorCabezaSelect) dolorCabezaSelect.value = patient.dolor_cabeza;
@@ -1378,7 +1376,6 @@ export default function PatientForm() {
         onBypassChange={async (newBypassValue) => {
           try {
             await savePatientSettings(currentPatient?.paciente_id, newBypassValue);
-            console.log('✅ Patient bypass setting updated successfully');
           } catch (error) {
             console.error('❌ Failed to update bypass setting:', error);
             alert('Error al actualizar la configuración del modo histórico');
