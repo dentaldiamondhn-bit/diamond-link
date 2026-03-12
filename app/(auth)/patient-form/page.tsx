@@ -509,7 +509,7 @@ export default function PatientForm() {
       setExistingSignature(patient.firma_digital);
       
       // Set all controlled component states
-      setTipoIdentificacion(patient.tipo_identificacion);
+      setTipoIdentificacion(patient.tipo_identificacion || '');
       setOtroTipoIdentificacion(patient.otro_tipo_identificacion || '');
       setParentesco(patient.parentesco || '');
       setOtroParentesco(patient.otro_parentesco || '');
@@ -519,7 +519,7 @@ export default function PatientForm() {
       setTipoSangre(patient.tipo_sangre);
       setDireccion(patient.direccion);
       setEscolaridad(patient.escolaridad);
-      setEstadoCivil(patient.estado_civil);
+      setEstadoCivil(patient.estado_civil || '');
       setEmail(patient.email);
       setTrabajo(patient.trabajo);
       setContactoEmergencia(patient.contacto_emergencia);
@@ -527,7 +527,7 @@ export default function PatientForm() {
       setMedicoCabecera(patient.medico_cabecera);
       setDoctor(patient.doctor);
       setFechaInicio(patient.fecha_inicio);
-      setSeguro(patient.seguro);
+      setSeguro(patient.seguro || '');
       setContacto(patient.contacto);
       setHospitalizaciones(patient.hospitalizaciones);
       setCirugias(patient.cirugias);
@@ -1417,7 +1417,7 @@ export default function PatientForm() {
             name="tipo_identificacion"
             required
             className={`input text-gray-900 dark:text-white ${getFieldStyle('tipo_identificacion')}`}
-            value={tipoIdentificacion}
+            value={tipoIdentificacion || ''}
             onChange={e => {
               setTipoIdentificacion(e.target.value);
               updateFieldValidation('tipo_identificacion', e.target.value);
@@ -1635,7 +1635,7 @@ export default function PatientForm() {
           }} />
 
           <label htmlFor="estado_civil" className="block mb-1 font-medium mt-4">Estado Civil:</label>
-          <select id="estado_civil" name="estado_civil" required className={`input text-gray-900 dark:text-white ${getFieldStyle('estado_civil')}`} value={estadoCivil} onChange={(e) => {
+          <select id="estado_civil" name="estado_civil" required className={`input text-gray-900 dark:text-white ${getFieldStyle('estado_civil')}`} value={estadoCivil || ''} onChange={(e) => {
             setEstadoCivil(e.target.value);
             updateFieldValidation('estado_civil', e.target.value);
           }}>
@@ -1744,7 +1744,7 @@ export default function PatientForm() {
             name="seguro"
             required
             className={`input text-gray-900 dark:text-white ${getFieldStyle('seguro')}`}
-            value={seguro}
+            value={seguro || ''}
             onChange={e => {
               setSeguro(e.target.value);
               updateFieldValidation('seguro', e.target.value);
