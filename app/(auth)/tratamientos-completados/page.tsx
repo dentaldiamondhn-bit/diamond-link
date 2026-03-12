@@ -130,7 +130,6 @@ export default function TratamientosCompletadosPage() {
             // Check record category (historical, active, archived)
             const categoryInfo = getRecordCategoryInfoSync(patientData.fecha_inicio || patientData.fecha_inicio_consulta);
             setRecordCategoryInfo(categoryInfo);
-            console.log('Tratamientos Completados: Record category loaded:', categoryInfo);
           }
         } catch (error) {
           console.error('Error loading patient historical mode settings:', error);
