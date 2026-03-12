@@ -567,27 +567,20 @@ export default function PatientForm() {
       
       // Set dental evaluation states
       setEncias(patient.encias);
-      setDolor(patient.dolor);
-      setDolorCabeza(patient.dolor_cabeza);
-      setChasquidos(patient.chasquidos);
-      setDolorOido(patient.dolor_oido);
-      setProtesis(patient.protesis);
-      setBruxismo(patient.bruxismo);
-      setSensibilidad(patient.sensibilidad);
       setTipoSensibilidad(patient.tipo_sensibilidad || '');
       
       // Set Hábitos section states
-      setFuma(patient.fuma);
-      setFumaCantidad(patient.fuma_cantidad?.toString() || '');
+      setFuma(patient.fuma || '');
+      setFumaCantidad(patient.fuma_cantidad || '');
       setFumaFrecuencia(patient.fuma_frecuencia || '');
-      setAlcohol(patient.alcohol);
-      setAlcoholCantidad(patient.alcohol_cantidad?.toString() || '');
+      setAlcohol(patient.alcohol || '');
+      setAlcoholCantidad(patient.alcohol_cantidad || '');
       setAlcoholFrecuencia(patient.alcohol_frecuencia || '');
-      setDrogas(patient.drogas);
+      setDrogas(patient.drogas || '');
       setDrogasTipo(patient.tipo_droga || '');
       setDrogasFrecuencia(patient.drogas_frecuencia || '');
-      setObjetos(patient.objetos);
-      setCafe(patient.cafe);
+      setObjetos(patient.objetos || '');
+      setCafe(patient.cafe || '');
       setCafeTazas(patient.cantidad_tazas?.toString() || '');
       setCafeFrecuencia(patient.cafe_frecuencia || '');
       
@@ -601,7 +594,7 @@ export default function PatientForm() {
       setAzucarados(patient.azucarados || '');
       setObs(patient.obs || '');
       setVisitasDentista(patient.visitas_dentista || '');
-      setObsgen(patient.obsgen || '');
+      setObsGen(patient.obsgen || '');
       setMotivo(patient.motivo || '');
       setHistorial(patient.historial || '');
       setSangradoEncia(patient.sangrado_encia || '');
@@ -1824,7 +1817,7 @@ export default function PatientForm() {
           }} />
 
           <label htmlFor="embarazo" className="block mb-1 font-medium mt-4">Embarazo (si aplica):</label>
-          <select id="embarazo" name="embarazo" className="input" value={embarazo} onChange={(e) => setEmbarazo(e.target.value)}>
+          <select id="embarazo" name="embarazo" className="input" value={embarazo || ''} onChange={(e) => setEmbarazo(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Sí</option>
@@ -1934,7 +1927,7 @@ export default function PatientForm() {
             name="fuma"
             required
             className="input"
-            value={fuma}
+            value={fuma || ''}
             onChange={e => setFuma(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -1965,7 +1958,7 @@ export default function PatientForm() {
             name="alcohol"
             required
             className="input"
-            value={alcohol}
+            value={alcohol || ''}
             onChange={e => setAlcohol(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -1993,7 +1986,7 @@ export default function PatientForm() {
             name="drogas"
             required
             className="input"
-            value={drogas}
+            value={drogas || ''}
             onChange={e => setDrogas(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2024,7 +2017,7 @@ export default function PatientForm() {
             name="cafe"
             required
             className="input"
-            value={cafe}
+            value={cafe || ''}
             onChange={e => setCafe(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2055,7 +2048,7 @@ export default function PatientForm() {
             name="objetos"
             required
             className="input"
-            value={objetos}
+            value={objetos || ''}
             onChange={e => setObjetos(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2071,7 +2064,7 @@ export default function PatientForm() {
           )}
 
           <label htmlFor="hielo" className="block mb-1 font-medium mt-4">Muerde Hielo:</label>
-          <select id="hielo" name="hielo" required className="input" value={hielo} onChange={(e) => setHielo(e.target.value)}>
+          <select id="hielo" name="hielo" required className="input" value={hielo || ''} onChange={(e) => setHielo(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Sí</option>
@@ -2083,7 +2076,7 @@ export default function PatientForm() {
             name="bruxismo"
             required
             className="input"
-            value={bruxismo}
+            value={bruxismo || ''}
             onChange={e => setBruxismo(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2094,7 +2087,7 @@ export default function PatientForm() {
           {bruxismo === 'si' && (
             <>
               <label htmlFor="tipo_bruxismo" className="block mb-1 font-medium mt-2">Tipo de Bruxismo:</label>
-              <select id="tipo_bruxismo" name="tipo_bruxismo" className="input" value={tipoBruxismo} onChange={(e) => setTipoBruxismo(e.target.value)}>
+              <select id="tipo_bruxismo" name="tipo_bruxismo" className="input" value={tipoBruxismo || ''} onChange={(e) => setTipoBruxismo(e.target.value)}>
                 <option value="">Seleccionar</option>
                 <option value="diurno">Diurno</option>
                 <option value="nocturno">Nocturno</option>
@@ -2104,35 +2097,35 @@ export default function PatientForm() {
           )}
 
           <label htmlFor="boca" className="block mb-1 font-medium mt-4">Respira por la boca:</label>
-          <select id="boca" name="boca" required className="input" value={boca} onChange={(e) => setBoca(e.target.value)}>
+          <select id="boca" name="boca" required className="input" value={boca || ''} onChange={(e) => setBoca(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Sí</option>
           </select>
 
           <label htmlFor="refrescos" className="block mb-1 font-medium mt-4">Toma refrescos de cola:</label>
-          <select id="refrescos" name="refrescos" required className="input" value={refrescos} onChange={(e) => setRefrescos(e.target.value)}>
+          <select id="refrescos" name="refrescos" required className="input" value={refrescos || ''} onChange={(e) => setRefrescos(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Sí</option>
           </select>
 
           <label htmlFor="dulces" className="block mb-1 font-medium mt-4">Come dulces:</label>
-          <select id="dulces" name="dulces" required className="input" value={dulces} onChange={(e) => setDulces(e.target.value)}>
+          <select id="dulces" name="dulces" required className="input" value={dulces || ''} onChange={(e) => setDulces(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Sí</option>
           </select>
 
           <label htmlFor="pegajosos" className="block mb-1 font-medium mt-4">Consume alimentos pegajosos (chicles):</label>
-          <select id="pegajosos" name="pegajosos" required className="input" value={pegajosos} onChange={(e) => setPegajosos(e.target.value)}>
+          <select id="pegajosos" name="pegajosos" required className="input" value={pegajosos || ''} onChange={(e) => setPegajosos(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Sí</option>
           </select>
 
           <label htmlFor="azucarados" className="block mb-1 font-medium mt-4">Consume alimentos azucarados:</label>
-          <select id="azucarados" name="azucarados" required className="input" value={azucarados} onChange={(e) => setAzucarados(e.target.value)}>
+          <select id="azucarados" name="azucarados" required className="input" value={azucarados || ''} onChange={(e) => setAzucarados(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Sí</option>
@@ -2164,7 +2157,7 @@ export default function PatientForm() {
             name="encias"
             required
             className="input"
-            value={encias}
+            value={encias || ''}
             onChange={e => setEncias(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2185,7 +2178,7 @@ export default function PatientForm() {
             name="dolor"
             required
             className="input"
-            value={dolor}
+            value={dolor || ''}
             onChange={e => setDolor(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2206,7 +2199,7 @@ export default function PatientForm() {
             name="dolor_cabeza"
             required
             className="input"
-            value={dolorCabeza}
+            value={dolorCabeza || ''}
             onChange={e => setDolorCabeza(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2227,7 +2220,7 @@ export default function PatientForm() {
             name="chasquidos"
             required
             className="input"
-            value={chasquidos}
+            value={chasquidos || ''}
             onChange={e => setChasquidos(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2248,7 +2241,7 @@ export default function PatientForm() {
             name="dolor_oido"
             required
             className="input"
-            value={dolorOido}
+            value={dolorOido || ''}
             onChange={e => setDolorOido(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2264,7 +2257,7 @@ export default function PatientForm() {
           )}
 
           <label htmlFor="suction_digital" className="block mb-1 font-medium mt-4">Succión digital:</label>
-          <select id="suction_digital" name="suction_digital" required className="input" value={suctionDigital} onChange={(e) => setSuctionDigital(e.target.value)}>
+          <select id="suction_digital" name="suction_digital" required className="input" value={suctionDigital || ''} onChange={(e) => setSuctionDigital(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Si</option>
@@ -2276,7 +2269,7 @@ export default function PatientForm() {
             name="ortodoncia"
             required
             className="input"
-            value={ortodoncia}
+            value={ortodoncia || ''}
             onChange={e => setOrtodoncia(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2291,7 +2284,7 @@ export default function PatientForm() {
                 id="finalizoTratamientoSelect"
                 name="orto_finalizado"
                 className="input"
-                value={finalizoTratamiento}
+                value={finalizoTratamiento || ''}
                 onChange={e => setFinalizoTratamiento(e.target.value)}
               >
                 <option value="">Seleccionar</option>
@@ -2315,7 +2308,7 @@ export default function PatientForm() {
             name="reaccion_adversa_anestesico"
             required
             className="input"
-            value={reaccionAdversaAnestesico}
+            value={reaccionAdversaAnestesico || ''}
             onChange={e => setReaccionAdversaAnestesico(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2337,7 +2330,7 @@ export default function PatientForm() {
             name="experiencia_traumatica"
             required
             className="input"
-            value={experienciaTraumatica}
+            value={experienciaTraumatica || ''}
             onChange={e => setExperienciaTraumatica(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2359,7 +2352,7 @@ export default function PatientForm() {
             name="protesis"
             required
             className="input"
-            value={protesis}
+            value={protesis || ''}
             onChange={e => setProtesis(e.target.value)}
           >
             <option value="">Seleccionar</option>
@@ -2370,7 +2363,7 @@ export default function PatientForm() {
           {protesis === 'si' && (
             <>
               <label htmlFor="protesis_tipo" className="block mb-1 font-medium mt-2">Tipo de Prótesis:</label>
-              <select id="protesis_tipo" name="protesis_tipo" className="input" value={protesisTipo} onChange={(e) => setProtesisTipo(e.target.value)}>
+              <select id="protesis_tipo" name="protesis_tipo" className="input" value={protesisTipo || ''} onChange={(e) => setProtesisTipo(e.target.value)}>
                 <option value="">Seleccionar</option>
                 <option value="Removible">Removible</option>
                 <option value="Parcial Removible">Parcial Removible</option>
@@ -2380,7 +2373,7 @@ export default function PatientForm() {
               </select>
 
               <label htmlFor="protesis_nocturno" className="block mb-1 font-medium mt-2">Uso nocturno de protesis:</label>
-              <select id="protesis_nocturno" name="protesis_nocturno" className="input" value={protesisNocturno} onChange={(e) => setProtesisNocturno(e.target.value)}>
+              <select id="protesis_nocturno" name="protesis_nocturno" className="input" value={protesisNocturno || ''} onChange={(e) => setProtesisNocturno(e.target.value)}>
                 <option value="">Seleccionar</option>
                 <option value="no">No</option>
                 <option value="si">Si</option>
@@ -2389,7 +2382,7 @@ export default function PatientForm() {
           )}
 
           <label htmlFor="sensibilidad" className="block mb-1 font-medium mt-4">Sensibilidad:</label>
-          <select id="sensibilidad" name="sensibilidad" required className="input" value={sensibilidad} onChange={(e) => setSensibilidad(e.target.value)}>
+          <select id="sensibilidad" name="sensibilidad" required className="input" value={sensibilidad || ''} onChange={(e) => setSensibilidad(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Si</option>
@@ -2399,7 +2392,7 @@ export default function PatientForm() {
             <label htmlFor="tipo_sensibilidad" className="block mb-1 font-medium mt-4">Tipo de Sensibilidad:</label>
           )}
           {sensibilidad === 'si' && (
-            <select id="tipo_sensibilidad" name="tipo_sensibilidad" className="input" value={tipoSensibilidad} onChange={(e) => setTipoSensibilidad(e.target.value)}>
+            <select id="tipo_sensibilidad" name="tipo_sensibilidad" className="input" value={tipoSensibilidad || ''} onChange={(e) => setTipoSensibilidad(e.target.value)}>
               <option value="">Seleccionar tipo</option>
               <option value="dulce">Dulce</option>
               <option value="frio">Frío</option>
@@ -2427,14 +2420,14 @@ export default function PatientForm() {
           <input type="text" id="cambio_cepillo" name="cambio_cepillo" required className="input" value={cambioCepillo} onChange={(e) => setCambioCepillo(e.target.value)} />
 
           <label htmlFor="hilo_dental" className="block mb-1 font-medium mt-4">Uso de hilo dental:</label>
-          <select id="hilo_dental" name="hilo_dental" required className="input" value={hiloDental} onChange={(e) => setHiloDental(e.target.value)}>
+          <select id="hilo_dental" name="hilo_dental" required className="input" value={hiloDental || ''} onChange={(e) => setHiloDental(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Si</option>
           </select>
 
           <label htmlFor="enjuague_bucal" className="block mb-1 font-medium mt-4">Uso de enjuague bucal:</label>
-          <select id="enjuague_bucal" name="enjuague_bucal" required className="input" value={enjuagueBucal} onChange={(e) => setEnjuagueBucal(e.target.value)}>
+          <select id="enjuague_bucal" name="enjuague_bucal" required className="input" value={enjuagueBucal || ''} onChange={(e) => setEnjuagueBucal(e.target.value)}>
             <option value="">Seleccionar</option>
             <option value="no">No</option>
             <option value="si">Si</option>
