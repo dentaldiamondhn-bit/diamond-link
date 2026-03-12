@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useCapacitorNotifications } from '../services/capacitorNotificationService';
 import { useDeepLinks } from '../services/deepLinkService';
 import { PatientService } from '../services/patientService';
+import { CalendarService } from '../services/calendarService';
+import { TicketService } from '../services/ticketService';
 
 export default function CapacitorDemo() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -123,6 +125,97 @@ export default function CapacitorDemo() {
     }
   };
 
+  const handleTestCalendarService = async () => {
+    try {
+      // Create a mock calendar event for testing
+      const testEvent = {
+        id: 'test-calendar-event-123',
+        title: 'Cita de Prueba - Calendario',
+        start_date: new Date(Date.now() + 2 * 60 * 1000).toISOString(), // 2 minutes from now
+        patient_id: testPatientId,
+        patient_name: 'Paciente de Prueba',
+        event_type: 'appointment',
+        status: 'confirmed'
+      };
+
+      const scheduled = await CalendarService.scheduleEventNotification(testEvent, 60); // 1 hour before
+
+      if (scheduled) {
+        console.log('✅ Calendar service notification scheduled');
+        alert('✅ Calendar service notification scheduled for 1 hour before event!');
+      }
+    } catch (error) {
+      console.error('❌ Calendar service test failed:', error);
+      alert('❌ Calendar service test failed');
+    }
+  };
+
+  const handleTestTicketService = async () => {
+    try {
+      // Create a mock ticket for testing
+      const testTicket = {
+        id: 'test-ticket-123',
+        title: 'Ticket de Prueba - Soporte',
+        description: 'Este es un ticket de prueba para notificaciones',
+        priority: 'high' as const,
+        status: 'open' as const,
+        due_date: new Date(Date.now() + 3 * 60 * 1000).toISOString(), // 3 minutes from now
+        created_by: 'test-user'
+      };
+
+      // Send immediate notification
+      await TicketService.sendTicketNotification(testTicket, 'created', 'Dr. Test');
+
+      // Schedule reminder for high priority ticket
+      const reminderScheduled = await TicketService.scheduleTicketReminder(testTicket, 30); // 30 minutes before
+
+      if (reminderScheduled) {
+        console.log('✅ Ticket service reminder scheduled');
+        alert('✅ Ticket service notification sent and reminder scheduled!');
+      } else {
+        console.log('✅ Ticket service notification sent (no reminder scheduled)');
+        alert('✅ Ticket service notification sent!');
+      }
+    } catch (error) {
+      console.error('❌ Ticket service test failed:', error);
+      alert('❌ Ticket service test failed');
+    }
+  };
+
+  const handleTestBulkNotifications = async () => {
+    try {
+      // Create mock tickets for bulk notification test
+      const testTickets = [
+        {
+          id: 'bulk-ticket-1',
+          title: 'Ticket Bulk 1',
+          priority: 'medium' as const,
+          status: 'open' as const
+        },
+        {
+          id: 'bulk-ticket-2',
+          title: 'Ticket Bulk 2',
+          priority: 'high' as const,
+          status: 'open' as const
+        },
+        {
+          id: 'bulk-ticket-3',
+          title: 'Ticket Bulk 3',
+          priority: 'low' as const,
+          status: 'open' as const
+        }
+      ];
+
+      await TicketService.sendBulkTicketNotifications(testTickets, 'assigned');
+
+      console.log('✅ Bulk ticket notifications sent');
+      alert('✅ Bulk ticket notifications sent for 3 tickets!');
+    } catch (error) {
+      console.error('❌ Bulk notification test failed:', error);
+      alert('❌ Bulk notification test failed');
+    }
+  };
+
   if (!isInitialized) {
     return (
       <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -201,6 +294,36 @@ export default function CapacitorDemo() {
         </div>
       </div>
 
+      {/* Calendar & Ticket Service Testing */}
+      <div className="mb-6">
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+          📅 Calendar & Ticket Testing
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onClick={handleTestCalendarService}
+            disabled={!permissionGranted}
+            className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            📅 Test Calendar Service
+          </button>
+          <button
+            onClick={handleTestTicketService}
+            disabled={!permissionGranted}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            🎫 Test Ticket Service
+          </button>
+          <button
+            onClick={handleTestBulkNotifications}
+            disabled={!permissionGranted}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            📫 Test Bulk Notifications
+          </button>
+        </div>
+      </div>
+
       {/* Deep Link Testing */}
       <div className="mb-6">
         <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
@@ -248,6 +371,9 @@ export default function CapacitorDemo() {
         <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
           <li>• Request permissions first to enable notifications</li>
           <li>• Test reminders will trigger in 30-60 seconds</li>
+          <li>• Calendar events schedule notifications for 1 hour before</li>
+          <li>• Ticket notifications support priority-based reminders</li>
+          <li>• Bulk notifications test multiple ticket assignments</li>
           <li>• Deep links work differently on web vs native</li>
           <li>• Push notifications only work on native platforms</li>
           <li>• Check browser console for detailed logs</li>

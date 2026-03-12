@@ -1,6 +1,7 @@
 import { Ticket, TicketActivity, CreateTicketData, UpdateTicketData, CreateActivityData, TicketFilters, TicketStatus, ActivityType, TicketPriority } from '@/types/ticket';
 import { supabase } from '@/lib/supabase';
 import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
+import CapacitorNotificationService from './capacitorNotificationService';
 
 export class TicketService {
   // Get tickets with filters
@@ -415,6 +416,145 @@ export class TicketService {
     } catch (error) {
       console.error('Error deleting ticket:', error);
       return { error };
+    }
+  }
+
+  // Send mobile notification for ticket status changes
+  static async sendTicketNotification(ticket: Ticket, action: 'created' | 'updated' | 'assigned' | 'resolved' | 'closed', assignedTo?: string): Promise<void> {
+    try {
+      const notificationService = CapacitorNotificationService.getInstance();
+      
+      const actionMessages = {
+        created: 'Nuevo ticket creado',
+        updated: 'Ticket actualizado',
+        assigned: 'Ticket asignado',
+        resolved: 'Ticket resuelto',
+        closed: 'Ticket cerrado'
+      };
+      
+      const priorityEmojis = {
+        low: '🟢',
+        medium: '🟡',
+        high: '🟠',
+        urgent: '🔴'
+      };
+      
+      const notification = {
+        id: `ticket-${ticket.id}-${action}-${Date.now()}`,
+        title: `${priorityEmojis[ticket.priority]} ${actionMessages[action]} - Diamond Link`,
+        body: `${ticket.title}${assignedTo ? ` - Asignado a: ${assignedTo}` : ''}`,
+        icon: '/Logo.svg',
+        tag: `ticket-${ticket.id}`,
+        data: {
+          ticketId: ticket.id,
+          action,
+          priority: ticket.priority,
+          url: `/tickets?id=${ticket.id}`
+        }
+      };
+
+      // Send immediate notification
+      notificationService.showLocalNotification(notification);
+      
+      console.log(`🎫 Ticket ${action} notification sent:`, ticket.title);
+    } catch (error) {
+      console.error('❌ Failed to send ticket notification:', error);
+    }
+  }
+
+  // Schedule reminder for high-priority tickets
+  static async scheduleTicketReminder(ticket: Ticket, reminderMinutes: number = 30): Promise<boolean> {
+    try {
+      const notificationService = CapacitorNotificationService.getInstance();
+      
+      // Only schedule reminders for high/urgent priority tickets
+      if (ticket.priority !== 'high' && ticket.priority !== 'urgent') {
+        console.log('⚠️ Ticket priority too low for reminder scheduling');
+        return false;
+      }
+      
+      // Calculate reminder time (if ticket has due_date)
+      if (!ticket.due_date) {
+        console.log('⚠️ Ticket has no due date for reminder scheduling');
+        return false;
+      }
+      
+      const dueDate = new Date(ticket.due_date);
+      const reminderDate = new Date(dueDate.getTime() - reminderMinutes * 60 * 1000);
+      
+      // Only schedule if reminder date is in the future
+      if (reminderDate > new Date()) {
+        const ticketNotification = {
+          id: `ticket-reminder-${ticket.id}`,
+          title: `🔴 Recordatorio de Ticket - Diamond Link`,
+          body: `Ticket "${ticket.title}" vence en ${reminderMinutes} minutos`,
+          scheduledDate: reminderDate,
+          appointmentId: `ticket-${ticket.id}`
+        };
+
+        const scheduled = await notificationService.scheduleAppointmentReminder(ticketNotification);
+        
+        if (scheduled) {
+          console.log('✅ Ticket reminder scheduled:', ticket.title);
+        }
+        
+        return scheduled;
+      } else {
+        console.log('⚠️ Ticket due date is too soon to schedule reminder');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Failed to schedule ticket reminder:', error);
+      return false;
+    }
+  }
+
+  // Cancel ticket reminder
+  static async cancelTicketReminder(ticketId: string): Promise<boolean> {
+    try {
+      const notificationService = CapacitorNotificationService.getInstance();
+      const cancelled = await notificationService.cancelNotification(`ticket-reminder-${ticketId}`);
+      
+      if (cancelled) {
+        console.log('✅ Ticket reminder cancelled:', ticketId);
+      }
+      
+      return cancelled;
+    } catch (error) {
+      console.error('❌ Failed to cancel ticket reminder:', error);
+      return false;
+    }
+  }
+
+  // Send bulk notifications for ticket assignments
+  static async sendBulkTicketNotifications(tickets: Ticket[], action: 'assigned' | 'updated'): Promise<void> {
+    try {
+      const notificationService = CapacitorNotificationService.getInstance();
+      
+      const actionMessages = {
+        assigned: 'Tickets asignados',
+        updated: 'Tickets actualizados'
+      };
+      
+      const notification = {
+        id: `bulk-tickets-${action}-${Date.now()}`,
+        title: `${tickets.length} ${actionMessages[action]} - Diamond Link`,
+        body: `Se han ${action === 'assigned' ? 'asignado' : 'actualizado'} ${tickets.length} tickets`,
+        icon: '/Logo.svg',
+        tag: `bulk-tickets-${action}`,
+        data: {
+          ticketIds: tickets.map(t => t.id),
+          action,
+          url: '/tickets'
+        }
+      };
+
+      // Send bulk notification
+      notificationService.showLocalNotification(notification);
+      
+      console.log(`📫 Bulk ticket ${action} notification sent for ${tickets.length} tickets`);
+    } catch (error) {
+      console.error('❌ Failed to send bulk ticket notification:', error);
     }
   }
 }
