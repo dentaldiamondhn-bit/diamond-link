@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/tickets/(.*)',  // Add tickets API routes
   '/tech-support/terminal',
   '/tech-support/(.*)',
+  '/capacitor-demo',  // Add capacitor demo as public route
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
