@@ -331,10 +331,20 @@ export const useCapacitorNotifications = () => {
     const service = serviceRef.current;
     
     // Check if native
-    setIsNative(service.isNative());
+    try {
+      setIsNative(service.isNative());
+    } catch (error) {
+      console.warn('⚠️ Failed to detect native platform:', error);
+      setIsNative(false);
+    }
     
-    // Initialize service
-    service.initialize().then(setIsInitialized);
+    // Initialize service with error handling
+    service.initialize()
+      .then(setIsInitialized)
+      .catch((error) => {
+        console.error('❌ Failed to initialize Capacitor service:', error);
+        setIsInitialized(false);
+      });
   }, []);
 
   const requestPermissions = async () => {

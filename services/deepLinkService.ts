@@ -272,7 +272,11 @@ export const useDeepLinks = () => {
 
   useEffect(() => {
     const service = serviceRef.current;
-    service.setRouter(router);
+    try {
+      service.setRouter(router);
+    } catch (error) {
+      console.warn('⚠️ Failed to set router in DeepLink service:', error);
+    }
   }, [router]);
 
   const openPatientRecord = async (patientId: string) => {

@@ -14,6 +14,8 @@ export default function CapacitorDemo() {
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [scheduledNotifications, setScheduledNotifications] = useState<any[]>([]);
   const [testPatientId, setTestPatientId] = useState('test-patient-123');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const {
     isNative,
@@ -32,7 +34,18 @@ export default function CapacitorDemo() {
 
   useEffect(() => {
     setIsInitialized(notificationsInitialized);
+    setIsLoading(false);
   }, [notificationsInitialized]);
+
+  // Global error handler
+  const handleError = (error: any, context: string) => {
+    const errorMessage = `Error in ${context}: ${error?.message || error || 'Unknown error'}`;
+    console.error(errorMessage, error);
+    setError(errorMessage);
+    
+    // Clear error after 5 seconds
+    setTimeout(() => setError(null), 5000);
+  };
 
   const handleRequestPermissions = async () => {
     try {
@@ -40,7 +53,7 @@ export default function CapacitorDemo() {
       setPermissionGranted(result.granted);
       console.log('📱 Permission result:', result);
     } catch (error) {
-      console.error('❌ Permission request failed:', error);
+      handleError(error, 'Permission Request');
     }
   };
 
@@ -50,7 +63,7 @@ export default function CapacitorDemo() {
       setPushToken(token);
       console.log('📱 Push token:', token);
     } catch (error) {
-      console.error('❌ Push registration failed:', error);
+      handleError(error, 'Push Notification Registration');
     }
   };
 
@@ -73,8 +86,7 @@ export default function CapacitorDemo() {
         alert('✅ Test reminder scheduled for 30 seconds from now!');
       }
     } catch (error) {
-      console.error('❌ Failed to schedule test reminder:', error);
-      alert('❌ Failed to schedule test reminder');
+      handleError(error, 'Test Reminder Scheduling');
     }
   };
 
@@ -83,7 +95,7 @@ export default function CapacitorDemo() {
       await openPatientRecord(testPatientId);
       console.log('📱 Opening patient record:', testPatientId);
     } catch (error) {
-      console.error('❌ Failed to open patient record:', error);
+      handleError(error, 'Open Patient Record');
     }
   };
 
@@ -92,7 +104,7 @@ export default function CapacitorDemo() {
       await sharePatientRecord(testPatientId, 'Paciente de Prueba');
       console.log('📤 Sharing patient record:', testPatientId);
     } catch (error) {
-      console.error('❌ Failed to share patient record:', error);
+      handleError(error, 'Share Patient Record');
     }
   };
 
@@ -102,7 +114,7 @@ export default function CapacitorDemo() {
       console.log('🔗 Share link:', link);
       alert(`Share link: ${link}`);
     } catch (error) {
-      console.error('❌ Failed to generate share link:', error);
+      handleError(error, 'Generate Share Link');
     }
   };
 
@@ -121,8 +133,7 @@ export default function CapacitorDemo() {
         alert('✅ Patient service reminder scheduled for 1 minute from now!');
       }
     } catch (error) {
-      console.error('❌ Patient service test failed:', error);
-      alert('❌ Patient service test failed');
+      handleError(error, 'Patient Service Test');
     }
   };
 
@@ -156,8 +167,7 @@ export default function CapacitorDemo() {
         alert('✅ Calendar service notification scheduled for 1 hour before event!');
       }
     } catch (error) {
-      console.error('❌ Calendar service test failed:', error);
-      alert('❌ Calendar service test failed');
+      handleError(error, 'Calendar Service Test');
     }
   };
 
@@ -191,8 +201,7 @@ export default function CapacitorDemo() {
         alert('✅ Ticket service notification sent!');
       }
     } catch (error) {
-      console.error('❌ Ticket service test failed:', error);
-      alert('❌ Ticket service test failed');
+      handleError(error, 'Ticket Service Test');
     }
   };
 
@@ -237,12 +246,11 @@ export default function CapacitorDemo() {
       console.log('✅ Bulk ticket notifications sent');
       alert('✅ Bulk ticket notifications sent for 3 tickets!');
     } catch (error) {
-      console.error('❌ Bulk notification test failed:', error);
-      alert('❌ Bulk notification test failed');
+      handleError(error, 'Bulk Notification Test');
     }
   };
 
-  if (!isInitialized) {
+  if (isLoading) {
     return (
       <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
         <h3 className="text-lg font-semibold text-yellow-800 mb-2">
@@ -251,12 +259,53 @@ export default function CapacitorDemo() {
         <p className="text-yellow-600">
           Please wait while we initialize the mobile services.
         </p>
+        <div className="mt-2 text-sm text-yellow-500">
+          Platform: {typeof window !== 'undefined' ? ((window as any).Capacitor?.getPlatform() || 'web') : 'loading...'}
+        </div>
+      </div>
+    );
+  }
+
+  // Error display
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+        <h3 className="text-lg font-semibold text-red-800 mb-2">
+          ❌ Error Occurred
+        </h3>
+        <p className="text-red-600">
+          {error}
+        </p>
+        <button
+          onClick={() => setError(null)}
+          className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        >
+          Dismiss
+        </button>
       </div>
     );
   }
 
   return (
     <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-red-800">❌ Error</h4>
+              <p className="text-sm text-red-600 mt-1">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-600 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      
       <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
         📱 Capacitor Demo - Diamond Link Mobile Features
       </h2>
@@ -271,6 +320,21 @@ export default function CapacitorDemo() {
           <p>🔔 Notifications Initialized: {notificationsInitialized ? '✅ Yes' : '❌ No'}</p>
           <p>👤 Permission Granted: {permissionGranted ? '✅ Yes' : '❌ No'}</p>
           {pushToken && <p>🔑 Push Token: {pushToken.substring(0, 20)}...</p>}
+        </div>
+      </div>
+
+      {/* Debug Panel */}
+      <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+          🐛 Debug Information
+        </h3>
+        <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+          <p>🌐 User Agent: {typeof window !== 'undefined' ? navigator.userAgent.slice(0, 50) + '...' : 'N/A'}</p>
+          <p>📱 Capacitor Available: {typeof window !== 'undefined' && (window as any).Capacitor ? '✅ Yes' : '❌ No'}</p>
+          <p>🔧 Plugins Available: {typeof window !== 'undefined' && (window as any).Capacitor?.Core ? '✅ Yes' : '❌ No'}</p>
+          <p>📱 Platform: {typeof window !== 'undefined' ? ((window as any).Capacitor?.getPlatform() || 'web') : 'loading...'}</p>
+          <p>🔔 Notification API: {typeof window !== 'undefined' && 'Notification' in window ? '✅ Yes' : '❌ No'}</p>
+          <p>📡 Service Worker: {typeof window !== 'undefined' && 'serviceWorker' in navigator ? '✅ Yes' : '❌ No'}</p>
         </div>
       </div>
 
