@@ -102,7 +102,7 @@ export default function RootLayout({
             }}
           />
         </head>
-        <body className={`${inter.className} h-screen overflow-hidden bg-gray-800`} suppressHydrationWarning>
+        <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
           <BannerAlert />
           {children}
         </body>

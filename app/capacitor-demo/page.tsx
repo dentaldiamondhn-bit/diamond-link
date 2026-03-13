@@ -30,8 +30,8 @@ export default function CapacitorDemoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 overflow-y-auto">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -41,7 +41,13 @@ export default function CapacitorDemoPage() {
             Test mobile app features including notifications, deep links, and more
           </p>
           <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-            Platform: {Capacitor.getPlatform() || 'web'}
+            Platform: {(() => {
+              try {
+                return (Capacitor as any).getPlatform() || 'web';
+              } catch (error) {
+                return 'web';
+              }
+            })()}
           </div>
           {!isSignedIn && (
             <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">

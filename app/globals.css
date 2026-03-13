@@ -356,3 +356,22 @@ body {
 .dark .hover\:bg-gray-100:hover {
   @apply hover:bg-gray-700;
 }
+
+/* Ensure smooth scrolling on mobile devices */
+html, body {
+  height: auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix iOS Safari scrolling issues */
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
