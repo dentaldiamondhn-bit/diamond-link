@@ -292,7 +292,7 @@ export class CapacitorNotificationService {
 
   // Send immediate local notification
   async sendLocalNotification(notification: any): Promise<void> {
-    this.webService.showLocalNotification(notification);
+    await this.webService.showLocalNotification(notification);
   }
 
   // Initialize the complete service

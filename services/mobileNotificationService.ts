@@ -104,7 +104,7 @@ class MobileNotificationService {
   }
 
   // Show local notification (not push)
-  showLocalNotification(notification: PushNotification): void {
+  async showLocalNotification(notification: PushNotification): Promise<void> {
     const permission = this.getPermission();
     
     if (!permission.granted) {
@@ -127,32 +127,63 @@ class MobileNotificationService {
       options.actions = notification.actions;
     }
 
-    const notificationInstance = new Notification(notification.title, options);
-
-    // Handle notification click
-    notificationInstance.onclick = (event) => {
-      event.preventDefault();
-      
-      // Focus the window if it's open
-      if (window.focus) {
-        window.focus();
+    // Try Service Worker first (required for mobile browsers)
+    if (this.swRegistration) {
+      try {
+        await this.swRegistration.showNotification(notification.title, options);
+        console.log('✅ Notification shown via Service Worker');
+        return;
+      } catch (error) {
+        console.warn('⚠️ Service Worker notification failed, trying fallback:', error);
       }
-
-      // Handle notification click based on data
-      if (notification.data?.url) {
-        window.location.href = notification.data.url;
-      }
-
-      // Close the notification
-      notificationInstance.close();
-    };
-
-    // Auto-close after 5 seconds if not required interaction
-    if (!notification.requireInteraction) {
-      setTimeout(() => {
-        notificationInstance.close();
-      }, 5000);
     }
+
+    // Fallback to Notification constructor for desktop browsers
+    if ('Notification' in window && !this.isMobileBrowser()) {
+      try {
+        const notificationInstance = new Notification(notification.title, options);
+
+        // Handle notification click
+        notificationInstance.onclick = (event) => {
+          event.preventDefault();
+          
+          // Focus the window if it's open
+          if (window.focus) {
+            window.focus();
+          }
+
+          // Handle notification click based on data
+          if (notification.data?.url) {
+            window.location.href = notification.data.url;
+          }
+
+          // Close the notification
+          notificationInstance.close();
+        };
+
+        // Auto-close after 5 seconds if not required interaction
+        if (!notification.requireInteraction) {
+          setTimeout(() => {
+            notificationInstance.close();
+          }, 5000);
+        }
+        
+        console.log('✅ Notification shown via Notification constructor');
+      } catch (error) {
+        console.error('❌ Failed to show notification:', error);
+        throw error;
+      }
+    } else {
+      console.error('❌ No notification method available');
+      throw new Error('No notification method available');
+    }
+  }
+
+  // Check if running on mobile browser
+  private isMobileBrowser(): boolean {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent.toLowerCase();
+    return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
   }
 
   // Check if push is supported
