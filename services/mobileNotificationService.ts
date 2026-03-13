@@ -159,7 +159,7 @@ class MobileNotificationService {
       }
     }
 
-    // Try service worker first (best for mobile browsers)
+    // Try service worker first (works in both mobile and desktop modes)
     if (this.swRegistration) {
       try {
         await this.swRegistration.showNotification(notification.title, options);
@@ -170,7 +170,7 @@ class MobileNotificationService {
       }
     }
 
-    // Fallback to direct Notification API
+    // Try direct Notification API (works in both mobile and desktop modes)
     if ('Notification' in window) {
       try {
         const notificationInstance = new Notification(notification.title, options);
@@ -212,9 +212,7 @@ class MobileNotificationService {
     console.log('📱 Notification:', notification.title, '-', notification.body);
     
     // Show a simple alert as last resort
-    if (this.isMobileBrowser()) {
-      alert(`${notification.title}\n\n${notification.body}`);
-    }
+    alert(`${notification.title}\n\n${notification.body}`);
 
     throw new Error('No notification method available');
   }

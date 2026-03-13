@@ -51,22 +51,43 @@ export function BrowserNotifications() {
       }
     }
 
+    // Create notification that works in both mobile and desktop modes
     const notification = new Notification(title, {
       icon: '/Logo.svg', // Use the proper logo
       badge: '/Logo.svg', // Use the proper logo for badge
       tag: options.data?.type || 'general',
-      requireInteraction: options.requireInteraction || true, // Default to true for calendar notifications
+      requireInteraction: options.requireInteraction || false, // Changed to false for better mobile experience
       body: body,
       data: options.data,
       ...options,
     });
 
+    // Handle notification click
+    notification.onclick = () => {
+      console.log('🖱️ Browser notification clicked');
+      notification.close();
+      
+      // Focus the window if possible
+      if (window.focus) {
+        window.focus();
+      }
+      
+      // Navigate based on notification type
+      if (options.data?.type === 'calendar_event' || options.data?.type === 'calendar_task') {
+        window.location.href = '/calendario';
+      }
+    };
+
     // Play sound if enabled
     if (settings.soundEnabled) {
-      const audio = new Audio('/notification-sound.mp3');
-      audio.play().catch(() => {
-        // Ignore audio play errors
-      });
+      try {
+        const audio = new Audio('/notification-sound.mp3');
+        audio.play().catch(() => {
+          // Ignore audio play errors
+        });
+      } catch (error) {
+        // Ignore audio errors
+      }
     }
 
     // Auto-close after 8 seconds unless requireInteraction is true
@@ -76,7 +97,7 @@ export function BrowserNotifications() {
       }, 8000);
     }
 
-    return notification;
+    console.log(`✅ Browser notification shown: ${title}`);
   }, [permission, settings]);
 
   // Check notification permission on mount
@@ -94,65 +115,71 @@ export function BrowserNotifications() {
   }, [showNotification]);
 
   return (
-    <div className="p-4 bg-white rounded-lg shadow">
-      <h3 className="text-lg font-semibold mb-4">Configuración de Notificaciones</h3>
+    <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        🔔 Browser Notifications
+      </h3>
       
       <div className="space-y-4">
+        {/* Permission Status */}
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Notificaciones del Navegador</span>
+          <span className="text-gray-700 dark:text-gray-300">Permission:</span>
+          <span className={`px-2 py-1 rounded text-sm ${
+            permission === 'granted' 
+              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+              : permission === 'denied'
+              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+          }`}>
+            {permission === 'granted' ? '✅ Granted' : permission === 'denied' ? '❌ Denied' : '⏳ Default'}
+          </span>
+        </div>
+
+        {/* Settings */}
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={settings.enabled}
+              onChange={(e) => setSettings(prev => ({ ...prev, enabled: e.target.checked }))}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-gray-700 dark:text-gray-300">Enable notifications</span>
+          </label>
+          
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={settings.soundEnabled}
+              onChange={(e) => setSettings(prev => ({ ...prev, soundEnabled: e.target.checked }))}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-gray-700 dark:text-gray-300">Enable sound</span>
+          </label>
+        </div>
+
+        {/* Request Permission Button */}
+        {permission !== 'granted' && (
           <button
             onClick={requestPermission}
-            disabled={permission === 'granted'}
-            className={`px-3 py-1 rounded text-sm ${
-              permission === 'granted'
-                ? 'bg-green-100 text-green-800'
-                : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-            }`}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            {permission === 'granted' ? 'Habilitadas' : 'Habilitar'}
+            🔔 Request Permission
           </button>
-        </div>
+        )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Activar Notificaciones</span>
+        {/* Test Button */}
+        {permission === 'granted' && (
           <button
-            onClick={() => setSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.enabled ? 'bg-blue-600' : 'bg-gray-200'
-            }`}
+            onClick={() => showNotification('Test Notification', {
+              body: 'This is a test notification from Diamond Link',
+              data: { type: 'test' }
+            })}
+            className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.enabled ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
+            🔔 Test Notification
           </button>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Sonido de Notificación</span>
-          <button
-            onClick={() => setSettings(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.soundEnabled ? 'bg-blue-600' : 'bg-gray-200'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.soundEnabled ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 pt-4 border-t">
-        <button
-          onClick={() => showNotification('Notificación de Prueba', {
-            body: 'Esta es una notificación de prueba para verificar que todo funciona correctamente.',
-            data: {
-              type: 'test',
-              eventTime: new Date().toISOString() // Test event time display
+        )}
             }
           })}
           disabled={!settings.enabled || permission !== 'granted'}

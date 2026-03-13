@@ -64,11 +64,12 @@ function triggerBrowserNotification(notification: any) {
 
     console.log(`🔔 Triggering browser notification: ${notification.title}`);
 
+    // Create notification that works in both mobile and desktop modes
     const browserNotification = new Notification(notification.title, {
       icon: '/Logo.svg', // Use the proper logo
       badge: '/Logo.svg', // Use the proper logo for badge
       tag: notification.type || 'general',
-      requireInteraction: true, // Require interaction for calendar notifications
+      requireInteraction: false, // Changed to false for better mobile experience
       body: body,
       data: notification.metadata,
     });
@@ -82,6 +83,22 @@ function triggerBrowserNotification(notification: any) {
     // } catch (error) {
     //   console.log('🔊 Audio not available');
     // }
+
+    // Handle notification click
+    browserNotification.onclick = () => {
+      console.log('🖱️ Browser notification clicked');
+      browserNotification.close();
+      
+      // Focus the window if possible
+      if (window.focus) {
+        window.focus();
+      }
+      
+      // Navigate to calendar if it's a calendar notification
+      if (notification.type === 'calendar_event' || notification.type === 'calendar_task') {
+        window.location.href = '/calendario';
+      }
+    };
 
     // Auto-close after 8 seconds
     setTimeout(() => {

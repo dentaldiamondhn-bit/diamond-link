@@ -26,6 +26,26 @@ export default function CapacitorDemo() {
     console.log(logMessage);
   };
 
+  // Check browser mode
+  const getBrowserMode = () => {
+    if (typeof window === 'undefined') return 'Unknown';
+    
+    // Check if browser is in mobile mode
+    const isMobileMode = window.matchMedia('(max-width: 768px)').matches;
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    
+    if (isMobileDevice && isMobileMode) {
+      return 'Mobile Device + Mobile Mode';
+    } else if (isMobileDevice && !isMobileMode) {
+      return 'Mobile Device + Desktop Mode (Desktop Site)';
+    } else if (!isMobileDevice && isMobileMode) {
+      return 'Desktop Device + Mobile Mode';
+    } else {
+      return 'Desktop Device + Desktop Mode';
+    }
+  };
+
   // Mobile browser detection
   const isMobileBrowser = () => {
     if (typeof window === 'undefined') return false;
@@ -424,6 +444,7 @@ export default function CapacitorDemo() {
           🐛 Debug Information
         </h3>
         <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+          <p>🌐 Browser Mode: {getBrowserMode()}</p>
           <p>🌐 User Agent: {typeof window !== 'undefined' ? navigator.userAgent.slice(0, 50) + '...' : 'N/A'}</p>
           <p>📱 Capacitor Available: {typeof window !== 'undefined' && (window as any).Capacitor ? '✅ Yes' : '❌ No'}</p>
           <p>🔧 Plugins Available: {typeof window !== 'undefined' && (window as any).Capacitor?.Core ? '✅ Yes' : '❌ No'}</p>
