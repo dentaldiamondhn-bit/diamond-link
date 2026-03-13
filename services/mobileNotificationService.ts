@@ -148,27 +148,17 @@ class MobileNotificationService {
       options.actions = notification.actions;
     }
 
-    // Try Service Worker first (required for mobile browsers)
-    if (this.swRegistration) {
-      try {
-        await this.swRegistration.showNotification(notification.title, options);
-        console.log('✅ Notification shown via Service Worker');
-        return;
-      } catch (error) {
-        console.warn('⚠️ Service Worker notification failed, trying fallback:', error);
-      }
-    }
-
-    // Fallback to Notification constructor for desktop browsers
+    // For mobile browsers, try direct Notification API with service worker context
     if ('Notification' in window) {
       try {
+        // On mobile, this should work if service worker is registered
         const notificationInstance = new Notification(notification.title, options);
 
         // Handle notification click
         notificationInstance.onclick = (event) => {
           event.preventDefault();
           
-          // Focus the window if it's open
+          // Focus window if it's open
           if (window.focus) {
             window.focus();
           }
@@ -178,7 +168,7 @@ class MobileNotificationService {
             window.location.href = notification.data.url;
           }
 
-          // Close the notification
+          // Close notification
           notificationInstance.close();
         };
 
@@ -189,10 +179,21 @@ class MobileNotificationService {
           }, 5000);
         }
         
-        console.log('✅ Notification shown via Notification constructor');
+        console.log('✅ Notification shown via Notification API');
         return;
       } catch (error) {
-        console.error('❌ Failed to show notification via constructor:', error);
+        console.warn('⚠️ Notification API failed, trying service worker:', error);
+      }
+    }
+
+    // Fallback to service worker if available
+    if (this.swRegistration) {
+      try {
+        await this.swRegistration.showNotification(notification.title, options);
+        console.log('✅ Notification shown via Service Worker');
+        return;
+      } catch (error) {
+        console.warn('⚠️ Service Worker notification failed:', error);
       }
     }
 
