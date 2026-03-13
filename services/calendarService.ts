@@ -10,17 +10,11 @@ export class CalendarService {
   static async createEvent(eventData: Omit<CalendarEvent, 'id' | 'created_at' | 'updated_at'>): Promise<CalendarEvent> {
     try {
       // Remove doctor_id if it exists in the data (it shouldn't be there)
-      const { doctor_id, ...cleanEventData } = eventData as any;
-      
-      // Add default reminder minutes if not provided (10 min, 1 hour, 1 day before)
-      const eventDataWithReminders = {
-        ...cleanEventData,
-        reminder_minutes: cleanEventData.reminder_minutes || 1440 // Default to 1 day before
-      };
+      const { doctor_id, reminder_minutes, ...cleanEventData } = eventData as any;
       
       const { data, error } = await supabase
         .from('calendar_events')
-        .insert([eventDataWithReminders])
+        .insert([cleanEventData])
         .select(`
           id,
           title,
@@ -35,7 +29,6 @@ export class CalendarService {
           patient_id,
           notes,
           created_by,
-          reminder_minutes,
           created_at,
           updated_at
         `)
@@ -152,8 +145,8 @@ export class CalendarService {
 
   static async updateEvent(id: string, updates: Partial<CalendarEvent>): Promise<CalendarEvent> {
     try {
-      // Remove doctor_id if it exists in the updates (it shouldn't be there)
-      const { doctor_id, ...cleanUpdates } = updates as any;
+      // Remove doctor_id and reminder_minutes if they exist in the updates (they shouldn't be there)
+      const { doctor_id, reminder_minutes, ...cleanUpdates } = updates as any;
       
       const { data, error } = await supabase
         .from('calendar_events')
@@ -176,7 +169,6 @@ export class CalendarService {
           patient_id,
           notes,
           created_by,
-          reminder_minutes,
           created_at,
           updated_at
         `)
