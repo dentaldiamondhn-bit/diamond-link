@@ -35,6 +35,7 @@ export class CalendarService {
           patient_id,
           notes,
           created_by,
+          reminder_minutes,
           created_at,
           updated_at
         `)
@@ -175,6 +176,7 @@ export class CalendarService {
           patient_id,
           notes,
           created_by,
+          reminder_minutes,
           created_at,
           updated_at
         `)
