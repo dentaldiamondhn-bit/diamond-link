@@ -256,7 +256,8 @@ export class CalendarReminderService {
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'America/Tegucigalpa' // Explicitly set to Honduras timezone
     });
     
     const patientName = event.patient?.nombre_completo || 'Sin paciente';
@@ -280,7 +281,8 @@ export class CalendarReminderService {
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'America/Tegucigalpa' // Explicitly set to Honduras timezone
     });
     
     const patientName = item.patient?.nombre_completo || 'Sin paciente';

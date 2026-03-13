@@ -463,6 +463,18 @@ const handleUserId = (userId: string): string => {
   return crypto.randomUUID();
 };
 
+// Helper function to get current local datetime in format yyyy-MM-ddThh:mm
+const getCurrentLocalDateTime = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 // Helper function to format date for HTML datetime-local input
 const formatDateTimeLocal = (date: string | Date): string => {
   if (!date) return '';
@@ -597,7 +609,7 @@ const handlePatientSelect = (patient: any) => {
                   className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 ${
                     errors.start_date ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
-                  min={new Date().toISOString().slice(0, 16)} // Prevent past dates on mobile
+                  min={getCurrentLocalDateTime()} // Prevent past dates on mobile
                 />
                 {errors.start_date && (
                   <div className="mt-1 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
@@ -620,7 +632,7 @@ const handlePatientSelect = (patient: any) => {
                   className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 ${
                     errors.end_date ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
-                  min={formData.start_date || new Date().toISOString().slice(0, 16)} // Prevent end before start
+                  min={formData.start_date || getCurrentLocalDateTime()} // Prevent end before start
                 />
                 {errors.end_date && (
                   <div className="mt-1 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">

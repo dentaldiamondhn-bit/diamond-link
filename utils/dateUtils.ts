@@ -52,7 +52,11 @@ export const formatDateForDisplay = (
       ...(includeTime && {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true
+        hour12: true,
+        timeZone: 'America/Tegucigalpa' // Explicitly set to Honduras timezone
+      }),
+      ...(!includeTime && {
+        timeZone: 'America/Tegucigalpa' // Explicitly set to Honduras timezone
       })
     };
     

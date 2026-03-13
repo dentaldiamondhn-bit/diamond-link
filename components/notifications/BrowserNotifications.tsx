@@ -40,7 +40,8 @@ export function BrowserNotifications() {
         month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        timeZone: 'America/Tegucigalpa' // Explicitly set to Honduras timezone
       });
       
       // Add time information to the notification body
