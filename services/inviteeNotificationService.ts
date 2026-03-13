@@ -9,8 +9,16 @@ export class InviteeNotificationService {
     type: 'created' | 'updated' | 'cancelled' | 'reminder'
   ) {
     try {
+      console.log(`🔔 Starting invitee notification for event: ${event.title}, type: ${type}`);
+      
       // Get all invitees for this event
       const invitees = await CalendarInviteesService.getInviteesForItem('event', event.id);
+      console.log(`👥 Found ${invitees.length} invitees for event ${event.id}:`, invitees);
+      
+      if (invitees.length === 0) {
+        console.log(`⚠️ No invitees found for event ${event.id}, skipping notifications`);
+        return;
+      }
       
       // Create notification data
       const notificationData = {
@@ -27,10 +35,15 @@ export class InviteeNotificationService {
         }
       };
 
+      console.log(`📢 Sending notification to ${invitees.length} invitees:`, notificationData);
+
       // Send notification to each invitee (send to all invitees, not just accepted)
       for (const invitee of invitees) {
+        console.log(`📤 Sending notification to invitee ${invitee.user_id}`);
         await this.sendNotificationToUser(invitee.user_id, notificationData);
       }
+      
+      console.log(`✅ Completed invitee notifications for event: ${event.title}`);
     } catch (error) {
       console.error('❌ Error notifying event invitees:', error);
     }
@@ -72,6 +85,12 @@ export class InviteeNotificationService {
   // Send notification to a specific user (bypassing current user authentication)
   private static async sendNotificationToUser(userId: string, notificationData: any) {
     try {
+      console.log(`📡 Sending notification to user ${userId}:`, {
+        title: notificationData.title,
+        message: notificationData.message,
+        type: notificationData.type
+      });
+      
       // Use service role to send notification to any user
       const response = await fetch('/api/notifications/send-to-user', {
         method: 'POST',
@@ -84,9 +103,13 @@ export class InviteeNotificationService {
         }),
       });
 
+      console.log(`📡 API response status: ${response.status}`);
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Error sending notification to user ${userId}:`, errorText);
+      } else {
+        console.log(`✅ Successfully sent notification to user ${userId}`);
       }
     } catch (error) {
       console.error(`❌ Error sending notification to user ${userId}:`, error);
