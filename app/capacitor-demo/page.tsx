@@ -4,12 +4,26 @@ import { useEffect, useState } from 'react';
 import CapacitorDemo from '@/components/CapacitorDemo';
 import { Capacitor } from '@capacitor/core';
 import { useUser } from '@clerk/nextjs';
+import { registerServiceWorker } from '@/lib/serviceWorker';
 
 export default function CapacitorDemoPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { isSignedIn, user } = useUser();
 
   useEffect(() => {
+    // Initialize service worker for notifications
+    const initializeServiceWorker = async () => {
+      try {
+        await registerServiceWorker();
+        console.log('✅ Service Worker initialized for capacitor-demo');
+      } catch (error) {
+        console.warn('⚠️ Service Worker initialization failed:', error);
+      }
+    };
+
+    // Initialize service worker immediately
+    initializeServiceWorker();
+
     // Simulate loading time for demo purposes
     const timer = setTimeout(() => {
       setIsLoading(false);

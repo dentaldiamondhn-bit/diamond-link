@@ -148,10 +148,31 @@ class MobileNotificationService {
       options.actions = notification.actions;
     }
 
-    // For mobile browsers, try direct Notification API with service worker context
+    // Ensure service worker is ready
+    if (!this.swRegistration && 'serviceWorker' in navigator) {
+      try {
+        console.log('🔄 Waiting for service worker registration...');
+        this.swRegistration = await navigator.serviceWorker.ready;
+        console.log('✅ Service Worker is ready');
+      } catch (error) {
+        console.warn('⚠️ Service Worker not ready:', error);
+      }
+    }
+
+    // Try service worker first (best for mobile browsers)
+    if (this.swRegistration) {
+      try {
+        await this.swRegistration.showNotification(notification.title, options);
+        console.log('✅ Notification shown via Service Worker');
+        return;
+      } catch (error) {
+        console.warn('⚠️ Service Worker notification failed, trying Notification API:', error);
+      }
+    }
+
+    // Fallback to direct Notification API
     if ('Notification' in window) {
       try {
-        // On mobile, this should work if service worker is registered
         const notificationInstance = new Notification(notification.title, options);
 
         // Handle notification click
@@ -182,18 +203,7 @@ class MobileNotificationService {
         console.log('✅ Notification shown via Notification API');
         return;
       } catch (error) {
-        console.warn('⚠️ Notification API failed, trying service worker:', error);
-      }
-    }
-
-    // Fallback to service worker if available
-    if (this.swRegistration) {
-      try {
-        await this.swRegistration.showNotification(notification.title, options);
-        console.log('✅ Notification shown via Service Worker');
-        return;
-      } catch (error) {
-        console.warn('⚠️ Service Worker notification failed:', error);
+        console.error('❌ Notification API failed:', error);
       }
     }
 
