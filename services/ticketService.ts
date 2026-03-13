@@ -454,7 +454,7 @@ export class TicketService {
       };
 
       // Send immediate notification
-      notificationService.showLocalNotification(notification);
+      await notificationService.sendLocalNotification(notification);
       
       console.log(`🎫 Ticket ${action} notification sent:`, ticket.title);
     } catch (error) {
@@ -468,7 +468,7 @@ export class TicketService {
       const notificationService = CapacitorNotificationService.getInstance();
       
       // Only schedule reminders for high/urgent priority tickets
-      if (ticket.priority !== 'high' && ticket.priority !== 'urgent') {
+      if (ticket.priority !== TicketPriority.HIGH && ticket.priority !== TicketPriority.URGENT) {
         console.log('⚠️ Ticket priority too low for reminder scheduling');
         return false;
       }
@@ -550,7 +550,7 @@ export class TicketService {
       };
 
       // Send bulk notification
-      notificationService.showLocalNotification(notification);
+      await notificationService.sendLocalNotification(notification);
       
       console.log(`📫 Bulk ticket ${action} notification sent for ${tickets.length} tickets`);
     } catch (error) {

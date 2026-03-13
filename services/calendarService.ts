@@ -531,7 +531,7 @@ export class CalendarService {
         const eventNotification = {
           id: `calendar-event-${event.id}`,
           title: 'Evento de Calendario - Diamond Link',
-          body: `${event.title}${event.patient_name ? ` con ${event.patient_name}` : ''} en ${reminderMinutes} minutos`,
+          body: `${event.title}${event.patient?.nombre_completo ? ` con ${event.patient.nombre_completo}` : ''} en ${reminderMinutes} minutos`,
           scheduledDate: reminderDate,
           patientId: event.patient_id,
           appointmentId: `calendar-${event.id}`
@@ -545,8 +545,7 @@ export class CalendarService {
           // Also create a database reminder record
           await this.createReminder({
             event_id: event.id,
-            reminder_minutes: reminderMinutes,
-            reminder_type: 'mobile_notification',
+            reminder_time: reminderDate.toISOString(),
             sent: false
           });
         }
@@ -613,7 +612,7 @@ export class CalendarService {
       const notification = {
         id: `event-change-${event.id}-${Date.now()}`,
         title: `${changeMessages[changeType]} - Diamond Link`,
-        body: `${event.title}${event.patient_name ? ` - ${event.patient_name}` : ''}`,
+        body: `${event.title}${event.patient?.nombre_completo ? ` - ${event.patient.nombre_completo}` : ''}`,
         icon: '/Logo.svg',
         tag: `event-change-${event.id}`,
         data: {
@@ -625,7 +624,7 @@ export class CalendarService {
       };
 
       // Send immediate notification
-      notificationService.showLocalNotification(notification);
+      await notificationService.sendLocalNotification(notification);
       
       console.log(`📱 Event ${changeType} notification sent:`, event.title);
     } catch (error) {

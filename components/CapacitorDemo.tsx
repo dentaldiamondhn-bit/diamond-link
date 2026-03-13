@@ -6,6 +6,7 @@ import { useDeepLinks } from '../services/deepLinkService';
 import { PatientService } from '../services/patientService';
 import { CalendarService } from '../services/calendarService';
 import { TicketService } from '../services/ticketService';
+import { TicketType, TicketPriority, TicketStatus } from '../types/ticket';
 
 export default function CapacitorDemo() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -132,10 +133,20 @@ export default function CapacitorDemo() {
         id: 'test-calendar-event-123',
         title: 'Cita de Prueba - Calendario',
         start_date: new Date(Date.now() + 2 * 60 * 1000).toISOString(), // 2 minutes from now
+        end_date: new Date(Date.now() + 2 * 60 * 1000 + 30 * 60 * 1000).toISOString(), // 32 minutes from now
+        all_day: false,
+        event_type: 'appointment' as const,
+        status: 'confirmed' as const,
+        priority: 'medium' as const,
         patient_id: testPatientId,
         patient_name: 'Paciente de Prueba',
-        event_type: 'appointment',
-        status: 'confirmed'
+        created_by: 'test-user',
+        patient: {
+          paciente_id: testPatientId,
+          nombre_completo: 'Paciente de Prueba',
+          telefono: '1234567890',
+          email: 'test@example.com'
+        }
       };
 
       const scheduled = await CalendarService.scheduleEventNotification(testEvent, 60); // 1 hour before
@@ -157,10 +168,13 @@ export default function CapacitorDemo() {
         id: 'test-ticket-123',
         title: 'Ticket de Prueba - Soporte',
         description: 'Este es un ticket de prueba para notificaciones',
-        priority: 'high' as const,
-        status: 'open' as const,
+        type: TicketType.SYSTEM_ISSUE,
+        priority: TicketPriority.HIGH,
+        status: TicketStatus.OPEN,
         due_date: new Date(Date.now() + 3 * 60 * 1000).toISOString(), // 3 minutes from now
-        created_by: 'test-user'
+        creator_id: 'test-user',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       // Send immediate notification
@@ -189,20 +203,32 @@ export default function CapacitorDemo() {
         {
           id: 'bulk-ticket-1',
           title: 'Ticket Bulk 1',
-          priority: 'medium' as const,
-          status: 'open' as const
+          type: TicketType.TASK,
+          priority: TicketPriority.MEDIUM,
+          status: TicketStatus.OPEN,
+          creator_id: 'test-user',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         },
         {
           id: 'bulk-ticket-2',
           title: 'Ticket Bulk 2',
-          priority: 'high' as const,
-          status: 'open' as const
+          type: TicketType.SYSTEM_ISSUE,
+          priority: TicketPriority.HIGH,
+          status: TicketStatus.OPEN,
+          creator_id: 'test-user',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         },
         {
           id: 'bulk-ticket-3',
           title: 'Ticket Bulk 3',
-          priority: 'low' as const,
-          status: 'open' as const
+          type: TicketType.PATIENT_CASE,
+          priority: TicketPriority.LOW,
+          status: TicketStatus.OPEN,
+          creator_id: 'test-user',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }
       ];
 

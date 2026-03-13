@@ -33,7 +33,12 @@ export class DeepLinkService {
 
   // Check if running on native platform
   isNative(): boolean {
-    return Capacitor.isNativePlatform();
+    try {
+      return Capacitor.isNativePlatform();
+    } catch (error) {
+      console.warn('⚠️ Capacitor not available, assuming web platform:', error);
+      return false;
+    }
   }
 
   // Open patient record via deep link

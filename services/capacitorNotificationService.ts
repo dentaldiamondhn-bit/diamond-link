@@ -34,7 +34,12 @@ export class CapacitorNotificationService {
 
   // Check if running on native platform
   isNative(): boolean {
-    return Capacitor.isNativePlatform();
+    try {
+      return Capacitor.isNativePlatform();
+    } catch (error) {
+      console.warn('⚠️ Capacitor not available, assuming web platform:', error);
+      return false;
+    }
   }
 
   // Request notification permissions (Capacitor + Web fallback)
@@ -50,7 +55,7 @@ export class CapacitorNotificationService {
         console.log('📱 Capacitor permissions:', { localPermission, pushPermission });
         
         return {
-          granted: localPermission.receive === 'granted' && pushPermission.receive === 'granted',
+          granted: (localPermission as any).granted === 'granted' && (pushPermission as any).granted === 'granted',
           platform: 'capacitor'
         };
       } catch (error) {
@@ -285,17 +290,26 @@ export class CapacitorNotificationService {
     }
   }
 
+  // Send immediate local notification
+  async sendLocalNotification(notification: any): Promise<void> {
+    this.webService.showLocalNotification(notification);
+  }
+
   // Initialize the complete service
   async initialize(): Promise<boolean> {
     try {
       console.log('🚀 Initializing Capacitor Notification Service...');
       
-      // Initialize web service
+      // Initialize web service first
       await this.webService.initialize();
       
-      // Setup push handlers if native
-      if (this.isNative()) {
-        await this.setupPushNotificationHandlers();
+      // Setup push handlers only if native and Capacitor is available
+      if (this.isNative() && typeof LocalNotifications !== 'undefined') {
+        try {
+          await this.setupPushNotificationHandlers();
+        } catch (error) {
+          console.warn('⚠️ Capacitor plugins not available, falling back to web:', error);
+        }
       }
       
       console.log('✅ Capacitor Notification Service initialized');
