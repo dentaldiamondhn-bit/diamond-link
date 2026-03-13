@@ -45,29 +45,50 @@ export async function POST(request: NextRequest) {
 // Function to trigger browser notification for specific user
 async function triggerBrowserNotification(userId: string, notification: any) {
   try {
-    // Create a server-sent event or WebSocket connection to trigger browser notification
-    // For now, we'll use a simple approach by calling a global function if available
-    
-    // This would typically be handled by WebSocket or SSE
-    // For demo purposes, we'll create a simple trigger mechanism
-    
-    console.log(`🔔 Triggering browser notification for user ${userId}:`, {
+    // Create a comprehensive browser notification
+    const notificationOptions = {
       title: notification.title,
       body: notification.message,
       icon: '/Logo.svg',
       badge: '/Logo.svg',
-      tag: 'calendar-notification',
+      tag: `calendar-${notification.type}`,
       requireInteraction: true,
-      data: notification.metadata
-    });
+      silent: false,
+      data: notification.metadata || {}
+    };
 
-    // In a real implementation, you would:
-    // 1. Use WebSocket to send to specific client
-    // 2. Use Server-Sent Events to push to client
-    // 3. Use a notification service like OneSignal
-    
-    // For now, the client will poll and pick up the notification
-    
+    // Add timestamp for events/tasks
+    if (notification.metadata?.itemTime) {
+      (notificationOptions as any).timestamp = new Date(notification.metadata.itemTime).getTime();
+    }
+
+    console.log(`🔔 Triggering browser notification for user ${userId}:`, notificationOptions);
+
+    // Create a global notification trigger that clients can listen for
+    // This simulates real-time push notification behavior
+    global.triggerNotification = {
+      userId,
+      notification: notificationOptions,
+      timestamp: Date.now()
+    };
+
+    // For immediate testing, also try to show notification if we're in browser context
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      // Check if we have permission
+      if (Notification.permission === 'granted') {
+        // Create notification immediately
+        new Notification(notificationOptions.title, notificationOptions);
+        console.log(`✅ Immediate browser notification sent to user ${userId}`);
+      } else if (Notification.permission === 'default') {
+        // Request permission and then send
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          new Notification(notificationOptions.title, notificationOptions);
+          console.log(`✅ Browser notification sent after permission grant to user ${userId}`);
+        }
+      }
+    }
+
   } catch (error) {
     console.error('Error triggering browser notification:', error);
   }

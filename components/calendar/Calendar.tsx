@@ -54,6 +54,39 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       Notification.requestPermission();
     }
 
+    // Listen for global notification triggers (for invitee notifications)
+    const listenForGlobalNotifications = () => {
+      if (typeof window !== 'undefined' && (window as any).triggerNotification) {
+        const globalNotification = (window as any).triggerNotification;
+        
+        // Only process if this notification is for current user or is a broadcast
+        if (globalNotification.userId === userId || !globalNotification.userId) {
+          console.log('🔔 Processing global notification:', globalNotification.notification);
+          
+          // Show browser notification
+          if (Notification.permission === 'granted') {
+            new Notification(globalNotification.notification.title, globalNotification.notification);
+          }
+          
+          // Add to visual notifications
+          setNotifications(prev => [...prev.slice(-4), {
+            id: globalNotification.timestamp.toString(),
+            type: 'event_created' as any, // Use compatible type
+            title: globalNotification.notification.title,
+            message: globalNotification.notification.body,
+            data: globalNotification.notification.data,
+            timestamp: new Date(globalNotification.timestamp).toISOString()
+          }]);
+        }
+        
+        // Clear the global trigger
+        delete (window as any).triggerNotification;
+      }
+    };
+
+    // Check for global notifications every second
+    const intervalId = setInterval(listenForGlobalNotifications, 1000);
+
     // Subscribe to real-time notifications
     const unsubscribeNotifications = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
       // Show notification for all relevant users (not just current user)
@@ -110,6 +143,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     return () => {
       unsubscribeNotifications();
       unsubscribeEventUpdates();
+      clearInterval(intervalId); // Clean up global notification listener
     };
   }, [userId]);
 
