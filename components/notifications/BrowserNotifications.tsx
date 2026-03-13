@@ -180,13 +180,6 @@ export function BrowserNotifications() {
             🔔 Test Notification
           </button>
         )}
-            }
-          })}
-          disabled={!settings.enabled || permission !== 'granted'}
-          className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          Probar Notificación
-        </button>
       </div>
     </div>
   );
