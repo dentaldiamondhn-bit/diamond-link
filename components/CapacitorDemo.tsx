@@ -16,6 +16,48 @@ export default function CapacitorDemo() {
   const [testPatientId, setTestPatientId] = useState('test-patient-123');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  // Add debug logging function
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logMessage = `[${timestamp}] ${message}`;
+    setDebugLogs(prev => [...prev.slice(-4), logMessage]); // Keep last 5 logs
+    console.log(logMessage);
+  };
+
+  // Mobile browser detection
+  const isMobileBrowser = () => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent.toLowerCase();
+    return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+  };
+
+  // Add mobile browser specific error handling
+  useEffect(() => {
+    if (isMobileBrowser()) {
+      console.log('📱 Mobile browser detected');
+      
+      // Add mobile-specific error listeners
+      const handleError = (event: ErrorEvent) => {
+        console.error('📱 Mobile Browser Error:', event.error);
+        setError(`Mobile Browser Error: ${event.error?.message || 'Unknown error'}`);
+      };
+      
+      const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+        console.error('📱 Mobile Promise Rejection:', event.reason);
+        setError(`Promise Error: ${event.reason?.message || event.reason || 'Unknown promise error'}`);
+      };
+      
+      window.addEventListener('error', handleError);
+      window.addEventListener('unhandledrejection', handleUnhandledRejection);
+      
+      return () => {
+        window.removeEventListener('error', handleError);
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      };
+    }
+  }, []);
 
   const {
     isNative,
@@ -40,7 +82,7 @@ export default function CapacitorDemo() {
   // Global error handler
   const handleError = (error: any, context: string) => {
     const errorMessage = `Error in ${context}: ${error?.message || error || 'Unknown error'}`;
-    console.error(errorMessage, error);
+    addDebugLog(`❌ ${errorMessage}`);
     setError(errorMessage);
     
     // Clear error after 5 seconds
@@ -69,8 +111,11 @@ export default function CapacitorDemo() {
 
   const handleScheduleTestReminder = async () => {
     try {
+      addDebugLog('🔔 Starting test reminder scheduling...');
+      
       // Schedule a test reminder for 30 seconds from now
       const testDate = new Date(Date.now() + 30 * 1000);
+      addDebugLog(`⏰ Scheduling reminder for: ${testDate.toLocaleTimeString()}`);
       
       const scheduled = await scheduleAppointmentReminder({
         id: 'test-appointment-123',
@@ -81,12 +126,62 @@ export default function CapacitorDemo() {
         appointmentId: 'test-appointment-123'
       });
 
+      addDebugLog(`📅 Schedule result: ${scheduled ? 'SUCCESS' : 'FAILED'}`);
+
       if (scheduled) {
-        console.log('✅ Test reminder scheduled');
+        addDebugLog('✅ Test reminder scheduled successfully!');
         alert('✅ Test reminder scheduled for 30 seconds from now!');
+      } else {
+        addDebugLog('❌ Test reminder scheduling failed');
       }
     } catch (error) {
       handleError(error, 'Test Reminder Scheduling');
+    }
+  };
+
+  const handleDirectNotificationTest = async () => {
+    try {
+      addDebugLog('🔔 Testing direct browser notification...');
+      
+      // Request permission first
+      const permission = await Notification.requestPermission();
+      addDebugLog(`🔐 Permission result: ${permission}`);
+      
+      if (permission !== 'granted') {
+        addDebugLog('❌ Permission denied for notifications');
+        alert('❌ Notification permission denied. Please grant permission in browser settings.');
+        return;
+      }
+      
+      addDebugLog('✅ Permission granted, creating notification...');
+      
+      // Create notification directly
+      const notification = new Notification('🔔 Test Notification', {
+        body: 'This is a test notification from Diamond Link',
+        icon: '/Logo.svg',
+        badge: '/Logo.svg',
+        tag: 'test-notification',
+        requireInteraction: false
+      });
+      
+      addDebugLog('✅ Notification created successfully!');
+      
+      // Handle click
+      notification.onclick = () => {
+        addDebugLog('🖱️ Notification clicked');
+        notification.close();
+        window.focus();
+      };
+      
+      // Auto-close after 5 seconds
+      setTimeout(() => {
+        addDebugLog('⏰ Auto-closing notification');
+        notification.close();
+      }, 5000);
+      
+    } catch (error) {
+      addDebugLog(`❌ Direct notification failed: ${error.message}`);
+      handleError(error, 'Direct Notification Test');
     }
   };
 
@@ -335,6 +430,23 @@ export default function CapacitorDemo() {
           <p>📱 Platform: {typeof window !== 'undefined' ? ((window as any).Capacitor?.getPlatform() || 'web') : 'loading...'}</p>
           <p>🔔 Notification API: {typeof window !== 'undefined' && 'Notification' in window ? '✅ Yes' : '❌ No'}</p>
           <p>📡 Service Worker: {typeof window !== 'undefined' && 'serviceWorker' in navigator ? '✅ Yes' : '❌ No'}</p>
+          <p>🔔 Permission: {typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'N/A'}</p>
+        </div>
+      </div>
+
+      {/* Debug Logs Panel */}
+      <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+        <h3 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+          📋 Debug Logs
+        </h3>
+        <div className="space-y-1 text-sm text-yellow-600 dark:text-yellow-300">
+          {debugLogs.length === 0 ? (
+            <p>No logs yet...</p>
+          ) : (
+            debugLogs.map((log, index) => (
+              <p key={index} className="font-mono">{log}</p>
+            ))
+          )}
         </div>
       </div>
 
@@ -431,13 +543,23 @@ export default function CapacitorDemo() {
             placeholder="Enter patient ID"
           />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
-            onClick={handleOpenPatientRecord}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+            onClick={handleScheduleTestReminder}
+            className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            📂 Open Patient Record
+            ⏰ Schedule Test Reminder (30s)
           </button>
+          
+          <button
+            onClick={handleDirectNotificationTest}
+            className="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+          >
+            🔔 Direct Notification Test
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <button
             onClick={handleSharePatient}
             className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
