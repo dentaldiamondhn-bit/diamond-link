@@ -54,15 +54,36 @@ class MobileNotificationService {
   // Initialize the service
   async initialize(): Promise<boolean> {
     try {
-      // Register service worker
+      // Register service worker with better error handling
       if ('serviceWorker' in navigator) {
-        this.swRegistration = await navigator.serviceWorker.ready;
-        console.log('✅ Service Worker ready for push notifications');
+        try {
+          // Try to get ready service worker first
+          this.swRegistration = await navigator.serviceWorker.ready;
+          console.log('✅ Service Worker ready for notifications');
+        } catch (error) {
+          console.warn('⚠️ Service Worker not ready, trying manual registration:', error);
+          
+          // Fallback: try to register manually
+          try {
+            this.swRegistration = await navigator.serviceWorker.register('/sw.js');
+            console.log('✅ Service Worker manually registered');
+          } catch (regError) {
+            console.warn('⚠️ Manual service worker registration failed:', regError);
+            this.swRegistration = null;
+          }
+        }
+      } else {
+        console.warn('⚠️ Service Worker not supported in this browser');
+        this.swRegistration = null;
       }
 
       // Get existing subscription
       if (this.swRegistration) {
-        this.subscription = await this.swRegistration.pushManager.getSubscription();
+        try {
+          this.subscription = await this.swRegistration.pushManager.getSubscription();
+        } catch (subError) {
+          console.warn('⚠️ Failed to get push subscription:', subError);
+        }
       }
 
       return true;
@@ -109,7 +130,7 @@ class MobileNotificationService {
     
     if (!permission.granted) {
       console.warn('❌ Notification permission not granted');
-      return;
+      throw new Error('Notification permission not granted');
     }
 
     const options: NotificationOptions = {
@@ -139,7 +160,7 @@ class MobileNotificationService {
     }
 
     // Fallback to Notification constructor for desktop browsers
-    if ('Notification' in window && !this.isMobileBrowser()) {
+    if ('Notification' in window) {
       try {
         const notificationInstance = new Notification(notification.title, options);
 
@@ -169,14 +190,22 @@ class MobileNotificationService {
         }
         
         console.log('✅ Notification shown via Notification constructor');
+        return;
       } catch (error) {
-        console.error('❌ Failed to show notification:', error);
-        throw error;
+        console.error('❌ Failed to show notification via constructor:', error);
       }
-    } else {
-      console.error('❌ No notification method available');
-      throw new Error('No notification method available');
     }
+
+    // If all methods fail, show a console notification
+    console.warn('⚠️ All notification methods failed, showing console notification');
+    console.log('📱 Notification:', notification.title, '-', notification.body);
+    
+    // Show a simple alert as last resort
+    if (this.isMobileBrowser()) {
+      alert(`${notification.title}\n\n${notification.body}`);
+    }
+
+    throw new Error('No notification method available');
   }
 
   // Check if running on mobile browser
