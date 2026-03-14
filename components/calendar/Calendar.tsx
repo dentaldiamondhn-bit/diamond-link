@@ -56,8 +56,10 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
     // Subscribe to real-time notifications
     const unsubscribeNotifications = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
-      // Show notification for all relevant users (not just current user)
-      // The realtime service already handles filtering relevant users
+      // Only show notification if it's for the current user
+      if (notification.userId && notification.userId !== userId) {
+        return; // Don't show notification for other users
+      }
       
       // Add notification to state
       setNotifications(prev => [...prev.slice(-4), notification]); // Keep max 5 notifications

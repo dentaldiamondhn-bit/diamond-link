@@ -230,10 +230,22 @@ class CalendarRealtimeService {
   }
 
   private createInviteeNotification(record: any): CalendarRealtimeNotification {
-    // When an invitee is added, create a notification for them
+    // When an invitee is added, create a notification for them with event details
     const type = 'invitee_added' as any;
-    const title = 'Invitación a Evento';
-    const message = `Has sido invitado a un evento`;
+    let title = 'Invitación a Evento';
+    let message = `Has sido invitado a un evento`;
+    
+    // Try to fetch event details for better notification content
+    this.fetchEventDetailsForInvitee(record.item_id)
+      .then(event => {
+        if (event) {
+          title = `Invitación: ${event.title || 'Evento'}`;
+          const startTime = event.start_date ? new Date(event.start_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
+          const date = event.start_date ? new Date(event.start_date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }) : '';
+          message = `Has sido invitado a: ${event.title || 'Evento'}${date && startTime ? ` - ${date} a las ${startTime}` : ''}`;
+        }
+      })
+      .catch(error => console.error('Error fetching event details for invitee notification:', error));
     
     return {
       type,
@@ -248,6 +260,17 @@ class CalendarRealtimeService {
       timestamp: new Date().toISOString(),
       userId: record.user_id // Send notification to the invitee
     };
+  }
+
+  private async fetchEventDetailsForInvitee(eventId: string): Promise<any> {
+    try {
+      const { CalendarService } = await import('./calendarService');
+      const events = await CalendarService.getEvents();
+      return events.find(e => e.id === eventId) || null;
+    } catch (error) {
+      console.error('Error fetching event details:', error);
+      return null;
+    }
   }
 
   private async notifyListeners(notification: CalendarRealtimeNotification) {
@@ -272,6 +295,27 @@ class CalendarRealtimeService {
   
   private async getRelevantUsers(record: any): Promise<string[]> {
     const users = new Set<string>();
+    
+    // For calendar_invitees records, handle specially
+    if (record.item_type === 'event' && record.user_id) {
+      // This is an invitee record, send notification to the invitee
+      users.add(record.user_id);
+      
+      // Also include the event creator
+      try {
+        // Import dynamically to avoid circular dependencies
+        const { CalendarService } = await import('./calendarService');
+        const events = await CalendarService.getEvents();
+        const event = events.find(e => e.id === record.item_id);
+        if (event && event.created_by) {
+          users.add(event.created_by);
+        }
+      } catch (error) {
+        console.error('Error fetching event creator:', error);
+      }
+      
+      return Array.from(users);
+    }
     
     // Always include the creator
     if (record.created_by_clerk_id) {
