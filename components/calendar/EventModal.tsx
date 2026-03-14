@@ -11,6 +11,7 @@ import { UserSelect } from './UserSelect';
 import { format, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { SimpleTimezoneFix } from '../../services/simpleTimezoneFix';
+import { useToast } from '../../contexts/ToastContext';
 
 interface EventModalProps {
   isOpen: boolean;
@@ -130,6 +131,7 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({ isOpen, onClose
 };
 
 export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, onSave, userId }) => {
+  const { addToast } = useToast();
   const [formData, setFormData] = useState<Partial<CalendarEvent>>({
     title: '',
     description: '',
@@ -390,6 +392,7 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           }));
           
           await CalendarInviteesService.createMultipleInvitees(inviteesData);
+          addToast(`${selectedUsers.length} invitados agregados al evento`, 'success');
         }
 
         await saveReminders(savedEvent.id, 'event');
@@ -399,17 +402,21 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           { ...savedEvent, patient: selectedPatient },
           'created'
         );
+        
         // Notify invitees of new event
         await InviteeNotificationService.notifyEventInvitees(
           { ...savedEvent, patient: selectedPatient },
           'created'
         );
+        
+        addToast('Notificaciones enviadas a todos los invitados', 'info');
       }
 
       onSave(eventData);
       onClose();
     } catch (error) {
       console.error('Error saving event:', error);
+      addToast('Error al guardar el evento', 'error');
     } finally {
       setLoading(false);
     }
