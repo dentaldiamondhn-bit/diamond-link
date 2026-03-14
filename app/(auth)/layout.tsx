@@ -23,6 +23,7 @@ import AnimatedUsers from '@/components/AnimatedUsers';
 import { usePathname } from 'next/navigation';
 import { useNotificationListener } from '@/hooks/useNotificationListener';
 import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
+import { NotificationTray } from '@/components/NotificationTray';
 
 // Force dynamic rendering for this layout
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,7 @@ export default function AuthLayout({
   const { userRole } = useRoleBasedAccess();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [notificationTrayOpen, setNotificationTrayOpen] = React.useState(false);
 
   if (!user) {
     return <div>Loading...</div>;
@@ -310,9 +312,16 @@ export default function AuthLayout({
                   </div>
                   
                   {/* Mobile Actions */}
-                  <div className="flex sm:hidden items-center space-x-2">
-                    <DarkModeToggle />
+                  <div className="flex sm:hidden items-center space-x-3">
                     <NotificationDropdown />
+                    <button
+                      onClick={() => setNotificationTrayOpen(true)}
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      title="Ver todas las notificaciones"
+                    >
+                      <i className="fas fa-bell text-lg"></i>
+                    </button>
+                    <UserButton />
                   </div>
                   
                   {/* User Info */}
@@ -361,10 +370,15 @@ export default function AuthLayout({
           {/* Tutorial Modal */}
           <TutorialModal />
         </div>
-        </NotificationListenerWrapper>
-      </BellNotificationProvider>
-    </HistoricalModeProvider>
-  </ThemeProvider>
+      </NotificationListenerWrapper>
+    </BellNotificationProvider>
+  </HistoricalModeProvider>
+</ThemeProvider>
 </TutorialProvider>
-);  
-}
+  
+  {/* Notification Tray */}
+  <NotificationTray 
+    isOpen={notificationTrayOpen}
+    onClose={() => setNotificationTrayOpen(false)}
+  />
+</>

@@ -1,6 +1,7 @@
 import { CalendarInviteesService } from './calendarInviteesService';
 import { CalendarEventWithPatient } from '../types/calendar';
 import { CalendarTaskWithPatient } from '../types/calendarTasks';
+import { RealtimeNotificationService } from './realtimeNotificationService';
 
 export class InviteeNotificationService {
   // Send notifications to all invitees of an event
@@ -91,7 +92,21 @@ export class InviteeNotificationService {
         type: notificationData.type
       });
       
-      // Use service role to send notification to any user
+      // Try realtime notification first (works even when page is closed)
+      const realtimeSuccess = await RealtimeNotificationService.sendNotificationToUser(userId, {
+        title: notificationData.title,
+        message: notificationData.message,
+        type: notificationData.type,
+        metadata: notificationData.metadata
+      });
+      
+      if (realtimeSuccess) {
+        console.log(`✅ Realtime notification sent to user ${userId}`);
+        return;
+      }
+      
+      // Fallback to API if realtime fails
+      console.log(`⚠️ Realtime failed, trying API fallback for user ${userId}`);
       const response = await fetch('/api/notifications/send-to-user', {
         method: 'POST',
         headers: {
@@ -109,7 +124,7 @@ export class InviteeNotificationService {
         const errorText = await response.text();
         console.error(`❌ Error sending notification to user ${userId}:`, errorText);
       } else {
-        console.log(`✅ Successfully sent notification to user ${userId}`);
+        console.log(`✅ Successfully sent notification to user ${userId} via API`);
       }
     } catch (error) {
       console.error(`❌ Error sending notification to user ${userId}:`, error);
