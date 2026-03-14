@@ -56,7 +56,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     }
 
     // Subscribe to real-time notifications
-    const unsubscribeNotifications = calendarRealtimeService.onNotification(async (notification: CalendarRealtimeNotification) => {
+    const unsubscribeNotifications = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
       // Only show notification if it's for the current user
       if (notification.userId && notification.userId !== userId) {
         return; // Don't show notification for other users
@@ -102,10 +102,10 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           console.error('❌ Error creating browser notification:', error);
         }
 
-        // Also trigger Capacitor notification for mobile devices
+        // Also trigger Capacitor notification for mobile devices (non-blocking)
         try {
           const capacitorService = CapacitorNotificationService.getInstance();
-          await capacitorService.sendLocalNotification({
+          capacitorService.sendLocalNotification({
             id: `calendar-${notification.type}-${Date.now()}`,
             title: notification.title,
             body: notification.message,
@@ -117,6 +117,8 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
               eventId: notification.data.item_id,
               timestamp: notification.timestamp
             }
+          }).catch(error => {
+            console.error('❌ Error creating Capacitor notification:', error);
           });
           console.log('📱 Capacitor notification sent for invitee:', {
             title: notification.title,
