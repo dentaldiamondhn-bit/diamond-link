@@ -32,22 +32,25 @@ export class RealtimeNotificationService {
         .on('broadcast', { event: 'notification' }, (payload) => {
           console.log(`📡 Received realtime notification for user ${userId}:`, payload);
           
+          // Extract notification data from payload
+          const notification = payload.payload as RealtimeNotification;
+          
           // Trigger browser notification
           if ('Notification' in window && Notification.permission === 'granted') {
-            const notification = new Notification(payload.title, {
-              body: payload.message,
+            const browserNotification = new Notification(notification.title, {
+              body: notification.message,
               icon: '/Logo.svg',
               badge: '/Logo.svg',
-              tag: payload.type,
+              tag: notification.type,
               requireInteraction: true,
-              data: payload.metadata
+              data: notification.metadata
             });
             
-            console.log(`✅ Browser notification displayed: ${payload.title}`);
+            console.log(`✅ Browser notification displayed: ${notification.title}`);
           }
           
           // Store in localStorage for notification tray
-          this.storeNotification(payload);
+          this.storeNotification(notification);
         })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
@@ -78,18 +81,13 @@ export class RealtimeNotificationService {
       console.log(`📡 Sending realtime notification to user ${userId}:`, realtimeNotification);
 
       // Send via Supabase Realtime
-      const { error } = await this.supabase
+      const response = await this.supabase
         .channel(channelName)
         .send({
           type: 'broadcast',
           event: 'notification',
           payload: realtimeNotification
         });
-
-      if (error) {
-        console.error(`❌ Error sending realtime notification to ${userId}:`, error);
-        return false;
-      }
 
       console.log(`✅ Realtime notification sent to user: ${userId}`);
       return true;

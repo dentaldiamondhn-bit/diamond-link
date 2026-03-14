@@ -94,6 +94,7 @@ export class InviteeNotificationService {
       
       // Try realtime notification first (works even when page is closed)
       const realtimeSuccess = await RealtimeNotificationService.sendNotificationToUser(userId, {
+        user_id: userId,
         title: notificationData.title,
         message: notificationData.message,
         type: notificationData.type,

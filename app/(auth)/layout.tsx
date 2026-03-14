@@ -92,12 +92,13 @@ export default function AuthLayout({
   const roleBadgeInfo = getRoleBadgeInfo(userRole || 'staff');
 
   return (
-    <TutorialProvider>
-      <ThemeProvider>
-        <HistoricalModeProvider>
-          <BellNotificationProvider>
-            <NotificationListenerWrapper>
-              <div className="flex h-screen bg-gray-100 relative">
+    <React.Fragment>
+      <TutorialProvider>
+        <ThemeProvider>
+          <HistoricalModeProvider>
+            <BellNotificationProvider>
+              <NotificationListenerWrapper>
+                <div className="flex h-screen bg-gray-100 relative">
                 {/* Mobile Menu Button */}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -375,10 +376,12 @@ export default function AuthLayout({
   </HistoricalModeProvider>
 </ThemeProvider>
 </TutorialProvider>
-  
-  {/* Notification Tray */}
-  <NotificationTray 
-    isOpen={notificationTrayOpen}
-    onClose={() => setNotificationTrayOpen(false)}
-  />
-</>
+      
+      {/* Notification Tray */}
+      <NotificationTray 
+        isOpen={notificationTrayOpen}
+        onClose={() => setNotificationTrayOpen(false)}
+      />
+    </React.Fragment>
+  );
+}
