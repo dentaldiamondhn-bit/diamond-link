@@ -64,7 +64,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       // Add notification to state
       setNotifications(prev => [...prev.slice(-4), notification]); // Keep max 5 notifications
       
-      // Show browser notification if permission granted
+      // Show browser notification with better permission handling
       if (Notification.permission === 'granted') {
         const notificationOptions: NotificationOptions = {
           body: notification.message,
@@ -83,7 +83,44 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           }
         }
 
-        new Notification(notification.title, notificationOptions);
+        // Create notification with error handling
+        try {
+          const browserNotification = new Notification(notification.title, notificationOptions);
+          
+          // Auto-close notification after 8 seconds
+          setTimeout(() => {
+            browserNotification.close();
+          }, 8000);
+          
+          console.log('✅ Browser notification created for invitee:', {
+            title: notification.title,
+            body: notification.message,
+            userId: notification.userId
+          });
+        } catch (error) {
+          console.error('❌ Error creating browser notification:', error);
+        }
+      } else if (Notification.permission === 'default') {
+        // Request permission if not yet granted
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            console.log('🔔 Notification permission granted for invitee notifications');
+            // Retry notification creation
+            setTimeout(() => {
+              const retryOptions: NotificationOptions = {
+                body: notification.message,
+                icon: '/Logo.svg',
+                badge: '/Logo.svg',
+                tag: notification.type,
+                requireInteraction: true,
+                silent: false
+              };
+              new Notification(notification.title, retryOptions);
+            }, 500);
+          }
+        });
+      } else {
+        console.warn('⚠️ Notification permission denied for invitee notifications');
       }
 
       // Auto-remove notification after 8 seconds

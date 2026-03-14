@@ -93,8 +93,8 @@ class CalendarRealtimeService {
 
     // Special handling for calendar_invitees - when invitees are added, create proper notification for invitee
     if (tableName === 'calendar_invitees' && eventType === 'INSERT') {
-      // When an invitee is added, create a proper notification for the invitee
-      const inviteeNotification = this.createInviteeNotification(newRecord);
+      // When an invitee is added, create a proper notification for invitee
+      const inviteeNotification = await this.createInviteeNotification(newRecord);
       if (inviteeNotification) {
         await this.notifyListeners(inviteeNotification);
       }
@@ -112,13 +112,13 @@ class CalendarRealtimeService {
     }
 
     // Convert to calendar notification
-    const notification = this.convertToNotification(tableName, { ...payload, eventType });
+    const notification = await this.convertToNotification(tableName, { ...payload, eventType });
     if (notification) {
       await this.notifyListeners(notification);
     }
   }
 
-  private convertToNotification(tableName: string, payload: any): CalendarRealtimeNotification | null {
+  private async convertToNotification(tableName: string, payload: any): Promise<CalendarRealtimeNotification | null> {
     const eventType = payload.eventType;
     const record = payload.new || payload.old;
 
@@ -137,7 +137,7 @@ class CalendarRealtimeService {
         notification = this.createReminderNotification(eventType, record);
         break;
       case 'calendar_invitees':
-        notification = this.createInviteeNotification(record);
+        notification = await this.createInviteeNotification(record);
         break;
     }
 
@@ -229,23 +229,24 @@ class CalendarRealtimeService {
     };
   }
 
-  private createInviteeNotification(record: any): CalendarRealtimeNotification {
+  private async createInviteeNotification(record: any): Promise<CalendarRealtimeNotification> {
     // When an invitee is added, create a notification for them with event details
     const type = 'invitee_added' as any;
     let title = 'Invitación a Evento';
     let message = `Has sido invitado a un evento`;
     
-    // Try to fetch event details for better notification content
-    this.fetchEventDetailsForInvitee(record.item_id)
-      .then(event => {
-        if (event) {
-          title = `Invitación: ${event.title || 'Evento'}`;
-          const startTime = event.start_date ? new Date(event.start_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
-          const date = event.start_date ? new Date(event.start_date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }) : '';
-          message = `Has sido invitado a: ${event.title || 'Evento'}${date && startTime ? ` - ${date} a las ${startTime}` : ''}`;
-        }
-      })
-      .catch(error => console.error('Error fetching event details for invitee notification:', error));
+    // Fetch event details for better notification content
+    try {
+      const event = await this.fetchEventDetailsForInvitee(record.item_id);
+      if (event) {
+        title = `Invitación: ${event.title || 'Evento'}`;
+        const startTime = event.start_date ? new Date(event.start_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
+        const date = event.start_date ? new Date(event.start_date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }) : '';
+        message = `Has sido invitado a: ${event.title || 'Evento'}${date && startTime ? ` - ${date} a las ${startTime}` : ''}`;
+      }
+    } catch (error) {
+      console.error('Error fetching event details for invitee notification:', error);
+    }
     
     return {
       type,
@@ -258,7 +259,7 @@ class CalendarRealtimeService {
         item_type: record.item_type
       },
       timestamp: new Date().toISOString(),
-      userId: record.user_id // Send notification to the invitee
+      userId: record.user_id // Send notification to invitee
     };
   }
 
