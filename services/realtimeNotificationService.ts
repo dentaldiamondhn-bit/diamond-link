@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 interface RealtimeNotification {
   id: string;
@@ -11,10 +11,7 @@ interface RealtimeNotification {
 }
 
 export class RealtimeNotificationService {
-  private static supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  private static supabase = supabase;
   private static channels: Map<string, any> = new Map();
 
   // Initialize realtime service for a user
