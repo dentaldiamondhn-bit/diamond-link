@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase/client';
+import { supabase } from '../lib/supabase';
 import { CalendarInvitee, CalendarInviteeWithUser } from '../types/calendarInvitees';
 
 export class CalendarInviteesService {

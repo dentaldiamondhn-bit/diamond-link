@@ -11,7 +11,7 @@ export interface RealtimeEventUpdate {
 }
 
 export interface CalendarRealtimeNotification {
-  type: 'event_created' | 'event_updated' | 'event_deleted' | 'task_created' | 'task_updated' | 'task_deleted' | 'reminder_created' | 'reminder_updated' | 'reminder_deleted';
+  type: 'event_created' | 'event_updated' | 'event_deleted' | 'task_created' | 'task_updated' | 'task_deleted' | 'reminder_created' | 'reminder_updated' | 'reminder_deleted' | 'invitee_added';
   title: string;
   message: string;
   data: any;
@@ -91,9 +91,15 @@ class CalendarRealtimeService {
     // Notify event update callbacks
     this.eventUpdateCallbacks.forEach(callback => callback(update));
 
-    // Special handling for calendar_invitees - when invitees are added/removed, refresh events
+    // Special handling for calendar_invitees - when invitees are added, create proper notification for invitee
     if (tableName === 'calendar_invitees' && eventType === 'INSERT') {
-      // When an invitee is added, trigger an event update to refresh calendars
+      // When an invitee is added, create a proper notification for the invitee
+      const inviteeNotification = this.createInviteeNotification(newRecord);
+      if (inviteeNotification) {
+        await this.notifyListeners(inviteeNotification);
+      }
+      
+      // Also trigger an event update to refresh calendars
       const eventUpdate: RealtimeEventUpdate = {
         type: 'UPDATE',
         table: 'calendar_events',
@@ -129,6 +135,9 @@ class CalendarRealtimeService {
         break;
       case 'calendar_reminders':
         notification = this.createReminderNotification(eventType, record);
+        break;
+      case 'calendar_invitees':
+        notification = this.createInviteeNotification(record);
         break;
     }
 
@@ -217,6 +226,27 @@ class CalendarRealtimeService {
       data: record,
       timestamp: new Date().toISOString(),
       userId: record.created_by_clerk_id
+    };
+  }
+
+  private createInviteeNotification(record: any): CalendarRealtimeNotification {
+    // When an invitee is added, create a notification for them
+    const type = 'invitee_added' as any;
+    const title = 'Invitación a Evento';
+    const message = `Has sido invitado a un evento`;
+    
+    return {
+      type,
+      title,
+      message,
+      data: {
+        ...record,
+        invitee_id: record.user_id,
+        item_id: record.item_id,
+        item_type: record.item_type
+      },
+      timestamp: new Date().toISOString(),
+      userId: record.user_id // Send notification to the invitee
     };
   }
 

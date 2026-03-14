@@ -54,6 +54,7 @@ export async function GET(request: Request) {
     
     return NextResponse.json({
       success: true,
+      isValid: isUnique, // Add isValid field for consistency
       isUnique,
       idNumber: idNumber.trim(),
       existingPatient: existingPatient ? {
@@ -62,8 +63,8 @@ export async function GET(request: Request) {
         idNumber: existingPatient.numero_identidad
       } : null,
       message: isUnique 
-        ? 'ID number is available' 
-        : `ID number already exists for patient: ${existingPatient?.nombre_completo}`
+        ? 'ID número disponible' 
+        : `ID número ya existe para paciente: ${existingPatient?.nombre_completo}`
     });
     
   } catch (error) {

@@ -11,7 +11,6 @@ import { UserSelect } from './UserSelect';
 import { format, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { SimpleTimezoneFix } from '../../services/simpleTimezoneFix';
-import { useToast } from '../../contexts/ToastContext';
 
 interface EventModalProps {
   isOpen: boolean;
@@ -131,7 +130,6 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({ isOpen, onClose
 };
 
 export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, onSave, userId }) => {
-  const { addToast } = useToast();
   const [formData, setFormData] = useState<Partial<CalendarEvent>>({
     title: '',
     description: '',
@@ -392,7 +390,6 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           }));
           
           await CalendarInviteesService.createMultipleInvitees(inviteesData);
-          addToast(`${selectedUsers.length} invitados agregados al evento`, 'success');
         }
 
         await saveReminders(savedEvent.id, 'event');
@@ -402,61 +399,17 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           { ...savedEvent, patient: selectedPatient },
           'created'
         );
-        
         // Notify invitees of new event
         await InviteeNotificationService.notifyEventInvitees(
           { ...savedEvent, patient: selectedPatient },
           'created'
         );
-        
-        // Also send direct notification to test
-        if (selectedUsers.length > 0) {
-          console.log(`📡 Sending direct notifications to ${selectedUsers.length} invitees`);
-          
-          for (const user of selectedUsers) {
-            try {
-              const response = await fetch('/api/notifications/send-to-user', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  userId: user.id,
-                  notification: {
-                    type: 'calendar_event',
-                    title: `Nueva cita: ${savedEvent.title}`,
-                    message: `Has sido invitado a: ${savedEvent.title}`,
-                    metadata: {
-                      eventId: savedEvent.id,
-                      eventTitle: savedEvent.title,
-                      eventTime: new Date(savedEvent.start_date),
-                      patientName: selectedPatient?.nombre_completo,
-                      patientId: selectedPatient?.paciente_id,
-                      notificationType: 'created'
-                    }
-                  }
-                }),
-              });
-
-              if (response.ok) {
-                console.log(`✅ Direct notification sent to ${user.id}`);
-              } else {
-                console.error(`❌ Failed to send direct notification to ${user.id}`);
-              }
-            } catch (error) {
-              console.error(`❌ Error sending direct notification to ${user.id}:`, error);
-            }
-          }
-        }
-        
-        addToast('Notificaciones enviadas a todos los invitados', 'info');
       }
 
       onSave(eventData);
       onClose();
     } catch (error) {
       console.error('Error saving event:', error);
-      addToast('Error al guardar el evento', 'error');
     } finally {
       setLoading(false);
     }

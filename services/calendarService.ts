@@ -3,14 +3,13 @@ import type { CalendarEvent, CalendarEventWithPatient, CalendarFilter, CalendarR
 import type { CalendarInvitee } from '../types/calendarInvitees';
 import { SimpleTimezoneFix } from './simpleTimezoneFix';
 import CapacitorNotificationService from './capacitorNotificationService';
-import { InviteeNotificationService } from './inviteeNotificationService';
 
 export class CalendarService {
   // Events CRUD operations
   static async createEvent(eventData: Omit<CalendarEvent, 'id' | 'created_at' | 'updated_at'>): Promise<CalendarEvent> {
     try {
       // Remove doctor_id if it exists in the data (it shouldn't be there)
-      const { doctor_id, reminder_minutes, ...cleanEventData } = eventData as any;
+      const { doctor_id, ...cleanEventData } = eventData as any;
       
       const { data, error } = await supabase
         .from('calendar_events')
@@ -36,27 +35,6 @@ export class CalendarService {
 
       if (error) {
         throw error;
-      }
-
-      // After successful event creation, notify invitees and schedule reminders
-      if (data) {
-        try {
-          // Get the complete event with patient info for notifications
-          const eventWithPatient = await this.getEventById(data.id);
-          if (eventWithPatient) {
-            // Notify all invitees about the new event
-            await InviteeNotificationService.notifyEventInvitees(eventWithPatient, 'created');
-            console.log(`✅ Notified invitees for new event: ${eventWithPatient.title}`);
-            
-            // Schedule multiple reminders (10 min, 1 hour, 1 day before)
-            const reminderTimes = [1440, 60, 10]; // 1 day, 1 hour, 10 minutes before
-            await this.scheduleMultipleEventNotifications(eventWithPatient, reminderTimes);
-            console.log(`📅 Scheduled ${reminderTimes.length} reminders for event: ${eventWithPatient.title}`);
-          }
-        } catch (notificationError) {
-          console.error('❌ Error notifying invitees or scheduling reminders:', notificationError);
-          // Don't throw here, event was created successfully
-        }
       }
 
       return data;
@@ -145,8 +123,8 @@ export class CalendarService {
 
   static async updateEvent(id: string, updates: Partial<CalendarEvent>): Promise<CalendarEvent> {
     try {
-      // Remove doctor_id and reminder_minutes if they exist in the updates (they shouldn't be there)
-      const { doctor_id, reminder_minutes, ...cleanUpdates } = updates as any;
+      // Remove doctor_id if it exists in the updates (it shouldn't be there)
+      const { doctor_id, ...cleanUpdates } = updates as any;
       
       const { data, error } = await supabase
         .from('calendar_events')
@@ -179,36 +157,6 @@ export class CalendarService {
         throw error;
       }
 
-      // After successful event update, notify invitees and reschedule reminders
-      if (data) {
-        try {
-          // Get the complete updated event with patient info for notifications
-          const eventWithPatient = await this.getEventById(data.id);
-          if (eventWithPatient) {
-            // Determine notification type based on status change
-            const notificationType = updates.status === 'cancelled' ? 'cancelled' : 'updated';
-            
-            // Notify all invitees about the event change
-            await InviteeNotificationService.notifyEventInvitees(eventWithPatient, notificationType);
-            console.log(`✅ Notified invitees for event ${notificationType}: ${eventWithPatient.title}`);
-            
-            // If event time changed, reschedule reminders
-            if (updates.start_date || updates.reminder_minutes) {
-              // Cancel existing reminders first
-              await this.cancelEventNotifications(id);
-              
-              // Reschedule reminders with new times
-              const reminderTimes = [1440, 60, 10]; // 1 day, 1 hour, 10 minutes before
-              await this.scheduleMultipleEventNotifications(eventWithPatient, reminderTimes);
-              console.log(`📅 Rescheduled ${reminderTimes.length} reminders for updated event: ${eventWithPatient.title}`);
-            }
-          }
-        } catch (notificationError) {
-          console.error('❌ Error notifying invitees or rescheduling reminders:', notificationError);
-          // Don't throw here, event was updated successfully
-        }
-      }
-
       return data;
     } catch (error) {
       console.error('Unexpected error updating calendar event:', error);
@@ -218,9 +166,6 @@ export class CalendarService {
 
   static async deleteEvent(id: string): Promise<void> {
     try {
-      // Get event details before deletion for notifications
-      const eventToDelete = await this.getEventById(id);
-      
       // Delete all related data in the correct order to respect foreign key constraints
       
       // 1. Delete calendar invitees for this event
@@ -246,7 +191,7 @@ export class CalendarService {
         throw remindersError;
       }
 
-      // 3. Finally delete event itself
+      // 3. Finally delete the event itself
       const { error: eventError } = await supabase
         .from('calendar_events')
         .delete()
@@ -255,17 +200,6 @@ export class CalendarService {
       if (eventError) {
         console.error('Error deleting calendar event:', eventError);
         throw eventError;
-      }
-
-      // After successful deletion, notify invitees
-      if (eventToDelete) {
-        try {
-          await InviteeNotificationService.notifyEventInvitees(eventToDelete, 'cancelled');
-          console.log(`✅ Notified invitees for deleted event: ${eventToDelete.title}`);
-        } catch (notificationError) {
-          console.error('❌ Error notifying invitees about deletion:', notificationError);
-          // Don't throw here, event was deleted successfully
-        }
       }
 
       console.log(`✅ Event ${id} and all related data deleted successfully`);
@@ -647,41 +581,6 @@ export class CalendarService {
       return cancelled;
     } catch (error) {
       console.error('❌ Failed to cancel calendar event notification:', error);
-      return false;
-    }
-  }
-
-  // Cancel all notifications for an event (multiple reminders)
-  static async cancelEventNotifications(eventId: string): Promise<boolean> {
-    try {
-      const notificationService = CapacitorNotificationService.getInstance();
-      let allCancelled = true;
-      
-      // Cancel all possible reminder notifications (1 day, 1 hour, 10 min)
-      const reminderTimes = [1440, 60, 10];
-      
-      for (const minutes of reminderTimes) {
-        const notificationId = `calendar-event-${eventId}-${minutes}`;
-        const cancelled = await notificationService.cancelNotification(notificationId);
-        if (!cancelled) {
-          allCancelled = false;
-          console.warn(`⚠️ Failed to cancel notification: ${notificationId}`);
-        }
-      }
-      
-      if (allCancelled) {
-        console.log('✅ All calendar event notifications cancelled:', eventId);
-        
-        // Mark all database reminders as sent/cancelled
-        await supabase
-          .from('calendar_reminders')
-          .update({ sent: true })
-          .eq('event_id', eventId);
-      }
-      
-      return allCancelled;
-    } catch (error) {
-      console.error('❌ Failed to cancel calendar event notifications:', error);
       return false;
     }
   }

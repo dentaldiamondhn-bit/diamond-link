@@ -90,13 +90,12 @@ export default function AuthLayout({
   const roleBadgeInfo = getRoleBadgeInfo(userRole || 'staff');
 
   return (
-    <>
-      <TutorialProvider>
-        <ThemeProvider>
-          <HistoricalModeProvider>
-            <BellNotificationProvider>
-              <NotificationListenerWrapper>
-                <div className="flex h-screen bg-gray-100 relative">
+    <TutorialProvider>
+      <ThemeProvider>
+        <HistoricalModeProvider>
+          <BellNotificationProvider>
+            <NotificationListenerWrapper>
+              <div className="flex h-screen bg-gray-100 relative">
                 {/* Mobile Menu Button */}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -311,9 +310,9 @@ export default function AuthLayout({
                   </div>
                   
                   {/* Mobile Actions */}
-                  <div className="flex sm:hidden items-center space-x-3">
+                  <div className="flex sm:hidden items-center space-x-2">
+                    <DarkModeToggle />
                     <NotificationDropdown />
-                    <UserButton />
                   </div>
                   
                   {/* User Info */}
@@ -362,11 +361,10 @@ export default function AuthLayout({
           {/* Tutorial Modal */}
           <TutorialModal />
         </div>
-      </NotificationListenerWrapper>
-    </BellNotificationProvider>
-  </HistoricalModeProvider>
-</ThemeProvider>
+        </NotificationListenerWrapper>
+      </BellNotificationProvider>
+    </HistoricalModeProvider>
+  </ThemeProvider>
 </TutorialProvider>
-    </>
-  );
+);  
 }

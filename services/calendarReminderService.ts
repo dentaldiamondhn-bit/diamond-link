@@ -152,7 +152,6 @@ export class CalendarReminderService {
         }
       };
 
-      // Send to general notification API (for creator and current user)
       const response = await fetch('/api/notifications', {
         method: 'POST',
         headers: {
@@ -165,16 +164,6 @@ export class CalendarReminderService {
         console.error('Error sending reminder notification:', await response.text());
       } else {
         console.log(`✅ Reminder notification sent for ${reminder.item_type}: ${item.title}`);
-      }
-
-      // Also notify all invitees for events
-      if (reminder.item_type === 'event') {
-        try {
-          await InviteeNotificationService.notifyEventInvitees(item as CalendarEventWithPatient, 'reminder');
-          console.log(`✅ Notified invitees for event reminder: ${item.title}`);
-        } catch (inviteeError) {
-          console.error('❌ Error notifying invitees for reminder:', inviteeError);
-        }
       }
     } catch (error) {
       console.error('Error sending reminder notification:', error);

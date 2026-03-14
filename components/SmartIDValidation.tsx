@@ -33,7 +33,7 @@ export default function SmartIDValidation({
 }: SmartIDValidationProps) {
   const [validationResult, setValidationResult] = useState<IDValidationResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-  const [hasBeenValidated, setHasBeenValidated] = useState(false);
+const [hasBeenValidated, setHasBeenValidated] = useState(false);
   
   // Debounce the ID number to avoid excessive API calls
   const debouncedIdNumber = useDebounce(idNumber, 500);
@@ -51,13 +51,13 @@ export default function SmartIDValidation({
       setValidationResult({
         isUnique: true,
         isValid: true,
-        message: 'ID number unchanged - valid'
+        message: 'Número de ID sin cambios - válido'
       });
       setHasBeenValidated(true);
       onValidationChange?.({
         isUnique: true,
         isValid: true,
-        message: 'ID number unchanged - valid'
+        message: 'Número de ID sin cambios - válido'
       });
       return;
     }
@@ -93,7 +93,7 @@ export default function SmartIDValidation({
         setValidationResult({
           isUnique: false,
           isValid: false,
-          message: 'Error validating ID number'
+          message: 'Error al validar número de ID'
         });
       }
     } catch (error) {
@@ -143,7 +143,7 @@ export default function SmartIDValidation({
       // Check if it's valid because it's unchanged
       if (originalIdNumber && idNumber.trim() === originalIdNumber.trim()) {
         return {
-          text: 'ID number actual del paciente',
+          text: 'Número de ID actual del paciente',
           color: 'text-gray-600 dark:text-gray-400',
           icon: 'fas fa-check-circle'
         };

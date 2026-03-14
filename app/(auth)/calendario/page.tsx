@@ -3,7 +3,6 @@
 import { useUser } from '@clerk/nextjs';
 import { Calendar } from '../../../components/calendar/Calendar';
 import { useEffect, useState } from 'react';
-import { ToastProvider } from '../../../contexts/ToastContext';
 
 export default function CalendarPage() {
   const { user, isLoaded } = useUser();
@@ -34,11 +33,9 @@ export default function CalendarPage() {
   }
 
   return (
-    <ToastProvider>
-      <div className="container mx-auto px-4 py-6">
-        {/* Main Calendar */}
-        <Calendar userId={user.id} userRole={userRole} />
-      </div>
-    </ToastProvider>
+    <div className="container mx-auto px-4 py-6">
+      {/* Main Calendar */}
+      <Calendar userId={user.id} userRole={userRole} />
+    </div>
   );
 }
