@@ -109,21 +109,3 @@ async function triggerBrowserNotification(userId: string, notification: any) {
     console.error('Error triggering browser notification:', error);
   }
 }
-
-// Export function to get notifications for specific user (for testing)
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    
-    const userNotifications = notifications.filter(n => n.userId === userId);
-    return NextResponse.json(userNotifications);
-  } catch (error) {
-    console.error('Error fetching notifications for user:', error);
-    return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
-  }
-}
