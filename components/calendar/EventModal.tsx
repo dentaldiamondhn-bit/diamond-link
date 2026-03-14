@@ -409,6 +409,46 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           'created'
         );
         
+        // Also send direct notification to test
+        if (selectedUsers.length > 0) {
+          console.log(`📡 Sending direct notifications to ${selectedUsers.length} invitees`);
+          
+          for (const user of selectedUsers) {
+            try {
+              const response = await fetch('/api/notifications/send-to-user', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  userId: user.id,
+                  notification: {
+                    type: 'calendar_event',
+                    title: `Nueva cita: ${savedEvent.title}`,
+                    message: `Has sido invitado a: ${savedEvent.title}`,
+                    metadata: {
+                      eventId: savedEvent.id,
+                      eventTitle: savedEvent.title,
+                      eventTime: new Date(savedEvent.start_date),
+                      patientName: selectedPatient?.nombre_completo,
+                      patientId: selectedPatient?.paciente_id,
+                      notificationType: 'created'
+                    }
+                  }
+                }),
+              });
+
+              if (response.ok) {
+                console.log(`✅ Direct notification sent to ${user.id}`);
+              } else {
+                console.error(`❌ Failed to send direct notification to ${user.id}`);
+              }
+            } catch (error) {
+              console.error(`❌ Error sending direct notification to ${user.id}:`, error);
+            }
+          }
+        }
+        
         addToast('Notificaciones enviadas a todos los invitados', 'info');
       }
 
