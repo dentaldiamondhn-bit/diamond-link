@@ -38,25 +38,64 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
   // Calculate unread count
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // Load notifications from database on mount and periodically
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch('/api/notifications', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const notificationsData = await response.json();
+          setNotifications(notificationsData);
+          console.log(`📋 Loaded ${notificationsData.length} notifications`);
+        }
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      }
+    };
+
+    // Load immediately
+    loadNotifications();
+    
+    // Set up periodic refresh
+    const interval = setInterval(loadNotifications, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
+
   const addNotification = async (notification: Omit<BellNotification, 'id' | 'timestamp' | 'read'>) => {
+    const notificationWithId = {
+      id: Date.now().toString(),
+      timestamp: new Date(),
+      read: false,
+      ...notification
+    };
+
+    // Add to local state immediately
+    setNotifications(prev => [notificationWithId, ...prev]);
+    
+    // Also store in database via API
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await fetch('/api/notifications/send-to-user', {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(notification),
+        body: JSON.stringify({
+          userId: notification.userId || 'current-user', // Will be handled by server
+          notification: notificationWithId
+        }),
       });
-      
+
       if (response.ok) {
-        const newNotification = await response.json();
-        setNotifications(prev => [newNotification, ...prev]);
-      } else {
-        console.error('Failed to add notification, status:', response.status);
+        console.log('✅ Notification stored in database');
       }
     } catch (error) {
-      console.error('Error adding notification:', error);
+      console.error('Error storing notification:', error);
     }
   };
 
