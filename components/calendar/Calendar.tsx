@@ -3,13 +3,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CalendarEventWithPatient, CalendarView } from '../../types/calendar';
 import { CalendarTaskWithPatient } from '../../types/calendarTasks';
+import calendarRealtimeService, { CalendarRealtimeNotification } from '../../services/calendarRealtimeService';
 import { CalendarService } from '../../services/calendarService';
 import { CalendarTaskService } from '../../services/calendarTaskService';
+import { CapacitorNotificationService } from '../../services/capacitorNotificationService';
 import { EventModal } from './EventModal';
 import { TaskModal } from './TaskModal';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import calendarRealtimeService, { CalendarRealtimeNotification } from '../../services/calendarRealtimeService';
 import { SimpleTimezoneFix } from '../../services/simpleTimezoneFix';
 
 interface CalendarProps {
@@ -55,7 +56,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     }
 
     // Subscribe to real-time notifications
-    const unsubscribeNotifications = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
+    const unsubscribeNotifications = calendarRealtimeService.onNotification(async (notification: CalendarRealtimeNotification) => {
       // Only show notification if it's for the current user
       if (notification.userId && notification.userId !== userId) {
         return; // Don't show notification for other users
@@ -83,7 +84,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           }
         }
 
-        // Create notification with error handling
+        // Create browser notification
         try {
           const browserNotification = new Notification(notification.title, notificationOptions);
           
@@ -99,6 +100,31 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           });
         } catch (error) {
           console.error('❌ Error creating browser notification:', error);
+        }
+
+        // Also trigger Capacitor notification for mobile devices
+        try {
+          const capacitorService = CapacitorNotificationService.getInstance();
+          await capacitorService.sendLocalNotification({
+            id: `calendar-${notification.type}-${Date.now()}`,
+            title: notification.title,
+            body: notification.message,
+            icon: '/Logo.svg',
+            tag: notification.type,
+            data: {
+              type: notification.type,
+              userId: notification.userId,
+              eventId: notification.data.item_id,
+              timestamp: notification.timestamp
+            }
+          });
+          console.log('📱 Capacitor notification sent for invitee:', {
+            title: notification.title,
+            body: notification.message,
+            userId: notification.userId
+          });
+        } catch (error) {
+          console.error('❌ Error creating Capacitor notification:', error);
         }
       } else if (Notification.permission === 'default') {
         // Request permission if not yet granted
