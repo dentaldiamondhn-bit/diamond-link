@@ -1,7 +1,6 @@
 import { CalendarInviteesService } from './calendarInviteesService';
 import { CalendarEventWithPatient } from '../types/calendar';
 import { CalendarTaskWithPatient } from '../types/calendarTasks';
-import { RealtimeNotificationService } from './realtimeNotificationService';
 
 export class InviteeNotificationService {
   // Send notifications to all invitees of an event
@@ -38,10 +37,28 @@ export class InviteeNotificationService {
 
       console.log(`📢 Sending notification to ${invitees.length} invitees:`, notificationData);
 
-      // Send notification to each invitee (send to all invitees, not just accepted)
+      // Send notification to each invitee using the working API
       for (const invitee of invitees) {
         console.log(`📤 Sending notification to invitee ${invitee.user_id}`);
-        await this.sendNotificationToUser(invitee.user_id, notificationData);
+        
+        // Use the existing working notification API
+        const response = await fetch('/api/notifications/send-to-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: invitee.user_id,
+            notification: notificationData
+          }),
+        });
+
+        if (response.ok) {
+          console.log(`✅ Successfully sent notification to user ${invitee.user_id}`);
+        } else {
+          const errorText = await response.text();
+          console.error(`❌ Error sending notification to user ${invitee.user_id}:`, errorText);
+        }
       }
       
       console.log(`✅ Completed invitee notifications for event: ${event.title}`);
@@ -74,61 +91,31 @@ export class InviteeNotificationService {
         }
       };
 
-      // Send notification to each invitee (send to all invitees, not just accepted)
+      // Send notification to each invitee using the working API
       for (const invitee of invitees) {
-        await this.sendNotificationToUser(invitee.user_id, notificationData);
+        console.log(`📤 Sending notification to invitee ${invitee.user_id}`);
+        
+        // Use the existing working notification API
+        const response = await fetch('/api/notifications/send-to-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: invitee.user_id,
+            notification: notificationData
+          }),
+        });
+
+        if (response.ok) {
+          console.log(`✅ Successfully sent notification to user ${invitee.user_id}`);
+        } else {
+          const errorText = await response.text();
+          console.error(`❌ Error sending notification to user ${invitee.user_id}:`, errorText);
+        }
       }
     } catch (error) {
       console.error('❌ Error notifying task invitees:', error);
-    }
-  }
-
-  // Send notification to a specific user (bypassing current user authentication)
-  private static async sendNotificationToUser(userId: string, notificationData: any) {
-    try {
-      console.log(`📡 Sending notification to user ${userId}:`, {
-        title: notificationData.title,
-        message: notificationData.message,
-        type: notificationData.type
-      });
-      
-      // Try realtime notification first (works even when page is closed)
-      const realtimeSuccess = await RealtimeNotificationService.sendNotificationToUser(userId, {
-        user_id: userId,
-        title: notificationData.title,
-        message: notificationData.message,
-        type: notificationData.type,
-        metadata: notificationData.metadata
-      });
-      
-      if (realtimeSuccess) {
-        console.log(`✅ Realtime notification sent to user ${userId}`);
-        return;
-      }
-      
-      // Fallback to API if realtime fails
-      console.log(`⚠️ Realtime failed, trying API fallback for user ${userId}`);
-      const response = await fetch('/api/notifications/send-to-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          notification: notificationData
-        }),
-      });
-
-      console.log(`📡 API response status: ${response.status}`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ Error sending notification to user ${userId}:`, errorText);
-      } else {
-        console.log(`✅ Successfully sent notification to user ${userId} via API`);
-      }
-    } catch (error) {
-      console.error(`❌ Error sending notification to user ${userId}:`, error);
     }
   }
 
