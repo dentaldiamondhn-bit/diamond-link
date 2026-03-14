@@ -130,19 +130,46 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
       // Always reload data to ensure instant updates
       if (notification.type.includes('event')) {
+        console.log('🔄 Refreshing events due to event notification:', notification.type);
         loadEvents();
       } else if (notification.type.includes('task')) {
+        console.log('🔄 Refreshing tasks due to task notification:', notification.type);
         loadTasks();
+      } else if (notification.type === 'invitee_added') {
+        console.log('🔄 Refreshing events due to invitee notification');
+        loadEvents(); // Refresh events when invitee is added
+        // Also force a more aggressive refresh after a short delay
+        setTimeout(() => {
+          console.log('🔄 Force refreshing events again for invitee');
+          loadEvents();
+        }, 1000);
       }
     });
 
     // Subscribe to event updates for instant refresh
     const unsubscribeEventUpdates = calendarRealtimeService.onEventUpdate((update) => {
       // Always refresh to ensure instant updates
+      console.log('📅 Calendar event update received:', {
+        table: update.table,
+        type: update.type,
+        recordId: update.record?.id,
+        userId: userId
+      });
+      
       if (update.table === 'calendar_events') {
+        // Refresh events for any calendar_events update
+        console.log('🔄 Refreshing events due to calendar_events update');
         loadEvents();
       } else if (update.table === 'calendar_tasks') {
+        // Refresh tasks for any calendar_tasks update
+        console.log('🔄 Refreshing tasks due to calendar_tasks update');
         loadTasks();
+      }
+      
+      // Also refresh if this might be an invitee-related update
+      if (update.record?.id && (update.type === 'UPDATE' || update.type === 'INSERT')) {
+        console.log('🔄 Potential invitee update, refreshing events');
+        loadEvents();
       }
     });
 
