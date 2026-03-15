@@ -55,10 +55,20 @@ interface CompletedTreatment {
   }[];
 }
 
-export default function TratamientoCompletadoViewPage({ params }: { params: { id: string } }) {
+export default function TratamientoCompletadoViewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [treatment, setTreatment] = useState<CompletedTreatment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [treatmentId, setTreatmentId] = useState<string>('');
+
+  // Handle async params
+  useEffect(() => {
+    const getParams = async () => {
+      const resolvedParams = await params;
+      setTreatmentId(resolvedParams.id);
+    };
+    getParams();
+  }, [params]);
   const [error, setError] = useState<string | null>(null);
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
   const { bypassHistoricalMode, loadPatientSettings } = useHistoricalMode();
@@ -68,7 +78,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
       try {
         setLoading(true);
         
-        const treatmentData = await CompletedTreatmentService.getCompletedTreatmentById(params.id);
+        const treatmentData = await CompletedTreatmentService.getCompletedTreatmentById(treatmentId);
         setTreatment(treatmentData);
         
         if (treatmentData?.paciente) {
@@ -94,7 +104,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
     };
 
     loadTreatment();
-  }, [params.id]);
+  }, [treatmentId]);
 
   const getStatusColor = (estado_pago: string) => {
     switch (estado_pago) {

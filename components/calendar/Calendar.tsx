@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CalendarView, CalendarEventWithPatient } from '../../types/calendar';
 import { CalendarTaskWithPatient } from '../../types/calendarTasks';
 import calendarRealtimeService, { CalendarRealtimeNotification } from '../../services/calendarRealtimeService';
