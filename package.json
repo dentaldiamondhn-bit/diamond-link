@@ -29,6 +29,7 @@
     "animejs": "^4.3.5",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
+    "ecc-universal": "github:affaan-m/everything-claude-code",
     "framer-motion": "^12.23.26",
     "jspdf": "^4.0.0",
     "lottie-web": "^5.13.0",
