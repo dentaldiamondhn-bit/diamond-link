@@ -93,10 +93,30 @@ class CalendarRealtimeService {
 
     // Special handling for calendar_invitees - when invitees are added, create proper notification for invitee
     if (tableName === 'calendar_invitees' && eventType === 'INSERT') {
+      console.log('🎯 INVITEE INSERT DETECTED:', {
+        tableName,
+        eventType,
+        newRecord,
+        newRecord_user_id: newRecord.user_id,
+        newRecord_item_id: newRecord.item_id,
+        newRecord_item_type: newRecord.item_type
+      });
+      
       // When an invitee is added, create a proper notification for invitee
       const inviteeNotification = await this.createInviteeNotification(newRecord);
+      console.log('📱 INVITEE NOTIFICATION CREATED:', {
+        notification: inviteeNotification,
+        userId: inviteeNotification?.userId,
+        title: inviteeNotification?.title,
+        message: inviteeNotification?.message
+      });
+      
       if (inviteeNotification) {
+        console.log('📤 SENDING INVITEE NOTIFICATION TO LISTENERS...');
         await this.notifyListeners(inviteeNotification);
+        console.log('✅ INVITEE NOTIFICATION SENT TO LISTENERS');
+      } else {
+        console.log('❌ FAILED TO CREATE INVITEE NOTIFICATION');
       }
       
       // Also trigger an event update to refresh calendars
@@ -108,7 +128,9 @@ class CalendarRealtimeService {
         old_record: null,
         timestamp: new Date().toISOString()
       };
+      console.log('🔄 TRIGGERING EVENT UPDATE FOR CALENDAR REFRESH:', eventUpdate);
       this.eventUpdateCallbacks.forEach(callback => callback(eventUpdate));
+      console.log('✅ EVENT UPDATE TRIGGERED');
     }
 
     // Convert to calendar notification
