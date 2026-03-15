@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { CalendarEventWithPatient, CalendarView } from '../../types/calendar';
+import { CalendarView, CalendarEventWithPatient } from '../../types/calendar';
 import { CalendarTaskWithPatient } from '../../types/calendarTasks';
 import calendarRealtimeService, { CalendarRealtimeNotification } from '../../services/calendarRealtimeService';
 import { CalendarService } from '../../services/calendarService';
 import { CalendarTaskService } from '../../services/calendarTaskService';
 import { CapacitorNotificationService } from '../../services/capacitorNotificationService';
+import { useBellNotifications } from '../../contexts/BellNotificationContext';
 import { EventModal } from './EventModal';
 import { TaskModal } from './TaskModal';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO } from 'date-fns';
@@ -30,6 +31,9 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [notifications, setNotifications] = useState<CalendarRealtimeNotification[]>([]);
+  
+  // Bell notification hook for Android tray notifications
+  const { addNotification: addBellNotification } = useBellNotifications();
 
   // Helper function to format date for display with timezone fix
   const formatEventDate = (dateString: string): Date => {
@@ -56,7 +60,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     }
 
     // Subscribe to real-time notifications
-    const unsubscribeNotifications = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
+    const unsubscribeNotifications = calendarRealtimeService.onNotification(async (notification: CalendarRealtimeNotification) => {
       // Only show notification if it's for the current user
       if (notification.userId && notification.userId !== userId) {
         return; // Don't show notification for other users
@@ -127,6 +131,27 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           });
         } catch (error) {
           console.error('❌ Error creating Capacitor notification:', error);
+        }
+
+        // Also add to Bell notification system for Android tray notifications
+        try {
+          await addBellNotification({
+            type: 'calendar_event',
+            title: notification.title,
+            message: notification.message,
+            metadata: {
+              userId: notification.userId,
+              eventId: notification.data.item_id,
+              eventTitle: notification.data.title || notification.title,
+              eventTime: notification.data.start_date ? new Date(notification.data.start_date) : undefined
+            }
+          });
+          console.log('🔔 Bell notification added for invitee:', {
+            title: notification.title,
+            userId: notification.userId
+          });
+        } catch (error) {
+          console.error('❌ Error adding Bell notification:', error);
         }
       } else if (Notification.permission === 'default') {
         // Request permission if not yet granted
