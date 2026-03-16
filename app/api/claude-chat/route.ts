@@ -8,8 +8,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // Construct the Claude Code command
-    const claudeCommand = `claude-code --settings claude-config.json --agent ${agent || 'tech-support'} --print "${message.replace(/"/g, '\\"')}"`;
+    // Construct the Claude Code command with full path
+    const claudePath = '/home/dentaldiamondhn/.config/nvm/versions/node/v18.20.8/lib/node_modules/@anthropic-ai/claude-code/cli.js';
+    const claudeCommand = `${claudePath} --settings claude-config.json --agent ${agent || 'tech-support'} --print "${message.replace(/"/g, '\\"')}"`;
 
     // Execute Claude Code command
     const { exec } = require('child_process');
