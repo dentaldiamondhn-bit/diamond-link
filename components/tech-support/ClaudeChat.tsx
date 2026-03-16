@@ -10,6 +10,15 @@ interface Message {
   timestamp: string;
 }
 
+interface Conversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  agent: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ClaudeChatProps {
   isOpen: boolean;
   onClose: () => void;
@@ -21,27 +30,50 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
   const [currentAgent, setCurrentAgent] = useState('tech-support');
   const [isLoading, setIsLoading] = useState(false);
   const [authStatus, setAuthStatus] = useState<'checking' | 'required' | 'authenticated' | 'error'>('checking');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string>('');
+  const [showConversationList, setShowConversationList] = useState(false);
+  const [conversationTitle, setConversationTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useUser();
 
-  // Check authentication status on mount
+  // Load conversations from localStorage
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const savedConversations = localStorage.getItem('claude-conversations');
+    if (savedConversations) {
       try {
-        const response = await fetch('/api/claude-chat');
-        const data = await response.json();
-        
-        if (data.requiresAuth) {
-          setAuthStatus('required');
-        } else {
-          setAuthStatus('authenticated');
-        }
+        const convos = JSON.parse(savedConversations);
+        setConversations(convos);
       } catch (error) {
-        setAuthStatus('error');
+        console.error('Error loading conversations:', error);
       }
-    };
+    }
+  }, []);
 
-    checkAuthStatus();
+  // Auto-save current conversation
+  useEffect(() => {
+    if (messages.length > 0 && currentConversationId) {
+      const updatedConversations = conversations.map(conv => 
+        conv.id === currentConversationId 
+          ? { ...conv, messages, updatedAt: new Date().toISOString() }
+          : conv
+      );
+      setConversations(updatedConversations);
+      localStorage.setItem('claude-conversations', JSON.stringify(updatedConversations));
+    }
+  }, [messages, currentConversationId, conversations]);
+
+  // Load message history from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('claude-chat-history');
+    if (saved) {
+      try {
+        const history = JSON.parse(saved);
+        setMessages(history);
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      }
+    }
   }, []);
 
   // Save message history to localStorage
@@ -101,6 +133,14 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
         addMessage('claude', result.response);
       } else if (result.response) {
         addMessage('claude', result.response);
+        
+        // Auto-save if we have a conversation
+        if (currentConversationId) {
+          saveCurrentConversation();
+        } else if (messages.length > 0) {
+          // Create new conversation if this is the first message
+          createNewConversation();
+        }
       } else {
         addMessage('claude', 'Sorry, I encountered an error processing your request.');
       }
@@ -120,6 +160,93 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
   const setAgent = (agent: string) => {
     setCurrentAgent(agent);
     addMessage('system', `Switched to ${agent} agent`);
+  };
+
+  // Conversation management functions
+  const createNewConversation = () => {
+    const newId = Date.now().toString();
+    const newConversation: Conversation = {
+      id: newId,
+      title: conversationTitle || `New Conversation ${conversations.length + 1}`,
+      messages: [],
+      agent: currentAgent,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    setConversations([...conversations, newConversation]);
+    setCurrentConversationId(newId);
+    setMessages([]);
+    setConversationTitle('');
+    setShowConversationList(false);
+    localStorage.setItem('claude-conversations', JSON.stringify([...conversations, newConversation]));
+  };
+
+  const loadConversation = (conversationId: string) => {
+    const conversation = conversations.find(conv => conv.id === conversationId);
+    if (conversation) {
+      setCurrentConversationId(conversationId);
+      setMessages(conversation.messages);
+      setCurrentAgent(conversation.agent);
+      setShowConversationList(false);
+    }
+  };
+
+  const saveCurrentConversation = async () => {
+    if (!currentConversationId && messages.length > 0) {
+      createNewConversation();
+    } else if (currentConversationId) {
+      const conversation = conversations.find(conv => conv.id === currentConversationId);
+      if (conversation) {
+        const updatedConversation = {
+          ...conversation,
+          messages,
+          agent: currentAgent,
+          updatedAt: new Date().toISOString()
+        };
+        
+        const updatedConversations = conversations.map(conv => 
+          conv.id === currentConversationId ? updatedConversation : conv
+        );
+        
+        setConversations(updatedConversations);
+        localStorage.setItem('claude-conversations', JSON.stringify(updatedConversations));
+      }
+    }
+  };
+
+  const deleteConversation = (conversationId: string) => {
+    const updatedConversations = conversations.filter(conv => conv.id !== conversationId);
+    setConversations(updatedConversations);
+    localStorage.setItem('claude-conversations', JSON.stringify(updatedConversations));
+    
+    if (currentConversationId === conversationId) {
+      setCurrentConversationId('');
+      setMessages([]);
+    }
+  };
+
+  const exportConversation = (conversationId: string) => {
+    const conversation = conversations.find(conv => conv.id === conversationId);
+    if (conversation) {
+      const exportData = {
+        title: conversation.title,
+        agent: conversation.agent,
+        createdAt: conversation.createdAt,
+        messages: conversation.messages,
+        exportedAt: new Date().toISOString()
+      };
+      
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${conversation.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   if (!isOpen) return null;
@@ -165,7 +292,101 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
           </div>
           
           <div className="flex-1 p-4">
-            <h3 className="text-sm font-medium mb-4 text-gray-300">Agent Selection</h3>
+            <h3 className="text-sm font-medium mb-4 text-gray-300">Conversations</h3>
+            
+            {/* New Conversation */}
+            <div className="mb-4">
+              <input
+                type="text"
+                value={conversationTitle}
+                onChange={(e) => setConversationTitle(e.target.value)}
+                placeholder="New conversation title..."
+                className="w-full px-3 py-2 bg-gray-800 text-white rounded text-sm border border-gray-700 focus:border-blue-500 focus:outline-none"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    createNewConversation();
+                  }
+                }}
+              />
+              <button
+                onClick={createNewConversation}
+                className="w-full mt-2 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+              >
+                ➕ New Conversation
+              </button>
+            </div>
+
+            {/* Conversation List */}
+            <div className="mb-4">
+              <button
+                onClick={() => setShowConversationList(!showConversationList)}
+                className="w-full px-3 py-2 bg-gray-700 text-gray-300 rounded text-sm hover:bg-gray-600 transition-colors"
+              >
+                📚 {showConversationList ? 'Hide' : 'Show'} Conversations ({conversations.length})
+              </button>
+            </div>
+
+            {showConversationList && (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {conversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-2 rounded cursor-pointer transition-colors ${
+                      currentConversationId === conversation.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    <div
+                      onClick={() => loadConversation(conversation.id)}
+                      className="flex-1"
+                    >
+                      <div className="font-medium text-xs truncate">{conversation.title}</div>
+                      <div className="text-xs opacity-75">
+                        {new Date(conversation.updatedAt).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs opacity-75">
+                        {conversation.messages.length} messages
+                      </div>
+                    </div>
+                    <div className="flex gap-1 mt-1">
+                      <button
+                        onClick={() => exportConversation(conversation.id)}
+                        className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                        title="Export conversation"
+                      >
+                        📥
+                      </button>
+                      <button
+                        onClick={() => deleteConversation(conversation.id)}
+                        className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                        title="Delete conversation"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Current Conversation Info */}
+            {currentConversationId && (
+              <div className="mt-4 p-2 bg-gray-700 rounded">
+                <div className="text-xs text-gray-300">Current:</div>
+                <div className="text-xs text-white truncate">
+                  {conversations.find(c => c.id === currentConversationId)?.title}
+                </div>
+                <button
+                  onClick={saveCurrentConversation}
+                  className="mt-2 w-full px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                >
+                  💾 Save Current
+                </button>
+              </div>
+            )}
+
+            <h3 className="text-sm font-medium mb-4 mt-6 text-gray-300">Agent Selection</h3>
             <div className="space-y-2">
               <button
                 onClick={() => setAgent('tech-support')}
