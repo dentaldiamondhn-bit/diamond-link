@@ -19,22 +19,29 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [currentAgent, setCurrentAgent] = useState('tech-support');
-  const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [authStatus, setAuthStatus] = useState<'checking' | 'required' | 'authenticated' | 'error'>('checking');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useUser();
 
-  // Load message history from localStorage
+  // Check authentication status on mount
   useEffect(() => {
-    const saved = localStorage.getItem('claude-chat-history');
-    if (saved) {
+    const checkAuthStatus = async () => {
       try {
-        const history = JSON.parse(saved);
-        setMessages(history);
+        const response = await fetch('/api/claude-chat');
+        const data = await response.json();
+        
+        if (data.requiresAuth) {
+          setAuthStatus('required');
+        } else {
+          setAuthStatus('authenticated');
+        }
       } catch (error) {
-        console.error('Error loading chat history:', error);
+        setAuthStatus('error');
       }
-    }
+    };
+
+    checkAuthStatus();
   }, []);
 
   // Save message history to localStorage
@@ -61,6 +68,9 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
+    if (authStatus !== 'authenticated') {
+      return;
+    }
 
     const userMessage = input.trim();
     setInput('');
@@ -68,7 +78,7 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
     addMessage('user', userMessage);
 
     try {
-      const response = await fetch('/api/claude-chat', {
+      const response = await fetch('/api/claude-chat-sim', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +96,10 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
 
       const result = await response.json();
       
-      if (result.response) {
+      if (result.requiresAuth) {
+        setAuthStatus('required');
+        addMessage('claude', result.response);
+      } else if (result.response) {
         addMessage('claude', result.response);
       } else {
         addMessage('claude', 'Sorry, I encountered an error processing your request.');
@@ -210,10 +223,13 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${
-                  isConnected ? 'bg-green-500' : 'bg-red-500'
+                  authStatus === 'authenticated' ? 'bg-green-500' : 
+                  authStatus === 'required' ? 'bg-red-500' : 'bg-yellow-500'
                 }`}></div>
                 <span className="text-sm text-gray-600">
-                  {isConnected ? 'Connected' : 'Disconnected'}
+                  {authStatus === 'authenticated' ? 'Connected' : 
+                   authStatus === 'required' ? 'Authentication Required' : 
+                   authStatus === 'checking' ? 'Checking...' : 'Error'}
                 </span>
               </div>
               <button
@@ -227,6 +243,32 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6">
+            {/* Authentication Status */}
+            {authStatus === 'required' && (
+              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    🔐
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-yellow-800 mb-2">Claude Code Authentication Required</h3>
+                    <p className="text-sm text-yellow-700 mb-3">
+                      Claude Code requires an Anthropic subscription or API key to work.
+                    </p>
+                    <div className="text-xs text-yellow-600">
+                      <p className="mb-2"><strong>To set up Claude Code:</strong></p>
+                      <ol className="list-decimal list-inside space-y-1 ml-4">
+                        <li>Get API key from <a href="https://console.anthropic.com/" target="_blank" className="underline">console.anthropic.com</a></li>
+                        <li>Run: <code className="bg-yellow-100 px-1 rounded">claude-code auth login</code></li>
+                        <li>Or set: <code className="bg-yellow-100 px-1 rounded">export ANTHROPIC_API_KEY=your_key</code></li>
+                        <li>Refresh this page after authentication</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
@@ -274,13 +316,13 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
                     sendMessage();
                   }
                 }}
-                placeholder="Ask Claude Code about Diamond Link..."
-                disabled={isLoading}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder={authStatus === 'required' ? '🔐 Authentication required to use Claude Code' : 'Ask Claude Code about Diamond Link...'}
+                disabled={isLoading || authStatus !== 'authenticated'}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 onClick={sendMessage}
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || !input.trim() || authStatus !== 'authenticated'}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isLoading ? (
@@ -299,5 +341,3 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
     </div>
   );
 }
-
-export default ClaudeChat;
