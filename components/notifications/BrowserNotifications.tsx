@@ -104,10 +104,9 @@ export function BrowserNotifications() {
   // Check notification permission on mount
   useEffect(() => {
     if ('Notification' in window) {
-      // Use setTimeout to avoid setState in effect warning
-      setTimeout(() => setPermission(Notification.permission), 0);
+      setPermission(Notification.permission);
     }
-  }, [setPermission]);
+  }, []);
 
   // Expose notification function to window for manual use
   useEffect(() => {

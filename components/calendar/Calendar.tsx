@@ -10,7 +10,7 @@ import { CapacitorNotificationService } from '../../services/capacitorNotificati
 import { useBellNotifications } from '../../contexts/BellNotificationContext';
 import { EventModal } from './EventModal';
 import { TaskModal } from './TaskModal';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { SimpleTimezoneFix } from '../../services/simpleTimezoneFix';
 
@@ -19,17 +19,18 @@ interface CalendarProps {
   userRole?: string;
 }
 
-export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
+export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView['type']>('month');
   const [events, setEvents] = useState<CalendarEventWithPatient[]>([]);
   const [tasks, setTasks] = useState<CalendarTaskWithPatient[]>([]);
-  const [notifications, setNotifications] = useState<CalendarRealtimeNotification[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventWithPatient | null>(null);
   const [selectedTask, setSelectedTask] = useState<CalendarTaskWithPatient | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [notifications, setNotifications] = useState<CalendarRealtimeNotification[]>([]);
   
   // Bell notification hook for Android tray notifications
   const { addNotification: addBellNotification } = useBellNotifications();
@@ -171,7 +172,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
                 silent: false
               };
               new Notification(notification.title, retryOptions);
-            }, 1000);
+            }, 500);
           }
         });
       } else {
@@ -232,10 +233,9 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
       unsubscribeNotifications();
       unsubscribeEventUpdates();
     };
-  }, [userId, addBellNotification]);
+  }, [userId]);
 
-  // Memoized load functions to prevent unnecessary re-renders (ECC performance pattern)
-  const loadEvents = useCallback(async () => {
+  const loadEvents = async () => {
     setLoading(true);
     try {
       let startDate: Date;
@@ -251,29 +251,31 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
           endDate = endOfWeek(currentDate, { weekStartsOn: 1 });
           break;
         case 'day':
-          startDate = new Date(currentDate.setHours(0, 0, 0, 0));
-          endDate = new Date(currentDate.setHours(23, 59, 59, 999));
+          startDate = new Date(currentDate);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(currentDate);
+          endDate.setHours(23, 59, 59, 999);
           break;
         default:
           startDate = startOfMonth(currentDate);
           endDate = endOfMonth(currentDate);
       }
 
-      const events = await CalendarService.getUpcomingEvents(userId);
-      const filteredEvents = events.filter(event => {
-        const eventDate = new Date(event.start_date);
-        return eventDate >= startDate && eventDate <= endDate;
-      });
-
-      setEvents(filteredEvents);
+      const eventsData = await CalendarService.getEventsByDateRange(
+        startDate.toISOString(),
+        endDate.toISOString(),
+        userId
+      );
+      setEvents(eventsData);
     } catch (error) {
       console.error('Error loading events:', error);
     } finally {
       setLoading(false);
     }
-  }, [userId, view, currentDate]);
+  };
 
-  const loadTasks = useCallback(async () => {
+  const loadTasks = async () => {
+    setLoading(true);
     try {
       let startDate: Date;
       let endDate: Date;
@@ -288,31 +290,28 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
           endDate = endOfWeek(currentDate, { weekStartsOn: 1 });
           break;
         case 'day':
-          startDate = new Date(currentDate.setHours(0, 0, 0, 0));
-          endDate = new Date(currentDate.setHours(23, 59, 59, 999));
+          startDate = new Date(currentDate);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(currentDate);
+          endDate.setHours(23, 59, 59, 999);
           break;
         default:
           startDate = startOfMonth(currentDate);
           endDate = endOfMonth(currentDate);
       }
 
-      const tasks = await CalendarTaskService.getTasks();
-      const filteredTasks = tasks.filter(task => {
-        const taskDate = new Date(task.due_date);
-        return taskDate >= startDate && taskDate <= endDate;
-      });
-
-      setTasks(filteredTasks);
+      const tasksData = await CalendarTaskService.getTasksByDateRange(
+        startDate.toISOString(),
+        endDate.toISOString(),
+        userId
+      );
+      setTasks(tasksData);
     } catch (error) {
       console.error('Error loading tasks:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [view, currentDate]);
-
-  // Load events and tasks when dependencies change
-  useEffect(() => {
-    loadEvents();
-    loadTasks();
-  }, [loadEvents, loadTasks]);
+  };
 
   const handleEventClick = (event: CalendarEventWithPatient) => {
     setSelectedEvent(event);
@@ -324,18 +323,19 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
     setShowTaskModal(true);
   };
 
-  const handleDateClick = () => {
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
     setSelectedEvent(null);
     setSelectedTask(null);
     setShowEventModal(true);
   };
 
-  const handleEventSave = () => {
+  const handleEventSave = (eventType: 'created' | 'updated' = 'created', eventData?: any) => {
     loadEvents();
     setSelectedEvent(null);
   };
 
-  const handleTaskSave = () => {
+  const handleTaskSave = (taskType: 'created' | 'updated' = 'created', taskData?: any) => {
     loadTasks();
     setSelectedTask(null);
   };
@@ -751,6 +751,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
               <button
                 onClick={() => {
                   setSelectedEvent(null);
+                  setSelectedDate(new Date());
                   setShowEventModal(true);
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
@@ -763,6 +764,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
               <button
                 onClick={() => {
                   setSelectedTask(null);
+                  setSelectedDate(new Date());
                   setShowTaskModal(true);
                 }}
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2"
@@ -790,6 +792,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
         onClose={() => {
           setShowEventModal(false);
           setSelectedEvent(null);
+          setSelectedDate(null);
         }}
         event={selectedEvent}
         onSave={(event) => {
@@ -805,6 +808,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
         onClose={() => {
           setShowTaskModal(false);
           setSelectedTask(null);
+          setSelectedDate(null);
         }}
         task={selectedTask}
         onSave={(task) => {

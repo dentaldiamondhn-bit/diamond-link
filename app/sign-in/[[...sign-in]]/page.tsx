@@ -4,12 +4,14 @@
 import { SignIn, useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import './signin-styles.css';
 
 export default function Page() {
   const [isLoaded, setIsLoaded] = useState(false);
   const { user, isLoaded: userLoaded } = useUser();
+  const router = useRouter();
   
   // Determine redirect URL based on user role
   const getRedirectUrl = () => {
@@ -33,9 +35,13 @@ export default function Page() {
     }
   };
 
+  // Redirect if user is already signed in
   useEffect(() => {
+    if (userLoaded && user) {
+      router.push(getRedirectUrl());
+    }
     setIsLoaded(true);
-  }, []);
+  }, [userLoaded, user, router]);
 
   return (
     <div className="login-container">
@@ -111,7 +117,7 @@ export default function Page() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="login-box"
         >
-          {isLoaded && (
+          {isLoaded && userLoaded && !user && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

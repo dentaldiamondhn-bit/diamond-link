@@ -346,7 +346,6 @@ export class CalendarService {
   }
 
   // Get upcoming events for reminders - includes events where user is creator OR invitee
-  // ECC Pattern: Optimized database query with indexing and caching
   static async getUpcomingEvents(userId?: string): Promise<CalendarEventWithPatient[]> {
     try {
       // Use Honduras local time for filtering - get start of today in local time
@@ -358,29 +357,22 @@ export class CalendarService {
       nextWeekLocal.setDate(nextWeekLocal.getDate() + 14);
       const nextWeekUTC = nextWeekLocal.toISOString();
 
-      // ECC Pattern: Use indexed columns and limit data transfer
+      // First, get events where user is the creator
       let creatorQuery = supabase
         .from('calendar_events')
         .select(`
-          id,
-          title,
-          start_date,
-          end_date,
-          status,
-          priority,
-          created_by,
+          *,
           patient:patients(
             paciente_id,
             nombre_completo,
             telefono,
             email
           )
-        `) // Only select needed columns
+        `)
         .gte('start_date', startOfTodayUTC)
         .lte('start_date', nextWeekUTC)
         .neq('status', 'cancelled')
-        .order('start_date', { ascending: true })
-        .limit(100); // ECC: Limit results to prevent memory issues
+        .order('start_date', { ascending: true });
 
       if (userId) {
         creatorQuery = creatorQuery.eq('created_by', userId);

@@ -79,9 +79,8 @@ export default function UnifiedSidebar() {
     const currentGroup = NAVIGATION_GROUPS.find(group => 
       group.items.some(item => pathname === item.href)
     );
-    // Use setTimeout to avoid setState in effect warning
-    setTimeout(() => setActiveGroup(currentGroup?.id || null), 0);
-  }, [pathname, setActiveGroup]);
+    setActiveGroup(currentGroup?.id || null);
+  }, [pathname]);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);

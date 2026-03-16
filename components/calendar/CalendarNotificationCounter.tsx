@@ -9,10 +9,14 @@ interface CalendarNotificationCounterProps {
 
 export const CalendarNotificationCounter: React.FC<CalendarNotificationCounterProps> = ({ className = '' }) => {
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<CalendarRealtimeNotification[]>([]);
 
   useEffect(() => {
     // Subscribe to real-time notifications
     const unsubscribe = calendarRealtimeService.onNotification((notification: CalendarRealtimeNotification) => {
+      // Add to notifications list
+      setNotifications(prev => [...prev.slice(-9), notification]); // Keep max 10
+      
       // Increment counter
       setUnreadCount(prev => prev + 1);
       

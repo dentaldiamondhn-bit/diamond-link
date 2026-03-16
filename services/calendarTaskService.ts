@@ -34,6 +34,12 @@ export class CalendarTaskService {
             nombre_completo,
             telefono,
             email
+          ),
+          event:calendar_events(
+            id,
+            title,
+            start_date,
+            end_date
           )
         `);
 

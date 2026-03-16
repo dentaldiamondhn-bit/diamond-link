@@ -114,5 +114,5 @@ app.use((err, req, res, next) => {
 // Start server
 app.listen(PORT, () => {
     console.log(`\n😎 AI Proxy Server listening on http://localhost:${PORT}`);
-    console.log(`Target Model: gemini-2.0-flash`);
+    console.log(`Target Model: gemini-2.5-pro`);
 });

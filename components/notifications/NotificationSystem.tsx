@@ -12,73 +12,42 @@ interface Notification {
   duration?: number;
 }
 
-// ECC Pattern: Mobile-optimized notification system with performance monitoring
 export function NotificationSystem() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isOnline, setIsOnline] = useState(true);
 
-  // ECC Pattern: Monitor network status for mobile optimization
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  // ECC Pattern: Optimized notification addition with performance tracking
+  // Add a new notification
   const addNotification = useCallback((
     title: string,
     message: string,
     type: Notification['type'] = 'info',
     options: { autoClose?: boolean; duration?: number } = {}
   ) => {
-    const startTime = performance.now();
-    
     const notification: Notification = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // ECC: More unique ID
-      title: title.substring(0, 100), // ECC: Limit title length for mobile
-      message: message.substring(0, 200), // ECC: Limit message length for mobile
+      id: Date.now().toString(),
+      title,
+      message,
       type,
       timestamp: new Date(),
-      autoClose: options.autoClose !== false, // Default to true for mobile
-      duration: options.duration || (isOnline ? 5000 : 8000) // ECC: Longer duration offline
+      autoClose: options.autoClose ?? true,
+      duration: options.duration ?? 5000,
     };
 
-    setNotifications(prev => {
-      // ECC Pattern: Limit notifications to prevent memory issues on mobile
-      const updated = [notification, ...prev].slice(0, 5);
-      
-      // ECC Pattern: Performance monitoring
-      const endTime = performance.now();
-      console.log(`ECC: Notification added in ${endTime - startTime}ms, total: ${updated.length}`);
-      
-      return updated;
-    });
+    setNotifications(prev => [...prev, notification]);
+
+    // Auto-close notification if enabled
+    if (notification.autoClose) {
+      setTimeout(() => {
+        removeNotification(notification.id);
+      }, notification.duration);
+    }
 
     return notification.id;
-  }, [isOnline]);
+  }, []);
 
   // Remove a notification
   const removeNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
-
-  // Auto-close notification if enabled
-  useEffect(() => {
-    notifications.forEach(notification => {
-      if (notification.autoClose) {
-        setTimeout(() => {
-          removeNotification(notification.id);
-        }, notification.duration);
-      }
-    });
-  }, [notifications, removeNotification]);
 
   // Clear all notifications
   const clearNotifications = useCallback(() => {

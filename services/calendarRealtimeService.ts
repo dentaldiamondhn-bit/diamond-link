@@ -261,20 +261,13 @@ class CalendarRealtimeService {
     try {
       const event = await this.fetchEventDetailsForInvitee(record.item_id);
       if (event) {
-        // Security: Sanitize and validate event title
-        const sanitizedTitle = this.sanitizeText(event.title || 'Evento');
-        title = `Invitación: ${sanitizedTitle}`;
-        
-        // Security: Validate and format dates safely
-        const startTime = event.start_date ? this.formatSafeTime(event.start_date) : '';
-        const date = event.start_date ? this.formatSafeDate(event.start_date) : '';
-        message = `Has sido invitado a: ${sanitizedTitle}${date && startTime ? ` - ${date} a las ${startTime}` : ''}`;
+        title = `Invitación: ${event.title || 'Evento'}`;
+        const startTime = event.start_date ? new Date(event.start_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
+        const date = event.start_date ? new Date(event.start_date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }) : '';
+        message = `Has sido invitado a: ${event.title || 'Evento'}${date && startTime ? ` - ${date} a las ${startTime}` : ''}`;
       }
     } catch (error) {
       console.error('Error fetching event details for invitee notification:', error);
-      // Security: Fallback to safe default message
-      title = 'Invitación a Evento';
-      message = 'Has sido invitado a un evento';
     }
     
     return {
@@ -296,58 +289,10 @@ class CalendarRealtimeService {
     try {
       const { CalendarService } = await import('./calendarService');
       const events = await CalendarService.getEvents();
-      return events.find(e => e.id === eventId);
+      return events.find(e => e.id === eventId) || null;
     } catch (error) {
       console.error('Error fetching event details:', error);
       return null;
-    }
-  }
-
-  // Security: Text sanitization to prevent XSS and injection attacks
-  private sanitizeText(text: string): string {
-    if (!text || typeof text !== 'string') return '';
-    
-    return text
-      .replace(/[<>]/g, '') // Remove HTML tags
-      .replace(/javascript:/gi, '') // Remove javascript: protocol
-      .replace(/on\w+=/gi, '') // Remove event handlers
-      .replace(/&/g, '&amp;') // Escape ampersands
-      .replace(/"/g, '&quot;') // Escape quotes
-      .replace(/'/g, '&#x27;') // Escape single quotes
-      .trim()
-      .substring(0, 100); // Limit length
-  }
-
-  // Security: Safe date formatting to prevent locale-based attacks
-  private formatSafeTime(dateString: string): string {
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '';
-      
-      // Use fixed locale to prevent locale-based attacks
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      });
-    } catch (error) {
-      return '';
-    }
-  }
-
-  // Security: Safe date formatting to prevent locale-based attacks
-  private formatSafeDate(dateString: string): string {
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '';
-      
-      // Use fixed locale to prevent locale-based attacks
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    } catch (error) {
-      return '';
     }
   }
 

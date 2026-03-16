@@ -83,10 +83,12 @@ interface SelectedTreatment {
   notas: string;
   doctor_id?: string;
   doctor_name?: string;
-  disableElderlyDiscount?: boolean; 
+  disableElderlyDiscount?: boolean; // Add this for per-treatment control
 }
 
+
 function NuevoTratamientoCompletadoPage() {
+  const { resolvedTheme } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -100,14 +102,17 @@ function NuevoTratamientoCompletadoPage() {
   const [discountValue, setDiscountValue] = useState(0);
   const [doctorNotes, setDoctorNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones' | 'paquetes'>('tratamientos');
   const [showPatientSignatureModal, setShowPatientSignatureModal] = useState(false);
   const [patientSignature, setPatientSignature] = useState<string | null>(null);
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
-  const { bypassHistoricalMode, setBypassHistoricalMode } = useHistoricalMode();
-  const { isLoaded } = useUser();
+  const { bypassHistoricalMode, setBypassHistoricalMode, setCurrentPatient, loadPatientSettings, savePatientSettings } = useHistoricalMode();
+  const { user, isLoaded } = useUser();
 
+  // List of dental specialties
   const specialties = [
+    'Odontología General',
     'Ortodoncia',
     'Endodoncia',
     'Periodoncia',

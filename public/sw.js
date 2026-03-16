@@ -66,7 +66,10 @@ self.addEventListener('fetch', (event) => {
 
           caches.open(CACHE_NAME)
             .then((cache) => {
-              cache.put(event.request, responseToCache);
+              // Only cache GET requests to avoid TypeError with POST requests
+              if (event.request.method === 'GET') {
+                cache.put(event.request, responseToCache);
+              }
             });
 
           return response;
