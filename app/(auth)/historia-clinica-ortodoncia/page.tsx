@@ -3,7 +3,7 @@
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
 import { Patient } from '@/types/patient';
@@ -97,7 +97,7 @@ const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string
 
 IsolatedDocumentDisplay.displayName = 'IsolatedDocumentDisplay';
 
-export default function HistoriaClinicaOrtodoncia() {
+function HistoriaClinicaOrtodonciaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { resolvedTheme } = useTheme();
@@ -1269,5 +1269,15 @@ export default function HistoriaClinicaOrtodoncia() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function HistoriaClinicaOrtodoncia() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">
+      <div className="text-lg">Loading...</div>
+    </div>}>
+      <HistoriaClinicaOrtodonciaContent />
+    </Suspense>
   );
 }
