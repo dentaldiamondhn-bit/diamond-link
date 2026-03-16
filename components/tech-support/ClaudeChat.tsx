@@ -299,3 +299,5 @@ export default function ClaudeChat({ isOpen, onClose }: ClaudeChatProps) {
     </div>
   );
 }
+
+export default ClaudeChat;
