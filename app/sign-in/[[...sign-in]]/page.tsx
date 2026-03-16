@@ -9,9 +9,29 @@ import { useState, useEffect } from 'react';
 import './signin-styles.css';
 
 export default function Page() {
+  const [isMounted, setIsMounted] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const { user, isLoaded: userLoaded } = useUser();
   const router = useRouter();
+  
+  // Handle client-side mounting
+  useEffect(() => {
+    setIsMounted(true);
+    
+    // Force reload if page was loaded after sign-out to prevent blank state
+    // Check URL parameter or sessionStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasSignedOut = urlParams.get('signed_out') === 'true' || 
+                       sessionStorage.getItem('clerk-signed-out') === 'true';
+    
+    if (hasSignedOut) {
+      sessionStorage.removeItem('clerk-signed-out');
+      // Clean URL and reload
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+      window.location.reload();
+    }
+  }, []);
   
   // Determine redirect URL based on user role
   const getRedirectUrl = () => {
@@ -37,11 +57,13 @@ export default function Page() {
 
   // Redirect if user is already signed in
   useEffect(() => {
-    if (userLoaded && user) {
+    if (isMounted && userLoaded && user) {
       router.push(getRedirectUrl());
     }
-    setIsLoaded(true);
-  }, [userLoaded, user, router]);
+    if (isMounted && userLoaded) {
+      setIsLoaded(true);
+    }
+  }, [isMounted, userLoaded, user, router]);
 
   return (
     <div className="login-container">
@@ -117,7 +139,15 @@ export default function Page() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="login-box"
         >
-          {isLoaded && userLoaded && !user && (
+          {!isMounted ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : user ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-gray-600">Redirecting...</div>
+            </div>
+          ) : (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

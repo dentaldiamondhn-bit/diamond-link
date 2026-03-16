@@ -17,6 +17,7 @@
     "@capacitor/local-notifications": "^8.0.1",
     "@capacitor/push-notifications": "^8.0.1",
     "@clerk/nextjs": "latest",
+    "@clerk/ui": "^0.3.24",
     "@headlessui/react": "^2.2.9",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-dialog": "^1.1.15",

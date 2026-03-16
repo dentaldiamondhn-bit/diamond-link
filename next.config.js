@@ -11,14 +11,12 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // Ignore TypeScript errors during build
   },
-  experimental: {
-    outputFileTracingExcludes: {
-      '*': ['./clerk.broken/**/*']
-    },
-    serverComponentsExternalPackages: ['@supabase/supabase-js']
+  // Updated to non-deprecated options
+  outputFileTracingExcludes: {
+    '*': ['./clerk.broken/**/*']
   },
+  serverExternalPackages: ['@supabase/supabase-js'],
   // Ensure proper build for Vercel
-  swcMinify: true,
   // Fix client reference manifest issues
   transpilePackages: [],
   // Fix xterm self reference issue

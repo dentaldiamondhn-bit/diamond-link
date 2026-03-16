@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { canAccessRoute } from './hooks/useRoleBasedAccess';
+import { canAccessRouteServer } from './lib/server-role-access';
 
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/(.*)',
   '/api/terminal/(.*)',
   '/api/tickets/(.*)',  // Add tickets API routes
+  '/api/clerk-server-actions',  // Allow Clerk server actions API
   '/tech-support/terminal',
   '/tech-support/(.*)',
   '/capacitor-demo',  // Add capacitor demo as public route
@@ -88,8 +89,8 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.next();
     }
     
-    // Check route access using the same function as frontend
-    if (!canAccessRoute(userRole, req.nextUrl.pathname)) {
+    // Check route access using the server-side function
+    if (!canAccessRouteServer(userRole, req.nextUrl.pathname)) {
       return new Response('Access Denied', { status: 403 });
     } else {
       return NextResponse.next();
