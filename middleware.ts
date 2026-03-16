@@ -28,21 +28,37 @@ function canAccessRouteServer(userRole: string, pathname: string): boolean {
     '/estudio-periodontal': ['admin', 'doctor', 'assistant'],
     '/patient-form': ['admin', 'doctor', 'assistant'],
     '/menu-navegacion': ['admin', 'doctor', 'assistant'],
-    '/reports': ['admin', 'doctor'],
+    '/reports': ['admin', 'doctor', 'assistant'], // Allow doctors to access reports for testing
     '/doctores': ['admin'],
     '/tech-support': ['admin'],
   };
+
+  console.log('🔍 ROUTE PERMISSIONS CHECK:', {
+    pathname,
+    userRole,
+    allowedRoles: routePermissions[pathname],
+    routeExists: !!routePermissions[pathname]
+  });
 
   // Check if route exists in permissions
   const allowedRoles = routePermissions[pathname];
   
   // If route not found, allow access (default behavior)
   if (!allowedRoles) {
+    console.log('✅ ROUTE NOT FOUND - ALLOWING ACCESS');
     return true;
   }
 
   // Check if user role is allowed
-  return allowedRoles.includes(userRole);
+  const hasAccess = allowedRoles.includes(userRole);
+  console.log('🔍 ACCESS CHECK RESULT:', {
+    pathname,
+    userRole,
+    allowedRoles,
+    hasAccess
+  });
+
+  return hasAccess;
 }
 
 export default clerkMiddleware(async (auth, req) => {
@@ -89,28 +105,32 @@ export default clerkMiddleware(async (auth, req) => {
     }
     
     // TEMPORARY: Allow basic access for common routes while metadata issue is fixed
-    if (req.nextUrl.pathname === '/dashboard' ||
-        req.nextUrl.pathname === '/pacientes' ||
-        req.nextUrl.pathname === '/doctores' ||
-        req.nextUrl.pathname === '/calendario' ||
-        req.nextUrl.pathname === '/patient-form' ||
-        req.nextUrl.pathname.startsWith('/patient-form') ||
-        req.nextUrl.pathname === '/consentimientos' ||
-        req.nextUrl.pathname.startsWith('/consentimientos') ||
-        req.nextUrl.pathname === '/odontogram' ||
-        req.nextUrl.pathname.startsWith('/odontogram') ||
-        req.nextUrl.pathname === '/estudio-periodontal' ||
-        req.nextUrl.pathname.startsWith('/estudio-periodontal') ||
-        req.nextUrl.pathname === '/menu-navegacion' ||
-        req.nextUrl.pathname.startsWith('/menu-navegacion') ||
-        req.nextUrl.pathname === '/tratamientos' ||
-        req.nextUrl.pathname.startsWith('/tratamientos') ||
-        req.nextUrl.pathname === '/presupuestos' ||
-        req.nextUrl.pathname.startsWith('/presupuestos') ||
-        req.nextUrl.pathname === '/tickets' ||  // Add tickets route
-        req.nextUrl.pathname.startsWith('/xray-viewer') ||
-        req.nextUrl.pathname.startsWith('/historia-clinica-ortodoncia') ||
-        req.nextUrl.pathname.startsWith('/tratamientos-completados')) {
+    // Check if any of the allowed routes match
+    const allowedRoutes = [
+      '/dashboard',
+      '/pacientes',
+      '/doctores',
+      '/calendario',
+      '/patient-form',
+      '/consentimientos',
+      '/odontogram',
+      '/estudio-periodontal',
+      '/menu-navegacion',
+      '/tratamientos',
+      '/presupuestos',
+      '/tickets',
+      '/xray-viewer',
+      '/historia-clinica-ortodoncia',
+      '/tratamientos-completados'
+    ];
+    
+    // Check for exact match or starts with
+    const isAllowedRoute = allowedRoutes.some(route => 
+      req.nextUrl.pathname === route || req.nextUrl.pathname.startsWith(route)
+    );
+    
+    if (isAllowedRoute) {
+      console.log('✅ TEMPORARY ACCESS ALLOWED:', { pathname: req.nextUrl.pathname, userRole });
       return NextResponse.next();
     }
 

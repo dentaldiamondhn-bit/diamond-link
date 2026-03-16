@@ -1,16 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { PatientService } from '@/services/patientService';
 import { Patient } from '@/types/patient';
-
-function EstudioPeriodontalContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { theme } = useTheme();
-  const [isClient, setIsClient] = useState(false);
 
 interface PeriodontalStudy {
   id: number;
@@ -37,17 +31,20 @@ interface ToothMeasurement {
   observaciones: string;
 }
 
-export default function EstudioPeriodontalPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <EstudioPeriodontalContent />
-    </Suspense>
-  );
-}
-  function EstudioPeriodontalContent() {
+export default function EstudioPeriodontal() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { theme, systemTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState<'nuevo' | 'guardados'>('nuevo');
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [patientLoading, setPatientLoading] = useState(true);
+  
+  const pacienteId = searchParams.get('paciente_id');
+  const [formData, setFormData] = useState({
+    patientName: '',
+    date: new Date().toISOString().split('T')[0],
+    doctor: '',
+    indicePlaca: '',
     indiceSangrado: '',
     nivelInsercion: '',
     furcaciones: 'no-evaluado',
