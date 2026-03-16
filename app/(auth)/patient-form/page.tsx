@@ -3,7 +3,7 @@
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
 import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
@@ -207,7 +207,13 @@ const getFileName = (url: string) => {
   return cleanFileName;
 };
 
-export default function PatientForm() {
+function PatientFormContent() {
+  const [fieldValidationStatus, setFieldValidationStatus] = useState<Record<string, 'valid' | 'invalid' | 'neutral'>>({});
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isLoaded } = useUser();
+  const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   const { resolvedTheme } = useTheme();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -225,9 +231,6 @@ export default function PatientForm() {
   const [documentToDelete, setDocumentToDelete] = useState<{ index: number; name: string } | null>(null);
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
-  const [fieldValidationStatus, setFieldValidationStatus] = useState<Record<string, 'valid' | 'invalid' | 'neutral'>>({});
-  const [deleteSuccess, setDeleteSuccess] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
@@ -2699,5 +2702,15 @@ export default function PatientForm() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PatientForm() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">
+      <div className="text-lg">Loading...</div>
+    </div>}>
+      <PatientFormContent />
+    </Suspense>
   );
 }
