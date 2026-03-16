@@ -26,10 +26,11 @@ function canAccessRouteServer(userRole: string, pathname: string): boolean {
     '/presupuestos': ['admin', 'doctor', 'assistant'],
     '/consentimientos': ['admin', 'doctor', 'assistant'],
     '/estudio-periodontal': ['admin', 'doctor', 'assistant'],
+    '/patient-form': ['admin', 'doctor', 'assistant'],
+    '/menu-navegacion': ['admin', 'doctor', 'assistant'],
     '/reports': ['admin', 'doctor'],
     '/doctores': ['admin'],
     '/tech-support': ['admin'],
-    '/patient-form': ['admin', 'doctor', 'assistant'],
   };
 
   // Check if route exists in permissions
@@ -94,8 +95,18 @@ export default clerkMiddleware(async (auth, req) => {
         req.nextUrl.pathname === '/calendario' ||
         req.nextUrl.pathname === '/patient-form' ||
         req.nextUrl.pathname.startsWith('/patient-form') ||
+        req.nextUrl.pathname === '/consentimientos' ||
+        req.nextUrl.pathname.startsWith('/consentimientos') ||
+        req.nextUrl.pathname === '/odontogram' ||
+        req.nextUrl.pathname.startsWith('/odontogram') ||
+        req.nextUrl.pathname === '/estudio-periodontal' ||
+        req.nextUrl.pathname.startsWith('/estudio-periodontal') ||
+        req.nextUrl.pathname === '/menu-navegacion' ||
+        req.nextUrl.pathname.startsWith('/menu-navegacion') ||
         req.nextUrl.pathname === '/tratamientos' ||
+        req.nextUrl.pathname.startsWith('/tratamientos') ||
         req.nextUrl.pathname === '/presupuestos' ||
+        req.nextUrl.pathname.startsWith('/presupuestos') ||
         req.nextUrl.pathname === '/tickets' ||  // Add tickets route
         req.nextUrl.pathname.startsWith('/xray-viewer') ||
         req.nextUrl.pathname.startsWith('/historia-clinica-ortodoncia') ||
