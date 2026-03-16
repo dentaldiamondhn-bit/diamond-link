@@ -32,13 +32,15 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useUser();
+  const { user, isLoaded: userLoaded } = useUser();
   const { userRole } = useRoleBasedAccess();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
-  if (!user) {
-    return <div>Loading...</div>;
+  // Don't render the full layout if user is not loaded or not authenticated
+  // This prevents the 500 error on sign-in page
+  if (!userLoaded || !user) {
+    return <>{children}</>;
   }
 
   // Role badge colors and styles
