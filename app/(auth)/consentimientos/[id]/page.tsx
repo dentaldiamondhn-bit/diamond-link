@@ -109,12 +109,10 @@ export default function ConsentimientoDocument() {
           .single();
 
         let actualPatientId = pacienteId;
-        let existingConsentimiento = null;
 
         if (consentimiento && !consentimientoError) {
           // This is a consentimiento ID, get patient ID from it
           actualPatientId = consentimiento.paciente_id;
-          existingConsentimiento = consentimiento;
           
           // Check if consentimiento is signed - if so, redirect to preview
           if (consentimiento.estado === 'firmado') {

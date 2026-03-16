@@ -324,18 +324,18 @@ export const Calendar: React.FC<CalendarProps> = ({ userId }) => {
     setShowTaskModal(true);
   };
 
-  const handleDateClick = (date: Date) => {
+  const handleDateClick = () => {
     setSelectedEvent(null);
     setSelectedTask(null);
     setShowEventModal(true);
   };
 
-  const handleEventSave = (eventType: 'created' | 'updated' = 'created', eventData?: any) => {
+  const handleEventSave = () => {
     loadEvents();
     setSelectedEvent(null);
   };
 
-  const handleTaskSave = (taskType: 'created' | 'updated' = 'created', taskData?: any) => {
+  const handleTaskSave = () => {
     loadTasks();
     setSelectedTask(null);
   };
