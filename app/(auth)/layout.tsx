@@ -37,10 +37,22 @@ export default function AuthLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
-  // Don't render the full layout if user is not loaded or not authenticated
-  // This prevents the 500 error on sign-in page
+  // Always wrap with providers, but conditionally render the full layout
+  // This ensures context providers are available for all pages
   if (!userLoaded || !user) {
-    return <>{children}</>;
+    return (
+      <TutorialProvider>
+        <ThemeProvider>
+          <HistoricalModeProvider>
+            <BellNotificationProvider>
+              <NotificationListenerWrapper>
+                {children}
+              </NotificationListenerWrapper>
+            </BellNotificationProvider>
+          </HistoricalModeProvider>
+        </ThemeProvider>
+      </TutorialProvider>
+    );
   }
 
   // Role badge colors and styles
