@@ -9,29 +9,9 @@ import { useState, useEffect } from 'react';
 import './signin-styles.css';
 
 export default function Page() {
-  const [isMounted, setIsMounted] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const { user, isLoaded: userLoaded } = useUser();
   const router = useRouter();
-  
-  // Handle client-side mounting
-  useEffect(() => {
-    setIsMounted(true);
-    
-    // Force reload if page was loaded after sign-out to prevent blank state
-    // Check URL parameter or sessionStorage
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasSignedOut = urlParams.get('signed_out') === 'true' || 
-                       sessionStorage.getItem('clerk-signed-out') === 'true';
-    
-    if (hasSignedOut) {
-      sessionStorage.removeItem('clerk-signed-out');
-      // Clean URL and reload
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
-      window.location.reload();
-    }
-  }, []);
   
   // Determine redirect URL based on user role
   const getRedirectUrl = () => {
@@ -57,13 +37,11 @@ export default function Page() {
 
   // Redirect if user is already signed in
   useEffect(() => {
-    if (isMounted && userLoaded && user) {
+    if (userLoaded && user) {
       router.push(getRedirectUrl());
     }
-    if (isMounted && userLoaded) {
-      setIsLoaded(true);
-    }
-  }, [isMounted, userLoaded, user, router]);
+    setIsLoaded(true);
+  }, [userLoaded, user, router]);
 
   return (
     <div className="login-container">
@@ -139,15 +117,7 @@ export default function Page() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="login-box"
         >
-          {!isMounted ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : user ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-gray-600">Redirecting...</div>
-            </div>
-          ) : (
+          {isLoaded && userLoaded && !user && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -178,7 +148,7 @@ export default function Page() {
                 }}
                 routing="path"
                 path="/sign-in"
-                afterSignInUrl={getRedirectUrl()}
+                fallbackRedirectUrl={getRedirectUrl()}
               />
             </motion.div>
           )}

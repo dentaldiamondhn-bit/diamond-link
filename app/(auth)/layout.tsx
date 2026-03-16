@@ -7,7 +7,6 @@ import { UserButton } from '@clerk/nextjs';
 import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import AdminSidebar from '@/components/AdminSidebar';
-import { CustomUserButton } from '@/components/CustomUserButton';
 import DoctorSidebar from '@/components/DoctorSidebar';
 import StaffSidebar from '@/components/StaffSidebar';
 import TechSupportSidebar from '@/components/TechSupportSidebar';
@@ -337,7 +336,7 @@ export default function AuthLayout({
                     
                     {/* Clerk User Avatar */}
                     <div className="relative flex-shrink-0">
-                      <CustomUserButton 
+                      <UserButton 
                         appearance={{
                           elements: {
                             avatarBox: "w-8 h-8 lg:w-10 lg:h-10 shadow-md",

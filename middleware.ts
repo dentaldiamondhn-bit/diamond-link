@@ -1,6 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { canAccessRouteServer } from './lib/server-role-access';
 
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -8,11 +7,42 @@ const isPublicRoute = createRouteMatcher([
   '/api/(.*)',
   '/api/terminal/(.*)',
   '/api/tickets/(.*)',  // Add tickets API routes
-  '/api/clerk-server-actions',  // Allow Clerk server actions API
   '/tech-support/terminal',
   '/tech-support/(.*)',
   '/capacitor-demo',  // Add capacitor demo as public route
 ]);
+
+// Server-side access control logic (copied from client hook)
+function canAccessRouteServer(userRole: string, pathname: string): boolean {
+  // Define route permissions
+  const routePermissions: Record<string, string[]> = {
+    '/dashboard': ['admin', 'doctor', 'assistant'],
+    '/pacientes': ['admin', 'doctor', 'assistant'],
+    '/calendario': ['admin', 'doctor', 'assistant'],
+    '/odontogram': ['admin', 'doctor', 'assistant'],
+    '/odontogram-test': ['admin', 'doctor', 'assistant'],
+    '/tratamientos': ['admin', 'doctor', 'assistant'],
+    '/tratamientos-completados': ['admin', 'doctor', 'assistant'],
+    '/presupuestos': ['admin', 'doctor', 'assistant'],
+    '/consentimientos': ['admin', 'doctor', 'assistant'],
+    '/estudio-periodontal': ['admin', 'doctor', 'assistant'],
+    '/reports': ['admin', 'doctor'],
+    '/doctores': ['admin'],
+    '/tech-support': ['admin'],
+    '/patient-form': ['admin', 'doctor', 'assistant'],
+  };
+
+  // Check if route exists in permissions
+  const allowedRoles = routePermissions[pathname];
+  
+  // If route not found, allow access (default behavior)
+  if (!allowedRoles) {
+    return true;
+  }
+
+  // Check if user role is allowed
+  return allowedRoles.includes(userRole);
+}
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
@@ -39,6 +69,16 @@ export default clerkMiddleware(async (auth, req) => {
       userRole = sessionClaims.role;
     }
     
+    // DEBUG: Log user role and access attempt
+    console.log('🔍 MIDDLEWARE DEBUG:', {
+      userId,
+      pathname: req.nextUrl.pathname,
+      detectedRole: userRole,
+      sessionClaims: sessionClaims,
+      publicMetadata: sessionClaims?.public_metadata,
+      metadata: sessionClaims?.metadata
+    });
+    
     // MULTIPLE FALLBACKS FOR TECH SUPPORT ACCESS
     if (userRole === 'tech_support' || 
         userRole === 'tech-support' || 
@@ -52,6 +92,8 @@ export default clerkMiddleware(async (auth, req) => {
         req.nextUrl.pathname === '/pacientes' ||
         req.nextUrl.pathname === '/doctores' ||
         req.nextUrl.pathname === '/calendario' ||
+        req.nextUrl.pathname === '/patient-form' ||
+        req.nextUrl.pathname.startsWith('/patient-form') ||
         req.nextUrl.pathname === '/tratamientos' ||
         req.nextUrl.pathname === '/presupuestos' ||
         req.nextUrl.pathname === '/tickets' ||  // Add tickets route
@@ -89,10 +131,25 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.next();
     }
     
-    // Check route access using the server-side function
-    if (!canAccessRouteServer(userRole, req.nextUrl.pathname)) {
+    // Check route access using server-side function
+    const hasAccess = canAccessRouteServer(userRole, req.nextUrl.pathname);
+    console.log('🔍 ACCESS CONTROL DEBUG:', {
+      userRole,
+      pathname: req.nextUrl.pathname,
+      hasAccess,
+      routePermissions: {
+        '/patient-form': ['admin', 'doctor', 'assistant'],
+        '/dashboard': ['admin', 'doctor', 'assistant'],
+        '/pacientes': ['admin', 'doctor', 'assistant'],
+        '/calendario': ['admin', 'doctor', 'assistant']
+      }
+    });
+    
+    if (!hasAccess) {
+      console.log('🚫 ACCESS DENIED for:', { userRole, pathname: req.nextUrl.pathname });
       return new Response('Access Denied', { status: 403 });
     } else {
+      console.log('✅ ACCESS GRANTED for:', { userRole, pathname: req.nextUrl.pathname });
       return NextResponse.next();
     }
   }

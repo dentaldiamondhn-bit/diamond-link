@@ -11,12 +11,13 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // Ignore TypeScript errors during build
   },
-  // Updated to non-deprecated options
+  // Fix Next.js 15 configuration
   outputFileTracingExcludes: {
     '*': ['./clerk.broken/**/*']
   },
   serverExternalPackages: ['@supabase/supabase-js'],
   // Ensure proper build for Vercel
+  // swcMinify: true, // Removed as it's default in Next.js 15
   // Fix client reference manifest issues
   transpilePackages: [],
   // Fix xterm self reference issue

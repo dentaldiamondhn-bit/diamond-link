@@ -1,20 +1,81 @@
-// Service Worker for Diamond Link PWA - TEMPORARILY DISABLED v4
-// This is to debug sign-in page loading issues
+// Service Worker for Diamond Link PWA
+const CACHE_NAME = 'diamond-link-v1';
+const urlsToCache = [
+  '/',
+  '/dashboard',
+  '/calendario',
+  '/pacientes',
+  '/Logo.svg',
+  '/favicon-192.png',
+  '/favicon-512.png'
+];
 
+// Install event - cache resources
 self.addEventListener('install', (event) => {
-  console.log('🔧 Service Worker installing (disabled mode)...');
-  self.skipWaiting();
+  console.log('🔧 Service Worker installing...');
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('📦 Caching app shell');
+        return cache.addAll(urlsToCache);
+      })
+      .catch((error) => {
+        console.error('❌ Failed to cache resources:', error);
+      })
+  );
 });
 
+// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('🚀 Service Worker activating (disabled mode)...');
-  self.clients.claim();
+  console.log('🚀 Service Worker activating...');
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('🗑️ Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
 });
 
-// Skip all fetch events to let browser handle everything
+// Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
-  // Do nothing - let browser handle all requests
-  return;
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+
+        // Clone the request
+        const fetchRequest = event.request.clone();
+
+        return fetch(fetchRequest).then((response) => {
+          // Check if valid response
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+
+          // Clone the response
+          const responseToCache = response.clone();
+
+          caches.open(CACHE_NAME)
+            .then((cache) => {
+              // Only cache GET requests to avoid TypeError with POST requests
+              if (event.request.method === 'GET') {
+                cache.put(event.request, responseToCache);
+              }
+            });
+
+          return response;
+        });
+      })
+  );
 });
 
 // Push notification event
