@@ -2,7 +2,7 @@
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
@@ -29,9 +29,12 @@ import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
 import AnimatedFolder from '@/components/AnimatedFolder';
 
-export default function MenuNavegacion() {
+function MenuNavegacionContent() {
   const { user } = useUser();
   const { userRole } = useRoleBasedAccess();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { bypassHistoricalMode, setBypassHistoricalMode, loading, setCurrentPatient, loadPatientSettings, savePatientSettings } = useHistoricalMode();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
@@ -47,9 +50,6 @@ export default function MenuNavegacion() {
   const [hasOrthodonticHistory, setHasOrthodonticHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { bypassHistoricalMode, setBypassHistoricalMode, loading, setCurrentPatient, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   const { isLoaded } = useUser();
 
   // Get and validate patient ID
@@ -1032,5 +1032,15 @@ export default function MenuNavegacion() {
         onClose={() => setShowWarningModal(false)}
       />
     </>
+  );
+}
+
+export default function MenuNavegacion() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">
+      <div className="text-lg">Loading...</div>
+    </div>}>
+      <MenuNavegacionContent />
+    </Suspense>
   );
 }
