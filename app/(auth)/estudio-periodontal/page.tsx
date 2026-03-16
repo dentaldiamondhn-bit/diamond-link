@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { PatientService } from '@/services/patientService';
@@ -31,7 +31,7 @@ interface ToothMeasurement {
   observaciones: string;
 }
 
-export default function EstudioPeriodontal() {
+function EstudioPeriodontalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { theme, systemTheme } = useTheme();
@@ -903,5 +903,15 @@ export default function EstudioPeriodontal() {
           </div>
       </div>
     </>
+  );
+}
+
+export default function EstudioPeriodontal() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">
+      <div className="text-lg">Loading...</div>
+    </div>}>
+      <EstudioPeriodontalContent />
+    </Suspense>
   );
 }
