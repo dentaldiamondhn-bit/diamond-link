@@ -107,6 +107,7 @@ function NuevoTratamientoCompletadoPage() {
   const { bypassHistoricalMode, setBypassHistoricalMode } = useHistoricalMode();
   const { isLoaded } = useUser();
 
+  const specialties = [
     'Ortodoncia',
     'Endodoncia',
     'Periodoncia',
