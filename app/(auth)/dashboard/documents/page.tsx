@@ -301,8 +301,13 @@ function DocumentsPageContent() {
       {/* Historical Banner */}
       {recordCategoryInfo?.isHistorical && !bypassHistoricalMode && (
         <HistoricalBanner 
-          patientName={patient?.nombre_completo}
-          transcriptionInfo={recordCategoryInfo?.transcriptionInfo}
+          isHistorical={recordCategoryInfo?.isHistorical}
+          isBypassed={bypassHistoricalMode}
+          patientId={patient?.id}
+          onBypassChange={(bypassed) => {
+            // Handle bypass change if needed
+            console.log('Bypass changed:', bypassed);
+          }}
         />
       )}
 

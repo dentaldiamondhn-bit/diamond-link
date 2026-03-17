@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, Currency } from '../../../../../utils/currencyUtils';
@@ -55,7 +55,7 @@ interface CompletedTreatment {
   }[];
 }
 
-export default function TratamientoCompletadoViewPage({ params }: { params: { id: string } }) {
+export default function TratamientoCompletadoViewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [treatment, setTreatment] = useState<CompletedTreatment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,12 +63,16 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
   const { bypassHistoricalMode, loadPatientSettings } = useHistoricalMode();
 
+  // Unwrap params with React.use()
+  const resolvedParams = use(params);
+  const treatmentId = resolvedParams.id;
+
   useEffect(() => {
     const loadTreatment = async () => {
       try {
         setLoading(true);
         
-        const treatmentData = await CompletedTreatmentService.getCompletedTreatmentById(params.id);
+        const treatmentData = await CompletedTreatmentService.getCompletedTreatmentById(treatmentId);
         setTreatment(treatmentData);
         
         if (treatmentData?.paciente) {
@@ -94,7 +98,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
     };
 
     loadTreatment();
-  }, [params.id]);
+  }, [treatmentId]);
 
   const getStatusColor = (estado_pago: string) => {
     switch (estado_pago) {
@@ -183,8 +187,8 @@ export default function TratamientoCompletadoViewPage({ params }: { params: { id
             <button
               onClick={() => {
                 const url = treatment.paciente_id 
-                  ? `/paciente/${encodeURIComponent(treatment.paciente_id)}?tab=tratamientos-completados`
-                  : '/menu-navegacion';
+                  ? `/tratamientos-completados?paciente_id=${encodeURIComponent(treatment.paciente_id)}`
+                  : '/tratamientos-completados';
                 router.push(url);
               }}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
