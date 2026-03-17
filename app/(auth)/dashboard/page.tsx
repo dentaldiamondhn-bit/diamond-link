@@ -269,7 +269,7 @@ export default function DashboardPage() {
                   No tienes eventos programados para hoy o mañana.
                 </p>
                 <Link
-                  href="/calendar"
+                  href="/calendario"
                   className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors duration-200"
                 >
                   <i className="fas fa-plus mr-2"></i>
