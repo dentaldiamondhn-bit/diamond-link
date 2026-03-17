@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CompletedTreatmentService } from '../../../../services/completedTreatmentService';
 import { PatientService } from '../../../../services/patientService';
@@ -87,7 +87,7 @@ interface SelectedTreatment {
 }
 
 
-function NuevoTratamientoCompletadoPage() {
+function NuevoTratamientoCompletadoPageContent() {
   const { resolvedTheme } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1667,7 +1667,9 @@ function NuevoTratamientoCompletadoWithModal() {
 
   return (
     <TreatmentModalWrapper specialties={specialties} onSubmit={handleTreatmentSubmit}>
-      <NuevoTratamientoCompletadoPage />
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><LoadingAnimation /></div>}>
+        <NuevoTratamientoCompletadoPageContent />
+      </Suspense>
     </TreatmentModalWrapper>
   );
 }

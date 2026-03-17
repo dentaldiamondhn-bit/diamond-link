@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, Currency } from '../../../utils/currencyUtils';
@@ -21,7 +21,7 @@ import { usePagePreferences } from '@/hooks/useUserPreferences';
 import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '../../../lib/supabase';
 
-export default function TratamientosCompletadosPage() {
+function TratamientosCompletadosPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { bypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
@@ -1691,5 +1691,14 @@ export default function TratamientosCompletadosPage() {
         </div>
       )}
     </>
+  );
+}
+
+// Wrapper component with Suspense boundary for useSearchParams
+export default function TratamientosCompletadosPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><LoadingAnimation /></div>}>
+      <TratamientosCompletadosPageContent />
+    </Suspense>
   );
 }
