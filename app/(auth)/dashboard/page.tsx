@@ -35,25 +35,48 @@ export default function DashboardPage() {
 
   // Patients modal functions
   const openPatientsModal = async () => {
-    setShowPatientsModal(true);
-    setPatientsModalLoading(true);
-    
     try {
       const doctorName = user?.fullName || '';
-      if (userRole === 'doctor') {
-        // Fetch doctor's patients with detailed information
-        const patients = await PatientService.getPatientsByDoctor(doctorName);
-        
-        console.log('📋 Patients fetched for doctor:', doctorName, patients.length, 'patients');
-        console.log('👥 Sample patient data:', patients.slice(0, 2));
-        
-        // Fetch treatment counts and payment info for each patient
-        const patientsWithDetails = await Promise.all(
-          patients.filter(patient => patient && patient.id).map(async (patient: any) => {
+      if (userRole !== 'doctor') {
+        console.warn('❌ Patients modal only available for doctors');
+        return;
+      }
+
+      // Fetch doctor's patients first
+      const patients = await PatientService.getPatientsByDoctor(doctorName);
+      
+      if (!patients || patients.length === 0) {
+        console.warn('❌ No patients found for doctor');
+        return;
+      }
+
+      setShowPatientsModal(true);
+      setPatientsModalLoading(true);
+      
+      // Fetch treatment counts and payment info for each patient
+      const patientsWithDetails = await Promise.all(
+          patients.map(async (patient: any) => {
             try {
-              console.log('🔍 Processing patient:', patient.id, patient.nombre_completo);
+              // Use paciente_id field instead of id
+              const patientId = patient.paciente_id || patient.id;
+              
+              // Validate patient has an ID
+              if (!patientId) {
+                console.error('❌ Patient missing ID:', patient);
+                return {
+                  ...patient,
+                  completedTreatmentsCount: 0,
+                  totalPaid: 0
+                };
+              }
+
+              console.log('🔍 Fetching treatments for patient:', { 
+                id: patientId, 
+                name: patient.nombre_completo 
+              });
+
               // Get completed treatments for this patient
-              const completedTreatments = await CompletedTreatmentService.getCompletedTreatmentsByPatientId(patient.id);
+              const completedTreatments = await CompletedTreatmentService.getCompletedTreatmentsByPatientId(patientId);
               
               // Calculate total amount paid
               const totalPaid = completedTreatments.reduce((sum: number, treatment: any) => {
@@ -66,7 +89,7 @@ export default function DashboardPage() {
                 totalPaid
               };
             } catch (error) {
-              console.error(`Error fetching details for patient ${patient.id}:`, error);
+              console.error(`Error fetching details for patient ${patient?.paciente_id || patient?.id || 'unknown'}:`, error);
               return {
                 ...patient,
                 completedTreatmentsCount: 0,
@@ -77,11 +100,8 @@ export default function DashboardPage() {
         );
         
         setDoctorPatients(patientsWithDetails);
-      }
     } catch (error) {
-      console.error('Error loading patients modal data:', error);
-      // Set empty patients array to prevent infinite loops
-      setDoctorPatients([]);
+      console.error('❌ Error opening patients modal:', error);
     } finally {
       setPatientsModalLoading(false);
     }
@@ -473,7 +493,7 @@ export default function DashboardPage() {
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                           <thead className="bg-gray-50 dark:bg-gray-700">
-                            <tr key="header">
+                            <tr>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                 Paciente
                               </th>
@@ -495,65 +515,68 @@ export default function DashboardPage() {
                             </tr>
                           </thead>
                           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            {doctorPatients.map((patient) => (
-                              <tr key={patient.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                    {patient.nombre_completo}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    {patient.id}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    {patient.telefono ? (
-                                      <a
-                                        href={createWhatsAppUrl(patient.telefono)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 flex items-center"
+                            {doctorPatients.map((patient) => {
+                              const patientId = patient.paciente_id || patient.id;
+                              return (
+                                <tr key={patientId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                      {patient.nombre_completo}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                                      {patient.numero_identidad || 'No disponible'}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                                      {patient.telefono ? (
+                                        <a
+                                          href={createWhatsAppUrl(patient.telefono)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 flex items-center"
+                                        >
+                                          <i className="fab fa-whatsapp mr-2"></i>
+                                          {patient.telefono}
+                                        </a>
+                                      ) : (
+                                        <span className="text-gray-400">No disponible</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-900 dark:text-white">
+                                      {patient.completedTreatmentsCount || 0}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-green-600 dark:text-green-400">
+                                      {formatHNL(patient.totalPaid || 0)}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <div className="flex space-x-2">
+                                      <Link
+                                        href={`/menu-navegacion?id=${patientId}`}
+                                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center px-2 py-1 rounded border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                       >
-                                        <i className="fab fa-whatsapp mr-2"></i>
-                                        {patient.telefono}
-                                      </a>
-                                    ) : (
-                                      <span className="text-gray-400">No disponible</span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900 dark:text-white">
-                                    {patient.completedTreatmentsCount || 0}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-green-600 dark:text-green-400">
-                                    {formatHNL(patient.totalPaid || 0)}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                  <div className="flex space-x-2">
-                                    <Link
-                                      href={`/menu-navegacion?id=${patient.id}`}
-                                      className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center px-2 py-1 rounded border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                    >
-                                      <i className="fas fa-folder-open mr-1"></i>
-                                      Menú
-                                    </Link>
-                                    <Link
-                                      href={`/patient-preview?id=${patient.id}`}
-                                      className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 inline-flex items-center px-2 py-1 rounded border border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                                    >
-                                      <i className="fas fa-eye mr-1"></i>
-                                      Ver
-                                    </Link>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
+                                        <i className="fas fa-folder-open mr-1"></i>
+                                        Menú
+                                      </Link>
+                                      <Link
+                                        href={`/patient-preview?id=${patientId}`}
+                                        className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 inline-flex items-center px-2 py-1 rounded border border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                      >
+                                        <i className="fas fa-eye mr-1"></i>
+                                        Ver
+                                      </Link>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                         
