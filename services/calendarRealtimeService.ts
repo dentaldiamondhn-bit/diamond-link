@@ -31,6 +31,13 @@ class CalendarRealtimeService {
 
   private async initializeRealtime() {
     try {
+      console.log('🚀 Initializing Calendar Realtime Service...');
+      
+      // Check if Supabase client is available
+      if (!supabase) {
+        throw new Error('Supabase client not available');
+      }
+      
       // Enable real-time for calendar events
       await this.enableRealtimeForTable('calendar_events');
       
@@ -44,13 +51,17 @@ class CalendarRealtimeService {
       await this.enableRealtimeForTable('calendar_invitees');
 
       this.isConnected = true;
+      console.log('✅ Calendar Realtime Service initialized successfully');
     } catch (error) {
       console.error('❌ Error initializing Calendar Realtime:', error);
+      this.isConnected = false;
     }
   }
 
   private async enableRealtimeForTable(tableName: string) {
     try {
+      console.log(`🔍 Attempting to enable realtime for table: ${tableName}`);
+      
       const channel = supabase.channel(`${tableName}_changes`);
       
       const subscription = channel.on('postgres_changes', 
@@ -60,11 +71,18 @@ class CalendarRealtimeService {
           table: tableName 
         }, 
         (payload) => this.handleDatabaseChange(tableName, payload)
-      ).subscribe((status) => {
+      ).subscribe((status, err) => {
+        console.log(`📊 Subscription status for ${tableName}:`, status);
+        
         if (status === 'SUBSCRIBED') {
+          console.log(`✅ Successfully subscribed to ${tableName}`);
           this.subscriptions.set(tableName, channel);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error(`❌ Error subscribing to ${tableName}`);
+          console.error(`❌ Error subscribing to ${tableName}:`, err);
+        } else if (status === 'TIMED_OUT') {
+          console.error(`⏰ Timeout subscribing to ${tableName}:`, err);
+        } else if (status === 'CLOSED') {
+          console.error(`🔌 Connection closed for ${tableName}:`, err);
         }
       });
 
@@ -459,6 +477,17 @@ class CalendarRealtimeService {
     } catch (error) {
       console.error('❌ Error disconnecting Calendar Realtime:', error);
     }
+  }
+
+  public async retryConnections() {
+    console.log('🔄 Retrying realtime connections...');
+    
+    // Clear existing subscriptions
+    this.subscriptions.clear();
+    this.isConnected = false;
+    
+    // Reinitialize
+    await this.initializeRealtime();
   }
 
   public getStatus() {
