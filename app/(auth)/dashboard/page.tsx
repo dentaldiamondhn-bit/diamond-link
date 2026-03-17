@@ -566,7 +566,7 @@ export default function DashboardPage() {
                                         Menú
                                       </Link>
                                       <Link
-                                        href={`/patient-preview?id=${patientId}`}
+                                        href={`/patient-preview/${patientId}`}
                                         className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 inline-flex items-center px-2 py-1 rounded border border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
                                       >
                                         <i className="fas fa-eye mr-1"></i>
