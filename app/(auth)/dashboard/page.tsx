@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [showPatientsModal, setShowPatientsModal] = useState<boolean>(false);
   const [doctorPatients, setDoctorPatients] = useState<any[]>([]);
   const [patientsModalLoading, setPatientsModalLoading] = useState<boolean>(false);
+  const [patientsSearchTerm, setPatientsSearchTerm] = useState<string>('');
 
   // Patients modal functions
   const openPatientsModal = async () => {
@@ -481,9 +482,23 @@ export default function DashboardPage() {
               <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-                      Mis Pacientes - Detalles Completos
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                        Mis Pacientes - Detalles Completos
+                      </h3>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Buscar paciente..."
+                          value={patientsSearchTerm}
+                          onChange={(e) => setPatientsSearchTerm(e.target.value)}
+                          className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm w-64"
+                        />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <i className="fas fa-search text-gray-400 dark:text-gray-500"></i>
+                        </div>
+                      </div>
+                    </div>
                     
                     {patientsModalLoading ? (
                       <div className="flex justify-center items-center py-8">
@@ -515,7 +530,17 @@ export default function DashboardPage() {
                             </tr>
                           </thead>
                           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            {doctorPatients.map((patient) => {
+                            {doctorPatients
+                              .filter(patient => {
+                                if (!patientsSearchTerm) return true;
+                                const searchLower = patientsSearchTerm.toLowerCase();
+                                return (
+                                  patient.nombre_completo?.toLowerCase().includes(searchLower) ||
+                                  patient.numero_identidad?.toLowerCase().includes(searchLower) ||
+                                  patient.telefono?.toLowerCase().includes(searchLower)
+                                );
+                              })
+                              .map((patient) => {
                               const patientId = patient.paciente_id || patient.id;
                               return (
                                 <tr key={patientId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -580,16 +605,27 @@ export default function DashboardPage() {
                           </tbody>
                         </table>
                         
-                        {doctorPatients.length === 0 && (
+                        {doctorPatients.filter(patient => {
+                          if (!patientsSearchTerm) return true;
+                          const searchLower = patientsSearchTerm.toLowerCase();
+                          return (
+                            patient.nombre_completo?.toLowerCase().includes(searchLower) ||
+                            patient.numero_identidad?.toLowerCase().includes(searchLower) ||
+                            patient.telefono?.toLowerCase().includes(searchLower)
+                          );
+                        }).length === 0 && (
                           <div className="text-center py-8">
                             <div className="text-gray-400 mb-4">
-                              <i className="fas fa-users text-4xl"></i>
+                              <i className="fas fa-search text-4xl"></i>
                             </div>
                             <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                              No tienes pacientes asignados
+                              {patientsSearchTerm ? 'No se encontraron pacientes' : 'No tienes pacientes asignados'}
                             </h4>
                             <p className="text-gray-600 dark:text-gray-400">
-                              No se encontraron pacientes para tu cuenta.
+                              {patientsSearchTerm 
+                                ? `No hay pacientes que coincidan con "${patientsSearchTerm}"`
+                                : 'No se encontraron pacientes para tu cuenta.'
+                              }
                             </p>
                           </div>
                         )}
