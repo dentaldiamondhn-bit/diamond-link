@@ -18,35 +18,55 @@ export interface HistoricalRecordInfo {
   };
 }
 
-// Get app configuration from database or use defaults
+// Cache configuration to prevent repeated database calls
+let cachedConfig: RecordCategoryConfig | null = null;
+let configCacheTime: number = 0;
+const CONFIG_CACHE_TTL = 60000; // 1 minute cache
+
+// Get app configuration from database or use defaults (with caching)
 export const getRecordCategoryConfig = async (): Promise<RecordCategoryConfig> => {
+  const now = Date.now();
+  
+  // Return cached config if still valid
+  if (cachedConfig && (now - configCacheTime) < CONFIG_CACHE_TTL) {
+    return cachedConfig;
+  }
+  
   try {
     // Import supabase dynamically to avoid server-side issues
     const { supabase } = await import('../lib/supabase');
     
-    // Fetch actual configuration from database
-    const { data: launchDateData, error: launchDateError } = await supabase
+    // Fetch both configurations in a single query
+    const { data, error } = await supabase
       .from('app_configuration')
-      .select('config_value')
-      .eq('config_key', 'app_launch_date')
-      .single();
+      .select('config_key, config_value')
+      .in('config_key', ['app_launch_date', 'historical_records_enabled']);
     
-    const { data: enabledData, error: enabledError } = await supabase
-      .from('app_configuration')
-      .select('config_value')
-      .eq('config_key', 'historical_records_enabled')
-      .single();
+    if (error) {
+      console.error('Error fetching record category config:', error);
+      // Return fallback values on error
+      cachedConfig = {
+        appLaunchDate: new Date(Date.UTC(2026, 1, 2)), // UTC 2026-02-02
+        historicalRecordsEnabled: true
+      };
+      configCacheTime = now;
+      return cachedConfig;
+    }
+    
+    // Parse configuration values
+    const launchDateRecord = data?.find(r => r.config_key === 'app_launch_date');
+    const enabledRecord = data?.find(r => r.config_key === 'historical_records_enabled');
     
     // Use database values or fallback to defaults
     let appLaunchDate: Date;
     
-    if (launchDateData?.config_value) {
+    if (launchDateRecord?.config_value) {
       // Parse database date (should be 2026-02-02) as UTC
-      const [year, month, day] = launchDateData.config_value.split('-').map(Number);
+      const [year, month, day] = launchDateRecord.config_value.split('-').map(Number);
       appLaunchDate = new Date(Date.UTC(year, month - 1, day));
       
       // TEMPORARY FIX: Override database date if it's wrong (2026-02-01 should be 2026-02-02)
-      if (launchDateData.config_value === '2026-02-01') {
+      if (launchDateRecord.config_value === '2026-02-01') {
         appLaunchDate = new Date(Date.UTC(2026, 1, 2)); // UTC 2026-02-02
       }
     } else {
@@ -54,18 +74,25 @@ export const getRecordCategoryConfig = async (): Promise<RecordCategoryConfig> =
       appLaunchDate = new Date(Date.UTC(2026, 1, 2)); // UTC 2026-02-02
     }
     
-    const historicalRecordsEnabled = enabledData?.config_value === 'true';
+    const historicalRecordsEnabled = enabledRecord?.config_value === 'true';
     
-    return {
+    // Cache the result
+    cachedConfig = {
       appLaunchDate,
       historicalRecordsEnabled
     };
+    configCacheTime = now;
+    
+    return cachedConfig;
   } catch (error) {
     console.error('Error fetching record category config:', error);
-    return {
+    // Return fallback values on error
+    cachedConfig = {
       appLaunchDate: new Date(Date.UTC(2026, 1, 2)), // UTC 2026-02-02 (correct date)
       historicalRecordsEnabled: true
     };
+    configCacheTime = now;
+    return cachedConfig;
   }
 };
 

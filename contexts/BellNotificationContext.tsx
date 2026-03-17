@@ -187,8 +187,8 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
     // Initial fetch
     fetchNotifications();
     
-    // Sync with server every 5 seconds for faster updates
-    const syncInterval = setInterval(fetchNotifications, 5000);
+    // Sync with server every 30 seconds to reduce resource usage
+    const syncInterval = setInterval(fetchNotifications, 30000);
 
     return () => {
       clearInterval(syncInterval);

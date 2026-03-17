@@ -8,7 +8,7 @@ import { PatientService } from '@/services/patientService';
 import { ExportService } from '@/services/exportService';
 import { Patient } from '@/types/patient';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
-import { getRecordCategoryInfo } from '@/utils/recordCategoryUtils';
+import { getRecordCategoryInfoSync } from '@/utils/recordCategoryUtils';
 import { getPatientType } from '@/utils/patientTypeUtils';
 import { createWhatsAppUrl, formatPhoneDisplay, parsePhoneNumber } from '@/utils/phoneUtils';
 import { supabase } from '@/lib/supabase';
@@ -134,7 +134,7 @@ export default function PatientPreviewPage() {
       await loadPatientSettings(patientData.paciente_id);
       
       // Check record category (historical, active, archived)
-      const categoryInfo = await getRecordCategoryInfo(patientData.fecha_inicio || patientData.fecha_inicio_consulta);
+      const categoryInfo = getRecordCategoryInfoSync(patientData.fecha_inicio || patientData.fecha_inicio_consulta);
       setRecordCategoryInfo(categoryInfo);
       
       // Show warning modal using improved algorithm - only if significant conditions exist
