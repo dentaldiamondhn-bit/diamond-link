@@ -207,13 +207,19 @@ const getFileName = (url: string) => {
   return cleanFileName;
 };
 
+export default function PatientForm() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <PatientFormContent />
+    </Suspense>
+  );
+}
+
 function PatientFormContent() {
-  const [fieldValidationStatus, setFieldValidationStatus] = useState<Record<string, 'valid' | 'invalid' | 'neutral'>>({});
-  const [deleteSuccess, setDeleteSuccess] = useState(false);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, isLoaded } = useUser();
-  const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   const { resolvedTheme } = useTheme();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -231,6 +237,9 @@ function PatientFormContent() {
   const [documentToDelete, setDocumentToDelete] = useState<{ index: number; name: string } | null>(null);
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [fieldValidationStatus, setFieldValidationStatus] = useState<Record<string, 'valid' | 'invalid' | 'neutral'>>({});
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
@@ -2702,15 +2711,5 @@ function PatientFormContent() {
         </div>
       )}
     </div>
-  );
-}
-
-export default function PatientForm() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">
-      <div className="text-lg">Loading...</div>
-    </div>}>
-      <PatientFormContent />
-    </Suspense>
   );
 }

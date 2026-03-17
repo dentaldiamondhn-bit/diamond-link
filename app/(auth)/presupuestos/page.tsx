@@ -2,7 +2,7 @@
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
@@ -33,6 +33,18 @@ interface Promotion {
 }
 
 export default function PresupuestosPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <PresupuestosPageContent />
+    </Suspense>
+  );
+}
+
+function PresupuestosPageContent() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
