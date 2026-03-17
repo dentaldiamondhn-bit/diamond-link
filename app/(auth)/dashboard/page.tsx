@@ -44,12 +44,16 @@ export default function DashboardPage() {
         // Fetch doctor's patients with detailed information
         const patients = await PatientService.getPatientsByDoctor(doctorName);
         
+        console.log('📋 Patients fetched for doctor:', doctorName, patients.length, 'patients');
+        console.log('👥 Sample patient data:', patients.slice(0, 2));
+        
         // Fetch treatment counts and payment info for each patient
         const patientsWithDetails = await Promise.all(
-          patients.map(async (patient: any) => {
+          patients.filter(patient => patient && patient.id).map(async (patient: any) => {
             try {
+              console.log('🔍 Processing patient:', patient.id, patient.nombre_completo);
               // Get completed treatments for this patient
-              const completedTreatments = await CompletedTreatmentService.getCompletedTreatmentsByPatient(patient.id);
+              const completedTreatments = await CompletedTreatmentService.getCompletedTreatmentsByPatientId(patient.id);
               
               // Calculate total amount paid
               const totalPaid = completedTreatments.reduce((sum: number, treatment: any) => {
@@ -76,6 +80,8 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error loading patients modal data:', error);
+      // Set empty patients array to prevent infinite loops
+      setDoctorPatients([]);
     } finally {
       setPatientsModalLoading(false);
     }
@@ -467,7 +473,7 @@ export default function DashboardPage() {
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                           <thead className="bg-gray-50 dark:bg-gray-700">
-                            <tr>
+                            <tr key="header">
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                 Paciente
                               </th>
