@@ -54,7 +54,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, context = {}, model = 'llama-3.1-70b-8192' } = body;
+    const { message, context = {}, model = 'llama-3.1-8b-instant' } = body;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(

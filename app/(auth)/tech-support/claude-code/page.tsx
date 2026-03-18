@@ -77,7 +77,7 @@ export default function ClaudeCodePage() {
     },
     {
       id: 'groq-llama',
-      name: 'Groq Llama',
+      name: 'Groq Llama 3.1',
       provider: 'Groq',
       apiRoute: '/api/groq-chat',
       isFree: true,

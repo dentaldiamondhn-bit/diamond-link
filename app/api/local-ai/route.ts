@@ -31,24 +31,29 @@ Be concise, helpful, and focus on practical solutions.`;
 
 export async function GET() {
   try {
-    // Check if local AI service is available
-    const response = await fetch(LOCAL_AI_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'llama3.2:latest', messages: [{ role: 'user', content: 'test' }] })
+    // Check if Ollama service is running by checking the tags endpoint
+    const response = await fetch('http://localhost:11434/api/tags', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
     });
     
     if (response.ok) {
-      return NextResponse.json({ configured: true, service: 'Local AI (Ollama)' });
+      const data = await response.json();
+      const hasModels = data.models && data.models.length > 0;
+      return NextResponse.json({ 
+        configured: hasModels, 
+        service: 'Local AI (Ollama)',
+        models: data.models?.map(m => m.name) || []
+      });
     } else {
       return NextResponse.json(
-        { configured: false, error: 'Local AI service not available - install Ollama' },
+        { configured: false, error: 'Ollama service not running' },
         { status: 200 }
       );
     }
   } catch (error) {
     return NextResponse.json(
-      { configured: false, error: 'Failed to connect to local AI service' },
+      { configured: false, error: 'Failed to connect to Ollama service' },
       { status: 200 }
     );
   }
