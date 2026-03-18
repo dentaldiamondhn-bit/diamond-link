@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Google Gemini API configuration
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/text-bison-001:generateContent';
 
 // System prompt for AI assistant
 const SYSTEM_PROMPT = `You are an AI coding assistant for Dental Diamond Link, a dental clinic management application.

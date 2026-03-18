@@ -39,7 +39,7 @@ export default function ClaudeCodePage() {
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('gemini-pro');
+  const [selectedModel, setSelectedModel] = useState<string>('local-llama');
   const [isApiConfigured, setIsApiConfigured] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

@@ -95,15 +95,19 @@ ${Object.keys(context).length > 0 ? `\nAdditional Context:\n${JSON.stringify(con
       const error = await response.text();
       console.error('Local AI error:', error);
       return NextResponse.json(
-        { error: 'Failed to get response from local AI' },
+        { error: 'Failed to get response from local AI: ' + error },
         { status: 500 }
       );
     }
 
     const data = await response.json();
+    console.log('Local AI response:', data);
+    
+    // Handle Ollama's response format
+    const messageContent = data.message?.content || data.response || 'No response generated';
     
     return NextResponse.json({
-      message: data.message || data.response,
+      message: messageContent,
       model: model,
       service: 'Local AI (Ollama)'
     });
