@@ -23,3 +23,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     }
   }
 })
+
+// Export createClient for use in services
+export { createClient }
+
+// Helper function to create client with service role key for server-side operations
+export function createServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+      db: {
+        schema: 'public'
+      }
+    }
+  )
+}

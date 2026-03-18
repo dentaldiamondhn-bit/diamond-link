@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 // Zod schemas for validation
 const ConversationSchema = z.object({
@@ -59,8 +59,6 @@ export interface IUpdateConversation {
 }
 
 export class ConversationService {
-  private supabase = createClient();
-
   /**
    * Create a new conversation with optional initial messages
    */
@@ -68,7 +66,7 @@ export class ConversationService {
     const validatedData = CreateConversationWithMessagesSchema.parse(data);
     
     // Create conversation
-    const { data: conversation, error: conversationError } = await this.supabase
+    const { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .insert({
         user_id: userId,
@@ -91,7 +89,7 @@ export class ConversationService {
         model: message.role === 'assistant' ? validatedData.model : undefined,
       }));
 
-      const { error: messageError } = await this.supabase
+      const { error: messageError } = await supabase
         .from('messages')
         .insert(messageData);
 
@@ -107,7 +105,7 @@ export class ConversationService {
    * Get all conversations for a user
    */
   async getConversations(userId: string): Promise<IConversation[]> {
-    const { data, error } = await this.supabase
+    const { data, error } = await supabase
       .from('conversations')
       .select(`
         *,
@@ -123,7 +121,8 @@ export class ConversationService {
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to get conversations: ${error.message}`);
+      console.error('Failed to get conversations:', error);
+      return []; // Return empty array instead of throwing error
     }
 
     return data || [];
@@ -133,7 +132,7 @@ export class ConversationService {
    * Get a single conversation with its messages
    */
   async getConversationById(conversationId: string, userId: string): Promise<IConversation | null> {
-    const { data, error } = await this.supabase
+    const { data, error } = await supabase
       .from('conversations')
       .select(`
         *,
@@ -168,7 +167,7 @@ export class ConversationService {
       ...message,
     });
 
-    const { data, error } = await this.supabase
+    const { data, error } = await supabase
       .from('messages')
       .insert({
         conversation_id: validatedMessage.conversationId,
@@ -184,7 +183,7 @@ export class ConversationService {
     }
 
     // Update conversation's updated_at timestamp
-    await this.supabase
+    await supabase
       .from('conversations')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversationId);
@@ -196,7 +195,7 @@ export class ConversationService {
    * Update conversation details
    */
   async updateConversation(conversationId: string, userId: string, data: IUpdateConversation): Promise<IConversation> {
-    const { data: conversation, error } = await this.supabase
+    const { data: conversation, error } = await supabase
       .from('conversations')
       .update({
         ...data,
@@ -218,7 +217,7 @@ export class ConversationService {
    * Delete a conversation and all its messages
    */
   async deleteConversation(conversationId: string, userId: string): Promise<void> {
-    const { error } = await this.supabase
+    const { error } = await supabase
       .from('conversations')
       .delete()
       .eq('id', conversationId)
@@ -234,7 +233,7 @@ export class ConversationService {
    */
   async getMessages(conversationId: string, userId: string): Promise<IMessage[]> {
     // First verify user owns the conversation
-    const { data: conversation, error: convError } = await this.supabase
+    const { data: conversation, error: convError } = await supabase
       .from('conversations')
       .select('id')
       .eq('id', conversationId)
@@ -245,7 +244,7 @@ export class ConversationService {
       throw new Error('Conversation not found or access denied');
     }
 
-    const { data, error } = await this.supabase
+    const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conversationId)
