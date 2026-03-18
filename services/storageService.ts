@@ -426,4 +426,96 @@ export class StorageService {
       return null;
     }
   }
+
+  // Ticket documents upload
+  static async uploadTicketDocuments(
+    files: File[],
+    ticketId: string
+  ): Promise<string[]> {
+    try {
+      console.log('=== TICKET DOCUMENT UPLOAD DEBUG ===');
+      console.log('Files to upload:', files.map(f => ({
+        name: f.name,
+        type: f.type,
+        size: f.size
+      })));
+      
+      const uploadedUrls: string[] = [];
+      
+      for (const file of files) {
+        // Generate unique filename
+        const timestamp = new Date().getTime();
+        const fileExtension = file.name.split('.').pop();
+        const fileName = `${ticketId}_${timestamp}_${file.name}`;
+        
+        // Detect MIME type
+        let mimeType = file.type;
+        if (file.type === 'application/octet-stream' || !file.type) {
+          const mimeTypes: { [key: string]: string } = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'pdf': 'application/pdf',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls': 'application/vnd.ms-excel',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          };
+          mimeType = mimeTypes[fileExtension?.toLowerCase()] || 'application/octet-stream';
+        }
+        
+        // Upload to Supabase storage
+        try {
+          const fileBlob = new Blob([file], { type: mimeType });
+          
+          const { data, error } = await supabaseAdmin.storage
+            .from('ticket-documents')
+            .upload(`${ticketId}/${fileName}`, fileBlob, {
+              contentType: mimeType,
+              upsert: true
+            });
+          
+          if (error) {
+            console.error('Error uploading ticket document:', error);
+            continue;
+          }
+          
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('ticket-documents')
+            .getPublicUrl(`${ticketId}/${fileName}`);
+
+          uploadedUrls.push(publicUrl);
+          console.log('Successfully uploaded ticket document:', publicUrl);
+        } catch (uploadError) {
+          console.error('Unexpected error during ticket document upload:', uploadError);
+          continue;
+        }
+      }
+
+      return uploadedUrls;
+    } catch (error) {
+      console.error('Error in uploadTicketDocuments:', error);
+      throw error;
+    }
+  }
+
+  static async deleteTicketDocument(filePath: string): Promise<boolean> {
+    try {
+      const { error } = await supabaseAdmin.storage
+        .from('ticket-documents')
+        .remove([filePath]);
+
+      if (error) {
+        console.error('Error deleting ticket document:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in deleteTicketDocument:', error);
+      return false;
+    }
+  }
 }

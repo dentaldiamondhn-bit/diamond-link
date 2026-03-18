@@ -4,6 +4,7 @@
 import { UserButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { PatientService } from '../../../services/patientService';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import { CalendarService } from '../../../services/calendarService';
@@ -19,6 +20,7 @@ const formatHNL = (amount: number) => {
 export default function DashboardPage() {
   const { user } = useUser();
   const { userRole, permissions, hasPermission } = useRoleBasedAccess();
+  const router = useRouter();
   const [patientCount, setPatientCount] = useState<number>(0);
   const [treatmentCount, setTreatmentCount] = useState<number>(0);
   const [doctorRevenue, setDoctorRevenue] = useState<number>(0);
@@ -583,13 +585,13 @@ export default function DashboardPage() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div className="flex space-x-2">
-                                      <Link
-                                        href={`/menu-navegacion?id=${patientId}`}
+                                      <button
+                                        onClick={() => router.push(`/menu-navegacion?id=${patientId}`)}
                                         className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center px-2 py-1 rounded border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                       >
                                         <i className="fas fa-folder-open mr-1"></i>
                                         Menú
-                                      </Link>
+                                      </button>
                                       <Link
                                         href={`/patient-preview/${patientId}`}
                                         className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 inline-flex items-center px-2 py-1 rounded border border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"

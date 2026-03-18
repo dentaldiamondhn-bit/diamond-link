@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 import { TicketService } from '@/services/ticketService';
-import { Ticket, TicketStatus, TicketPriority, TicketType, CreateTicketData, UserRole } from '@/types/ticket';
+import { StorageService } from '@/services/storageService';
+import { Ticket, TicketStatus, TicketPriority, TicketType, CreateTicketData, CreateTicketAttachmentData, UserRole } from '@/types/ticket';
 import SystemLogs from '@/components/SystemLogs';
 import TicketTimeline from '@/components/TicketTimeline';
 import { useUser } from '@clerk/nextjs';
@@ -13,10 +14,19 @@ import { UserSelect } from '@/components/calendar/UserSelect';
 
 export default function TechSupportTickets() {
   const { userRole } = useRoleBasedAccess();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const { theme } = useTheme();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Prevent hydration mismatch - show loading until client is ready
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
   const [filter, setFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -43,6 +53,11 @@ export default function TechSupportTickets() {
   const [showAttachmentSearch, setShowAttachmentSearch] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
+  
+  // Document upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{type: 'success' | 'warning', text: string} | null>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([]);
 
   // Check if user is tech support
   if (userRole !== 'tech_support') {
@@ -72,7 +87,24 @@ export default function TechSupportTickets() {
     if (!user?.id) return;
 
     try {
-      const result = await TicketService.createTicket(ticketData, user.id);
+      // Convert uploaded document URLs to attachment format
+      const docAttachments: CreateTicketAttachmentData[] = uploadedDocuments.map(url => {
+        const fileName = decodeURIComponent(url.split('/').pop() || 'documento');
+        return {
+          attachment_type: 'document' as const,
+          attachment_id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          attachment_title: fileName,
+          file_url: url
+        };
+      });
+      
+      // Add uploaded documents to the ticket data
+      const ticketDataWithDocs = {
+        ...ticketData,
+        attachments: [...(ticketData.attachments || []), ...docAttachments]
+      };
+      
+      const result = await TicketService.createTicket(ticketDataWithDocs, user.id);
       if (result.data) {
         setShowCreateModal(false);
         // Reset form
@@ -92,11 +124,82 @@ export default function TechSupportTickets() {
         setSelectedPatient(null);
         setSelectedUsers([]);
         setAttachments([]);
+        setUploadedDocuments([]);
+        setUploadMessage(null);
         loadTickets(); // Refresh tickets
       }
     } catch (error) {
       console.error('Error creating ticket:', error);
     }
+  };
+
+  // Handle document upload for ticket
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadMessage(null);
+
+    try {
+      const formData = new FormData();
+      
+      // Use a ticket-specific folder - generate a temporary ID until ticket is created
+      formData.append('ticketId', `temp-${Date.now()}`);
+      
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      const response = await fetch('/api/upload-ticket-documents', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al subir documentos');
+      }
+
+      // Add uploaded URLs to state
+      if (result.uploadedUrls && result.uploadedUrls.length > 0) {
+        setUploadedDocuments(prev => [...prev, ...result.uploadedUrls]);
+      }
+
+      // Show success message
+      let message = `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`;
+      
+      setUploadMessage({
+        type: 'success',
+        text: message
+      });
+
+      // Clear file input
+      e.target.value = '';
+
+      // Clear message after 5 seconds
+      setTimeout(() => {
+        setUploadMessage(null);
+      }, 5000);
+
+    } catch (error) {
+      console.error('Document upload error:', error);
+      setUploadMessage({
+        type: 'warning',
+        text: 'Error al subir documentos: ' + (error as Error).message
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Remove uploaded document
+  const removeUploadedDocument = (index: number) => {
+    setUploadedDocuments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -564,7 +667,11 @@ export default function TechSupportTickets() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">Crear Nuevo Ticket</h2>
                 <button
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setUploadedDocuments([]);
+                    setUploadMessage(null);
+                  }}
                   className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
                 >
                   ×
@@ -834,11 +941,88 @@ export default function TechSupportTickets() {
                   </label>
                 </div>
 
+                {/* Document Upload */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Documentos adjuntos</label>
+                  
+                  {/* File input and upload button in same row */}
+                  <div className="flex items-center gap-4">
+                    <input 
+                      type="file" 
+                      id="ticket-documentos" 
+                      name="ticket-documentos" 
+                      multiple 
+                      accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx" 
+                      onChange={handleDocumentUpload}
+                      disabled={isUploading}
+                      className={`flex-1 rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2 text-sm`}
+                    />
+                    
+                    {isUploading && (
+                      <div className="flex items-center text-sm text-gray-500">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Subiendo...
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Upload message */}
+                  {uploadMessage && (
+                    <div className={`mt-2 p-3 rounded-md text-sm ${
+                      uploadMessage.type === 'success' 
+                        ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-200' 
+                        : 'bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200'
+                    }`}>
+                      {uploadMessage.text}
+                    </div>
+                  )}
+                  
+                  {/* Show uploaded documents */}
+                  {uploadedDocuments.length > 0 && (
+                    <div className="mt-3">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Documentos subidos ({uploadedDocuments.length}):
+                      </h4>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {uploadedDocuments.map((docUrl, index) => {
+                          const fileName = decodeURIComponent(docUrl.split('/').pop() || 'documento');
+                          return (
+                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                              <div className="flex items-center space-x-2">
+                                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-xs">{fileName}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeUploadedDocument(index)}
+                                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Actions */}
                 <div className="flex justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setUploadedDocuments([]);
+                      setUploadMessage(null);
+                    }}
                     className={`px-4 py-2 rounded-md ${theme === 'dark' ? 'bg-gray-600 text-white hover:bg-gray-700' : 'bg-gray-300 text-gray-700 hover:bg-gray-400'} transition-colors`}
                   >
                     Cancelar

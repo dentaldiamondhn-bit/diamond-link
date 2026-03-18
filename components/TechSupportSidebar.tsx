@@ -15,6 +15,7 @@ const techSupportNavItems = [
   { href: '/tech-support/system-settings', label: 'Configuración del Sistema', icon: 'fas fa-cogs' },
   { href: '/tech-support/terminal', label: 'Terminal', icon: 'fas fa-terminal' },
   { href: '/tech-support/code-runner', label: 'Code Runner', icon: 'fas fa-code' },
+  { href: '/tech-support/claude-code', label: 'Claude Code', icon: 'fas fa-robot' },
   { href: '/tech-support/codespaces', label: 'Local Android Dev', icon: 'fas fa-mobile-alt' },
   { href: '/tech-support/github-codespaces', label: 'GitHub Codespaces', icon: 'fas fa-code-branch' },
   { href: '/tech-support/access-portal', label: 'Portal de Acceso', icon: 'fas fa-th-large' },
