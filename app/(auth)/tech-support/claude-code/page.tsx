@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useRef, useEffect } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
+import { conversationService, type IConversation, type IMessage } from '@/services/conversation.service';
+import { useAuth } from '@clerk/nextjs';
 
 interface Message {
   id: string;
@@ -18,8 +20,9 @@ interface ChatSession {
   id: string;
   title: string;
   messages: Message[];
-  createdAt: Date;
-  model?: string;
+  createdAt: string;
+  model: string;
+  userId: string;
 }
 
 interface AIModel {
@@ -35,12 +38,14 @@ interface AIModel {
 
 export default function ClaudeCodePage() {
   const { userRole } = useRoleBasedAccess();
+  const { userId } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('local-llama');
   const [isApiConfigured, setIsApiConfigured] = useState<boolean | null>(null);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Available AI models (free and paid options)
@@ -136,23 +141,87 @@ export default function ClaudeCodePage() {
     }
   };
 
-  const createNewSession = () => {
-    const newSession: ChatSession = {
-      id: `session-${Date.now()}`,
-      title: 'Nueva conversación',
-      messages: [],
-      createdAt: new Date()
-    };
-    setSessions(prev => [newSession, ...prev]);
-    setCurrentSession(newSession);
+  // Load conversations from database
+  const loadConversations = async () => {
+    if (!userId) return;
+    
+    try {
+      setIsLoadingSessions(true);
+      const conversations = await conversationService.getConversations(userId);
+      
+      // Convert database format to ChatSession format
+      const chatSessions: ChatSession[] = conversations.map(conv => ({
+        id: conv.id,
+        title: conv.title,
+        messages: (conv.messages || []).map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.createdAt),
+          model: msg.model
+        })),
+        createdAt: conv.createdAt,
+        model: conv.model,
+        userId: conv.userId
+      }));
+      
+      setSessions(chatSessions);
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+    } finally {
+      setIsLoadingSessions(false);
+    }
   };
 
-  const selectSession = (session: ChatSession) => {
+  const createNewSession = async () => {
+    if (!userId) return;
+    
+    try {
+      const newConversation = await conversationService.createConversation(userId, {
+        title: 'New Conversation',
+        model: selectedModel
+      });
+      
+      const newSession: ChatSession = {
+        id: newConversation.id,
+        title: newConversation.title,
+        messages: [],
+        createdAt: newConversation.createdAt,
+        model: newConversation.model,
+        userId: newConversation.userId
+      };
+      
+      setSessions(prev => [newSession, ...prev]);
+      setCurrentSession(newSession);
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+    }
+  };
+
+  const selectSession = async (session: ChatSession) => {
     setCurrentSession(session);
+  };
+
+  const saveMessage = async (conversationId: string, message: Omit<IMessage, 'id' | 'conversationId' | 'createdAt'>) => {
+    if (!userId) return;
+    
+    try {
+      await conversationService.addMessage(conversationId, message);
+    } catch (error) {
+      console.error('Failed to save message:', error);
+    }
   };
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading || !isApiConfigured) return;
+
+    // Create new session if none exists
+    let session = currentSession;
+    if (!session) {
+      await createNewSession();
+      session = currentSession;
+      if (!session) return;
+    }
 
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
@@ -161,27 +230,17 @@ export default function ClaudeCodePage() {
       timestamp: new Date()
     };
 
-    const newMessages = currentSession 
-      ? [...currentSession.messages, userMessage]
-      : [userMessage];
-
-    // Create new session if none exists
-    let session = currentSession;
-    if (!session) {
-      session = {
-        id: `session-${Date.now()}`,
-        title: input.trim().substring(0, 30) + (input.trim().length > 30 ? '...' : ''),
-        messages: newMessages,
-        createdAt: new Date()
-      };
-      setSessions(prev => [session!, ...prev]);
-    } else {
-      // Update existing session
-      session = { ...session, messages: newMessages };
-      setSessions(prev => prev.map(s => s.id === session.id ? session : s));
-    }
+    // Add user message to UI immediately
+    const updatedSession = { ...session, messages: [...session.messages, userMessage] };
+    setCurrentSession(updatedSession);
+    setSessions(prev => prev.map(s => s.id === session.id ? updatedSession : s));
     
-    setCurrentSession(session);
+    // Save user message to database
+    await saveMessage(session.id, {
+      role: 'user',
+      content: input.trim()
+    });
+
     setInput('');
     setIsLoading(true);
 
@@ -208,43 +267,72 @@ export default function ClaudeCodePage() {
         id: `msg-${Date.now()}`,
         role: 'assistant',
         content: data.message,
-        timestamp: new Date()
+        timestamp: new Date(),
+        model: selectedModel
       };
 
-      const updatedMessages = [...newMessages, assistantMessage];
-      const updatedSession = { ...session, messages: updatedMessages };
-      
-      setCurrentSession(updatedSession);
-      setSessions(prev => prev.map(s => s.id === session!.id ? updatedSession : s));
+      // Add assistant message to UI
+      const finalSession = { ...updatedSession, messages: [...updatedSession.messages, assistantMessage] };
+      setCurrentSession(finalSession);
+      setSessions(prev => prev.map(s => s.id === session.id ? finalSession : s));
+
+      // Save assistant message to database
+      await saveMessage(session.id, {
+        role: 'assistant',
+        content: data.message,
+        model: selectedModel
+      });
+
+      // Update conversation title if it's the first exchange
+      if (session.messages.length === 0) {
+        const newTitle = input.trim().substring(0, 30) + (input.trim().length > 30 ? '...' : '');
+        await conversationService.updateConversation(session.id, userId!, { title: newTitle });
+        
+        const titledSession = { ...finalSession, title: newTitle };
+        setCurrentSession(titledSession);
+        setSessions(prev => prev.map(s => s.id === session.id ? titledSession : s));
+      }
 
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessage: Message = {
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: `Error: ${(error as Error).message}`,
-        timestamp: new Date()
-      };
-      const updatedMessages = [...newMessages, errorMessage];
-      const updatedSession = { ...session, messages: updatedMessages };
-      setCurrentSession(updatedSession);
-      setSessions(prev => prev.map(s => s.id === session!.id ? updatedSession : s));
     } finally {
       setIsLoading(false);
     }
   };
 
+  const clearSession = async () => {
+    if (currentSession && userId) {
+      try {
+        await conversationService.deleteConversation(currentSession.id, userId);
+        setSessions(prev => prev.filter(s => s.id !== currentSession.id));
+        setCurrentSession(null);
+      } catch (error) {
+        console.error('Failed to delete conversation:', error);
+      }
+    }
+  };
+
+  // Load conversations on component mount
+  useEffect(() => {
+    if (userId) {
+      loadConversations();
+    }
+  }, [userId]);
+
+  // Check API configuration
+  useEffect(() => {
+    checkApiConfiguration();
+  }, [selectedModel]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [currentSession?.messages]);
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
-    }
-  };
-
-  const clearSession = () => {
-    if (currentSession) {
-      setSessions(prev => prev.filter(s => s.id !== currentSession.id));
-      setCurrentSession(null);
     }
   };
 
@@ -312,7 +400,12 @@ export default function ClaudeCodePage() {
             </button>
           </div>
           
-          {sessions.length === 0 ? (
+          {isLoadingSessions ? (
+            <div className="text-center py-12">
+              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-500 dark:text-gray-400">Loading conversations...</p>
+            </div>
+          ) : sessions.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-2xl">💬</span>
