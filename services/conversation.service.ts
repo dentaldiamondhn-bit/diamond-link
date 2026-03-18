@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 // Zod schemas for validation
 const ConversationSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.string().min(1),
   title: z.string().min(1).max(255).default('New Conversation'),
   model: z.string().min(1).max(50).default('local-llama'),
 });
