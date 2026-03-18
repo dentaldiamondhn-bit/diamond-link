@@ -11,6 +11,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  model?: string;
 }
 
 interface ChatSession {
@@ -28,6 +29,8 @@ interface AIModel {
   apiRoute: string;
   isFree: boolean;
   description: string;
+  icon: string;
+  color: string;
 }
 
 export default function ClaudeCodePage() {
@@ -48,7 +51,9 @@ export default function ClaudeCodePage() {
       provider: 'Google',
       apiRoute: '/api/gemini-chat',
       isFree: true,
-      description: 'Free tier: 1,500 requests/day'
+      description: 'Fast and capable',
+      icon: '✨',
+      color: 'blue'
     },
     {
       id: 'claude-sonnet-4',
@@ -56,7 +61,9 @@ export default function ClaudeCodePage() {
       provider: 'Anthropic',
       apiRoute: '/api/claude-cli',
       isFree: false,
-      description: 'Paid API key required'
+      description: 'Most capable model',
+      icon: '🧠',
+      color: 'orange'
     },
     {
       id: 'local-llama',
@@ -64,7 +71,9 @@ export default function ClaudeCodePage() {
       provider: 'Ollama',
       apiRoute: '/api/local-ai',
       isFree: true,
-      description: 'Local models - completely free'
+      description: 'Private and offline',
+      icon: '🦙',
+      color: 'green'
     },
     {
       id: 'groq-llama',
@@ -72,7 +81,19 @@ export default function ClaudeCodePage() {
       provider: 'Groq',
       apiRoute: '/api/groq-chat',
       isFree: true,
-      description: 'Free tier: 30 requests/minute'
+      description: 'Ultra fast responses',
+      icon: '⚡',
+      color: 'purple'
+    },
+    {
+      id: 'gpt-4o',
+      name: 'GPT-4o',
+      provider: 'OpenAI',
+      apiRoute: '/api/openai-chat',
+      isFree: false,
+      description: 'Advanced reasoning',
+      icon: '🚀',
+      color: 'emerald'
     }
   ];
 
@@ -228,96 +249,156 @@ export default function ClaudeCodePage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar - Sessions List */}
-      <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <button
-            onClick={createNewSession}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mb-3"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Nueva Conversación
-          </button>
-          
-          {/* Model Selector */}
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Modelo AI:
-            </label>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {availableModels.map(model => (
-                <option key={model.id} value={model.id}>
-                  {model.name} ({model.isFree ? 'Gratis' : 'Pago'})
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {availableModels.find(m => m.id === selectedModel)?.description}
-            </p>
+    <div className="h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Modern Sidebar */}
+      <div className="w-80 bg-white/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <span className="text-white text-lg font-bold">AI</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Chat Assistant</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Multi-Model Interface</p>
+            </div>
           </div>
         </div>
         
+        {/* Model Selector */}
+        <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50">
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+              AI Model
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {availableModels.map((model) => (
+                <button
+                  key={model.id}
+                  onClick={() => setSelectedModel(model.id)}
+                  className={`p-3 rounded-lg border-2 transition-all duration-200 flex flex-col items-center gap-2 ${
+                    selectedModel === model.id
+                      ? `border-${model.color} bg-${model.color}-50 dark:bg-${model.color}-900/20`
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800'
+                  }`}
+                >
+                  <span className="text-2xl mb-1">{model.icon}</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{model.name}</span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    model.isFree ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                  }`}>
+                    {model.isFree ? 'Free' : 'Paid'}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {availableModels.find(m => m.id === selectedModel)?.description}
+            </div>
+          </div>
+        </div>
+        
+        {/* Chat Sessions */}
         <div className="flex-1 overflow-y-auto p-2">
+          <div className="mb-4">
+            <button
+              onClick={createNewSession}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="font-medium">New Chat</span>
+            </button>
+          </div>
+          
           {sessions.length === 0 ? (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-4 text-sm">
-              No hay conversaciones aún
-            </p>
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl">💬</span>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                Start a conversation
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+                Select an AI model and start chatting with your coding assistant
+              </p>
+            </div>
           ) : (
-            sessions.map(session => (
-              <button
-                key={session.id}
-                onClick={() => selectSession(session)}
-                className={`w-full text-left p-3 rounded-lg mb-1 transition-colors ${
-                  currentSession?.id === session.id
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <div className="font-medium text-sm truncate">{session.title}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {session.messages.length} mensajes
-                </div>
-              </button>
-            ))
+            <div className="space-y-2">
+              {sessions.map((session) => (
+                <button
+                  key={session.id}
+                  onClick={() => selectSession(session)}
+                  className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
+                    currentSession?.id === session.id
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 dark:text-white truncate">{session.title}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {session.messages.length} messages • {new Date(session.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                      availableModels.find(m => m.id === session.model)?.isFree
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                    }`}>
+                      {availableModels.find(m => m.id === session.model)?.name || 'Unknown'}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
         </div>
-
+        
         {/* API Status */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2 text-sm">
-            <div className={`w-2 h-2 rounded-full ${
+        <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${
               isApiConfigured === true ? 'bg-green-500' : 
               isApiConfigured === false ? 'bg-red-500' : 'bg-yellow-500'
             }`}></div>
-            <span className="text-gray-600 dark:text-gray-400">
-              {isApiConfigured === true ? `${availableModels.find(m => m.id === selectedModel)?.name} Listo` : 
-               isApiConfigured === false ? 'API No Disponible' : 'Verificando...'}
-            </span>
-          </div>
-          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Modelo actual: {availableModels.find(m => m.id === selectedModel)?.name}
-            {availableModels.find(m => m.id === selectedModel)?.isFree && ' ✅ Gratis'}
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                {isApiConfigured === true ? 
+                  `${availableModels.find(m => m.id === selectedModel)?.name} Connected` : 
+                  'API Not Configured'
+                }
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {availableModels.find(m => m.id === selectedModel)?.provider} • 
+                {availableModels.find(m => m.id === selectedModel)?.description}
+              </div>
+            </div>
           </div>
           {isApiConfigured === false && (
-            <p className="text-xs text-red-500 mt-2">
-              {selectedModel === 'claude-sonnet-4' ? 'Configura ANTHROPIC_API_KEY en .env' :
-               selectedModel === 'local-llama' ? 'Instala Ollama: curl -fsSL https://ollama.com/install.sh | sh' :
-               selectedModel === 'groq-llama' ? 'Configura GROQ_API_KEY en .env' :
-               'Configura GEMINI_API_KEY en .env'}
-            </p>
+            <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h-1a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span className="text-sm font-medium text-red-700 dark:text-red-300">Configuration Required</span>
+              </div>
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {selectedModel === 'claude-sonnet-4' ? 'Add ANTHROPIC_API_KEY to .env' :
+                 selectedModel === 'local-llama' ? 'Install Ollama: curl -fsSL https://ollama.com/install.sh | sh' :
+                 selectedModel === 'groq-llama' ? 'Add GROQ_API_KEY to .env' :
+                 selectedModel === 'gpt-4o' ? 'Add OPENAI_API_KEY to .env' :
+                 'Add GEMINI_API_KEY to .env'}
+              </p>
+            </div>
           )}
         </div>
       </div>
-
+      
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
         {currentSession ? (
           <>
             {/* Header */}
@@ -419,91 +500,149 @@ export default function ClaudeCodePage() {
             </div>
 
             {/* Input Area */}
-            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder={isApiConfigured ? "Escribe tu mensaje..." : "API no configurada"}
-                    disabled={!isApiConfigured || isLoading}
-                    rows={2}
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
+            <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-t border-gray-200/50 dark:border-gray-700/50 p-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1 relative">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${isApiConfigured ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {availableModels.find(m => m.id === selectedModel)?.name}
+                        </span>
+                      </div>
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        availableModels.find(m => m.id === selectedModel)?.isFree
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {availableModels.find(m => m.id === selectedModel)?.icon || '🤖'} {availableModels.find(m => m.id === selectedModel)?.name || 'AI'}
+                      </div>
+                    </div>
+                    <textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder={isApiConfigured ? "Escribe tu mensaje aquí..." : "Configura la API para comenzar"}
+                      disabled={!isApiConfigured || isLoading}
+                      rows={3}
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-medium">Enter</span> para enviar • <span className="font-medium">Shift + Enter</span> para nueva línea
+                      </p>
+                      <div className="text-xs text-gray-400">
+                        {input.length}/2000 caracteres
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={sendMessage}
+                    disabled={!input.trim() || isLoading || !isApiConfigured}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[120px] justify-center"
+                  >
+                    {isLoading ? (
+                      <>
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                        <span>Enviar</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button
-                  onClick={sendMessage}
-                  disabled={!input.trim() || isLoading || !isApiConfigured}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
-                >
-                  {isLoading ? (
-                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  )}
-                </button>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Presiona Enter para enviar, Shift+Enter para nueva línea
-              </p>
             </div>
           </>
         ) : (
           /* No session selected */
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
             <div className="text-center max-w-2xl">
               {/* Model Selection for Empty State */}
-              <div className="mb-6">
-                <label className="block text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">
+              <div className="mb-8">
+                <label className="block text-xl font-bold text-gray-900 dark:text-white mb-4">
                   Selecciona Modelo AI:
                 </label>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg mb-3"
-                >
-                  {availableModels.map(model => (
-                    <option key={model.id} value={model.id}>
-                      {model.name} ({model.isFree ? 'Gratis' : 'Pago'})
-                    </option>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                  {availableModels.map((model) => (
+                    <button
+                      key={model.id}
+                      onClick={() => setSelectedModel(model.id)}
+                      className={`p-4 rounded-2xl border-2 transition-all duration-200 flex flex-col items-center gap-3 ${
+                        selectedModel === model.id
+                          ? `border-${model.color} bg-${model.color}-50 dark:bg-${model.color}-900/20 shadow-lg`
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800'
+                      }`}
+                    >
+                      <span className="text-3xl mb-2">{model.icon}</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-white">{model.name}</span>
+                      <span className={`text-sm px-3 py-1 rounded-full font-medium ${
+                        model.isFree ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {model.isFree ? '✅ Free' : '💳 Paid'}
+                      </span>
+                    </button>
                   ))}
-                </select>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                </div>
+                <p className="text-gray-600 dark:text-gray-400">
                   {availableModels.find(m => m.id === selectedModel)?.description}
                 </p>
               </div>
               
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl">
+                <span className="text-5xl text-white font-bold">AI</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
                 {availableModels.find(m => m.id === selectedModel)?.name} Assistant
               </h2>
-              <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md">
-                Asistente de IA para ayudarte con código, depuración y desarrollo
+              <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
+                Asistente de IA avanzado para desarrollo de software
+                <br />
+                <span className="font-semibold text-gray-900 dark:text-white">Escribe código, depura errores, explica conceptos</span>
               </p>
+              <div className="flex flex-wrap justify-center gap-4 max-w-2xl mx-auto mb-8">
+                <div className="px-6 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-200 dark:border-blue-700">
+                  <span className="text-blue-700 dark:text-blue-300 font-bold">💻 Desarrollo</span>
+                </div>
+                <div className="px-6 py-3 bg-green-50 dark:bg-green-900/20 rounded-2xl border border-green-200 dark:border-green-700">
+                  <span className="text-green-700 dark:text-green-300 font-bold">🐛 Depuración</span>
+                </div>
+                <div className="px-6 py-3 bg-purple-50 dark:bg-purple-900/20 rounded-2xl border border-purple-200 dark:border-purple-700">
+                  <span className="text-purple-700 dark:text-purple-300 font-bold">📚 Aprendizaje</span>
+                </div>
+              </div>
               <button
                 onClick={createNewSession}
                 disabled={!isApiConfigured}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-xl text-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
               >
-                {!isApiConfigured ? 'API No Configurada' : 'Iniciar Conversación'}
+                {!isApiConfigured ? '🔧 API No Configurada' : '🚀 Iniciar Conversación'}
               </button>
               {!isApiConfigured && (
-                <p className="text-sm text-red-500 mt-2">
-                  {selectedModel === 'claude-sonnet-4' ? 'Configura ANTHROPIC_API_KEY en .env' :
-                   selectedModel === 'local-llama' ? 'Instala Ollama: curl -fsSL https://ollama.com/install.sh | sh' :
-                   selectedModel === 'groq-llama' ? 'Configura GROQ_API_KEY en .env' :
-                   'Configura GEMINI_API_KEY en .env'}
-                </p>
+                <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-700 max-w-2xl mx-auto">
+                  <div className="flex items-center gap-3 mb-3">
+                    <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h-1a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-lg font-bold text-red-700 dark:text-red-300">Configuración Requerida</span>
+                  </div>
+                  <p className="text-red-600 dark:text-red-400">
+                    {selectedModel === 'claude-sonnet-4' ? 'Añade ANTHROPIC_API_KEY a tu archivo .env' :
+                     selectedModel === 'local-llama' ? 'Instala Ollama: curl -fsSL https://ollama.com/install.sh | sh' :
+                     selectedModel === 'groq-llama' ? 'Añade GROQ_API_KEY a tu archivo .env' :
+                     selectedModel === 'gpt-4o' ? 'Añade OPENAI_API_KEY a tu archivo .env' :
+                     'Añade GEMINI_API_KEY a tu archivo .env'}
+                  </p>
+                </div>
               )}
             </div>
           </div>
