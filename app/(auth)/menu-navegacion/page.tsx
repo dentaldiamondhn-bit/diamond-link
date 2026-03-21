@@ -333,7 +333,7 @@ function MenuNavegacionContent() {
     const formatDate = (dateString: string) => {
       if (!dateString) return null;
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
+      return date.toLocaleDateString('es-HN', {
         day: 'numeric',
         month: 'short',
         year: 'numeric'
@@ -426,7 +426,7 @@ function MenuNavegacionContent() {
     const formatDate = (dateString: string) => {
       if (!dateString) return null;
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
+      return date.toLocaleDateString('es-HN', {
         day: 'numeric',
         month: 'short',
         year: 'numeric'
@@ -584,7 +584,7 @@ function MenuNavegacionContent() {
     const formatDate = (dateString: string) => {
       if (!dateString) return null;
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
+      return date.toLocaleDateString('es-HN', {
         day: 'numeric',
         month: 'short',
         year: 'numeric'
