@@ -4,36 +4,27 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { TicketService } from '@/services/ticketService';
 import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData, ActivityType } from '@/types/ticket';
-import { useTheme } from '@/contexts/ThemeContext';
 import { 
   Plus, 
+  Search, 
   Filter, 
-  Clock, 
-  AlertCircle, 
-  CheckCircle, 
-  User, 
-  Calendar, 
-  MessageSquare, 
-  Settings, 
-  TrendingUp, 
-  Paperclip,
-  Search,
-  X,
-  RefreshCw,
+  RefreshCw, 
+  Calendar,
+  Clock,
+  User,
   FileText,
-  Bell,
-  Wrench,
-  Lightbulb,
+  AlertCircle,
+  CheckCircle,
   Activity,
   ChevronRight,
   Send,
-  AlertTriangle
+  AlertTriangle,
+  Settings
 } from 'lucide-react';
 import { UserSelect } from '@/components/calendar/UserSelect';
 
 export default function TicketsPage() {
   const { user } = useUser();
-  const { theme } = useTheme();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,17 +39,8 @@ export default function TicketsPage() {
     search: ''
   });
 
-  // User role from metadata - handle both role formats
   const userRole = user?.publicMetadata?.role as UserRole || UserRole.STAFF;
   const normalizedUserRole = userRole?.replace('-', '_')?.toUpperCase() as any;
-
-  useEffect(() => {
-    loadTickets();
-  }, [userRole]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [tickets, filters]);
 
   const loadTickets = async () => {
     try {
@@ -124,6 +106,11 @@ export default function TicketsPage() {
 
     setFilteredTickets(filtered);
   };
+
+  useEffect(() => {
+    loadTickets();
+    applyFilters();
+  }, [userRole, filters]);
 
   const handleCreateTicket = async (ticketData: CreateTicketData) => {
     if (!user?.id) return;
@@ -466,9 +453,21 @@ export default function TicketsPage() {
                       {getTypeIcon(ticket.type)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                        {ticket.title}
-                      </h3>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          {ticket.ticket_number && (
+                            <span className="inline-flex items-center px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm font-medium mr-2">
+                              {ticket.ticket_number}
+                            </span>
+                          )}
+                          {ticket.title}
+                        </h3>
+                        {ticket.ticket_number && (
+                          <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
+                            Ticket #{ticket.ticket_number}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-slate-500 dark:text-slate-400 text-sm truncate mt-1">
                         {ticket.description?.length > 120 
                           ? `${ticket.description.substring(0, 120)}...` 
@@ -578,7 +577,6 @@ export default function TicketsPage() {
         <CreateTicketModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateTicket}
-          userRole={userRole}
         />
       )}
 
@@ -587,7 +585,6 @@ export default function TicketsPage() {
         <TicketDetailModal
           ticket={selectedTicket}
           onClose={() => setSelectedTicket(null)}
-          userRole={userRole}
           onUpdate={loadTickets}
           onViewAttachment={handleViewAttachment}
         />
@@ -720,12 +717,10 @@ export default function TicketsPage() {
 }
 
 // Create Ticket Modal Component - Modern Design
-function CreateTicketModal({ onClose, onSubmit, userRole }: { 
+function CreateTicketModal({ onClose, onSubmit }: { 
   onClose: () => void; 
   onSubmit: (data: CreateTicketData) => void;
-  userRole: UserRole;
 }) {
-  const { theme } = useTheme();
   const [formData, setFormData] = useState<CreateTicketData>({
     title: '',
     description: '',
@@ -742,7 +737,6 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -862,7 +856,7 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   useEffect(() => {
     const selectedAttachments = getSelectedAttachments();
     setFormData(prev => ({ ...prev, attachments: selectedAttachments }));
-  }, [attachments]);
+  }, [attachments, getSelectedAttachments]);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1137,7 +1131,6 @@ function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
   onClose: () => void;
   onSelectPatient: (patient: any) => void;
 }) {
-  const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1256,33 +1249,26 @@ function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
 function TicketDetailModal({ 
   ticket, 
   onClose, 
-  userRole, 
   onUpdate,
   onViewAttachment 
 }: { 
   ticket: Ticket; 
   onClose: () => void; 
-  userRole: UserRole;
   onUpdate: () => void;
   onViewAttachment: (attachment: any) => void;
 }) {
-  const { theme } = useTheme();
   const { user } = useUser();
   const [comment, setComment] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const handleAddComment = async (ticketId?: string) => {
     if (!comment.trim() || !user?.id) return;
 
     try {
-      setLoading(true);
       await TicketService.addComment(ticketId || ticket.id, user.id, comment);
       setComment('');
       onUpdate();
     } catch (error) {
       console.error('Error adding comment:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -1309,7 +1295,14 @@ function TicketDetailModal({
                 <FileText className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">{ticket.title}</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  {ticket.ticket_number && (
+                    <span className="inline-flex items-center px-3 py-2 bg-white/20 rounded-xl text-sm font-medium mr-3">
+                      {ticket.ticket_number}
+                    </span>
+                  )}
+                  {ticket.title}
+                </h2>
                 <div className="flex gap-2 mt-2">
                   {(() => {
                     const statusStyles = getStatusStyles(ticket.status);

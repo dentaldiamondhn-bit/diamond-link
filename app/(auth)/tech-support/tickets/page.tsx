@@ -7,9 +7,7 @@ import { TicketService } from '@/services/ticketService';
 import { StorageService } from '@/services/storageService';
 import { Ticket, TicketStatus, TicketPriority, TicketType, CreateTicketData, CreateTicketAttachmentData, UserRole } from '@/types/ticket';
 import SystemLogs from '@/components/SystemLogs';
-import TicketTimeline from '@/components/TicketTimeline';
 import { useUser } from '@clerk/nextjs';
-import { useTheme } from '@/contexts/ThemeContext';
 import { UserSelect } from '@/components/calendar/UserSelect';
 import { 
   Ticket as TicketIcon, 
@@ -39,19 +37,9 @@ import {
 
 export default function TechSupportTickets() {
   const { userRole } = useRoleBasedAccess();
-  const { user, isLoaded } = useUser();
-  const { theme } = useTheme();
+  const { user } = useUser();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Prevent hydration mismatch - show loading until client is ready
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
   const [filter, setFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -68,30 +56,15 @@ export default function TechSupportTickets() {
     is_reminder: false,
     assignee_ids: [],
     attachments: [],
-    patient_id: '',
-    maintenance_start: '',
-    maintenance_end: ''
+    patient_id: ''
   });
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [showPatientSearch, setShowPatientSearch] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
-  const [showAttachmentSearch, setShowAttachmentSearch] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
-  const [loadingAttachments, setLoadingAttachments] = useState(false);
-  
-  // Document upload state
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState<{type: 'success' | 'warning', text: string} | null>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([]);
-
-  // Check if user is tech support
-  if (userRole !== 'tech_support') {
-    return <AccessDenied title="Acceso Denegado" message="No tienes permiso para acceder a esta página." />;
-  }
-
-  useEffect(() => {
-    loadTickets();
-  }, []);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
   const loadTickets = async () => {
     try {
@@ -107,6 +80,21 @@ export default function TechSupportTickets() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadTickets();
+  }, []);
+
+  useEffect(() => {
+    if (selectedPatient && formData.type === 'PATIENT_CASE') {
+      loadPatientAttachments(selectedPatient.paciente_id);
+    }
+  }, [selectedPatient, formData.type]);
+
+  // Check if user is tech support
+  if (userRole !== 'tech_support') {
+    return <AccessDenied title="Acceso Denegado" message="No tienes permiso para acceder a esta página." />;
+  }
 
   const handleCreateTicket = async (ticketData: CreateTicketData) => {
     if (!user?.id) return;
@@ -196,7 +184,7 @@ export default function TechSupportTickets() {
       }
 
       // Show success message
-      let message = `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`;
+      const message = `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`;
       
       setUploadMessage({
         type: 'success',
@@ -349,26 +337,6 @@ export default function TechSupportTickets() {
     } finally {
       setLoadingAttachments(false);
     }
-  };
-
-  useEffect(() => {
-    if (selectedPatient && formData.type === 'PATIENT_CASE') {
-      loadPatientAttachments(selectedPatient.paciente_id);
-    }
-  }, [selectedPatient, formData.type]);
-
-  const toggleAttachment = (attachment: any) => {
-    const isSelected = attachments.find(a => 
-      a.type === attachment.type && a.id === attachment.id && a.selected
-    );
-    
-    const updatedAttachments = attachments.map(a => 
-      a.type === attachment.type && a.id === attachment.id 
-        ? { ...a, selected: !isSelected }
-        : a
-    );
-    
-    setAttachments(updatedAttachments);
   };
 
   const calculateMaintenanceDuration = (start: string, end: string): string => {
@@ -683,9 +651,21 @@ export default function TechSupportTickets() {
                     {getTypeIcon(ticket.type)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      {ticket.title}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {ticket.ticket_number && (
+                          <span className="inline-flex items-center px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium mr-2">
+                            {ticket.ticket_number}
+                          </span>
+                        )}
+                        {ticket.title}
+                      </h3>
+                      {ticket.ticket_number && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
+                          Ticket #{ticket.ticket_number}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-slate-500 dark:text-slate-400 text-sm truncate mt-1">
                       {ticket.description || 'Sin descripción'}
                     </p>
@@ -759,7 +739,14 @@ export default function TechSupportTickets() {
                     {getTypeIcon(selectedTicket.type)}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white">{selectedTicket.title}</h2>
+                    <h2 className="text-2xl font-bold text-white">
+                      {selectedTicket.ticket_number && (
+                        <span className="inline-flex items-center px-3 py-2 bg-white/20 rounded-xl text-sm font-medium mr-3">
+                          {selectedTicket.ticket_number}
+                        </span>
+                      )}
+                      {selectedTicket.title}
+                    </h2>
                     <div className="flex gap-2 mt-2">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
                         {selectedTicket.type}
@@ -833,12 +820,37 @@ export default function TechSupportTickets() {
                   <div>
                     <h3 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
                       <Activity className="w-5 h-5 text-indigo-600" />
-                      Historial de Actividad
+                      Línea de Tiempo de Actividad
                     </h3>
-                    <TicketTimeline 
-                      activities={(selectedTicket.activities || []).filter(activity => activity.user) as any} 
-                      className="max-h-64 overflow-y-auto"
-                    />
+                    {selectedTicket.activities && selectedTicket.activities.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedTicket.activities.map((activity) => (
+                          <div key={activity.id} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                  {activity.activity_type === 'STATUS_CHANGE' && 'Cambio de estado'}
+                                  {activity.activity_type === 'COMMENT' && 'Comentario'}
+                                  {activity.activity_type === 'ASSIGNMENT' && 'Asignación'}
+                                  {activity.activity_type === 'EDIT' && 'Edición'}
+                                </p>
+                                <p className="text-sm mt-1 text-slate-800 dark:text-white">{activity.content}</p>
+                              </div>
+                              <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                {new Date(activity.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="inline-flex items-center justify-center w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full mb-3">
+                          <Activity className="w-6 h-6 text-slate-400" />
+                        </div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">No hay actividad registrada</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1184,7 +1196,6 @@ function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
   onClose: () => void;
   onSelectPatient: (patient: any) => void;
 }) {
-  const { theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
