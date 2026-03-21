@@ -189,8 +189,6 @@ export class CompletedTreatmentService {
         };
       }
 
-      console.log('🔍 Patient data from patients table:', patientData);
-
       // Fetch treatment items
       const { data: items, error: itemsError } = await supabase
         .from('vista_tratamientos_realizados_detalles')

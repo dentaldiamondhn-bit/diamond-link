@@ -32,7 +32,6 @@ export interface PaymentSummary {
 export class PaymentService {
   static async addPayment(payment: Omit<Payment, 'id' | 'creado_en' | 'actualizado_en'>, treatmentCurrency?: Currency): Promise<Payment> {
     try {
-      console.log('Adding payment:', { payment, treatmentCurrency });
       
       const paymentData = {
         ...payment,
@@ -48,20 +47,16 @@ export class PaymentService {
           paymentData.monto_convertido = conversion.convertedAmount;
           paymentData.moneda_conversion = treatmentCurrency;
           paymentData.tasa_conversion = conversion.exchangeRate;
-          console.log('Currency conversion applied:', conversion);
         } catch (error) {
           console.warn('Currency conversion failed:', error);
         }
       }
-
-      console.log('Final payment data:', paymentData);
 
       const { data, error } = await supabase.from('payments').insert([paymentData]).select().single();
       if (error) {
         console.error('Supabase error:', error);
         throw error;
       }
-      console.log('Payment added successfully:', data);
       return data;
     } catch (error) {
       console.error('Error adding payment:', error);
