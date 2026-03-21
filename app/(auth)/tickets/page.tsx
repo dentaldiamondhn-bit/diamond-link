@@ -5,7 +5,30 @@ import { useUser } from '@clerk/nextjs';
 import { TicketService } from '@/services/ticketService';
 import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData, ActivityType } from '@/types/ticket';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Plus, Filter, Clock, AlertCircle, CheckCircle, User, Calendar, MessageSquare, Settings, TrendingUp, Paperclip } from 'lucide-react';
+import { 
+  Plus, 
+  Filter, 
+  Clock, 
+  AlertCircle, 
+  CheckCircle, 
+  User, 
+  Calendar, 
+  MessageSquare, 
+  Settings, 
+  TrendingUp, 
+  Paperclip,
+  Search,
+  X,
+  RefreshCw,
+  FileText,
+  Bell,
+  Wrench,
+  Lightbulb,
+  Activity,
+  ChevronRight,
+  Send,
+  AlertTriangle
+} from 'lucide-react';
 import { UserSelect } from '@/components/calendar/UserSelect';
 
 export default function TicketsPage() {
@@ -125,55 +148,104 @@ export default function TicketsPage() {
     }
   };
 
-  const getPriorityColor = (priority: TicketPriority) => {
-    switch (priority) {
-      case TicketPriority.URGENT: return 'text-red-600 bg-red-50 border-red-200';
-      case TicketPriority.HIGH: return 'text-orange-600 bg-orange-50 border-orange-200';
-      case TicketPriority.MEDIUM: return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case TicketPriority.LOW: return 'text-green-600 bg-green-50 border-green-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getStatusColor = (status: TicketStatus) => {
+  // Modern status styles with gradients
+  const getStatusStyles = (status: TicketStatus) => {
     switch (status) {
-      case TicketStatus.OPEN: return 'text-blue-600 bg-blue-50 border-blue-200';
-      case TicketStatus.IN_PROGRESS: return 'text-purple-600 bg-purple-50 border-purple-200';
-      case TicketStatus.PENDING_REVIEW: return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case TicketStatus.RESOLVED: return 'text-green-600 bg-green-50 border-green-200';
-      case TicketStatus.CLOSED: return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case TicketStatus.OPEN: 
+        return { 
+          bg: 'bg-gradient-to-r from-blue-500 to-blue-600', 
+          text: 'text-white',
+          icon: <AlertCircle className="w-3.5 h-3.5" />
+        };
+      case TicketStatus.IN_PROGRESS: 
+        return { 
+          bg: 'bg-gradient-to-r from-violet-500 to-violet-600', 
+          text: 'text-white',
+          icon: <Activity className="w-3.5 h-3.5" />
+        };
+      case TicketStatus.PENDING_REVIEW: 
+        return { 
+          bg: 'bg-gradient-to-r from-amber-500 to-amber-600', 
+          text: 'text-white',
+          icon: <Clock className="w-3.5 h-3.5" />
+        };
+      case TicketStatus.RESOLVED: 
+        return { 
+          bg: 'bg-gradient-to-r from-emerald-500 to-emerald-600', 
+          text: 'text-white',
+          icon: <CheckCircle className="w-3.5 h-3.5" />
+        };
+      case TicketStatus.CLOSED: 
+        return { 
+          bg: 'bg-gradient-to-r from-slate-500 to-slate-600', 
+          text: 'text-white',
+          icon: <CheckCircle className="w-3.5 h-3.5" />
+        };
+      default: 
+        return { 
+          bg: 'bg-gradient-to-r from-gray-500 to-gray-600', 
+          text: 'text-white',
+          icon: <AlertCircle className="w-3.5 h-3.5" />
+        };
     }
   };
 
+  // Modern priority styles
+  const getPriorityStyles = (priority: TicketPriority) => {
+    switch (priority) {
+      case TicketPriority.URGENT: 
+        return { 
+          bg: 'bg-gradient-to-r from-red-500 to-red-600', 
+          text: 'text-white',
+          glow: 'shadow-red-500/30'
+        };
+      case TicketPriority.HIGH: 
+        return { 
+          bg: 'bg-gradient-to-r from-orange-500 to-orange-600', 
+          text: 'text-white',
+          glow: 'shadow-orange-500/30'
+        };
+      case TicketPriority.MEDIUM: 
+        return { 
+          bg: 'bg-gradient-to-r from-amber-500 to-yellow-500', 
+          text: 'text-white',
+          glow: 'shadow-amber-500/30'
+        };
+      case TicketPriority.LOW: 
+        return { 
+          bg: 'bg-gradient-to-r from-emerald-500 to-green-500', 
+          text: 'text-white',
+          glow: 'shadow-emerald-500/30'
+        };
+      default: 
+        return { 
+          bg: 'bg-gradient-to-r from-gray-500 to-slate-500', 
+          text: 'text-white',
+          glow: 'shadow-gray-500/30'
+        };
+    }
+  };
+
+  // Type icons
   const getTypeIcon = (type: TicketType) => {
     switch (type) {
-      case TicketType.SYSTEM_ISSUE: return <Settings className="w-4 h-4" />;
-      case TicketType.IMPLEMENTATION: return <TrendingUp className="w-4 h-4" />;
+      case TicketType.SYSTEM_ISSUE: return <AlertTriangle className="w-4 h-4" />;
+      case TicketType.IMPLEMENTATION: return <Lightbulb className="w-4 h-4" />;
       case TicketType.TASK: return <CheckCircle className="w-4 h-4" />;
-      case TicketType.REMINDER: return <Clock className="w-4 h-4" />;
-      default: return <AlertCircle className="w-4 h-4" />;
+      case TicketType.REMINDER: return <Bell className="w-4 h-4" />;
+      case TicketType.PATIENT_CASE: return <User className="w-4 h-4" />;
+      default: return <FileText className="w-4 h-4" />;
     }
   };
 
   const canCreateTicket = () => {
-    // Handle both role formats (tech_support and tech-support)
     return normalizedUserRole === 'STAFF' || 
            normalizedUserRole === 'DOCTOR' || 
            normalizedUserRole === 'ADMIN' || 
            normalizedUserRole === 'TECH_SUPPORT';
   };
 
-  const canEditTicket = (ticket: Ticket) => {
-    return ticket.creator_id === user?.id || 
-           ticket.assignee_id === user?.id || 
-           userRole === UserRole.ADMIN || 
-           userRole === UserRole.TECH_SUPPORT;
-  };
-
   const canChangeTicketStatus = (ticket: Ticket) => {
-    // Only assignees can change ticket status (not creators)
-    // Admin and tech support can also change status for oversight
     const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === user?.id);
     return isAssignee || 
            userRole === UserRole.ADMIN || 
@@ -181,8 +253,6 @@ export default function TicketsPage() {
   };
 
   const canViewTicketDetails = (ticket: Ticket) => {
-    // Both creators and assignees can view ticket details
-    // Admin and tech support can also view for oversight
     const isCreator = ticket.creator_id === user?.id;
     const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === user?.id);
     return isCreator || isAssignee || 
@@ -201,7 +271,6 @@ export default function TicketsPage() {
   };
 
   const getAttachmentUrl = (attachment: any) => {
-    // Generate appropriate URLs based on attachment type
     switch (attachment.attachment_type) {
       case 'treatment':
         return `/tratamientos-completados/${attachment.attachment_id}/view`;
@@ -226,41 +295,109 @@ export default function TicketsPage() {
 
   return (
     <>
-      {/* Contenido Principal */}
-      <div className="py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Sección de Bienvenida */}
-          <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg mb-8">
-            <div className="px-4 py-5 sm:p-6">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                Tickets y Tareas
-              </h2>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">
-                Gestiona tickets y tareas para la clínica dental
-              </p>
-              <div className="mt-4 flex justify-end">
-                {canCreateTicket() && (
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Crear Ticket
-                  </button>
-                )}
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-6">
+        <div className="max-w-7xl mx-auto">
+        {/* Modern Header */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600 rounded-2xl shadow-xl mb-6">
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+          
+          <div className="relative p-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <FileText className="w-6 h-6 text-white" />
+                  </div>
+                  <h1 className="text-3xl font-bold text-white">Tickets y Tareas</h1>
+                </div>
+                <p className="text-emerald-100 text-lg">Gestiona tickets y tareas para la clínica dental</p>
+              </div>
+              
+              {canCreateTicket() && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-white text-emerald-600 rounded-xl font-semibold hover:bg-emerald-50 transition-all shadow-lg hover:shadow-xl"
+                >
+                  <Plus className="w-5 h-5" />
+                  Crear Ticket
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Total</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-white">{filteredTickets.length}</p>
+              </div>
+              <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+                <FileText className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
               </div>
             </div>
           </div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Abiertos</p>
+                <p className="text-2xl font-bold text-blue-600">{tickets.filter(t => t.status === TicketStatus.OPEN).length}</p>
+              </div>
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                <AlertCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">En Progreso</p>
+                <p className="text-2xl font-bold text-violet-600">{tickets.filter(t => t.status === TicketStatus.IN_PROGRESS).length}</p>
+              </div>
+              <div className="p-3 bg-violet-100 dark:bg-violet-900/30 rounded-xl">
+                <Activity className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Resueltos</p>
+                <p className="text-2xl font-bold text-emerald-600">{tickets.filter(t => t.status === TicketStatus.RESOLVED).length}</p>
+              </div>
+              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </div>
+          </div>
+        </div>
 
-          {/* Filters */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-8">
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex items-center">
-                <Filter className="w-4 h-4 mr-2 text-gray-600 dark:text-gray-400" />
+        {/* Modern Filters */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-4 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar tickets..."
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              />
+            </div>
+            
+            {/* Filter Dropdowns */}
+            <div className="flex flex-wrap gap-3">
+              <div className="relative">
                 <select
                   value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                  className={`rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                  className="appearance-none px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all cursor-pointer"
                 >
                   <option value="">Todos los Estados</option>
                   <option value={TicketStatus.OPEN}>Abierto</option>
@@ -269,13 +406,14 @@ export default function TicketsPage() {
                   <option value={TicketStatus.RESOLVED}>Resuelto</option>
                   <option value={TicketStatus.CLOSED}>Cerrado</option>
                 </select>
+                <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
 
-              <div className="flex items-center">
+              <div className="relative">
                 <select
                   value={filters.type}
                   onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-                  className={`rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                  className="appearance-none px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all cursor-pointer"
                 >
                   <option value="">Todos los Tipos</option>
                   <option value={TicketType.SYSTEM_ISSUE}>Problema del Sistema</option>
@@ -283,13 +421,14 @@ export default function TicketsPage() {
                   <option value={TicketType.TASK}>Tarea</option>
                   <option value={TicketType.REMINDER}>Recordatorio</option>
                 </select>
+                <Settings className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
 
-              <div className="flex items-center">
+              <div className="relative">
                 <select
                   value={filters.priority}
                   onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-                  className={`rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                  className="appearance-none px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all cursor-pointer"
                 >
                   <option value="">Todas las Prioridades</option>
                   <option value={TicketPriority.LOW}>Baja</option>
@@ -297,135 +436,144 @@ export default function TicketsPage() {
                   <option value={TicketPriority.HIGH}>Alta</option>
                   <option value={TicketPriority.URGENT}>Urgente</option>
                 </select>
-              </div>
-
-              <div className="flex-1">
-                <input
-                  type="text"
-                  placeholder="Buscar tickets..."
-                  value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className={`w-full rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
-                />
+                <TrendingUp className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
           </div>
+        </div>
 
-        {/* Tickets Grid */}
-          <div className="grid gap-4">
-            {filteredTickets.map((ticket) => (
+        {/* Tickets Grid - Modern Card Layout */}
+        <div className="grid gap-4 w-full overflow-x-hidden">
+          {filteredTickets.map((ticket) => {
+            const statusStyles = getStatusStyles(ticket.status);
+            const priorityStyles = getPriorityStyles(ticket.priority);
+            
+            return (
               <div
                 key={ticket.id}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                className="group bg-white dark:bg-slate-800 rounded-2xl shadow-md hover:shadow-2xl border border-slate-200 dark:border-slate-700 p-5 transition-all duration-300 hover:-translate-y-1 w-full overflow-hidden"
               >
-                {/* Header */}
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full overflow-hidden">
+                  {/* Left Section - Type Icon & Title */}
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <div className={`p-3 rounded-xl ${
+                      ticket.type === TicketType.SYSTEM_ISSUE ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
+                      ticket.type === TicketType.IMPLEMENTATION ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
+                      ticket.type === TicketType.REMINDER ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' :
+                      ticket.type === TicketType.PATIENT_CASE ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' :
+                      'bg-blue-100 dark:bg-blue-900/30 text-blue-600'
+                    }`}>
                       {getTypeIcon(ticket.type)}
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{ticket.title}</h3>
                     </div>
-                    <div className="flex gap-2 mb-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(ticket.priority)}`}>
-                        {ticket.priority}
-                      </span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(ticket.status)}`}>
-                        {ticket.status.replace('_', ' ')}
-                      </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        {ticket.title}
+                      </h3>
+                      <p className="text-slate-500 dark:text-slate-400 text-sm truncate mt-1">
+                        {ticket.description?.length > 120 
+                          ? `${ticket.description.substring(0, 120)}...` 
+                          : ticket.description || 'Sin descripción'
+                        }
+                      </p>
                     </div>
                   </div>
-                  
-                  {canViewTicketDetails(ticket) && (
-                    <button
-                      onClick={() => setSelectedTicket(ticket)}
-                      className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
 
-                {/* Description */}
-                {ticket.description && (
-                  <p className={`text-sm mb-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                    {ticket.description.length > 150 
-                      ? `${ticket.description.substring(0, 150)}...` 
-                      : ticket.description
-                    }
-                  </p>
-                )}
-
-                {/* Metadata */}
-                <div className="flex justify-between items-center text-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center">
-                      <User className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-400" />
-                      <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                        {ticket.assignees && ticket.assignees.length > 0 
-                          ? `${ticket.assignees.length} asignado(s)` 
-                          : 'Sin asignar'}
-                      </span>
-                    </div>
-                    
-                    {ticket.due_date && (
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-1 text-gray-600 dark:text-gray-400" />
-                        <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                          {new Date(ticket.due_date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
+                  {/* Middle Section - Badges */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${statusStyles.bg} ${statusStyles.text} shadow-sm`}>
+                      {statusStyles.icon}
+                      {ticket.status.replace('_', ' ')}
+                    </span>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${priorityStyles.bg} ${priorityStyles.text} shadow-sm`}>
+                      {ticket.priority}
+                    </span>
                   </div>
 
-                  <div className="flex gap-2">
-                    {ticket.attachments && ticket.attachments.length > 0 && (
-                      <div className="flex items-center">
-                        <Paperclip className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                        <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                          {ticket.attachments.length} adjunto(s)
+                  {/* Right Section - Meta & Actions */}
+                  <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-4 text-sm text-slate-500 dark:text-slate-400">
+                    <div className="hidden md:flex items-center gap-2 lg:gap-4">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <User className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate max-w-[80px] lg:max-w-[100px]">
+                          {ticket.assignees && ticket.assignees.length > 0 
+                            ? `${ticket.assignees.length} asig.` 
+                            : 'Sin asig.'}
                         </span>
                       </div>
-                    )}
-                    {ticket.status === TicketStatus.OPEN && canChangeTicketStatus(ticket) && (
-                      <button
-                        onClick={() => handleStatusChange(ticket.id, TicketStatus.IN_PROGRESS)}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-                      >
-                        Iniciar
-                      </button>
-                    )}
+                      {ticket.due_date && (
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <Calendar className="w-4 h-4" />
+                          <span className="whitespace-nowrap text-xs">{new Date(ticket.due_date).toLocaleDateString('es-HN')}</span>
+                        </div>
+                      )}
+                      {ticket.attachments && ticket.attachments.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <Paperclip className="w-4 h-4" />
+                          <span>{ticket.attachments.length}</span>
+                        </div>
+                      )}
+                    </div>
                     
-                    {ticket.status === TicketStatus.IN_PROGRESS && canChangeTicketStatus(ticket) && (
-                      <button
-                        onClick={() => handleStatusChange(ticket.id, TicketStatus.RESOLVED)}
-                        className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
-                      >
-                        Completar
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {ticket.status === TicketStatus.OPEN && canChangeTicketStatus(ticket) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusChange(ticket.id, TicketStatus.IN_PROGRESS);
+                          }}
+                          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          Iniciar
+                        </button>
+                      )}
+                      
+                      {ticket.status === TicketStatus.IN_PROGRESS && canChangeTicketStatus(ticket) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusChange(ticket.id, TicketStatus.RESOLVED);
+                          }}
+                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
+                        >
+                          Completar
+                        </button>
+                      )}
+                      
+                      {canViewTicketDetails(ticket) && (
+                        <button
+                          onClick={() => setSelectedTicket(ticket)}
+                          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                        >
+                          <MessageSquare className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                        </button>
+                      )}
+                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Empty State */}
-          {filteredTickets.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-white">No se encontraron tickets</h3>
-              <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                {filters.search || filters.status || filters.type || filters.priority 
-                  ? 'Intenta ajustar los filtros' 
-                  : 'Crea tu primer ticket para comenzar'
-                }
-              </p>
-            </div>
-          )}
+            );
+          })}
         </div>
+
+        {/* Empty State */}
+        {filteredTickets.length === 0 && !loading && (
+          <div className="text-center py-16">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
+              <FileText className="w-10 h-10 text-slate-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-2">No se encontraron tickets</h3>
+            <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              {filters.search || filters.status || filters.type || filters.priority 
+                ? 'Intenta ajustar los filtros de búsqueda' 
+                : 'Crea tu primer ticket para comenzar'
+              }
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Create Ticket Modal */}
+      {/* Create Ticket Modal - Modern Design */}
       {showCreateModal && (
         <CreateTicketModal
           onClose={() => setShowCreateModal(false)}
@@ -447,11 +595,12 @@ export default function TicketsPage() {
 
       {/* Attachment Detail Modal */}
       {showAttachmentModal && selectedAttachment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto`}>
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <FileText className="w-6 h-6 text-emerald-600" />
                   {selectedAttachment.attachment_type === 'treatment' ? 'Detalles del Tratamiento' :
                    selectedAttachment.attachment_type === 'consent' ? 'Documento de Consentimiento' :
                    selectedAttachment.attachment_type === 'odontogram' ? 'Odontograma' :
@@ -460,31 +609,35 @@ export default function TicketsPage() {
                 </h2>
                 <button
                   onClick={handleCloseAttachmentModal}
-                  className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
                 >
-                  ×
+                  <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
+            </div>
 
-              <div className="space-y-4">
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-150px)]">
+              <div className="space-y-6">
                 {/* Attachment Info */}
-                <div>
-                  <h3 className="font-semibold mb-2">Información</h3>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="font-medium">Título:</span> {selectedAttachment.attachment_title}
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-5">
+                  <h3 className="font-semibold text-slate-800 dark:text-white mb-4">Información</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">Título:</span>
+                      <span className="font-medium text-slate-800 dark:text-white">{selectedAttachment.attachment_title}</span>
                     </div>
-                    <div>
-                      <span className="font-medium">Descripción:</span> {selectedAttachment.attachment_description}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">Descripción:</span>
+                      <span className="font-medium text-slate-800 dark:text-white">{selectedAttachment.attachment_description}</span>
                     </div>
-                    <div>
-                      <span className="font-medium">Tipo:</span> 
-                      <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                        selectedAttachment.attachment_type === 'treatment' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                        selectedAttachment.attachment_type === 'consent' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                        selectedAttachment.attachment_type === 'odontogram' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                        selectedAttachment.attachment_type === 'event' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                        'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 dark:text-slate-400">Tipo:</span> 
+                      <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                        selectedAttachment.attachment_type === 'treatment' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                        selectedAttachment.attachment_type === 'consent' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+                        selectedAttachment.attachment_type === 'odontogram' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
+                        selectedAttachment.attachment_type === 'event' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+                        'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
                       }`}>
                         {selectedAttachment.attachment_type === 'treatment' ? 'Tratamiento' :
                          selectedAttachment.attachment_type === 'consent' ? 'Consentimiento' :
@@ -498,32 +651,37 @@ export default function TicketsPage() {
 
                 {/* Metadata */}
                 {selectedAttachment.metadata && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Detalles Adicionales</h3>
-                    <div className="space-y-2 text-sm">
+                  <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-5">
+                    <h3 className="font-semibold text-slate-800 dark:text-white mb-4">Detalles Adicionales</h3>
+                    <div className="space-y-3 text-sm">
                       {selectedAttachment.metadata.fecha_cita && (
-                        <div>
-                          <span className="font-medium">Fecha:</span> {new Date(selectedAttachment.metadata.fecha_cita).toLocaleDateString()}
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 dark:text-slate-400">Fecha:</span> 
+                          <span className="font-medium text-slate-800 dark:text-white">{new Date(selectedAttachment.metadata.fecha_cita).toLocaleDateString()}</span>
                         </div>
                       )}
                       {selectedAttachment.metadata.total_final && (
-                        <div>
-                          <span className="font-medium">Total:</span> Lps. {selectedAttachment.metadata.total_final}
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 dark:text-slate-400">Total:</span> 
+                          <span className="font-medium text-slate-800 dark:text-white">Lps. {selectedAttachment.metadata.total_final}</span>
                         </div>
                       )}
                       {selectedAttachment.metadata.estado && (
-                        <div>
-                          <span className="font-medium">Estado:</span> {selectedAttachment.metadata.estado}
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 dark:text-slate-400">Estado:</span> 
+                          <span className="font-medium text-slate-800 dark:text-white">{selectedAttachment.metadata.estado}</span>
                         </div>
                       )}
                       {selectedAttachment.metadata.estado_pago && (
-                        <div>
-                          <span className="font-medium">Estado de Pago:</span> {selectedAttachment.metadata.estado_pago}
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 dark:text-slate-400">Estado de Pago:</span> 
+                          <span className="font-medium text-slate-800 dark:text-white">{selectedAttachment.metadata.estado_pago}</span>
                         </div>
                       )}
                       {selectedAttachment.metadata.paciente && (
-                        <div>
-                          <span className="font-medium">Paciente:</span> {selectedAttachment.metadata.paciente.nombre_completo}
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 dark:text-slate-400">Paciente:</span> 
+                          <span className="font-medium text-slate-800 dark:text-white">{selectedAttachment.metadata.paciente.nombre_completo}</span>
                         </div>
                       )}
                     </div>
@@ -531,7 +689,7 @@ export default function TicketsPage() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
                   <button
                     onClick={() => {
                       const url = getAttachmentUrl(selectedAttachment);
@@ -539,13 +697,14 @@ export default function TicketsPage() {
                         window.open(url, '_blank');
                       }
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="flex-1 px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all font-medium flex items-center justify-center gap-2"
                   >
+                    <FileText className="w-5 h-5" />
                     Ver en Sistema
                   </button>
                   <button
                     onClick={handleCloseAttachmentModal}
-                    className={`px-4 py-2 ${theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} rounded-md transition-colors`}
+                    className="px-5 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium"
                   >
                     Cerrar
                   </button>
@@ -555,11 +714,12 @@ export default function TicketsPage() {
           </div>
         </div>
       )}
+      </div>
     </>
   );
 }
 
-// Create Ticket Modal Component
+// Create Ticket Modal Component - Modern Design
 function CreateTicketModal({ onClose, onSubmit, userRole }: { 
   onClose: () => void; 
   onSubmit: (data: CreateTicketData) => void;
@@ -580,18 +740,12 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [showPatientSearch, setShowPatientSearch] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
-  const [showAttachmentSearch, setShowAttachmentSearch] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Allow ticket creation without assignees for now
-    // if (selectedUsers.length === 0) {
-    //   alert('Debe asignar al menos un usuario a este ticket');
-    //   return;
-    // }
     
     const submitData = {
       ...formData,
@@ -604,38 +758,28 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   };
 
   const handleSelectPatient = (patient: any) => {
-    console.log('DEBUG: Patient selected:', patient); // DEBUG LOG
     setSelectedPatient(patient);
     setShowPatientSearch(false);
-    // Clear attachments when patient changes
     setAttachments([]);
-    console.log('DEBUG: Patient set, formData.type:', formData.type); // DEBUG LOG
   };
 
   const loadPatientAttachments = async (patientId: string) => {
-    console.log('DEBUG: Loading patient attachments for:', patientId); // DEBUG LOG
     setLoadingAttachments(true);
     try {
-      // Load consents
       const consentsResponse = await fetch(`/api/patients/${patientId}/consents`);
       const consents = consentsResponse.ok ? await consentsResponse.json() : [];
       
-      // Load odontogram
       const odontogramResponse = await fetch(`/api/patients/${patientId}/odontogram`);
       const odontogram = odontogramResponse.ok ? await odontogramResponse.json() : null;
       
-      // Load treatments
-      console.log('DEBUG: Fetching tratamientos-completados for patient:', patientId); // DEBUG LOG
       const treatmentsResponse = await fetch(`/api/tratamientos-completados?paciente_id=${patientId}`);
       const treatments = treatmentsResponse.ok ? await treatmentsResponse.json() : [];
-      console.log('DEBUG: Treatments response:', treatmentsResponse.ok, treatments.length, 'items'); // DEBUG LOG
       
-      // Load events
       const eventsResponse = await fetch(`/api/patients/${patientId}/events`);
       const events = eventsResponse.ok ? await eventsResponse.json() : [];
 
       const allAttachments = [
-        ...consents.map(c => ({
+        ...consents.map((c: any) => ({
           id: c.id,
           type: 'consent',
           title: c.title || 'Consentimiento',
@@ -651,20 +795,13 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
           date: odontogram.updated_at,
           data: odontogram
         }] : []),
-        ...treatments.map(t => {
-          console.log('DEBUG: Treatment data:', t); // DEBUG LOG
+        ...treatments.map((t: any) => {
           const treatmentItems = t.tratamientos_realizados || [];
-          console.log('DEBUG: Treatment items array:', JSON.stringify(treatmentItems)); // DEBUG LOG
-          console.log('DEBUG: Treatment items length:', treatmentItems.length); // DEBUG LOG
-          console.log('DEBUG: Treatment items type:', Array.isArray(treatmentItems)); // DEBUG LOG
-          const treatmentCount = treatmentItems.reduce((sum, tr) => sum + (tr.cantidad || 1), 0);
-          const treatmentTotal = treatmentItems.reduce((sum, tr) => sum + ((tr.precio_final || 0) * (tr.cantidad || 1)), 0) || t.total_final || 0;
-          console.log('DEBUG: Calculated total:', treatmentTotal, 'vs total_final:', t.total_final); // DEBUG LOG
-          console.log('DEBUG: Total treatment count:', treatmentCount); // DEBUG LOG
+          const treatmentCount = treatmentItems.reduce((sum: number, tr: any) => sum + (tr.cantidad || 1), 0);
+          const treatmentTotal = treatmentItems.reduce((sum: number, tr: any) => sum + ((tr.precio_final || 0) * (tr.cantidad || 1)), 0) || t.total_final || 0;
           const treatmentNames = treatmentItems.length > 0 
-            ? treatmentItems.map(tr => tr.nombre_tratamiento).join(', ')
+            ? treatmentItems.map((tr: any) => tr.nombre_tratamiento).join(', ')
             : t.nombre_tratamiento || 'Tratamiento';
-          console.log('DEBUG: Treatment names:', treatmentNames); // DEBUG LOG
           return {
             id: t.id,
             type: 'treatment',
@@ -672,9 +809,9 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
             description: `${treatmentNames} • Lps. ${treatmentTotal} • ${t.estado || ''}`,
             date: t.fecha_cita,
             data: t
-          }
+          };
         }),
-        ...events.map(e => ({
+        ...events.map((e: any) => ({
           id: e.id,
           type: 'event',
           title: e.title || 'Evento',
@@ -693,10 +830,7 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   };
 
   useEffect(() => {
-    console.log('DEBUG: useEffect triggered - selectedPatient:', selectedPatient, 'formData.type:', formData.type); // DEBUG LOG
-    console.log('DEBUG: TicketType.PATIENT_CASE value:', TicketType.PATIENT_CASE); // DEBUG LOG
     if (selectedPatient && formData.type === TicketType.PATIENT_CASE) {
-      console.log('DEBUG: Loading attachments for patient case'); // DEBUG LOG
       loadPatientAttachments(selectedPatient.paciente_id);
     }
   }, [selectedPatient, formData.type]);
@@ -716,17 +850,13 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   };
 
   const getSelectedAttachments = () => {
-    console.log('DEBUG: All attachments:', attachments);
-    console.log('DEBUG: Selected attachments:', attachments.filter(a => a.selected));
-    const selected = attachments.filter(a => a.selected).map(a => ({
+    return attachments.filter(a => a.selected).map(a => ({
       attachment_type: a.type,
       attachment_id: a.id,
       attachment_title: a.title,
       attachment_description: a.description,
       metadata: a.data
     }));
-    console.log('DEBUG: Mapped attachments:', selected);
-    return selected;
   };
 
   useEffect(() => {
@@ -735,68 +865,73 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   }, [attachments]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto`}>
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Crear Nuevo Ticket
-            </h2>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                <Plus className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+                Crear Nuevo Ticket
+              </h2>
+            </div>
             <button
               onClick={onClose}
-              className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5 text-slate-500" />
             </button>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Type - Moved to top */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-150px)]">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Type */}
             <div>
-                <label className="block text-sm font-medium mb-2">Tipo de Ticket</label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as TicketType })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value={TicketType.TASK}>Tarea</option>
-                  <option value={TicketType.SYSTEM_ISSUE}>Problema del Sistema</option>
-                  <option value={TicketType.IMPLEMENTATION}>Implementación (Sugerencia)</option>
-                  <option value={TicketType.REMINDER}>Recordatorio</option>
-                  <option value={TicketType.PATIENT_CASE}>Caso de Paciente</option>
-                </select>
-              </div>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tipo de Ticket</label>
+              <select
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as TicketType })}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              >
+                <option value={TicketType.TASK}>Tarea</option>
+                <option value={TicketType.SYSTEM_ISSUE}>Problema del Sistema</option>
+                <option value={TicketType.IMPLEMENTATION}>Implementación (Sugerencia)</option>
+                <option value={TicketType.REMINDER}>Recordatorio</option>
+                <option value={TicketType.PATIENT_CASE}>Caso de Paciente</option>
+              </select>
+            </div>
 
             {/* Patient Case Selection */}
             {formData.type === TicketType.PATIENT_CASE && (
               <div>
-                <label className="block text-sm font-medium mb-2">Paciente</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Paciente</label>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     {selectedPatient ? (
-                      <div className={`bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-200 dark:border-blue-600`}>
+                      <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-200 dark:border-emerald-700">
                         <div className="flex justify-between items-start">
                           <div>
-                            <div className="font-medium text-blue-900 dark:text-blue-100">
+                            <div className="font-semibold text-emerald-900 dark:text-emerald-100">
                               {selectedPatient.nombre_completo || `${selectedPatient.nombre} ${selectedPatient.apellido}`}
                             </div>
-                            <div className="text-sm text-blue-700 dark:text-blue-300">
+                            <div className="text-sm text-emerald-700 dark:text-emerald-300">
                               ID: {selectedPatient.numero_identidad || selectedPatient.paciente_id} • {selectedPatient.telefono}
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => setSelectedPatient(null)}
-                            className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            className="text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
                           >
-                            ×
+                            <X className="w-5 h-5" />
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className={`text-gray-500 dark:text-gray-400 p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-md text-center`}>
+                      <div className="text-slate-500 dark:text-slate-400 p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-center">
                         No hay paciente seleccionado
                       </div>
                     )}
@@ -804,12 +939,9 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                   <button
                     type="button"
                     onClick={() => setShowPatientSearch(true)}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
-                    title="Buscar paciente"
+                    className="px-4 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 flex items-center transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    <Plus className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -819,30 +951,30 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
             {formData.type === TicketType.PATIENT_CASE && selectedPatient && (
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium">Información del Paciente Adjunta</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Información del Paciente Adjunta</label>
                   <button
                     type="button"
                     onClick={() => loadPatientAttachments(selectedPatient.paciente_id)}
-                    className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                    className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
                   >
                     Actualizar
                   </button>
                 </div>
                 
                 {loadingAttachments ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Cargando información del paciente...</p>
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin mx-auto" />
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Cargando información...</p>
                   </div>
                 ) : attachments.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
                     {attachments.map((attachment) => (
                       <div
                         key={`${attachment.type}-${attachment.id}`}
-                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                        className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
                           attachment.selected
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                            : 'border-slate-200 dark:border-slate-600 hover:border-emerald-300 dark:hover:border-emerald-500'
                         }`}
                         onClick={() => toggleAttachment(attachment)}
                       >
@@ -850,28 +982,28 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <div className={`w-2 h-2 rounded-full ${
-                                attachment.type === 'consent' ? 'bg-green-500' :
-                                attachment.type === 'odontogram' ? 'bg-blue-500' :
-                                attachment.type === 'treatment' ? 'bg-purple-500' :
-                                attachment.type === 'event' ? 'bg-orange-500' :
-                                'bg-gray-500'
+                                attachment.type === 'consent' ? 'bg-emerald-500' :
+                                attachment.type === 'odontogram' ? 'bg-purple-500' :
+                                attachment.type === 'treatment' ? 'bg-blue-500' :
+                                attachment.type === 'event' ? 'bg-amber-500' :
+                                'bg-slate-500'
                               }`}></div>
-                              <span className="font-medium text-sm">{attachment.title}</span>
+                              <span className="font-medium text-sm text-slate-800 dark:text-white">{attachment.title}</span>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                               {attachment.description}
                             </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">
+                            <p className="text-xs text-slate-400 dark:text-slate-500">
                               {attachment.type} • {attachment.date ? new Date(attachment.date).toLocaleDateString('es-HN', { timeZone: 'UTC' }) : 'Sin fecha'}
                             </p>
                           </div>
                           <div className="ml-2">
                             {attachment.selected ? (
-                              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
+                              <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                                <CheckCircle className="w-4 h-4 text-white" />
+                              </div>
                             ) : (
-                              <div className="w-5 h-5 border-2 border-gray-300 rounded"></div>
+                              <div className="w-6 h-6 border-2 border-slate-300 dark:border-slate-600 rounded-full"></div>
                             )}
                           </div>
                         </div>
@@ -879,55 +1011,67 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-4 text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 rounded-md">
+                  <div className="text-center py-4 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl">
                     No se encontró información del paciente para adjuntar
                   </div>
                 )}
               </div>
             )}
 
+            {/* Title */}
             <div>
-              <label className="block text-sm font-medium mb-2">Título del Ticket *</label>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Título del Ticket *</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className={`w-full rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                 placeholder="Ej: Problema con tratamiento del paciente"
                 required
               />
             </div>
 
+            {/* Description */}
             <div>
-              <label className="block text-sm font-medium mb-2">Descripción del Caso</label>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Descripción del Caso</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className={`w-full rounded-md border ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'} px-3 py-2`}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                 rows={3}
                 placeholder="Describa el problema o caso del paciente..."
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Prioridad del Ticket *</label>
-                <select
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as TicketPriority })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value={TicketPriority.LOW}>Baja</option>
-                  <option value={TicketPriority.MEDIUM}>Media</option>
-                  <option value={TicketPriority.HIGH}>Alta</option>
-                  <option value={TicketPriority.URGENT}>Urgente</option>
-                </select>
-              </div>
+            {/* Priority */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Prioridad del Ticket *</label>
+              <select
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as TicketPriority })}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              >
+                <option value={TicketPriority.LOW}>Baja</option>
+                <option value={TicketPriority.MEDIUM}>Media</option>
+                <option value={TicketPriority.HIGH}>Alta</option>
+                <option value={TicketPriority.URGENT}>Urgente</option>
+              </select>
             </div>
 
-            {/* User Assignment - Required */}
+            {/* Due Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Fecha límite</label>
+              <input
+                type="datetime-local"
+                value={formData.due_date}
+                onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            {/* User Assignment */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                 Asignado a *
               </label>
               <UserSelect
@@ -935,11 +1079,12 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                 onUsersChange={setSelectedUsers}
                 placeholder="Seleccionar usuarios para asignar..."
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Seleccione al menos un usuario para asignar este ticket
               </p>
             </div>
 
+            {/* Reminder */}
             {formData.type === TicketType.REMINDER && (
               <div className="flex items-center">
                 <input
@@ -947,45 +1092,46 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                   id="is_reminder"
                   checked={formData.is_reminder}
                   onChange={(e) => setFormData({ ...formData, is_reminder: e.target.checked })}
-                  className="mr-2"
+                  className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                 />
-                <label htmlFor="is_reminder" className="text-sm">Este es un ticket de recordatorio</label>
+                <label htmlFor="is_reminder" className="ml-2 text-sm text-slate-700 dark:text-slate-300">Este es un ticket de recordatorio</label>
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={onClose}
-                className={`px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md ${theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'} transition-colors`}
+                className="px-6 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Creando...' : 'Crear Ticket'}
               </button>
             </div>
           </form>
         </div>
-      </div>
 
-      {/* Patient Search Modal */}
-      {showPatientSearch && (
-        <PatientSearchModal
-          isOpen={showPatientSearch}
-          onClose={() => setShowPatientSearch(false)}
-          onSelectPatient={handleSelectPatient}
-        />
-      )}
+        {/* Patient Search Modal */}
+        {showPatientSearch && (
+          <PatientSearchModal
+            isOpen={showPatientSearch}
+            onClose={() => setShowPatientSearch(false)}
+            onSelectPatient={handleSelectPatient}
+          />
+        )}
+      </div>
     </div>
   );
 }
 
-// Patient Search Modal Component - Fixed to match EventModal
+// Patient Search Modal Component - Modern Design
 function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
   isOpen: boolean;
   onClose: () => void;
@@ -1025,61 +1171,65 @@ function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl max-w-md w-full mx-4`}>
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Buscar Paciente</h3>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full animate-in fade-in zoom-in-95 duration-200">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Buscar Paciente</h3>
             <button
               onClick={onClose}
-              className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
             >
-              ×
+              <X className="w-5 h-5 text-slate-500" />
             </button>
           </div>
+        </div>
 
+        <div className="p-5">
           <input
             type="text"
             placeholder="Buscar por nombre o ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 mb-4`}
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             autoFocus
           />
 
-          <div className="max-h-60 overflow-y-auto">
+          <div className="mt-4 max-h-60 overflow-y-auto">
             {loading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+              <div className="text-center py-8">
+                <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin mx-auto" />
               </div>
             ) : patients.length > 0 ? (
               patients.map((patient) => (
                 <div
                   key={patient.paciente_id}
-                  className={`p-3 border border-gray-200 dark:border-gray-600 rounded-md mb-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                    selectedPatient?.paciente_id === patient.paciente_id ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600' : ''
+                  className={`p-4 border-2 rounded-xl mb-2 cursor-pointer transition-all ${
+                    selectedPatient?.paciente_id === patient.paciente_id 
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+                      : 'border-slate-200 dark:border-slate-600 hover:border-emerald-300 dark:hover:border-emerald-500'
                   }`}
                   onClick={() => setSelectedPatient(patient)}
                 >
-                  <div className="font-medium text-gray-900 dark:text-gray-100">
+                  <div className="font-semibold text-slate-800 dark:text-white">
                     {patient.nombre_completo || `${patient.nombre} ${patient.apellido}`}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    ID: {patient.numero_identidad || patient.paciente_id} • {patient.telefono || 'No hay teléfono'}
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    ID: {patient.numero_identidad || patient.paciente_id} • {patient.telefono || 'Sin teléfono'}
                   </div>
                 </div>
               ))
             ) : searchQuery.trim() !== '' ? (
-              <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                 No se encontraron pacientes
               </div>
             ) : null}
           </div>
 
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end gap-3 mt-6">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              className="px-5 py-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
             >
               Cancelar
             </button>
@@ -1091,7 +1241,7 @@ function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
                 }
               }}
               disabled={!selectedPatient}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               Seleccionar
             </button>
@@ -1102,7 +1252,7 @@ function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
   );
 }
 
-// Ticket Detail Modal Component
+// Ticket Detail Modal Component - Modern Design
 function TicketDetailModal({ 
   ticket, 
   onClose, 
@@ -1128,7 +1278,7 @@ function TicketDetailModal({
       setLoading(true);
       await TicketService.addComment(ticketId || ticket.id, user.id, comment);
       setComment('');
-      onUpdate(); // Refresh ticket data
+      onUpdate();
     } catch (error) {
       console.error('Error adding comment:', error);
     } finally {
@@ -1136,28 +1286,71 @@ function TicketDetailModal({
     }
   };
 
+  // Modern status styles
+  const getStatusStyles = (status: TicketStatus) => {
+    switch (status) {
+      case TicketStatus.OPEN: return { bg: 'bg-gradient-to-r from-blue-500 to-blue-600', text: 'text-white', icon: <AlertCircle className="w-3.5 h-3.5" /> };
+      case TicketStatus.IN_PROGRESS: return { bg: 'bg-gradient-to-r from-violet-500 to-violet-600', text: 'text-white', icon: <Activity className="w-3.5 h-3.5" /> };
+      case TicketStatus.PENDING_REVIEW: return { bg: 'bg-gradient-to-r from-amber-500 to-amber-600', text: 'text-white', icon: <Clock className="w-3.5 h-3.5" /> };
+      case TicketStatus.RESOLVED: return { bg: 'bg-gradient-to-r from-emerald-500 to-emerald-600', text: 'text-white', icon: <CheckCircle className="w-3.5 h-3.5" /> };
+      case TicketStatus.CLOSED: return { bg: 'bg-gradient-to-r from-slate-500 to-slate-600', text: 'text-white', icon: <CheckCircle className="w-3.5 h-3.5" /> };
+      default: return { bg: 'bg-gradient-to-r from-gray-500 to-gray-600', text: 'text-white', icon: <AlertCircle className="w-3.5 h-3.5" /> };
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto`}>
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">{ticket.title}</h2>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Modal Header */}
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-xl">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">{ticket.title}</h2>
+                <div className="flex gap-2 mt-2">
+                  {(() => {
+                    const statusStyles = getStatusStyles(ticket.status);
+                    return (
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}>
+                        {statusStyles.icon}
+                        {ticket.status.replace('_', ' ')}
+                      </span>
+                    );
+                  })()}
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
+                    {ticket.type}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
+                    {ticket.priority}
+                  </span>
+                </div>
+              </div>
+            </div>
             <button
               onClick={onClose}
-              className={`p-2 rounded-md ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+              className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-colors"
             >
-              ×
+              <X className="w-5 h-5 text-white" />
             </button>
           </div>
+        </div>
 
+        {/* Modal Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-220px)]">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-4">
+            <div className="lg:col-span-2 space-y-6">
               {/* Description */}
               {ticket.description && (
-                <div>
-                  <h3 className="font-semibold mb-2">Descripción</h3>
-                  <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-5">
+                  <h3 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-emerald-600" />
+                    Descripción
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                     {ticket.description}
                   </p>
                 </div>
@@ -1166,23 +1359,24 @@ function TicketDetailModal({
               {/* Attachments */}
               {ticket.attachments && ticket.attachments.length > 0 && (
                 <div>
-                  <h3 className="font-semibold mb-3">Adjuntos</h3>
-                  <div className="space-y-2">
+                  <h3 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                    <Paperclip className="w-5 h-5 text-emerald-600" />
+                    Adjuntos ({ticket.attachments.length})
+                  </h3>
+                  <div className="space-y-3">
                     {ticket.attachments.map((attachment) => (
-                      <div key={attachment.id} className={`p-3 rounded-lg border ${
-                        theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                      }`}>
+                      <div key={attachment.id} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Paperclip className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                              <h4 className="font-medium text-sm">{attachment.attachment_title}</h4>
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                attachment.attachment_type === 'treatment' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                attachment.attachment_type === 'consent' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                attachment.attachment_type === 'odontogram' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                                attachment.attachment_type === 'event' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                                'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                            <div className="flex items-center gap-2 mb-2">
+                              <Paperclip className="w-4 h-4 text-slate-500" />
+                              <h4 className="font-medium text-sm text-slate-800 dark:text-white">{attachment.attachment_title}</h4>
+                              <span className={`text-xs px-2 py-1 rounded-lg ${
+                                attachment.attachment_type === 'treatment' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                                attachment.attachment_type === 'consent' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+                                attachment.attachment_type === 'odontogram' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
+                                attachment.attachment_type === 'event' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+                                'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
                               }`}>
                                 {attachment.attachment_type === 'treatment' ? 'Tratamiento' :
                                  attachment.attachment_type === 'consent' ? 'Consentimiento' :
@@ -1191,11 +1385,11 @@ function TicketDetailModal({
                                  attachment.attachment_type}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
                               {attachment.attachment_description}
                             </p>
                             {attachment.metadata && (
-                              <div className="text-xs text-gray-500 dark:text-gray-500">
+                              <div className="text-xs text-slate-500 dark:text-slate-500">
                                 {attachment.metadata.fecha_cita && (
                                   <span>Fecha: {new Date(attachment.metadata.fecha_cita).toLocaleDateString()}</span>
                                 )}
@@ -1208,37 +1402,13 @@ function TicketDetailModal({
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-2">
-                            {attachment.attachment_type === 'treatment' && attachment.metadata && (
+                          <div className="flex gap-2 ml-4">
+                            {(attachment.attachment_type === 'treatment' || attachment.attachment_type === 'consent' || attachment.attachment_type === 'odontogram' || attachment.attachment_type === 'event') && attachment.metadata && (
                               <button
-                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
                                 onClick={() => onViewAttachment(attachment)}
                               >
-                                Ver Detalles
-                              </button>
-                            )}
-                            {attachment.attachment_type === 'consent' && attachment.metadata && (
-                              <button
-                                className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                                onClick={() => onViewAttachment(attachment)}
-                              >
-                                Ver Documento
-                              </button>
-                            )}
-                            {attachment.attachment_type === 'odontogram' && attachment.metadata && (
-                              <button
-                                className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                                onClick={() => onViewAttachment(attachment)}
-                              >
-                                Ver Odontograma
-                              </button>
-                            )}
-                            {attachment.attachment_type === 'event' && attachment.metadata && (
-                              <button
-                                className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
-                                onClick={() => onViewAttachment(attachment)}
-                              >
-                                Ver Evento
+                                Ver
                               </button>
                             )}
                           </div>
@@ -1251,24 +1421,25 @@ function TicketDetailModal({
 
               {/* Activity Timeline */}
               <div>
-                <h4 className="text-lg font-semibold mb-4">Línea de Tiempo de Actividad</h4>
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-emerald-600" />
+                  Línea de Tiempo de Actividad
+                </h4>
                 {ticket.activities && ticket.activities.length > 0 ? (
                   <div className="space-y-3">
                     {ticket.activities.map((activity) => (
-                      <div key={activity.id} className={`p-3 rounded-lg border ${
-                        theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                      }`}>
+                      <div key={activity.id} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                               {activity.activity_type === ActivityType.STATUS_CHANGE && 'Cambio de estado'}
                               {activity.activity_type === ActivityType.COMMENT && 'Comentario'}
                               {activity.activity_type === ActivityType.ASSIGNMENT && 'Asignación'}
                               {activity.activity_type === ActivityType.EDIT && 'Edición'}
                             </p>
-                            <p className="text-sm mt-1">{activity.content}</p>
+                            <p className="text-sm mt-1 text-slate-800 dark:text-white">{activity.content}</p>
                           </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                             {new Date(activity.created_at).toLocaleString()}
                           </span>
                         </div>
@@ -1276,61 +1447,72 @@ function TicketDetailModal({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 dark:text-gray-400">No hay actividades</p>
+                  <p className="text-slate-500 dark:text-slate-400">No hay actividades</p>
                 )}
+              </div>
 
               {/* Add Comment */}
-              <div>
-                <h3 className="font-semibold mb-2">Agregar Comentario</h3>
+              <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-5">
+                <h3 className="font-semibold text-slate-800 dark:text-white mb-3">Agregar Comentario</h3>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="Escribe tu comentario..."
-                    className={`flex-1 px-3 py-2 border rounded-md ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                    className="flex-1 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddComment(ticket.id)}
                   />
                   <button
                     onClick={() => handleAddComment(ticket.id)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
                   >
-                    Agregar
+                    <Send className="w-5 h-5" />
                   </button>
                 </div>
               </div>
             </div>
-          </div>
 
             {/* Sidebar */}
             <div className="space-y-4">
-              {/* Metadata */}
-              <div>
-                <h3 className="font-semibold mb-3">Detalles</h3>
-                <div className="space-y-2">
+              <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-5">
+                <h3 className="font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-emerald-600" />
+                  Detalles
+                </h3>
+                <div className="space-y-4">
                   <div>
-                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Tipo de Ticket</span>
-                    <p className="font-medium">{ticket.type.replace('_', ' ')}</p>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Tipo de Ticket</span>
+                    <p className="font-medium text-slate-800 dark:text-white">{ticket.type.replace('_', ' ')}</p>
                   </div>
                   <div>
-                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Prioridad</span>
-                    <p className="font-medium">{ticket.priority}</p>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Prioridad</span>
+                    <p className="font-medium text-slate-800 dark:text-white">{ticket.priority}</p>
                   </div>
                   <div>
-                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Estado</span>
-                    <p className="font-medium">{ticket.status}</p>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Estado</span>
+                    <p className="font-medium text-slate-800 dark:text-white">{ticket.status.replace('_', ' ')}</p>
                   </div>
                   <div>
-                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Creado por</span>
-                    <p className="font-medium">{ticket.creator?.name || 'Usuario'}</p>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Creado por</span>
+                    <p className="font-medium text-slate-800 dark:text-white">{ticket.creator?.name || 'Usuario'}</p>
                   </div>
                   <div>
-                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Asignado a</span>
-                    <p className="font-medium">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Asignado a</span>
+                    <p className="font-medium text-slate-800 dark:text-white">
                       {ticket.assignees && ticket.assignees.length > 0 
                         ? `${ticket.assignees.length} usuario(s)` 
                         : 'Sin asignar'}
                     </p>
                   </div>
+                  {ticket.due_date && (
+                    <div>
+                      <span className="text-sm text-slate-500 dark:text-slate-400">Fecha límite</span>
+                      <p className="font-medium text-slate-800 dark:text-white">
+                        {new Date(ticket.due_date).toLocaleString('es-HN')}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
