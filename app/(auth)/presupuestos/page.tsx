@@ -712,7 +712,7 @@ function PresupuestosPageContent() {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => router.push('/menu-navegacion')}
+                onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center"
               >
                 <i className="fas fa-arrow-left mr-2"></i>
