@@ -610,8 +610,10 @@ function HistoriaClinicaOrtodonciaContent() {
       />
             
             {/* Patient Information Section */}
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <i className="fas fa-user-injured text-teal-600"></i>
                 Información del Paciente
               </h2>
               
@@ -695,8 +697,10 @@ function HistoriaClinicaOrtodonciaContent() {
             </div>
 
             {/* Orthodontic Evaluation Section */}
-            <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="relative overflow-hidden rounded-xl border border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/50 dark:to-blue-800/30 p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <i className="fas fa-tooth text-blue-600"></i>
                 Evaluación Ortodóncica
               </h2>
               
@@ -876,8 +880,10 @@ function HistoriaClinicaOrtodonciaContent() {
             </div>
 
             {/* Diagnosis and Treatment Plan */}
-            <div className="bg-green-50 dark:bg-green-900 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="relative overflow-hidden rounded-xl border border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/50 dark:to-green-800/30 p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <i className="fas fa-clipboard-check text-green-600"></i>
                 Diagnóstico y Plan de Tratamiento
               </h2>
               
@@ -921,8 +927,10 @@ function HistoriaClinicaOrtodonciaContent() {
             </div>
 
             {/* Studies and Analysis */}
-            <div className="bg-purple-50 dark:bg-purple-900 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="relative overflow-hidden rounded-xl border border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/50 dark:to-purple-800/30 p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <i className="fas fa-microscope text-purple-600"></i>
                 Estudios y Análisis
               </h2>
               
@@ -995,8 +1003,10 @@ function HistoriaClinicaOrtodonciaContent() {
             </div>
 
             {/* Retention and Follow-up */}
-            <div className="bg-orange-50 dark:bg-orange-900 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="relative overflow-hidden rounded-xl border border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/50 dark:to-orange-800/30 p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <i className="fas fa-retweet text-orange-600"></i>
                 Retención y Seguimiento
               </h2>
               
@@ -1090,8 +1100,10 @@ function HistoriaClinicaOrtodonciaContent() {
             </div>
 
             {/* Documents Section */}
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <i className="fas fa-folder-open text-teal-600"></i>
                 Documentos Ortodóncicos
               </h2>
               
@@ -1131,8 +1143,10 @@ function HistoriaClinicaOrtodonciaContent() {
 
             {/* Signature Section */}
             {(!recordCategoryInfo?.isHistorical || bypassHistoricalMode) && (
-              <div className="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              <div className="relative overflow-hidden rounded-xl border border-yellow-200 dark:border-yellow-800 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/50 dark:to-yellow-800/30 p-5 shadow-md hover:shadow-lg transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <i className="fas fa-signature text-yellow-600"></i>
                   Firma Digital
                 </h2>
                 
@@ -1163,14 +1177,16 @@ function HistoriaClinicaOrtodonciaContent() {
 
             {/* Historical Mode Signature Notice */}
             {recordCategoryInfo?.isHistorical && !bypassHistoricalMode && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <i className="fas fa-info-circle text-amber-600 dark:text-amber-400"></i>
+              <div className="relative overflow-hidden rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-800/20 p-5 shadow-md">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                    <i className="fas fa-history text-amber-600 dark:text-amber-400 text-lg"></i>
+                  </div>
                   <div>
-                    <h3 className="text-lg font-medium text-amber-900 dark:text-amber-100">
+                    <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100">
                       Modo Histórico - Firma No Requerida
                     </h3>
-                    <p className="text-amber-700 dark:text-amber-300 text-sm">
+                    <p className="text-amber-700 dark:text-amber-300 text-sm mt-1">
                       Este paciente está en modo histórico. Las firmas digitales no son requeridas para registros históricos.
                     </p>
                   </div>
