@@ -57,7 +57,8 @@ const Timeline: React.FC<TimelineProps> = ({
         {versions.map((version, index) => {
           const isSelected = selectedVersionId === version.id;
           const isHovered = hoveredVersion === version.id;
-          const isCurrent = version.isCurrent;
+          // Show "Actual" badge on the most recent version (first in the list)
+          const isCurrent = index === 0;
           
           return (
             <div
