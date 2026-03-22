@@ -12,6 +12,7 @@ export interface ProgressData {
 
 /**
  * Calculate progress based on appointments completed vs estimated
+ * If duracionTratamiento is provided, it takes precedence for total estimated appointments
  */
 export function calculateProgress(
   completedAppointments: number,
@@ -19,16 +20,22 @@ export function calculateProgress(
   duracionTratamiento?: string
 ): ProgressData {
   // Extract months from duration string (e.g., "12 meses" -> 12)
+  // This becomes the total estimated appointments (1 appointment per month)
   const estimatedDuration = extractMonthsFromDuration(duracionTratamiento || '12 meses');
-  const progressPercentage = totalEstimatedAppointments > 0 
-    ? Math.min(Math.round((completedAppointments / totalEstimatedAppointments) * 100), 100)
+  
+  // Use duration-based total if provided, otherwise use the passed total
+  // This ensures progress is always based on the treatment duration
+  const effectiveTotal = duracionTratamiento ? estimatedDuration : totalEstimatedAppointments;
+  
+  const progressPercentage = effectiveTotal > 0 
+    ? Math.min(Math.round((completedAppointments / effectiveTotal) * 100), 100)
     : 0;
 
   const elapsedMonths = 0; // This will be calculated from fecha_inicio_tratamiento
   
   return {
     completedAppointments,
-    totalEstimatedAppointments: totalEstimatedAppointments,
+    totalEstimatedAppointments: effectiveTotal,
     progressPercentage,
     estimatedDuration,
     elapsedMonths,

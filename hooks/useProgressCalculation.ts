@@ -54,17 +54,26 @@ export const useProgressCalculation = ({
           );
           const latestVersion = sortedVersions[0];
           
-          // Use latest version's progress data directly
-          const estimatedDuration = extractMonthsFromDuration(latestVersion.duracionTratamiento || duracionTratamiento || '12 meses');
+          // Calculate progress based on duracionTratamiento
+          const completedAppointments = latestVersion.completedAppointments || 0;
+          const effectiveDuracion = latestVersion.duracionTratamiento || duracionTratamiento || '12 meses';
+          const estimatedDuration = extractMonthsFromDuration(effectiveDuracion);
+          
+          // Recalculate progress percentage based on duration
+          const calculatedProgress = calculateProgress(
+            completedAppointments,
+            estimatedDuration, // Use duration as total appointments
+            effectiveDuracion
+          );
           
           setProgressData({
-            completedAppointments: latestVersion.completedAppointments || 0,
-            totalEstimatedAppointments: latestVersion.totalEstimatedAppointments || 12,
-            progressPercentage: latestVersion.progressPercentage || 0,
+            completedAppointments,
+            totalEstimatedAppointments: calculatedProgress.totalEstimatedAppointments,
+            progressPercentage: calculatedProgress.progressPercentage,
             estimatedDuration,
             elapsedMonths: 0, // TODO: Calculate from start date
-            status: getProgressStatus(latestVersion.progressPercentage || 0),
-            color: getProgressColor(latestVersion.progressPercentage || 0),
+            status: calculatedProgress.status,
+            color: calculatedProgress.color,
             loading: false,
             error: null
           });

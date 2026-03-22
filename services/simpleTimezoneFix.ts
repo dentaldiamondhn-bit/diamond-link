@@ -6,15 +6,22 @@ export class SimpleTimezoneFix {
   
   /**
    * Convert database date to local display - SIMPLE VERSION
-   * Converts UTC timestamps to clinic's local timezone (America/Tegucigalpa UTC-6)
+   * Handles both ISO timestamps and date-only strings (YYYY-MM-DD)
    */
   static toLocalDate(dateString: string | Date): string {
     if (!dateString) return '';
     
     try {
-      const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+      // Check if it's a date-only string (YYYY-MM-DD format)
+      const isDateOnly = typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString);
       
-      // Convert UTC to clinic timezone (UTC-6) by subtracting 6 hours
+      if (isDateOnly) {
+        // For date-only strings, return as-is
+        return dateString;
+      }
+      
+      // For timestamps, convert from UTC to clinic timezone (UTC-6)
+      const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       const utcTime = date.getTime();
       const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
       const clinicDate = new Date(utcTime - clinicOffset);
@@ -31,25 +38,38 @@ export class SimpleTimezoneFix {
   
   /**
    * Format date for display in Spanish - SIMPLE VERSION
-   * Converts UTC timestamps to clinic's local timezone (America/Tegucigalpa UTC-6)
+   * Handles both ISO timestamps and date-only strings (YYYY-MM-DD)
    */
   static formatDisplayDate(dateString: string | Date): string {
     if (!dateString) return 'No especificada';
     
     try {
-      const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+      // Check if it's a date-only string (YYYY-MM-DD format)
+      const isDateOnly = typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString);
       
-      // Get UTC time and convert to clinic timezone (UTC-6) by subtracting 6 hours
-      const utcTime = date.getTime();
-      const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
-      const clinicDate = new Date(utcTime - clinicOffset);
+      let day: number, month: number, year: number;
       
-      const day = clinicDate.getUTCDate();
+      if (isDateOnly) {
+        // For date-only strings, parse directly without timezone conversion
+        const parts = dateString.split('-');
+        year = parseInt(parts[0]);
+        month = parseInt(parts[1]) - 1;
+        day = parseInt(parts[2]);
+      } else {
+        // For timestamps, convert from UTC to clinic timezone (UTC-6)
+        const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+        const utcTime = date.getTime();
+        const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+        const clinicDate = new Date(utcTime - clinicOffset);
+        
+        day = clinicDate.getUTCDate();
+        month = clinicDate.getUTCMonth();
+        year = clinicDate.getUTCFullYear();
+      }
+      
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      const month = monthNames[clinicDate.getUTCMonth()];
-      const year = clinicDate.getUTCFullYear();
       
-      return `${day} de ${month} ${year}`;
+      return `${day} de ${monthNames[month]} ${year}`;
     } catch (error) {
       return 'No especificada';
     }
@@ -57,23 +77,35 @@ export class SimpleTimezoneFix {
   
   /**
    * Format date for "Edad al momento de consulta" display (DD/MM/YYYY format)
-   * Converts UTC timestamps to clinic's local timezone (America/Tegucigalpa UTC-6)
+   * Handles both ISO timestamps and date-only strings (YYYY-MM-DD)
    */
   static formatDateForConsultationAge(dateString: string | Date): string {
     if (!dateString) return '';
     
     try {
-      const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+      // Check if it's a date-only string (YYYY-MM-DD format)
+      const isDateOnly = typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString);
       
-      // Convert UTC to clinic timezone (UTC-6) by subtracting 6 hours
-      const utcTime = date.getTime();
-      const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
-      const clinicDate = new Date(utcTime - clinicOffset);
+      let day: string, month: string, year: number;
       
-      // Format as DD/MM/YYYY
-      const day = String(clinicDate.getUTCDate()).padStart(2, '0');
-      const month = String(clinicDate.getUTCMonth() + 1).padStart(2, '0');
-      const year = clinicDate.getUTCFullYear();
+      if (isDateOnly) {
+        // For date-only strings, parse directly
+        const parts = dateString.split('-');
+        year = parseInt(parts[0]);
+        month = parts[1];
+        day = parts[2];
+      } else {
+        // For timestamps, convert from UTC to clinic timezone (UTC-6)
+        const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+        const utcTime = date.getTime();
+        const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+        const clinicDate = new Date(utcTime - clinicOffset);
+        
+        // Format as DD/MM/YYYY
+        day = String(clinicDate.getUTCDate()).padStart(2, '0');
+        month = String(clinicDate.getUTCMonth() + 1).padStart(2, '0');
+        year = clinicDate.getUTCFullYear();
+      }
       
       return `${day}/${month}/${year}`;
     } catch (error) {
