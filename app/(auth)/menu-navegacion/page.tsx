@@ -333,9 +333,11 @@ function MenuNavegacionContent() {
     const formatDate = (dateString: string) => {
       if (!dateString) return null;
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-HN', {
+      // Adjust for Honduras timezone (UTC-6)
+      const hondurasDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+      return hondurasDate.toLocaleDateString('es-HN', {
         day: 'numeric',
-        month: 'short',
+        month: 'long',
         year: 'numeric'
       });
     };
@@ -426,9 +428,11 @@ function MenuNavegacionContent() {
     const formatDate = (dateString: string) => {
       if (!dateString) return null;
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-HN', {
+      // Adjust for Honduras timezone (UTC-6)
+      const hondurasDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+      return hondurasDate.toLocaleDateString('es-HN', {
         day: 'numeric',
-        month: 'short',
+        month: 'long',
         year: 'numeric'
       });
     };
@@ -584,9 +588,11 @@ function MenuNavegacionContent() {
     const formatDate = (dateString: string) => {
       if (!dateString) return null;
       const date = new Date(dateString);
-      return date.toLocaleDateString('es-HN', {
+      // Adjust for Honduras timezone (UTC-6)
+      const hondurasDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+      return hondurasDate.toLocaleDateString('es-HN', {
         day: 'numeric',
-        month: 'short',
+        month: 'long',
         year: 'numeric'
       });
     };

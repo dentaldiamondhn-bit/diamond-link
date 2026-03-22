@@ -1,5 +1,7 @@
 // Version management utilities for orthodontic history
 
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
+
 export interface OrthodonticVersion {
   id: string;
   patientId: string;
@@ -27,6 +29,8 @@ export interface OrthodonticVersion {
   extraccionesRealizadas?: string;
   retenedorTipo?: string;
   retenedorUso?: string;
+  retenedorInferiorTipo?: string;
+  retenedorInferiorUso?: string;
   seguimientoPostTratamiento?: string;
   documentosOrtodoncia?: string[];
   firmaDigitalOrtodoncia?: string;
@@ -64,17 +68,8 @@ export function getNextVersionNumber(versions: OrthodonticVersion[]): number {
  * Format version display text
  */
 export function formatVersionDisplay(version: OrthodonticVersion): string {
-  const date = version.recordDate 
-    ? new Date(version.recordDate).toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      })
-    : new Date(version.createdAt).toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      });
+  const dateSource = version.recordDate || version.createdAt;
+  const date = SimpleTimezoneFix.formatDisplayDate(dateSource);
   
   return `Versión ${version.versionNumber} - ${date}`;
 }
@@ -104,7 +99,11 @@ export function getVersionChanges(
     'tipoMordida',
     'tipoAparato',
     'duracionTratamiento',
-    'observacionesOrtodoncia'
+    'observacionesOrtodoncia',
+    'retenedorTipo',
+    'retenedorUso',
+    'retenedorInferiorTipo',
+    'retenedorInferiorUso'
   ];
   
   fieldsToCompare.forEach(field => {
@@ -131,7 +130,11 @@ function getFieldDisplayName(field: keyof OrthodonticVersion): string {
     tipoMordida: 'Tipo de mordida',
     tipoAparato: 'Tipo de aparato',
     duracionTratamiento: 'Duración del tratamiento',
-    observacionesOrtodoncia: 'Observaciones'
+    observacionesOrtodoncia: 'Observaciones',
+    retenedorTipo: 'Tipo de retenedor superior',
+    retenedorUso: 'Uso de retenedor superior',
+    retenedorInferiorTipo: 'Tipo de retenedor inferior',
+    retenedorInferiorUso: 'Uso de retenedor inferior'
   };
   
   return fieldNames[field] || field;

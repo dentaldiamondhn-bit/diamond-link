@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Handle environment test command
     if (cmd === 'env-test') {
       const shellPaths = ['/bin/bash', '/bin/sh', '/usr/bin/bash', '/usr/bin/sh'];
-      let availableShells = [];
+      const availableShells = [];
       
       for (const shellPath of shellPaths) {
         if (existsSync(shellPath)) {

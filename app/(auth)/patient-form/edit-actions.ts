@@ -218,7 +218,7 @@ export async function updatePatient(patientId: string, formData: FormData) {
     
     // Process main select fields - always save them, but validate enum fields
     mainSelectFields.forEach(field => {
-      let value = formData.get(field) as string;
+      const value = formData.get(field) as string;
       
       if (value !== null) {
         (patientData as any)[field] = value.trim();

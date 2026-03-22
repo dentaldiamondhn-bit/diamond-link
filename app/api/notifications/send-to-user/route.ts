@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 // In-memory storage for demo (in production, use database)
-let notifications: any[] = [];
+const notifications: any[] = [];
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';

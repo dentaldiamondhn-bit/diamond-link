@@ -13,7 +13,7 @@ export async function POST() {
     const { error: convError } = await serviceClient.from('conversations').select('*').limit(1);
     const { error: msgError } = await serviceClient.from('messages').select('*').limit(1);
 
-    let tablesCreated = [];
+    const tablesCreated = [];
     
     if (convError && convError.code === 'PGRST116') {
       tablesCreated.push('conversations');

@@ -35,6 +35,8 @@ export async function updateOrthodonticHistoryAction(formData: FormData) {
     extracciones_realizadas: formData.get('extracciones_realizadas') as string,
     retenedor_tipo: formData.get('retenedor_tipo') as string,
     retenedor_uso: formData.get('retenedor_uso') as string,
+    retenedor_inferior_tipo: formData.get('retenedor_inferior_tipo') as string,
+    retenedor_inferior_uso: formData.get('retenedor_inferior_uso') as string,
     seguimiento_post_tratamiento: formData.get('seguimiento_post_tratamiento') as string,
     documentos_ortodoncia: null, // Will be handled separately
     firma_digital_ortodoncia: formData.get('firma_digital_ortodoncia') as string,

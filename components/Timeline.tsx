@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { formatVersionDisplay, OrthodonticVersion } from '@/utils/versionUtils';
 import { getProgressColor } from '@/utils/progressUtils';
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 
 interface TimelineProps {
   versions: OrthodonticVersion[];
@@ -123,11 +124,7 @@ const Timeline: React.FC<TimelineProps> = ({
                     <div className="flex items-center space-x-2">
                       <i className="fas fa-calendar-alt w-4"></i>
                       <span>
-                        Fecha del registro: {new Date(version.recordDate).toLocaleDateString('es-ES', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
+                        Fecha del registro: {SimpleTimezoneFix.formatDisplayDate(version.recordDate)}
                       </span>
                     </div>
                   )}
@@ -135,13 +132,7 @@ const Timeline: React.FC<TimelineProps> = ({
                   <div className="flex items-center space-x-2">
                     <i className="fas fa-clock w-4"></i>
                     <span>
-                      Creado: {new Date(version.createdAt).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      Creado: {SimpleTimezoneFix.formatDisplayDate(version.createdAt)} {SimpleTimezoneFix.formatTime(version.createdAt)}
                     </span>
                   </div>
                   

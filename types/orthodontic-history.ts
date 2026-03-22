@@ -21,8 +21,10 @@ export interface OrthodonticHistory {
   modelos_estudio?: 'si' | 'no' | 'en_proceso';
   analisis_cefalometrico?: string;
   extracciones_realizadas?: string;
-  retenedor_tipo?: 'fijo' | 'removible' | 'hawley' | 'invisible' | 'sin_retenedor';
+  retenedor_tipo?: 'fijo' | 'removible' | 'hawley_convencional' | 'hawley_arco_continuo' | 'hawley_arco_continuo_banda_anterior' | 'invisible' | 'sin_retenedor';
   retenedor_uso?: 'tiempo_completo' | 'noche' | 'ocasional' | 'no_usa';
+  retenedor_inferior_tipo?: 'fijo' | 'removible' | 'hawley_convencional' | 'hawley_arco_continuo' | 'hawley_arco_continuo_banda_anterior' | 'invisible' | 'sin_retenedor';
+  retenedor_inferior_uso?: 'tiempo_completo' | 'noche' | 'ocasional' | 'no_usa';
   seguimiento_post_tratamiento?: string;
   
   // Documents and signature

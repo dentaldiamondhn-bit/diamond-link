@@ -366,7 +366,7 @@ export class TicketService {
   // Get dashboard data based on user role
   static async getDashboardData(userId: string, userRole: string): Promise<{ data: any; error: any }> {
     try {
-      let queries = [];
+      const queries = [];
 
       // My assigned tickets
       const { data: assignedTickets } = await this.getTickets({ assignee_id: userId });

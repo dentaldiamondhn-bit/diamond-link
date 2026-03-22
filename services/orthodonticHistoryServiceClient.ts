@@ -23,6 +23,8 @@ export interface OrthodonticHistory {
   extracciones_realizadas?: string;
   retenedor_tipo?: string;
   retenedor_uso?: string;
+  retenedor_inferior_tipo?: string;
+  retenedor_inferior_uso?: string;
   seguimiento_post_tratamiento?: string;
   documentos_ortodoncia?: string[];
   firma_digital_ortodoncia?: string;

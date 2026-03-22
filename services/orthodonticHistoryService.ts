@@ -23,6 +23,8 @@ export interface OrthodonticHistory {
   extracciones_realizadas?: string;
   retenedor_tipo?: string;
   retenedor_uso?: string;
+  retenedor_inferior_tipo?: string;
+  retenedor_inferior_uso?: string;
   seguimiento_post_tratamiento?: string;
   documentos_ortodoncia?: string[];
   firma_digital_ortodoncia?: string;
@@ -172,6 +174,8 @@ export class OrthodonticHistoryService {
         extracciones_realizadas,
         retenedor_tipo,
         retenedor_uso,
+        retenedor_inferior_tipo,
+        retenedor_inferior_uso,
         seguimiento_post_tratamiento,
         documentos_ortodoncia,
         firma_digital_ortodoncia,
@@ -200,6 +204,8 @@ export class OrthodonticHistoryService {
         extracciones_realizadas: extracciones_realizadas || null,
         retenedor_tipo: retenedor_tipo || null,
         retenedor_uso: retenedor_uso || null,
+        retenedor_inferior_tipo: retenedor_inferior_tipo || null,
+        retenedor_inferior_uso: retenedor_inferior_uso || null,
         seguimiento_post_tratamiento: seguimiento_post_tratamiento || null,
         documentos_ortodoncia: documentos_ortodoncia || null,
         firma_digital_ortodoncia: firma_digital_ortodoncia || null,
@@ -257,6 +263,8 @@ export class OrthodonticHistoryService {
         extracciones_realizadas,
         retenedor_tipo,
         retenedor_uso,
+        retenedor_inferior_tipo,
+        retenedor_inferior_uso,
         seguimiento_post_tratamiento,
         documentos_ortodoncia,
         firma_digital_ortodoncia,
@@ -284,6 +292,8 @@ export class OrthodonticHistoryService {
         extracciones_realizadas: extracciones_realizadas || null,
         retenedor_tipo: retenedor_tipo || null,
         retenedor_uso: retenedor_uso || null,
+        retenedor_inferior_tipo: retenedor_inferior_tipo || null,
+        retenedor_inferior_uso: retenedor_inferior_uso || null,
         seguimiento_post_tratamiento: seguimiento_post_tratamiento || null,
         documentos_ortodoncia: documentos_ortodoncia || null,
         firma_digital_ortodoncia: firma_digital_ortodoncia || null,

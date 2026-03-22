@@ -321,7 +321,7 @@ export class OdontogramService {
       const latestVersion = odontograms.length > 0 ? odontograms[0] : null;
       
       // Calculate tooth status counts from the latest active odontogram
-      let statusCounts: Record<string, number> = {};
+      const statusCounts: Record<string, number> = {};
 
       if (latestVersion && latestVersion.datos_odontograma?.dientes) {
         Object.values(latestVersion.datos_odontograma.dientes).forEach((diente: any) => {

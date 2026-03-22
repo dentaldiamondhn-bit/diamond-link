@@ -587,6 +587,8 @@ function HistoriaClinicaOrtodonciaContent() {
             extraccionesRealizadas: formData.extracciones_realizadas,
             retenedorTipo: formData.retenedor_tipo,
             retenedorUso: formData.retenedor_uso,
+            retenedorInferiorTipo: formData.retenedor_inferior_tipo,
+            retenedorInferiorUso: formData.retenedor_inferior_uso,
             seguimientoPostTratamiento: formData.seguimiento_post_tratamiento,
             documentosOrtodoncia: formData.documentos_ortodoncia,
             firmaDigitalOrtodoncia: formData.firma_digital_ortodoncia
@@ -768,6 +770,12 @@ function HistoriaClinicaOrtodonciaContent() {
                   <div>
                     <label className="block mb-1 font-medium">Duración Estimada:</label>
                     <div className="space-y-3">
+                      {/* Hidden field to ensure duracion_tratamiento is submitted */}
+                      <input
+                        type="hidden"
+                        name="duracion_tratamiento"
+                        value={formData.duracion_tratamiento}
+                      />
                       <div className="flex items-center space-x-4">
                         <span className="text-sm text-gray-600 dark:text-gray-400 min-w-[3rem]">1 mes</span>
                         <div className="flex-1 relative">
@@ -1005,7 +1013,9 @@ function HistoriaClinicaOrtodonciaContent() {
                       <option value="">Seleccione...</option>
                       <option value="fijo">Fijo</option>
                       <option value="removible">Removible</option>
-                      <option value="hawley">Hawley</option>
+                      <option value="hawley_convencional">Hawley Convencional</option>
+                      <option value="hawley_arco_continuo">Hawley Arco Continuo</option>
+                      <option value="hawley_arco_continuo_banda_anterior">Hawley Arco Continuo Banda Anterior</option>
                       <option value="invisible">Invisible</option>
                       <option value="sin_retenedor">Sin retenedor</option>
                     </select>
@@ -1040,7 +1050,9 @@ function HistoriaClinicaOrtodonciaContent() {
                       <option value="">Seleccione...</option>
                       <option value="fijo">Fijo</option>
                       <option value="removible">Removible</option>
-                      <option value="hawley">Hawley</option>
+                      <option value="hawley_convencional">Hawley Convencional</option>
+                      <option value="hawley_arco_continuo">Hawley Arco Continuo</option>
+                      <option value="hawley_arco_continuo_banda_anterior">Hawley Arco Continuo Banda Anterior</option>
                       <option value="invisible">Invisible</option>
                       <option value="sin_retenedor">Sin retenedor</option>
                     </select>

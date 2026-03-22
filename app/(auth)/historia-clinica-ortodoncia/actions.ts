@@ -29,6 +29,8 @@ export async function createOrthodonticHistory(formData: any) {
       extracciones_realizadas,
       retenedor_tipo,
       retenedor_uso,
+      retenedor_inferior_tipo,
+      retenedor_inferior_uso,
       seguimiento_post_tratamiento,
       documentos_ortodoncia,
       firma_digital_ortodoncia,
@@ -37,7 +39,7 @@ export async function createOrthodonticHistory(formData: any) {
     // Prepare data for insertion
     const orthodonticData = {
       paciente_id,
-      doctor_id: doctor_id, // Use the actual doctor_id from form
+      doctor_id: doctor_id, // Use actual doctor_id from form
       nombre_completo,
       edad: edad ? parseInt(edad) : null,
       fecha_nacimiento,
@@ -57,6 +59,8 @@ export async function createOrthodonticHistory(formData: any) {
       extracciones_realizadas: extracciones_realizadas || null,
       retenedor_tipo: retenedor_tipo || null,
       retenedor_uso: retenedor_uso || null,
+      retenedor_inferior_tipo: retenedor_inferior_tipo || null,
+      retenedor_inferior_uso: retenedor_inferior_uso || null,
       seguimiento_post_tratamiento: seguimiento_post_tratamiento || null,
       documentos_ortodoncia: documentos_ortodoncia || null,
       firma_digital_ortodoncia: firma_digital_ortodoncia || null,
@@ -109,6 +113,8 @@ export async function createOrthodonticHistory(formData: any) {
         extracciones_realizadas: extracciones_realizadas || null,
         retenedor_tipo: retenedor_tipo || null,
         retenedor_uso: retenedor_uso || null,
+        retenedor_inferior_tipo: retenedor_inferior_tipo || null,
+        retenedor_inferior_uso: retenedor_inferior_uso || null,
         seguimiento_post_tratamiento: seguimiento_post_tratamiento || null,
         documentos_ortodoncia: documentos_ortodoncia || null,
         firma_digital_ortodoncia: firma_digital_ortodoncia || null,
@@ -164,6 +170,8 @@ export async function updateOrthodonticHistory(recordId: string, formData: any) 
       extracciones_realizadas,
       retenedor_tipo,
       retenedor_uso,
+      retenedor_inferior_tipo,
+      retenedor_inferior_uso,
       seguimiento_post_tratamiento,
       documentos_ortodoncia,
       firma_digital_ortodoncia,
@@ -191,6 +199,8 @@ export async function updateOrthodonticHistory(recordId: string, formData: any) 
       extracciones_realizadas: extracciones_realizadas || null,
       retenedor_tipo: retenedor_tipo || null,
       retenedor_uso: retenedor_uso || null,
+      retenedor_inferior_tipo: retenedor_inferior_tipo || null,
+      retenedor_inferior_uso: retenedor_inferior_uso || null,
       seguimiento_post_tratamiento: seguimiento_post_tratamiento || null,
       documentos_ortodoncia: documentos_ortodoncia || null,
       firma_digital_ortodoncia: firma_digital_ortodoncia || null,

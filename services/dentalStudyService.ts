@@ -112,7 +112,7 @@ class DentalStudyService {
         }
       });
 
-      let patients = Array.from(patientMap.values());
+      const patients = Array.from(patientMap.values());
       console.log('Final patient summaries:', patients.length, 'patients');
       patients.forEach(p => {
         console.log(`Patient ${p.patient_id}: ${p.study_count} studies, ${p.total_images} images`);

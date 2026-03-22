@@ -80,9 +80,9 @@ console.log('Total backup size:', calculateBackupSize(backupData) / 1024 / 1024,
       const originalConsoleError = console.error;
       const originalConsoleWarn = console.warn;
       
-      let capturedOutput: string[] = [];
-      let capturedErrors: string[] = [];
-      let capturedWarnings: string[] = [];
+      const capturedOutput: string[] = [];
+      const capturedErrors: string[] = [];
+      const capturedWarnings: string[] = [];
 
       console.log = (...args) => {
         capturedOutput.push(args.map(arg => 
