@@ -6,7 +6,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Convert database date to local display - SIMPLE VERSION
-   * Uses UTC methods to correctly handle stored timestamps
+   * Converts UTC timestamps to clinic's local timezone (America/Tegucigalpa UTC-6)
    */
   static toLocalDate(dateString: string | Date): string {
     if (!dateString) return '';
@@ -14,10 +14,14 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
-      // Use UTC components to avoid local timezone offset issues
-      const year = date.getUTCFullYear();
-      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(date.getUTCDate()).padStart(2, '0');
+      // Convert UTC to clinic timezone (UTC-6) by subtracting 6 hours
+      const utcTime = date.getTime();
+      const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+      const clinicDate = new Date(utcTime - clinicOffset);
+      
+      const year = clinicDate.getUTCFullYear();
+      const month = String(clinicDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(clinicDate.getUTCDate()).padStart(2, '0');
       
       return `${year}-${month}-${day}`;
     } catch (error) {
@@ -27,7 +31,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Format date for display in Spanish - SIMPLE VERSION
-   * Uses UTC methods to correctly handle stored timestamps
+   * Converts UTC timestamps to clinic's local timezone (America/Tegucigalpa UTC-6)
    */
   static formatDisplayDate(dateString: string | Date): string {
     if (!dateString) return 'No especificada';
@@ -35,11 +39,15 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
-      // Get UTC date components to avoid local timezone offset issues
-      const day = date.getUTCDate();
+      // Get UTC time and convert to clinic timezone (UTC-6) by subtracting 6 hours
+      const utcTime = date.getTime();
+      const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+      const clinicDate = new Date(utcTime - clinicOffset);
+      
+      const day = clinicDate.getUTCDate();
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      const month = monthNames[date.getUTCMonth()];
-      const year = date.getUTCFullYear();
+      const month = monthNames[clinicDate.getUTCMonth()];
+      const year = clinicDate.getUTCFullYear();
       
       return `${day} de ${month} ${year}`;
     } catch (error) {
@@ -49,7 +57,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Format date for "Edad al momento de consulta" display (DD/MM/YYYY format)
-   * Uses UTC methods to correctly handle stored timestamps
+   * Converts UTC timestamps to clinic's local timezone (America/Tegucigalpa UTC-6)
    */
   static formatDateForConsultationAge(dateString: string | Date): string {
     if (!dateString) return '';
@@ -57,11 +65,15 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
-      // Use UTC date components to avoid local timezone offset issues
+      // Convert UTC to clinic timezone (UTC-6) by subtracting 6 hours
+      const utcTime = date.getTime();
+      const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+      const clinicDate = new Date(utcTime - clinicOffset);
+      
       // Format as DD/MM/YYYY
-      const day = String(date.getUTCDate()).padStart(2, '0');
-      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const year = date.getUTCFullYear();
+      const day = String(clinicDate.getUTCDate()).padStart(2, '0');
+      const month = String(clinicDate.getUTCMonth() + 1).padStart(2, '0');
+      const year = clinicDate.getUTCFullYear();
       
       return `${day}/${month}/${year}`;
     } catch (error) {
@@ -102,7 +114,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Format time for display - SIMPLE VERSION
-   * Handles UTC timestamps correctly
+   * Converts UTC timestamps to clinic's local timezone (America/Tegucigalpa UTC-6)
    */
   static formatTime(dateString: string | Date): string {
     if (!dateString) return '';
@@ -110,16 +122,22 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
-      // Get UTC time components to avoid local timezone offset issues
+      // Get UTC time and subtract 6 hours to convert to America/Tegucigalpa (UTC-6)
       const utcHours = date.getUTCHours();
       const utcMinutes = date.getUTCMinutes();
       
-      // Convert to 12-hour format
-      let hours = utcHours;
+      // Convert UTC to clinic timezone (UTC-6)
+      let localHours = utcHours - 6;
       const minutes = utcMinutes;
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12; // the hour '0' should be '12'
+      
+      // Handle day wraparound
+      if (localHours < 0) {
+        localHours += 24;
+      }
+      
+      const ampm = localHours >= 12 ? 'PM' : 'AM';
+      const hours12 = localHours % 12;
+      const hours = hours12 ? hours12 : 12; // the hour '0' should be '12'
       
       const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
       
