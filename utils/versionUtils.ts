@@ -39,16 +39,12 @@ export interface OrthodonticVersion {
 }
 
 /**
- * Sort versions by creation date (newest first)
- * Always put the current version first
+ * Sort versions by version number (highest first - newest version on top)
  */
 export function sortVersionsByDate(versions: OrthodonticVersion[]): OrthodonticVersion[] {
   return [...versions].sort((a, b) => {
-    // Always put current version first
-    if (a.isCurrent && !b.isCurrent) return -1;
-    if (!a.isCurrent && b.isCurrent) return 1;
-    // Then sort by creation date (newest first)
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    // Sort by version number (highest first)
+    return b.versionNumber - a.versionNumber;
   });
 }
 
