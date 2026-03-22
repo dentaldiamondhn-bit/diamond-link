@@ -6,7 +6,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Convert database date to local display - SIMPLE VERSION
-   * This directly fixes the one-day-behind issue
+   * Uses UTC methods to correctly handle stored timestamps
    */
   static toLocalDate(dateString: string | Date): string {
     if (!dateString) return '';
@@ -14,13 +14,10 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
-      // Create date in local timezone by adding timezone offset
-      const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-      
-      // Format as YYYY-MM-DD in local timezone
-      const year = utcDate.getFullYear();
-      const month = String(utcDate.getMonth() + 1).padStart(2, '0');
-      const day = String(utcDate.getDate()).padStart(2, '0');
+      // Use UTC components to avoid local timezone offset issues
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
       
       return `${year}-${month}-${day}`;
     } catch (error) {
@@ -30,6 +27,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Format date for display in Spanish - SIMPLE VERSION
+   * Uses UTC methods to correctly handle stored timestamps
    */
   static formatDisplayDate(dateString: string | Date): string {
     if (!dateString) return 'No especificada';
@@ -37,13 +35,11 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
-      // Get local date components
-      const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-      
-      const day = localDate.getDate();
+      // Get UTC date components to avoid local timezone offset issues
+      const day = date.getUTCDate();
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      const month = monthNames[localDate.getMonth()];
-      const year = localDate.getFullYear();
+      const month = monthNames[date.getUTCMonth()];
+      const year = date.getUTCFullYear();
       
       return `${day} de ${month} ${year}`;
     } catch (error) {
@@ -53,7 +49,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Format date for "Edad al momento de consulta" display (DD/MM/YYYY format)
-   * This fixes the one-day-behind issue for consultation age
+   * Uses UTC methods to correctly handle stored timestamps
    */
   static formatDateForConsultationAge(dateString: string | Date): string {
     if (!dateString) return '';
@@ -61,13 +57,11 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
-      // Get local date components
-      const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-      
+      // Use UTC date components to avoid local timezone offset issues
       // Format as DD/MM/YYYY
-      const day = String(localDate.getDate()).padStart(2, '0');
-      const month = String(localDate.getMonth() + 1).padStart(2, '0');
-      const year = localDate.getFullYear();
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const year = date.getUTCFullYear();
       
       return `${day}/${month}/${year}`;
     } catch (error) {
@@ -76,7 +70,7 @@ export class SimpleTimezoneFix {
   }
   
   /**
-   * Calculate age correctly - SIMPLE VERSION
+   * Calculate age correctly - Uses UTC methods
    */
   static calculateAge(birthDateString: string): number {
     if (!birthDateString) return 0;
@@ -85,14 +79,18 @@ export class SimpleTimezoneFix {
       const birthDate = new Date(birthDateString);
       const today = new Date();
       
-      // Adjust for timezone
-      const localBirthDate = new Date(birthDate.getTime() + birthDate.getTimezoneOffset() * 60000);
-      const localToday = new Date(today.getTime() + today.getTimezoneOffset() * 60000);
+      // Use UTC components to avoid local timezone offset issues
+      const birthYear = birthDate.getUTCFullYear();
+      const todayYear = today.getUTCFullYear();
+      const birthMonth = birthDate.getUTCMonth();
+      const todayMonth = today.getUTCMonth();
+      const birthDay = birthDate.getUTCDate();
+      const todayDay = today.getUTCDate();
       
-      let age = localToday.getFullYear() - localBirthDate.getFullYear();
-      const monthDiff = localToday.getMonth() - localBirthDate.getMonth();
+      let age = todayYear - birthYear;
+      const monthDiff = todayMonth - birthMonth;
       
-      if (monthDiff < 0 || (monthDiff === 0 && localToday.getDate() < localBirthDate.getDate())) {
+      if (monthDiff < 0 || (monthDiff === 0 && todayDay < birthDay)) {
         age--;
       }
       
@@ -104,6 +102,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Format time for display - SIMPLE VERSION
+   * Handles UTC timestamps correctly
    */
   static formatTime(dateString: string | Date): string {
     if (!dateString) return '';
@@ -111,12 +110,13 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
-      // Get local time components
-      const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+      // Get UTC time components to avoid local timezone offset issues
+      const utcHours = date.getUTCHours();
+      const utcMinutes = date.getUTCMinutes();
       
-      // Format as HH:MM AM/PM
-      let hours = localDate.getHours();
-      const minutes = localDate.getMinutes();
+      // Convert to 12-hour format
+      let hours = utcHours;
+      const minutes = utcMinutes;
       const ampm = hours >= 12 ? 'PM' : 'AM';
       hours = hours % 12;
       hours = hours ? hours : 12; // the hour '0' should be '12'
@@ -131,6 +131,7 @@ export class SimpleTimezoneFix {
   
   /**
    * Calculate age at a specific date (for "Edad al momento de consulta")
+   * Uses UTC methods to avoid timezone issues
    */
   static calculateAgeAtDate(birthDateString: string, consultationDateString: string): number {
     if (!birthDateString || !consultationDateString) return 0;
@@ -139,14 +140,18 @@ export class SimpleTimezoneFix {
       const birthDate = new Date(birthDateString);
       const consultationDate = new Date(consultationDateString);
       
-      // Adjust for timezone
-      const localBirthDate = new Date(birthDate.getTime() + birthDate.getTimezoneOffset() * 60000);
-      const localConsultationDate = new Date(consultationDate.getTime() + consultationDate.getTimezoneOffset() * 60000);
+      // Use UTC components to avoid local timezone offset issues
+      const birthYear = birthDate.getUTCFullYear();
+      const consultYear = consultationDate.getUTCFullYear();
+      const birthMonth = birthDate.getUTCMonth();
+      const consultMonth = consultationDate.getUTCMonth();
+      const birthDay = birthDate.getUTCDate();
+      const consultDay = consultationDate.getUTCDate();
       
-      let age = localConsultationDate.getFullYear() - localBirthDate.getFullYear();
-      const monthDiff = localConsultationDate.getMonth() - localBirthDate.getMonth();
+      let age = consultYear - birthYear;
+      const monthDiff = consultMonth - birthMonth;
       
-      if (monthDiff < 0 || (monthDiff === 0 && localConsultationDate.getDate() < localBirthDate.getDate())) {
+      if (monthDiff < 0 || (monthDiff === 0 && consultDay < birthDay)) {
         age--;
       }
       
