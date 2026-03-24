@@ -50,6 +50,11 @@ export default function TicketsPage() {
     search: ''
   });
 
+  // Document upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{type: 'success' | 'warning', text: string} | null>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([]);
+
   // User role from metadata - handle both role formats
   const userRole = user?.publicMetadata?.role as UserRole || UserRole.STAFF;
   const normalizedUserRole = userRole?.replace('-', '_')?.toUpperCase() as any;
@@ -131,9 +136,28 @@ export default function TicketsPage() {
     if (!user?.id) return;
 
     try {
-      const result = await TicketService.createTicket(ticketData, user.id);
+      // Convert uploaded document URLs to attachment format
+      const docAttachments: CreateTicketAttachmentData[] = uploadedDocuments.map(url => {
+        const fileName = decodeURIComponent(url.split('/').pop() || 'documento');
+        return {
+          attachment_type: 'document' as const,
+          attachment_id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          attachment_title: fileName,
+          file_url: url
+        };
+      });
+      
+      // Add uploaded documents to the ticket data
+      const ticketDataWithDocs = {
+        ...ticketData,
+        attachments: [...(ticketData.attachments || []), ...docAttachments]
+      };
+      
+      const result = await TicketService.createTicket(ticketDataWithDocs, user.id);
       if (result.data) {
         setShowCreateModal(false);
+        setUploadedDocuments([]);
+        setUploadMessage(null);
         loadTickets(); // Refresh tickets
       }
     } catch (error) {
@@ -273,6 +297,75 @@ export default function TicketsPage() {
   const handleCloseAttachmentModal = () => {
     setSelectedAttachment(null);
     setShowAttachmentModal(false);
+  };
+
+  // Handle document upload for ticket
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadMessage(null);
+
+    try {
+      const formData = new FormData();
+      
+      // Use a ticket-specific folder - generate a temporary ID until ticket is created
+      formData.append('ticketId', `temp-${Date.now()}`);
+      
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      const response = await fetch('/api/upload-ticket-documents', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al subir documentos');
+      }
+
+      // Add uploaded URLs to state
+      if (result.uploadedUrls && result.uploadedUrls.length > 0) {
+        setUploadedDocuments(prev => [...prev, ...result.uploadedUrls]);
+      }
+
+      // Show success message
+      const message = `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`;
+      
+      setUploadMessage({
+        type: 'success',
+        text: message
+      });
+
+      // Clear file input
+      e.target.value = '';
+
+      // Clear message after 5 seconds
+      setTimeout(() => {
+        setUploadMessage(null);
+      }, 5000);
+
+    } catch (error) {
+      console.error('Document upload error:', error);
+      setUploadMessage({
+        type: 'warning',
+        text: 'Error al subir documentos: ' + (error as Error).message
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Remove uploaded document
+  const removeUploadedDocument = (index: number) => {
+    setUploadedDocuments(prev => prev.filter((_, i) => i !== index));
   };
 
   const getAttachmentUrl = (attachment: any) => {
@@ -647,7 +740,11 @@ export default function TicketsPage() {
       {/* Create Ticket Modal - Modern Design */}
       {showCreateModal && (
         <CreateTicketModal
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => {
+            setShowCreateModal(false);
+            setUploadedDocuments([]);
+            setUploadMessage(null);
+          }}
           onSubmit={handleCreateTicket}
           userRole={userRole}
         />
@@ -802,7 +899,6 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
     description: '',
     type: TicketType.TASK,
     priority: TicketPriority.MEDIUM,
-    due_date: '',
     is_reminder: false,
     assignee_ids: [],
     attachments: [],
@@ -815,13 +911,98 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Document upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{type: 'success' | 'warning', text: string} | null>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([]);
+
+  // Handle document upload for ticket
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadMessage(null);
+
+    try {
+      const formData = new FormData();
+      
+      // Use a ticket-specific folder - generate a temporary ID until ticket is created
+      formData.append('ticketId', `temp-${Date.now()}`);
+      
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      const response = await fetch('/api/upload-ticket-documents', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al subir documentos');
+      }
+
+      // Add uploaded URLs to state
+      if (result.uploadedUrls && result.uploadedUrls.length > 0) {
+        setUploadedDocuments(prev => [...prev, ...result.uploadedUrls]);
+      }
+
+      // Show success message
+      const message = `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`;
+      
+      setUploadMessage({
+        type: 'success',
+        text: message
+      });
+
+      // Clear file input
+      e.target.value = '';
+
+      // Clear message after 5 seconds
+      setTimeout(() => {
+        setUploadMessage(null);
+      }, 5000);
+
+    } catch (error) {
+      console.error('Document upload error:', error);
+      setUploadMessage({
+        type: 'warning',
+        text: 'Error al subir documentos: ' + (error as Error).message
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Remove uploaded document
+  const removeUploadedDocument = (index: number) => {
+    setUploadedDocuments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Convert uploaded document URLs to attachment format
+    const docAttachments: CreateTicketAttachmentData[] = uploadedDocuments.map(url => {
+      const fileName = decodeURIComponent(url.split('/').pop() || 'documento');
+      return {
+        attachment_type: 'document' as const,
+        attachment_id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        attachment_title: fileName,
+        file_url: url
+      };
+    });
     
     const submitData = {
       ...formData,
       assignee_ids: selectedUsers.map(u => u.id),
-      attachments: getSelectedAttachments(),
+      attachments: [...getSelectedAttachments(), ...docAttachments],
       patient_id: selectedPatient?.paciente_id || ''
     };
     
@@ -1129,17 +1310,6 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
               </select>
             </div>
 
-            {/* Due Date */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Fecha límite</label>
-              <input
-                type="datetime-local"
-                value={formData.due_date}
-                onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-              />
-            </div>
-
             {/* User Assignment */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -1168,6 +1338,68 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                 <label htmlFor="is_reminder" className="ml-2 text-sm text-slate-700 dark:text-slate-300">Este es un ticket de recordatorio</label>
               </div>
             )}
+            
+            {/* Document Upload */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Documentos adjuntos</label>
+              <div className="flex items-center gap-4">
+                <input 
+                  type="file" 
+                  id="ticket-documentos" 
+                  name="ticket-documentos" 
+                  multiple 
+                  accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx" 
+                  onChange={handleDocumentUpload}
+                  disabled={isUploading}
+                  className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+                
+                {isUploading && (
+                  <div className="flex items-center text-sm text-slate-500">
+                    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                    Subiendo...
+                  </div>
+                )}
+              </div>
+              
+              {uploadMessage && (
+                <div className={`mt-3 p-3 rounded-lg text-sm ${
+                  uploadMessage.type === 'success' 
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                    : 'bg-amber-50 text-amber-800 border border-amber-200'
+                }`}>
+                  {uploadMessage.text}
+                </div>
+              )}
+              
+              {uploadedDocuments.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Documentos subidos ({uploadedDocuments.length}):
+                  </h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {uploadedDocuments.map((docUrl, index) => {
+                      const fileName = decodeURIComponent(docUrl.split('/').pop() || 'documento');
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-slate-500" />
+                            <span className="text-sm text-slate-700 dark:text-slate-300 truncate max-w-xs">{fileName}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeUploadedDocument(index)}
+                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">

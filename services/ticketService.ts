@@ -16,6 +16,27 @@ const fetchUserById = async (userId: string) => {
   }
 };
 
+// Helper function to generate ticket number
+const generateTicketNumber = async (): Promise<string> => {
+  try {
+    // Get the next ticket number from the sequence
+    const { data: result, error } = await supabase
+      .rpc('get_next_ticket_number');
+    
+    if (error) {
+      console.error('Error generating ticket number:', error);
+      // Fallback: generate a simple sequential number
+      const timestamp = Date.now();
+      return `REQ-${timestamp.toString().slice(-6)}`;
+    }
+    
+    return result || `REQ-${Date.now().toString().slice(-6)}`;
+  } catch (error) {
+    console.error('Error in generateTicketNumber:', error);
+    return `REQ-${Date.now().toString().slice(-6)}`;
+  }
+};
+
 // Helper function to enrich tickets with user data
 const enrichTicketWithUsers = async (ticket: any) => {
   // Fetch creator data
@@ -175,11 +196,14 @@ export class TicketService {
       // Use provided client or default client
       const client = supabaseClient || supabase;
       
+      // Generate ticket number
+      const ticket_number = await generateTicketNumber();
+      
       // Create ticket - patient_id is handled in attachments, not tickets table
       const insertData = {
         ...ticketFields,
         creator_id: creatorId,
-        due_date: ticketData.due_date ? new Date(ticketData.due_date).toISOString() : null,
+        ticket_number: ticket_number,
         is_reminder: ticketData.is_reminder || false
       };
       
@@ -212,8 +236,8 @@ export class TicketService {
                 p_creator_id: creatorId,
                 p_maintenance_start: ticketFields.maintenance_start,
                 p_maintenance_end: ticketFields.maintenance_end,
-                p_due_date: ticketFields.due_date,
-                p_is_reminder: ticketFields.is_reminder || false
+                p_is_reminder: ticketFields.is_reminder || false,
+                p_ticket_number: ticket_number
               });
             
             if (directError) {

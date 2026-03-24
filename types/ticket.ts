@@ -58,7 +58,6 @@ export interface Ticket {
   status: TicketStatus;
   
   // Metadata for Tasks/Reminders
-  due_date?: string;
   is_reminder?: boolean;
   
   // Maintenance window fields
@@ -81,6 +80,7 @@ export interface Ticket {
   updated_at: string;
   patient_id?: string;
   patient?: any;
+  ticket_number?: string;
 }
 
 export interface TicketAssignee {
@@ -128,7 +128,6 @@ export interface CreateTicketData {
   description?: string;
   type: TicketType;
   priority: TicketPriority;
-  due_date?: string;
   is_reminder?: boolean;
   assignee_ids?: string[];
   attachments?: CreateTicketAttachmentData[];

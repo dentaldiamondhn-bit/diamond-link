@@ -66,7 +66,6 @@ export default function TechSupportTickets() {
     description: '',
     type: TicketType.TASK,
     priority: TicketPriority.MEDIUM,
-    due_date: '',
     is_reminder: false,
     assignee_ids: [],
     attachments: [],
@@ -1047,14 +1046,7 @@ export default function TechSupportTickets() {
                           )}
                         </div>
                       </div>
-                      {selectedTicket.due_date && (
-                        <div>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">Fecha límite</p>
-                          <p className="font-medium text-slate-800 dark:text-white">
-                            {new Date(selectedTicket.due_date).toLocaleString('es-HN')}
-                          </p>
-                        </div>
-                      )}
+                      
                       <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Asignados</p>
                         <div className="mt-1 space-y-1">
@@ -1226,16 +1218,6 @@ export default function TechSupportTickets() {
                       <option value={TicketPriority.URGENT}>Urgente</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Fecha límite</label>
-                    <input
-                      type="datetime-local"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
 
                 {/* Maintenance Window */}
                 {formData.type === 'MAINTENANCE' && (
