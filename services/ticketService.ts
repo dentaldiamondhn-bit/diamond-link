@@ -3,6 +3,38 @@ import { supabase } from '@/lib/supabase';
 import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
 import CapacitorNotificationService from './capacitorNotificationService';
 
+// Helper function to fetch user data
+const fetchUserById = async (userId: string) => {
+  try {
+    const response = await fetch('/api/users');
+    if (!response.ok) return null;
+    const users = await response.json();
+    return users.find((user: any) => user.id === userId) || null;
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    return null;
+  }
+};
+
+// Helper function to enrich tickets with user data
+const enrichTicketWithUsers = async (ticket: any) => {
+  // Fetch creator data
+  if (ticket.creator_id) {
+    ticket.creator = await fetchUserById(ticket.creator_id);
+  }
+  
+  // Fetch assignee data
+  if (ticket.assignees && ticket.assignees.length > 0) {
+    for (const assignee of ticket.assignees) {
+      if (assignee.user_id) {
+        assignee.user = await fetchUserById(assignee.user_id);
+      }
+    }
+  }
+  
+  return ticket;
+};
+
 export class TicketService {
   // Get tickets with filters
   static async getTickets(filters: TicketFilters = {}): Promise<{ data: Ticket[] | null; error: any }> {
@@ -60,13 +92,20 @@ export class TicketService {
 
       // Sort activities by created_at for each ticket
       if (data) {
-        data.forEach(ticket => {
+        // Enrich tickets with user data
+        const enrichedTickets = await Promise.all(
+          data.map(ticket => enrichTicketWithUsers(ticket))
+        );
+        
+        enrichedTickets.forEach(ticket => {
           if (ticket.activities) {
             ticket.activities.sort((a, b) => 
               new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             );
           }
         });
+        
+        return { data: enrichedTickets, error };
       }
 
       return { data, error };
@@ -110,11 +149,15 @@ export class TicketService {
         .eq('id', ticketId)
         .single();
 
-      // Sort activities by created_at
-      if (data?.activities) {
-        data.activities.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+      // Sort activities by created_at and enrich with user data
+      if (data) {
+        const enrichedTicket = await enrichTicketWithUsers(data);
+        if (enrichedTicket?.activities) {
+          enrichedTicket.activities.sort((a, b) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        }
+        return { data: enrichedTicket, error };
       }
 
       return { data, error };

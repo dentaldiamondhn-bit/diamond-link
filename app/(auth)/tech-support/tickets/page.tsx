@@ -10,6 +10,7 @@ import SystemLogs from '@/components/SystemLogs';
 import { useUser } from '@clerk/nextjs';
 import { useTheme } from '@/contexts/ThemeContext';
 import { UserSelect } from '@/components/calendar/UserSelect';
+import { UserAvatar } from '@/components/calendar/UserComponents';
 import { 
   Ticket as TicketIcon, 
   Plus, 
@@ -743,17 +744,55 @@ export default function TechSupportTickets() {
                 {/* Right Section - Meta */}
                 <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
                   <div className="flex items-center gap-1.5">
-                    <User className="w-4 h-4" />
-                    <span className="truncate max-w-[100px]">{ticket.creator?.name || 'Usuario'}</span>
+                    {ticket.creator ? (
+                      <div className="flex items-center gap-2 max-w-[120px]">
+                        <div className="cursor-help" title={`${ticket.creator.first_name && ticket.creator.last_name 
+                          ? `${ticket.creator.first_name} ${ticket.creator.last_name}` 
+                          : ticket.creator.email || 'Usuario'}${ticket.creator.role ? ` (${ticket.creator.role})` : ''}`}>
+                          <UserAvatar user={ticket.creator} size="sm" />
+                        </div>
+                        <span className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                          {ticket.creator.first_name && ticket.creator.last_name 
+                            ? `${ticket.creator.first_name} ${ticket.creator.last_name}`
+                            : ticket.creator.email || 'Usuario'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center cursor-help" title="Sin asignar">
+                          <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                        </div>
+                        <span className="text-sm font-medium text-gray-400 dark:text-gray-500">Sin asignar</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-4 h-4" />
                     <span>{new Date(ticket.created_at).toLocaleDateString('es-HN')}</span>
                   </div>
                   {ticket.assignees && ticket.assignees.length > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-4 h-4" />
-                      <span>{ticket.assignees.length}</span>
+                    <div className="flex items-center gap-1">
+                      {ticket.assignees.slice(0, 3).map((assignee, index) => (
+                        <div key={assignee.user_id || index} className="flex items-center gap-1">
+                          {assignee.user ? (
+                            <div className="cursor-help" title={`${assignee.user.first_name && assignee.user.last_name 
+                              ? `${assignee.user.first_name} ${assignee.user.last_name}` 
+                              : assignee.user.email || 'Usuario'}${assignee.user.role ? ` (${assignee.user.role})` : ''}`}>
+                              <UserAvatar user={assignee.user} size="sm" />
+                            </div>
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center cursor-help" title="Usuario desconocido">
+                              <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {ticket.assignees.length > 3 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 cursor-help" 
+                              title={`${ticket.assignees.length - 3} usuarios más asignados`}>
+                          +{ticket.assignees.length - 3}
+                        </span>
+                      )}
                     </div>
                   )}
                   <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
@@ -988,7 +1027,25 @@ export default function TechSupportTickets() {
                       </div>
                       <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Creado por</p>
-                        <p className="font-medium text-slate-800 dark:text-white">{selectedTicket.creator?.name || 'Usuario desconocido'}</p>
+                        <div className="mt-1">
+                          {selectedTicket.creator ? (
+                            <div className="flex items-center gap-2">
+                              <UserAvatar user={selectedTicket.creator} size="sm" />
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {selectedTicket.creator.first_name && selectedTicket.creator.last_name 
+                                  ? `${selectedTicket.creator.first_name} ${selectedTicket.creator.last_name}`
+                                  : selectedTicket.creator.email || 'Usuario'}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                              </div>
+                              <span className="text-sm font-medium text-gray-400 dark:text-gray-500">Sin asignar</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       {selectedTicket.due_date && (
                         <div>
@@ -1000,11 +1057,38 @@ export default function TechSupportTickets() {
                       )}
                       <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Asignados</p>
-                        <p className="font-medium text-slate-800 dark:text-white">
-                          {selectedTicket.assignees && selectedTicket.assignees.length > 0 
-                            ? selectedTicket.assignees.map(a => a.user?.name || 'Usuario').join(', ')
-                            : 'Sin asignar'}
-                        </p>
+                        <div className="mt-1 space-y-1">
+                          {selectedTicket.assignees && selectedTicket.assignees.length > 0 ? (
+                            selectedTicket.assignees.map((assignee, index) => (
+                              <div key={assignee.user_id || index} className="flex items-center gap-2">
+                                {assignee.user ? (
+                                  <>
+                                    <UserAvatar user={assignee.user} size="sm" />
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                      {assignee.user.first_name && assignee.user.last_name 
+                                        ? `${assignee.user.first_name} ${assignee.user.last_name}`
+                                        : assignee.user.email || 'Usuario'}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                      <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-400 dark:text-gray-500">Usuario desconocido</span>
+                                  </>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                              </div>
+                              <span className="text-sm font-medium text-gray-400 dark:text-gray-500">Sin asignar</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

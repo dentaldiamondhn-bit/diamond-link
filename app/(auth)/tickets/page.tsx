@@ -31,6 +31,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { UserSelect } from '@/components/calendar/UserSelect';
+import { UserAvatar } from '@/components/calendar/UserComponents';
 
 export default function TicketsPage() {
   const { user } = useUser();
@@ -501,14 +502,58 @@ export default function TicketsPage() {
                   {/* Right Section - Meta & Actions */}
                   <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-4 text-sm text-slate-500 dark:text-slate-400">
                     <div className="hidden md:flex items-center gap-2 lg:gap-4">
+                      {/* Creator Avatar */}
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <User className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate max-w-[80px] lg:max-w-[100px]">
-                          {ticket.assignees && ticket.assignees.length > 0 
-                            ? `${ticket.assignees.length} asig.` 
-                            : 'Sin asig.'}
-                        </span>
+                        {ticket.creator ? (
+                          <div className="flex items-center gap-2 max-w-[100px] lg:max-w-[120px] group relative">
+                            <div className="cursor-help" title={`${ticket.creator.first_name && ticket.creator.last_name 
+                              ? `${ticket.creator.first_name} ${ticket.creator.last_name}` 
+                              : ticket.creator.email || 'Usuario'}${ticket.creator.role ? ` (${ticket.creator.role})` : ''}`}>
+                              <UserAvatar user={ticket.creator} size="sm" />
+                            </div>
+                            <span className="truncate text-xs font-medium text-gray-900 dark:text-white">
+                              {ticket.creator.first_name && ticket.creator.last_name 
+                                ? `${ticket.creator.first_name} ${ticket.creator.last_name}`
+                                : ticket.creator.email || 'Usuario'}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Sin asignar">
+                              <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                            </div>
+                            <span className="text-xs font-medium text-gray-400 dark:text-gray-500">Sin asignar</span>
+                          </div>
+                        )}
                       </div>
+                      
+                      {/* Assignee Avatars */}
+                      {ticket.assignees && ticket.assignees.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          {ticket.assignees.slice(0, 2).map((assignee, index) => (
+                            <div key={assignee.user_id || index} className="flex items-center gap-1">
+                              {assignee.user ? (
+                                <div className="cursor-help" title={`${assignee.user.first_name && assignee.user.last_name 
+                                  ? `${assignee.user.first_name} ${assignee.user.last_name}` 
+                                  : assignee.user.email || 'Usuario'}${assignee.user.role ? ` (${assignee.user.role})` : ''}`}>
+                                  <UserAvatar user={assignee.user} size="sm" />
+                                </div>
+                              ) : (
+                                <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Usuario desconocido">
+                                  <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {ticket.assignees.length > 2 && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 cursor-help" 
+                                  title={`${ticket.assignees.length - 2} usuarios más asignados`}>
+                              +{ticket.assignees.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
                       {ticket.due_date && (
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <Calendar className="w-4 h-4" />
@@ -1528,15 +1573,60 @@ function TicketDetailModal({
                   </div>
                   <div>
                     <span className="text-sm text-slate-500 dark:text-slate-400">Creado por</span>
-                    <p className="font-medium text-slate-800 dark:text-white">{ticket.creator?.name || 'Usuario'}</p>
+                    <div className="mt-1">
+                      {ticket.creator ? (
+                        <div className="flex items-center gap-2">
+                          <UserAvatar user={ticket.creator} size="sm" />
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {ticket.creator.first_name && ticket.creator.last_name 
+                              ? `${ticket.creator.first_name} ${ticket.creator.last_name}`
+                              : ticket.creator.email || 'Usuario'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                            <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                          </div>
+                          <span className="text-sm font-medium text-gray-400 dark:text-gray-500">Sin asignar</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <span className="text-sm text-slate-500 dark:text-slate-400">Asignado a</span>
-                    <p className="font-medium text-slate-800 dark:text-white">
-                      {ticket.assignees && ticket.assignees.length > 0 
-                        ? `${ticket.assignees.length} usuario(s)` 
-                        : 'Sin asignar'}
-                    </p>
+                    <div className="mt-1 space-y-1">
+                      {ticket.assignees && ticket.assignees.length > 0 ? (
+                        ticket.assignees.map((assignee, index) => (
+                          <div key={assignee.user_id || index} className="flex items-center gap-2">
+                            {assignee.user ? (
+                              <>
+                                <UserAvatar user={assignee.user} size="sm" />
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {assignee.user.first_name && assignee.user.last_name 
+                                    ? `${assignee.user.first_name} ${assignee.user.last_name}`
+                                    : assignee.user.email || 'Usuario'}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                  <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                                </div>
+                                <span className="text-sm font-medium text-gray-400 dark:text-gray-500">Usuario desconocido</span>
+                              </>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                            <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                          </div>
+                          <span className="text-sm font-medium text-gray-400 dark:text-gray-500">Sin asignar</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {ticket.due_date && (
                     <div>

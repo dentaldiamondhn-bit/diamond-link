@@ -37,6 +37,16 @@ export function UserAvatar({
     lg: 'text-sm'
   };
 
+  // Handle case where only full name is available (from tickets User interface)
+  const displayName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || '';
+  const initials = firstName && lastName 
+    ? `${firstName.charAt(0)}${lastName.charAt(0)}` 
+    : firstName 
+      ? firstName.charAt(0).toUpperCase()
+      : lastName 
+        ? lastName.charAt(0).toUpperCase()
+        : '';
+
   if (!userId) {
     // Unassigned user state
     return (
@@ -63,7 +73,7 @@ export function UserAvatar({
           <img
             className={`${sizeClasses[size]} rounded-full object-cover border-2 border-white dark:border-gray-800 shadow-sm`}
             src={profileImageUrl}
-            alt={`${firstName} ${lastName}`}
+            alt={displayName}
             onError={(e) => {
               // If image fails to load, replace with initials
               e.currentTarget.style.display = 'none';
@@ -77,7 +87,7 @@ export function UserAvatar({
           style={{ display: profileImageUrl ? 'none' : 'flex' }}
         >
           <span className={`${size === 'sm' ? 'text-xs' : 'text-sm'}`}>
-            {firstName?.charAt(0) || ''}{lastName?.charAt(0) || ''}
+            {initials}
           </span>
         </div>
       </div>
@@ -85,7 +95,7 @@ export function UserAvatar({
         <div>
           {showName && (
             <div className={`${textSizeClasses[size]} font-medium text-gray-900 dark:text-white`}>
-              {firstName} {lastName}
+              {displayName}
             </div>
           )}
           {showEmail && (
