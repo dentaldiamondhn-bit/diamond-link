@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { OrthodonticVersion, sortVersionsByDate, getCurrentVersion, getNextVersionNumber } from '@/utils/versionUtils';
 import { extractMonthsFromDuration } from '@/utils/progressUtils';
 import { orthodonticVersionService } from '@/services/orthodonticVersionService';
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 
 export interface UseVersionManagementProps {
   patientId: string;
@@ -76,6 +77,8 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
       
       // Calculate progress based on actual treatment data
       const versionData = latestVersion ? {
+        pacienteId: latestVersion.pacienteId || patientId,
+        doctorId: latestVersion.doctorId,
         motivoConsultaOrtodoncia: latestVersion.motivoConsultaOrtodoncia,
         diagnosticoOrtodoncia: latestVersion.diagnosticoOrtodoncia,
         planTratamientoOrtodoncia: latestVersion.planTratamientoOrtodoncia,
@@ -91,6 +94,8 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
         extraccionesRealizadas: latestVersion.extraccionesRealizadas,
         retenedorTipo: latestVersion.retenedorTipo,
         retenedorUso: latestVersion.retenedorUso,
+        retenedorInferiorTipo: latestVersion.retenedorInferiorTipo,
+        retenedorInferiorUso: latestVersion.retenedorInferiorUso,
         seguimientoPostTratamiento: latestVersion.seguimientoPostTratamiento,
         documentosOrtodoncia: latestVersion.documentosOrtodoncia,
         firmaDigitalOrtodoncia: latestVersion.firmaDigitalOrtodoncia,
@@ -99,6 +104,7 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
         totalEstimatedAppointments: latestVersion.totalEstimatedAppointments || 12
       } : {
         // First version - start with 1 completed appointment
+        pacienteId: patientId,
         completedAppointments: 1,
         totalEstimatedAppointments: 12
       };
@@ -107,7 +113,7 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
         patientId,
         {
           ...versionData,
-          recordDate: recordDate.toISOString().split('T')[0],
+          recordDate: SimpleTimezoneFix.toDateString(recordDate),
           notes
         },
         false // Don't make new versions current by default
@@ -157,14 +163,14 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
         ? Math.min(Math.round((completedAppointments / totalEstimatedAppointments) * 100), 100)
         : 0;
       
-      // Update existing current version by creating a new one with calculated progress
-      await orthodonticVersionService.createVersion(patientId, {
+      // Update existing current version with calculated progress
+      await orthodonticVersionService.updateCurrentVersion(patientId, {
         ...currentVersion,
         ...versionData,
         progressPercentage,
         completedAppointments,
         totalEstimatedAppointments
-      }, true);
+      });
     } catch (err) {
       console.error('Error updating current version:', err);
       setError(err instanceof Error ? err.message : 'Failed to update current version');

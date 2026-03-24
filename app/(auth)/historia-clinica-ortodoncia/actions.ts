@@ -2,6 +2,7 @@
 
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { redirect } from 'next/navigation';
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 
 export async function createOrthodonticHistory(formData: any) {
   
@@ -91,7 +92,7 @@ export async function createOrthodonticHistory(formData: any) {
         patient_id: paciente_id,
         original_record_id: data[0].id,
         version_number: 1,
-        record_date: new Date().toISOString().split('T')[0],
+        record_date: SimpleTimezoneFix.toDateString(new Date()),
         progress_percentage: 8, // 1/12 = 8.33%, rounded to 8
         is_current: true,
         

@@ -26,6 +26,7 @@ import {
   Lightbulb,
   Activity,
   ChevronRight,
+  ChevronDown,
   Send,
   AlertTriangle
 } from 'lucide-react';
@@ -246,10 +247,13 @@ export default function TicketsPage() {
   };
 
   const canChangeTicketStatus = (ticket: Ticket) => {
+    // Admin and tech support can always change status
+    if (userRole === UserRole.ADMIN || userRole === UserRole.TECH_SUPPORT) {
+      return true;
+    }
+    // Check if current user is an assignee
     const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === user?.id);
-    return isAssignee || 
-           userRole === UserRole.ADMIN || 
-           userRole === UserRole.TECH_SUPPORT;
+    return isAssignee;
   };
 
   const canViewTicketDetails = (ticket: Ticket) => {
@@ -520,28 +524,45 @@ export default function TicketsPage() {
                     </div>
                     
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {ticket.status === TicketStatus.OPEN && canChangeTicketStatus(ticket) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusChange(ticket.id, TicketStatus.IN_PROGRESS);
-                          }}
-                          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                        >
-                          Iniciar
-                        </button>
-                      )}
-                      
-                      {ticket.status === TicketStatus.IN_PROGRESS && canChangeTicketStatus(ticket) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusChange(ticket.id, TicketStatus.RESOLVED);
-                          }}
-                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
-                        >
-                          Completar
-                        </button>
+                      {/* Status Change Dropdown - Available for assignees */}
+                      {canChangeTicketStatus(ticket) && (
+                        <div className="relative">
+                          <select
+                            value={ticket.status}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleStatusChange(ticket.id, e.target.value as TicketStatus);
+                            }}
+                            className={`appearance-none px-3 py-1.5 pr-8 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+                              ticket.status === TicketStatus.OPEN 
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/50' 
+                                : ticket.status === TicketStatus.IN_PROGRESS
+                                ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700 hover:bg-violet-200 dark:hover:bg-violet-900/50'
+                                : ticket.status === TicketStatus.PENDING_REVIEW
+                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/50'
+                                : ticket.status === TicketStatus.RESOLVED
+                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
+                                : ticket.status === TicketStatus.CLOSED
+                                ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                            }`}
+                          >
+                            <option value={TicketStatus.OPEN}>Abierto</option>
+                            <option value={TicketStatus.IN_PROGRESS}>En Progreso</option>
+                            <option value={TicketStatus.PENDING_REVIEW}>Pendiente Revisión</option>
+                            <option value={TicketStatus.RESOLVED}>Resuelto</option>
+                            <option value={TicketStatus.CLOSED}>Cerrado</option>
+                          </select>
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <ChevronDown className={`w-4 h-4 ${
+                              ticket.status === TicketStatus.OPEN ? 'text-blue-500' 
+                              : ticket.status === TicketStatus.IN_PROGRESS ? 'text-violet-500'
+                              : ticket.status === TicketStatus.PENDING_REVIEW ? 'text-amber-500'
+                              : ticket.status === TicketStatus.RESOLVED ? 'text-emerald-500'
+                              : 'text-slate-500'
+                            }`} />
+                          </div>
+                        </div>
                       )}
                       
                       {canViewTicketDetails(ticket) && (

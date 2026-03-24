@@ -183,6 +183,49 @@ function HistoriaClinicaOrtodonciaContent() {
     patientId: patientId || '' 
   });
 
+  // Populate form when a version is selected from timeline
+  useEffect(() => {
+    if (versionManagement.selectedVersion && formData) {
+      const version = versionManagement.selectedVersion;
+      // Handle radiografias_realizadas which can be string (JSON), array, or undefined
+      let radiografiasValue: string[] = [];
+      const radiografias = version.radiografiasRealizadas;
+      if (Array.isArray(radiografias)) {
+        radiografiasValue = radiografias;
+      } else if (typeof radiografias === 'string' && radiografias) {
+        try {
+          radiografiasValue = JSON.parse(radiografias);
+        } catch {
+          radiografiasValue = [radiografias];
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        motivo_consulta_ortodoncia: version.motivoConsultaOrtodoncia || '',
+        diagnostico_ortodoncia: version.diagnosticoOrtodoncia || '',
+        plan_tratamiento_ortodoncia: version.planTratamientoOrtodoncia || '',
+        tipo_mordida: version.tipoMordida || '',
+        tipo_aparato: version.tipoAparato || '',
+        duracion_tratamiento: version.duracionTratamiento || '12 meses',
+        fecha_inicio_tratamiento: version.fechaInicioTratamiento || '',
+        fecha_fin_tratamiento: version.fechaFinTratamiento || '',
+        observaciones_ortodoncia: version.observacionesOrtodoncia || '',
+        radiografias_realizadas: radiografiasValue,
+        modelos_estudio: version.modelosEstudio || '',
+        analisis_cefalometrico: version.analisisCefalometrico || '',
+        extracciones_realizadas: version.extraccionesRealizadas || '',
+        retenedor_tipo: version.retenedorTipo || '',
+        retenedor_uso: version.retenedorUso || '',
+        retenedor_inferior_tipo: version.retenedorInferiorTipo || '',
+        retenedor_inferior_uso: version.retenedorInferiorUso || '',
+        seguimiento_post_tratamiento: version.seguimientoPostTratamiento || '',
+        documentos_ortodoncia: version.documentosOrtodoncia || [],
+        firma_digital_ortodoncia: version.firmaDigitalOrtodoncia || '',
+      }));
+    }
+  }, [versionManagement.selectedVersion]);
+
   // Fetch doctors from database
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -572,6 +615,8 @@ function HistoriaClinicaOrtodonciaContent() {
         onUpdateCurrent={async () => {
           // Update current version with current form data
           await versionManagement.actions.updateCurrentVersion({
+            pacienteId: patientId,
+            doctorId: formData.doctor_id,
             motivoConsultaOrtodoncia: formData.motivo_consulta_ortodoncia,
             diagnosticoOrtodoncia: formData.diagnostico_ortodoncia,
             planTratamientoOrtodoncia: formData.plan_tratamiento_ortodoncia,

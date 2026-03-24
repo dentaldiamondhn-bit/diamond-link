@@ -13,6 +13,10 @@ export interface OrthodonticVersion {
   notes?: string;
   createdBy: string;
   
+  // Patient and doctor reference
+  pacienteId?: string;
+  doctorId?: string;
+  
   // All orthodontic fields
   motivoConsultaOrtodoncia?: string;
   diagnosticoOrtodoncia?: string;

@@ -21,6 +21,7 @@ export class OrthodonticVersionService {
         headers: {
           'Content-Type': 'application/json',
         },
+        cache: 'no-store'
       });
       
       if (!response.ok) {
@@ -59,7 +60,8 @@ export class OrthodonticVersionService {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Failed to create version: ${errorData.error}`);
+        console.error('Full DB Error:', errorData);
+        throw new Error(`Failed to create version: ${errorData.details || errorData.error}`);
       }
       
       const data = await response.json();
@@ -85,11 +87,24 @@ export class OrthodonticVersionService {
         return;
       }
       
-      // Update existing current version by creating a new one
-      await this.createVersion(patientId, {
-        ...currentVersion,
-        ...versionData
-      }, true);
+      // Update existing current version in place
+      const response = await fetch('/api/orthodontic-versions', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patientId,
+          originalVersionId: currentVersion.id,
+          ...versionData
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Full DB Error on Update:', errorData);
+        throw new Error(`Failed to update current version: ${errorData.details || errorData.error}`);
+      }
     } catch (error) {
       console.error('Error updating current orthodontic version:', error);
       throw error;

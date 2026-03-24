@@ -59,6 +59,12 @@ import {
 import { formatCurrency } from '@/utils/currencyUtils';
 import SmartIDValidation from '@/components/SmartIDValidation';
 import MedicalWarningModal from '@/components/MedicalWarningModal';
+import { 
+  User, Phone, Mail, MapPin, Heart, Activity, Coffee, 
+  FileText, Edit3, ArrowLeft, Download, Printer, 
+  AlertTriangle, Calendar, Clock, Stethoscope, Smile,
+  Save, X, ChevronLeft, UserPlus, FileCheck, AlertCircle
+} from 'lucide-react';
 
 // Medical condition severity calculation (same as menu-navegacion)
 const getConditionSeverity = (patient: Patient) => {
@@ -210,8 +216,14 @@ const getFileName = (url: string) => {
 export default function PatientForm() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 space-y-4">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <User className="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+        <p className="text-gray-500 dark:text-gray-400 animate-pulse">Cargando formulario...</p>
       </div>
     }>
       <PatientFormContent />
@@ -1284,9 +1296,17 @@ function PatientFormContent() {
       clearValidationHighlighting();
       
       // Server action handles redirect, so no need for client-side redirect
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting form:', error);
       console.error('Error details:', JSON.stringify(error, null, 2));
+      
+      // Ignore redirect errors - they're intentional and handled by the server action
+      // Next.js redirect throws an error with 'NEXT_REDIRECT' in the message
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('NEXT_REDIRECT') || errorMessage.includes('redirect')) {
+        return;
+      }
+      
       alert(`Error al guardar el paciente: ${error.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
@@ -1375,7 +1395,53 @@ function PatientFormContent() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white rounded-lg shadow-md my-8">
+    <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8">
+      {/* Modern Form Header */}
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 ${isEditing ? 'bg-amber-500' : 'bg-teal-500'} rounded-xl flex items-center justify-center shadow-md`}>
+              {isEditing ? <Edit3 className="w-6 h-6 text-white" /> : <UserPlus className="w-6 h-6 text-white" />}
+            </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
+                {isEditing ? 'Editar Paciente' : 'Nuevo Paciente'}
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {isEditing ? 'Actualiza la información del paciente' : 'Ingresa los datos del nuevo paciente'}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2.5 rounded-xl transition-all hover:shadow-md"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Volver</span>
+            </button>
+            <button
+              type="submit"
+              form="patient-form"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-6 py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-teal-600/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Guardando...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>{isEditing ? 'Actualizar' : 'Crear Paciente'}</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
       <h1 className="text-3xl font-bold text-center mb-8 text-teal-700">
         {isEditing ? 'Editar Historia Clínica' : 'Nueva Historia Clínica'}
       </h1>

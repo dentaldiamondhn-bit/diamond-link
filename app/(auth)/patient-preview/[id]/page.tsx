@@ -19,6 +19,11 @@ import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedUser from '@/components/AnimatedUser';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import MedicalWarningModal from '@/components/MedicalWarningModal';
+import { 
+  User, Phone, Mail, MapPin, Heart, Activity, Coffee, 
+  FileText, Edit3, ArrowLeft, Download, Printer, 
+  AlertTriangle, Calendar, Clock, Stethoscope, Smile
+} from 'lucide-react';
 
 // Isolated component to prevent authentication conflicts
 const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string }> = React.memo(({ documents, patientId }) => {
@@ -192,26 +197,35 @@ export default function PatientPreviewPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <User className="w-6 h-6 text-teal-600" />
+          </div>
+        </div>
+        <p className="text-gray-500 dark:text-gray-400 animate-pulse">Cargando información del paciente...</p>
       </div>
     );
   }
 
   if (error || !patient) {
     return (
-      <div className="text-center py-12">
-        <i className="fas fa-exclamation-circle text-red-500 text-5xl mb-4"></i>
-        <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+        <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+          <AlertTriangle className="w-10 h-10 text-red-500" />
+        </div>
+        <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
           Error
         </h3>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
+        <p className="text-gray-600 dark:text-gray-400 max-w-md text-center">
           {error || 'No se encontró el paciente'}
         </p>
         <button
           onClick={() => router.back()}
-          className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition-colors"
+          className="mt-4 flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-xl transition-all hover:shadow-lg hover:shadow-teal-600/25"
         >
+          <ArrowLeft className="w-4 h-4" />
           Volver
         </button>
       </div>
@@ -219,78 +233,117 @@ export default function PatientPreviewPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Header Actions */}
-      <div className="flex justify-between items-center mb-6 print:hidden">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-          Vista Previa del Paciente
-        </h1>
-        <div className="mt-8 flex flex-wrap gap-4 justify-center">
-          {/* Edit Patient Button */}
-          <button
-            onClick={() => router.push(`/patient-form?id=${params.id as string}`)}
-            className="btn bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition flex items-center gap-2"
-          >
-            <i className="fas fa-edit"></i>
-            Editar
-          </button>
-          
-          {/* Menu Button */}
-          <button
-            onClick={() => {
-              const url = patient?.paciente_id ? `/menu-navegacion?id=${encodeURIComponent(patient.paciente_id)}` : '/menu-navegacion';
-              router.push(url);
-            }}
-            className="btn bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 transition flex items-center gap-2"
-          >
-            <i className="fas fa-arrow-left"></i>
-            Volver a Menu
-          </button>
-          
-          {/* Export Button */}
-          <button
-            onClick={() => setShowExportModal(true)}
-            className="btn bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700 transition flex items-center gap-2"
-          >
-            <i className="fas fa-download"></i>
-            Exportar
-          </button>
-          
-          {/* Print Button */}
-          <button
-            onClick={handlePrint}
-            className="btn bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition flex items-center gap-2"
-          >
-            <i className="fas fa-print"></i>
-            Imprimir
-          </button>
+    <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+      {/* Header Actions - Modern Navigation Bar */}
+      <div className="mb-6 print:hidden">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md">
+              <User className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
+                Vista Previa del Paciente
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                #{patient.paciente_id} • {patientType?.label || 'Paciente'}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {/* Edit Patient Button */}
+            <button
+              onClick={() => router.push(`/patient-form?id=${params.id as string}`)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-blue-600/25 active:scale-95"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Editar</span>
+            </button>
+            
+            {/* Menu Button */}
+            <button
+              onClick={() => {
+                const url = patient?.paciente_id ? `/menu-navegacion?id=${encodeURIComponent(patient.paciente_id)}` : '/menu-navegacion';
+                router.push(url);
+              }}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-emerald-600/25 active:scale-95"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Menú</span>
+            </button>
+            
+            {/* Export Button */}
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-violet-600/25 active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Exportar</span>
+            </button>
+            
+            {/* Print Button */}
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-gray-600/25 active:scale-95"
+            >
+              <Printer className="w-4 h-4" />
+              <span className="hidden sm:inline">Imprimir</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Patient Header */}
-      <div className={`bg-gradient-to-r ${patientType?.colors?.header || 'from-teal-500 to-cyan-500'} rounded-lg shadow-lg p-6 mb-6`}>
-        <div className="flex items-center space-x-4">
-          <div className={`w-16 h-16 ${patientType?.colors?.badge || 'bg-teal-100 dark:bg-teal-900'} rounded-full flex items-center justify-center`}>
-            <span className={`${patientType?.colors?.badgeText || 'text-teal-800 dark:text-teal-200'} font-bold text-xl`}>
-              {getInitials(patient.nombre_completo)}
-            </span>
-          </div>
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-white">
-              {patient.nombre_completo}
-            </h2>
-            <div className="text-white/90">
-              {patient.numero_identidad && <span>ID: {patient.numero_identidad}</span>}
-              {patient.telefono && <span> • Tel: {patient.telefono}</span>}
+      {/* Patient Header - Modern Hero Card */}
+      <div className={`relative overflow-hidden bg-gradient-to-br ${patientType?.colors?.header || 'from-teal-500 to-cyan-500'} rounded-2xl shadow-xl mb-6`}>
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+        <div className="relative p-6 md:p-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className={`w-24 h-24 ${patientType?.colors?.badge || 'bg-white/20'} rounded-2xl flex items-center justify-center shadow-lg backdrop-blur-sm`}>
+              <span className={`${patientType?.colors?.badgeText || 'text-white'} font-bold text-3xl`}>
+                {getInitials(patient.nombre_completo)}
+              </span>
             </div>
-          </div>
-          <div className="text-right">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${patientType?.colors?.badge || 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200'}`}>
-              <div className="w-4 h-4 mr-2 flex items-center justify-center">
-                <AnimatedUser />
+            <div className="flex-1">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                {patient.nombre_completo}
+              </h2>
+              <div className="flex flex-wrap items-center gap-3 text-white/80 text-sm md:text-base">
+                {patient.numero_identidad && (
+                  <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
+                    <User className="w-4 h-4" />
+                    {patient.numero_identidad}
+                  </span>
+                )}
+                {patient.telefono && (
+                  <a
+                    href={createWhatsAppUrl(patient.telefono, patient.pais_codigo || '504')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm hover:bg-white/20 transition-colors"
+                  >
+                    <Phone className="w-4 h-4" />
+                    {formatPhoneDisplay(patient.telefono, patient.pais_codigo || '504')}
+                  </a>
+                )}
+                {patient.email && (
+                  <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
+                    <Mail className="w-4 h-4" />
+                    {patient.email}
+                  </span>
+                )}
               </div>
-              {patientType?.label || 'Adulto'} • Paciente #{patient.paciente_id}
-            </span>
+            </div>
+            <div className="flex flex-col items-start md:items-end gap-2">
+              <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold ${patientType?.colors?.badge || 'bg-white/20 text-white'} backdrop-blur-sm shadow-lg`}>
+                <User className="w-4 h-4" />
+                {patientType?.label || 'Adulto'}
+              </span>
+              <span className="text-white/70 text-sm">
+                Paciente #{patient.paciente_id}
+              </span>
+            </div>
           </div>
         </div>
       </div>

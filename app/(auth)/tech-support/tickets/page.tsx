@@ -32,8 +32,10 @@ import {
   Users,
   Activity,
   ChevronRight,
+  ChevronDown,
   AlertCircle,
-  Zap
+  Zap,
+  Send
 } from 'lucide-react';
 
 export default function TechSupportTickets() {
@@ -75,6 +77,8 @@ export default function TechSupportTickets() {
   const [showPatientSearch, setShowPatientSearch] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [showAttachmentSearch, setShowAttachmentSearch] = useState(false);
+  const [comment, setComment] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   
@@ -104,6 +108,35 @@ export default function TechSupportTickets() {
       console.error('Error loading tickets:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (ticketId: string, newStatus: TicketStatus) => {
+    try {
+      await TicketService.updateTicket(ticketId, { status: newStatus }, user?.id || '');
+      loadTickets(); // Refresh tickets
+      
+      // Update the selected ticket if it's the one being modified
+      if (selectedTicket && selectedTicket.id === ticketId) {
+        setSelectedTicket({ ...selectedTicket, status: newStatus });
+      }
+    } catch (error) {
+      console.error('Error updating ticket status:', error);
+    }
+  };
+
+  const handleAddComment = async (ticketId?: string) => {
+    if (!comment.trim() || !user?.id) return;
+
+    try {
+      setCommentLoading(true);
+      await TicketService.addComment(ticketId || selectedTicket?.id, user.id, comment);
+      setComment('');
+      loadTickets(); // Refresh to get updated activities
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    } finally {
+      setCommentLoading(false);
     }
   };
 
@@ -799,10 +832,41 @@ export default function TechSupportTickets() {
                       const priorityStyles = getPriorityStyles(selectedTicket.priority);
                       return (
                         <>
-                          <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium ${statusStyles.bg} ${statusStyles.text} shadow-lg`}>
-                            {statusStyles.icon}
-                            {selectedTicket.status.replace('_', ' ')}
-                          </span>
+                          {/* Status Dropdown - allows changing status in modal */}
+                          <div className="relative">
+                            <select
+                              value={selectedTicket.status}
+                              onChange={(e) => handleStatusChange(selectedTicket.id, e.target.value as TicketStatus)}
+                              className={`appearance-none px-4 py-2 pr-10 rounded-full text-sm font-medium cursor-pointer transition-all shadow-lg ${
+                                selectedTicket.status === TicketStatus.OPEN 
+                                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/50' 
+                                  : selectedTicket.status === TicketStatus.IN_PROGRESS
+                                  ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700 hover:bg-violet-200 dark:hover:bg-violet-900/50'
+                                  : selectedTicket.status === TicketStatus.PENDING_REVIEW
+                                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/50'
+                                  : selectedTicket.status === TicketStatus.RESOLVED
+                                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
+                                  : selectedTicket.status === TicketStatus.CLOSED
+                                  ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                              }`}
+                            >
+                              <option value={TicketStatus.OPEN}>Abierto</option>
+                              <option value={TicketStatus.IN_PROGRESS}>En Progreso</option>
+                              <option value={TicketStatus.PENDING_REVIEW}>Pendiente Revisión</option>
+                              <option value={TicketStatus.RESOLVED}>Resuelto</option>
+                              <option value={TicketStatus.CLOSED}>Cerrado</option>
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <ChevronDown className={`w-4 h-4 ${
+                                selectedTicket.status === TicketStatus.OPEN ? 'text-blue-500' 
+                                : selectedTicket.status === TicketStatus.IN_PROGRESS ? 'text-violet-500'
+                                : selectedTicket.status === TicketStatus.PENDING_REVIEW ? 'text-amber-500'
+                                : selectedTicket.status === TicketStatus.RESOLVED ? 'text-emerald-500'
+                                : 'text-slate-500'
+                              }`} />
+                            </div>
+                          </div>
                           <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium ${priorityStyles.bg} ${priorityStyles.text} shadow-lg`}>
                             {selectedTicket.priority}
                           </span>
@@ -876,6 +940,28 @@ export default function TechSupportTickets() {
                       </div>
                     )}
                   </div>
+
+                  {/* Add Comment */}
+                  <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-5">
+                    <h3 className="font-semibold text-slate-800 dark:text-white mb-3">Agregar Comentario</h3>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        placeholder="Escribe tu comentario..."
+                        className="flex-1 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddComment(selectedTicket?.id)}
+                      />
+                      <button
+                        onClick={() => handleAddComment(selectedTicket?.id)}
+                        disabled={commentLoading || !comment.trim()}
+                        className="px-5 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Sidebar */}
@@ -887,14 +973,22 @@ export default function TechSupportTickets() {
                     </h3>
                     <div className="space-y-4">
                       <div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Creado por</p>
-                        <p className="font-medium text-slate-800 dark:text-white">{selectedTicket.creator?.name || 'Usuario desconocido'}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Tipo de Ticket</p>
+                        <p className="font-medium text-slate-800 dark:text-white">{selectedTicket.type.replace('_', ' ')}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Prioridad</p>
+                        <p className="font-medium text-slate-800 dark:text-white">{selectedTicket.priority}</p>
                       </div>
                       <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Fecha de creación</p>
                         <p className="font-medium text-slate-800 dark:text-white">
                           {new Date(selectedTicket.created_at).toLocaleString('es-HN')}
                         </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Creado por</p>
+                        <p className="font-medium text-slate-800 dark:text-white">{selectedTicket.creator?.name || 'Usuario desconocido'}</p>
                       </div>
                       {selectedTicket.due_date && (
                         <div>

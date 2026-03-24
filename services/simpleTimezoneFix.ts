@@ -145,6 +145,24 @@ export class SimpleTimezoneFix {
   }
   
   /**
+   * Extract date string (YYYY-MM-DD) from a local Date object
+   * This properly handles the local date without UTC conversion issues
+   */
+  static toDateString(date: Date): string {
+    if (!date) return '';
+    
+    try {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      return '';
+    }
+  }
+  
+  /**
    * Format time for display - SIMPLE VERSION
    * Converts UTC timestamps to clinic's local timezone (America/Tegucigalpa UTC-6)
    */

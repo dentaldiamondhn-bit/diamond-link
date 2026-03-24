@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { isValidHistoricalDate } from '@/utils/versionUtils';
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 
 interface VersionManagerProps {
   onUpdateCurrent: () => Promise<void>;
@@ -111,15 +112,15 @@ const VersionManager: React.FC<VersionManagerProps> = ({
                   </label>
                   <input
                     type="date"
-                    value={recordDate.toISOString().split('T')[0]}
+                    value={SimpleTimezoneFix.toDateString(recordDate)}
                     onChange={(e) => {
-                      const newDate = new Date(e.target.value);
+                      const newDate = new Date(e.target.value + 'T00:00:00');
                       setRecordDate(newDate);
                       if (dateError && isValidHistoricalDate(newDate)) {
                         setDateError('');
                       }
                     }}
-                    max={new Date().toISOString().split('T')[0]}
+                    max={SimpleTimezoneFix.toDateString(new Date())}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
                   {dateError && (
