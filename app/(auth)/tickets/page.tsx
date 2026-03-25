@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { UserSelect } from '@/components/calendar/UserSelect';
 import { UserAvatar } from '@/components/calendar/UserComponents';
+import DocumentDisplay from '@/components/DocumentDisplay';
 
 export default function TicketsPage() {
   const { user } = useUser();
@@ -50,9 +51,10 @@ export default function TicketsPage() {
     search: ''
   });
 
-  // Document upload state
+  // Document upload state - store files locally until ticket creation
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{type: 'success' | 'warning', text: string} | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([]);
 
   // User role from metadata - handle both role formats
@@ -136,8 +138,42 @@ export default function TicketsPage() {
     if (!user?.id) return;
 
     try {
+      let uploadedUrls: string[] = [];
+      
+      // Upload documents first if there are any selected files
+      if (selectedFiles.length > 0) {
+        setIsUploading(true);
+        setUploadMessage({
+          type: 'success',
+          text: 'Subiendo documentos...'
+        });
+
+        const formData = new FormData();
+        
+        // Generate a temporary ticket ID for upload
+        formData.append('ticketId', `temp-${Date.now()}`);
+        
+        for (const file of selectedFiles) {
+          formData.append('files', file);
+        }
+
+        const response = await fetch('/api/upload-ticket-documents', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Error al subir documentos');
+        }
+
+        uploadedUrls = result.uploadedUrls || [];
+        setUploadedDocuments(uploadedUrls);
+      }
+
       // Convert uploaded document URLs to attachment format
-      const docAttachments: CreateTicketAttachmentData[] = uploadedDocuments.map(url => {
+      const docAttachments: CreateTicketAttachmentData[] = uploadedUrls.map(url => {
         const fileName = decodeURIComponent(url.split('/').pop() || 'documento');
         return {
           attachment_type: 'document' as const,
@@ -156,12 +192,20 @@ export default function TicketsPage() {
       const result = await TicketService.createTicket(ticketDataWithDocs, user.id);
       if (result.data) {
         setShowCreateModal(false);
+        setSelectedFiles([]);
         setUploadedDocuments([]);
         setUploadMessage(null);
+        setIsUploading(false);
         loadTickets(); // Refresh tickets
       }
     } catch (error) {
       console.error('Error creating ticket:', error);
+      setUploadMessage({
+        type: 'warning',
+        text: 'Error al crear el ticket: ' + (error as Error).message
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -299,68 +343,36 @@ export default function TicketsPage() {
     setShowAttachmentModal(false);
   };
 
-  // Handle document upload for ticket
-  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle document selection for ticket (store locally, upload on ticket creation)
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     
     if (!files || files.length === 0) {
       return;
     }
 
-    setIsUploading(true);
-    setUploadMessage(null);
+    // Store files locally instead of uploading immediately
+    const newFiles = Array.from(files);
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+    
+    // Show success message
+    setUploadMessage({
+      type: 'success',
+      text: `${files.length} documento(s) seleccionado(s). Se subirán al crear el ticket.`
+    });
 
-    try {
-      const formData = new FormData();
-      
-      // Use a ticket-specific folder - generate a temporary ID until ticket is created
-      formData.append('ticketId', `temp-${Date.now()}`);
-      
-      for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i]);
-      }
+    // Clear file input
+    e.target.value = '';
 
-      const response = await fetch('/api/upload-ticket-documents', {
-        method: 'POST',
-        body: formData
-      });
+    // Clear message after 3 seconds
+    setTimeout(() => {
+      setUploadMessage(null);
+    }, 3000);
+  };
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Error al subir documentos');
-      }
-
-      // Add uploaded URLs to state
-      if (result.uploadedUrls && result.uploadedUrls.length > 0) {
-        setUploadedDocuments(prev => [...prev, ...result.uploadedUrls]);
-      }
-
-      // Show success message
-      const message = `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`;
-      
-      setUploadMessage({
-        type: 'success',
-        text: message
-      });
-
-      // Clear file input
-      e.target.value = '';
-
-      // Clear message after 5 seconds
-      setTimeout(() => {
-        setUploadMessage(null);
-      }, 5000);
-
-    } catch (error) {
-      console.error('Document upload error:', error);
-      setUploadMessage({
-        type: 'warning',
-        text: 'Error al subir documentos: ' + (error as Error).message
-      });
-    } finally {
-      setIsUploading(false);
-    }
+  // Remove selected document
+  const removeSelectedDocument = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   // Remove uploaded document
@@ -742,11 +754,20 @@ export default function TicketsPage() {
         <CreateTicketModal
           onClose={() => {
             setShowCreateModal(false);
+            setSelectedFiles([]);
             setUploadedDocuments([]);
             setUploadMessage(null);
+            setIsUploading(false);
           }}
           onSubmit={handleCreateTicket}
           userRole={userRole}
+          selectedFiles={selectedFiles}
+          uploadedDocuments={uploadedDocuments}
+          isUploading={isUploading}
+          uploadMessage={uploadMessage}
+          onDocumentUpload={handleDocumentUpload}
+          onRemoveSelectedDocument={removeSelectedDocument}
+          onRemoveUploadedDocument={removeUploadedDocument}
         />
       )}
 
@@ -888,10 +909,28 @@ export default function TicketsPage() {
 }
 
 // Create Ticket Modal Component - Modern Design
-function CreateTicketModal({ onClose, onSubmit, userRole }: { 
+function CreateTicketModal({ 
+  onClose, 
+  onSubmit, 
+  userRole,
+  selectedFiles,
+  uploadedDocuments,
+  isUploading,
+  uploadMessage,
+  onDocumentUpload,
+  onRemoveSelectedDocument,
+  onRemoveUploadedDocument
+}: { 
   onClose: () => void; 
   onSubmit: (data: CreateTicketData) => void;
   userRole: UserRole;
+  selectedFiles: File[];
+  uploadedDocuments: string[];
+  isUploading: boolean;
+  uploadMessage: {type: 'success' | 'warning', text: string} | null;
+  onDocumentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveSelectedDocument: (index: number) => void;
+  onRemoveUploadedDocument: (index: number) => void;
 }) {
   const { theme } = useTheme();
   const [formData, setFormData] = useState<CreateTicketData>({
@@ -909,84 +948,11 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  // Document upload state
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState<{type: 'success' | 'warning', text: string} | null>(null);
-  const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([]);
-
-  // Handle document upload for ticket
-  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    
-    if (!files || files.length === 0) {
-      return;
-    }
-
-    setIsUploading(true);
-    setUploadMessage(null);
-
-    try {
-      const formData = new FormData();
-      
-      // Use a ticket-specific folder - generate a temporary ID until ticket is created
-      formData.append('ticketId', `temp-${Date.now()}`);
-      
-      for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i]);
-      }
-
-      const response = await fetch('/api/upload-ticket-documents', {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Error al subir documentos');
-      }
-
-      // Add uploaded URLs to state
-      if (result.uploadedUrls && result.uploadedUrls.length > 0) {
-        setUploadedDocuments(prev => [...prev, ...result.uploadedUrls]);
-      }
-
-      // Show success message
-      const message = `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`;
-      
-      setUploadMessage({
-        type: 'success',
-        text: message
-      });
-
-      // Clear file input
-      e.target.value = '';
-
-      // Clear message after 5 seconds
-      setTimeout(() => {
-        setUploadMessage(null);
-      }, 5000);
-
-    } catch (error) {
-      console.error('Document upload error:', error);
-      setUploadMessage({
-        type: 'warning',
-        text: 'Error al subir documentos: ' + (error as Error).message
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Remove uploaded document
-  const removeUploadedDocument = (index: number) => {
-    setUploadedDocuments(prev => prev.filter((_, i) => i !== index));
-  };
+  const [modalLoading, setModalLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setModalLoading(true);
     
     // Convert uploaded document URLs to attachment format
     const docAttachments: CreateTicketAttachmentData[] = uploadedDocuments.map(url => {
@@ -1007,6 +973,7 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
     };
     
     onSubmit(submitData);
+    setModalLoading(false);
   };
 
   const handleSelectPatient = (patient: any) => {
@@ -1349,7 +1316,7 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                   name="ticket-documentos" 
                   multiple 
                   accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx" 
-                  onChange={handleDocumentUpload}
+                  onChange={onDocumentUpload}
                   disabled={isUploading}
                   className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                 />
@@ -1372,31 +1339,44 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
                 </div>
               )}
               
+              {/* Show selected files (not yet uploaded) */}
+              {selectedFiles.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Documentos seleccionados ({selectedFiles.length}):
+                  </h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-slate-500" />
+                          <span className="text-sm text-slate-700 dark:text-slate-300 truncate max-w-xs">{file.name}</span>
+                          <span className="text-xs text-slate-500">({(file.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedDocument(index)}
+                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Show uploaded documents (after successful upload) */}
               {uploadedDocuments.length > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                     Documentos subidos ({uploadedDocuments.length}):
                   </h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {uploadedDocuments.map((docUrl, index) => {
-                      const fileName = decodeURIComponent(docUrl.split('/').pop() || 'documento');
-                      return (
-                        <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-slate-500" />
-                            <span className="text-sm text-slate-700 dark:text-slate-300 truncate max-w-xs">{fileName}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeUploadedDocument(index)}
-                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <DocumentDisplay 
+                    documents={uploadedDocuments}
+                    removable={true}
+                    onRemove={onRemoveUploadedDocument}
+                  />
                 </div>
               )}
             </div>
@@ -1412,10 +1392,10 @@ function CreateTicketModal({ onClose, onSubmit, userRole }: {
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={modalLoading}
                 className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Creando...' : 'Crear Ticket'}
+                {modalLoading ? 'Creando...' : 'Crear Ticket'}
               </button>
             </div>
           </form>

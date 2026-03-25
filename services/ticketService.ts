@@ -19,20 +19,51 @@ const fetchUserById = async (userId: string) => {
 // Helper function to generate ticket number
 const generateTicketNumber = async (): Promise<string> => {
   try {
-    // Get the next ticket number from the sequence
+    // Try the database function first
     const { data: result, error } = await supabase
       .rpc('get_next_ticket_number');
     
-    if (error) {
-      console.error('Error generating ticket number:', error);
-      // Fallback: generate a simple sequential number
+    if (!error && result) {
+      return result;
+    }
+    
+    // Fallback: Get the highest existing ticket number and increment
+    const { data: existingTickets, error: fetchError } = await supabase
+      .from('tickets')
+      .select('ticket_number')
+      .not('ticket_number', 'is', null)
+      .order('ticket_number', { ascending: false })
+      .limit(1);
+    
+    if (fetchError) {
+      console.error('Error fetching existing tickets:', fetchError);
+      // Last resort: use timestamp
       const timestamp = Date.now();
       return `REQ-${timestamp.toString().slice(-6)}`;
     }
     
-    return result || `REQ-${Date.now().toString().slice(-6)}`;
+    let nextNumber = 1;
+    if (existingTickets && existingTickets.length > 0) {
+      // Find the actual highest ticket number from all results
+      const highestTicket = existingTickets.reduce((highest, current) => {
+        const currentNum = parseInt(current.ticket_number.replace('REQ-', ''), 10);
+        const highestNum = parseInt(highest.ticket_number.replace('REQ-', ''), 10);
+        return (!isNaN(currentNum) && currentNum > highestNum) ? current : highest;
+      });
+      
+      const numericPart = highestTicket.ticket_number.replace('REQ-', '');
+      const currentNumber = parseInt(numericPart, 10);
+      
+      if (!isNaN(currentNumber)) {
+        nextNumber = currentNumber + 1;
+      }
+    }
+    
+    return `REQ-${nextNumber.toString().padStart(5, '0')}`;
+    
   } catch (error) {
     console.error('Error in generateTicketNumber:', error);
+    // Last resort: use timestamp
     return `REQ-${Date.now().toString().slice(-6)}`;
   }
 };
@@ -228,7 +259,7 @@ export class TicketService {
           
           try {
             const { data: directTicket, error: directError } = await client
-              .rpc('create_maintenance_ticket_direct', {
+              .rpc('create_maintenance_ticket_with_number', {
                 p_title: ticketFields.title,
                 p_description: ticketFields.description,
                 p_type: 'MAINTENANCE',

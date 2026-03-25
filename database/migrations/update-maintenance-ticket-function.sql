@@ -1,14 +1,14 @@
 -- Create or replace function for creating maintenance tickets with ticket number
-CREATE OR REPLACE FUNCTION create_maintenance_ticket_direct(
-    p_title TEXT,
-    p_description TEXT,
-    p_type TEXT,
-    p_priority TEXT,
-    p_creator_id UUID,
-    p_maintenance_start TIMESTAMP WITH TIME ZONE,
-    p_maintenance_end TIMESTAMP WITH TIME ZONE,
+CREATE OR REPLACE FUNCTION create_maintenance_ticket_with_number(
+    p_title TEXT DEFAULT '',
+    p_description TEXT DEFAULT '',
+    p_type TEXT DEFAULT 'TASK',
+    p_priority TEXT DEFAULT 'MEDIUM',
+    p_creator_id UUID DEFAULT NULL,
+    p_maintenance_start TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    p_maintenance_end TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     p_is_reminder BOOLEAN DEFAULT FALSE,
-    p_ticket_number TEXT
+    p_ticket_number TEXT DEFAULT NULL
 )
 RETURNS TABLE(
     id UUID,
@@ -63,4 +63,4 @@ END;
 $$;
 
 -- Grant execute permission to authenticated users
-GRANT EXECUTE ON FUNCTION create_maintenance_ticket_direct TO authenticated;
+GRANT EXECUTE ON FUNCTION create_maintenance_ticket_with_number TO authenticated;
