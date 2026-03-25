@@ -6,10 +6,10 @@ import CapacitorNotificationService from './capacitorNotificationService';
 // Helper function to fetch user data
 const fetchUserById = async (userId: string) => {
   try {
-    const response = await fetch('/api/users');
+    const response = await fetch(`/api/users?id=${userId}`);
     if (!response.ok) return null;
-    const users = await response.json();
-    return users.find((user: any) => user.id === userId) || null;
+    const user = await response.json();
+    return user || null;
   } catch (error) {
     console.error('Error fetching user:', error);
     return null;
@@ -32,8 +32,7 @@ const generateTicketNumber = async (): Promise<string> => {
       .from('tickets')
       .select('ticket_number')
       .not('ticket_number', 'is', null)
-      .order('ticket_number', { ascending: false })
-      .limit(1);
+      .order('ticket_number', { ascending: false });
     
     if (fetchError) {
       console.error('Error fetching existing tickets:', fetchError);
@@ -107,6 +106,7 @@ export class TicketService {
             attachment_id,
             attachment_title,
             attachment_description,
+            file_url,
             metadata,
             created_at
           ),
@@ -186,6 +186,7 @@ export class TicketService {
             attachment_id,
             attachment_title,
             attachment_description,
+            file_url,
             metadata,
             created_at
           ),
@@ -314,6 +315,7 @@ export class TicketService {
           attachment_id: attachment.attachment_id,
           attachment_title: attachment.attachment_title,
           attachment_description: attachment.attachment_description,
+          file_url: attachment.file_url,
           metadata: attachment.metadata
         }));
 

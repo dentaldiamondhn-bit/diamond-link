@@ -1535,7 +1535,31 @@ function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
   );
 }
 
-// Ticket Detail Modal Component - Modern Design
+// Isolated component to prevent authentication conflicts
+const IsolatedDocumentDisplay: React.FC<{ documents: string[], removable?: boolean }> = React.memo(({ documents, removable = false }) => {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  return (
+    <DocumentDisplay 
+      documents={documents} 
+      removable={removable}
+    />
+  );
+});
+
+IsolatedDocumentDisplay.displayName = 'IsolatedDocumentDisplay';
 function TicketDetailModal({ 
   ticket, 
   onClose, 
@@ -1682,10 +1706,10 @@ function TicketDetailModal({
                             </p>
                             
                             {/* Show document preview for document attachments */}
-                            {attachment.attachment_type === 'document' && attachment.file_url && (
+                            {attachment.attachment_type === 'document' && (
                               <div className="mb-3">
-                                <DocumentDisplay 
-                                  documents={[attachment.file_url]}
+                                <IsolatedDocumentDisplay 
+                                  documents={attachment.file_url ? [attachment.file_url] : []}
                                   removable={false}
                                 />
                               </div>
