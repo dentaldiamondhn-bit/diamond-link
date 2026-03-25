@@ -1669,18 +1669,31 @@ function TicketDetailModal({
                                 attachment.attachment_type === 'consent' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
                                 attachment.attachment_type === 'odontogram' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
                                 attachment.attachment_type === 'event' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+                                attachment.attachment_type === 'document' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300' :
                                 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
                               }`}>
                                 {attachment.attachment_type === 'treatment' ? 'Tratamiento' :
                                  attachment.attachment_type === 'consent' ? 'Consentimiento' :
                                  attachment.attachment_type === 'odontogram' ? 'Odontograma' :
                                  attachment.attachment_type === 'event' ? 'Evento' :
+                                 attachment.attachment_type === 'document' ? 'Documento' :
                                  attachment.attachment_type}
                               </span>
                             </div>
                             <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
                               {attachment.attachment_description}
                             </p>
+                            
+                            {/* Show document preview for document attachments */}
+                            {attachment.attachment_type === 'document' && attachment.file_url && (
+                              <div className="mb-3">
+                                <DocumentDisplay 
+                                  documents={[attachment.file_url]}
+                                  removable={false}
+                                />
+                              </div>
+                            )}
+                            
                             {attachment.metadata && (
                               <div className="text-xs text-slate-500 dark:text-slate-500">
                                 {attachment.metadata.fecha_cita && (
@@ -1700,6 +1713,14 @@ function TicketDetailModal({
                               <button
                                 className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
                                 onClick={() => onViewAttachment(attachment)}
+                              >
+                                Ver
+                              </button>
+                            )}
+                            {attachment.attachment_type === 'document' && attachment.file_url && (
+                              <button
+                                className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                                onClick={() => window.open(attachment.file_url, '_blank')}
                               >
                                 Ver
                               </button>
