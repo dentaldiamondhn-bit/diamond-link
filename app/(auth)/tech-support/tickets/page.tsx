@@ -1667,7 +1667,7 @@ function TicketDetailModal({
                     <FileText className="w-5 h-5 text-emerald-600" />
                     Descripción
                   </h3>
-                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
                     {ticket.description}
                   </p>
                 </div>

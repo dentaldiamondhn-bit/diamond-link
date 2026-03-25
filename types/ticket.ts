@@ -45,6 +45,7 @@ export interface User {
   email: string;
   role: UserRole;
   department?: string;
+  profileImageUrl?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -452,15 +452,41 @@ export class StorageService {
         let mimeType = file.type;
         if (file.type === 'application/octet-stream' || !file.type) {
           const mimeTypes: { [key: string]: string } = {
+            // Images
             'jpg': 'image/jpeg',
             'jpeg': 'image/jpeg',
             'png': 'image/png',
             'gif': 'image/gif',
+            'webp': 'image/webp',
+            'svg': 'image/svg+xml',
+            
+            // Documents
             'pdf': 'application/pdf',
+            
+            // Microsoft Word
             'doc': 'application/msword',
             'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            
+            // Microsoft Excel
             'xls': 'application/vnd.ms-excel',
             'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            
+            // Microsoft PowerPoint
+            'ppt': 'application/vnd.ms-powerpoint',
+            'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            
+            // Text files
+            'txt': 'text/plain',
+            'csv': 'text/csv',
+            'rtf': 'application/rtf',
+            
+            // Archives
+            'zip': 'application/zip',
+            'rar': 'application/x-rar-compressed',
+            
+            // Other common formats
+            'json': 'application/json',
+            'xml': 'application/xml'
           };
           mimeType = mimeTypes[fileExtension?.toLowerCase()] || 'application/octet-stream';
         }
