@@ -674,47 +674,6 @@ export default function TicketsPage() {
                     </div>
                     
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Status Change Dropdown - Available for assignees */}
-                      {canChangeTicketStatus(ticket) && (
-                        <div className="relative">
-                          <select
-                            value={ticket.status}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              handleStatusChange(ticket.id, e.target.value as TicketStatus);
-                            }}
-                            className={`appearance-none px-3 py-1.5 pr-8 rounded-lg text-sm font-medium cursor-pointer transition-all ${
-                              ticket.status === TicketStatus.OPEN 
-                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/50' 
-                                : ticket.status === TicketStatus.IN_PROGRESS
-                                ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700 hover:bg-violet-200 dark:hover:bg-violet-900/50'
-                                : ticket.status === TicketStatus.PENDING_REVIEW
-                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/50'
-                                : ticket.status === TicketStatus.RESOLVED
-                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
-                                : ticket.status === TicketStatus.CLOSED
-                                ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
-                                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
-                            }`}
-                          >
-                            <option value={TicketStatus.OPEN}>Abierto</option>
-                            <option value={TicketStatus.IN_PROGRESS}>En Progreso</option>
-                            <option value={TicketStatus.PENDING_REVIEW}>Pendiente Revisión</option>
-                            <option value={TicketStatus.RESOLVED}>Resuelto</option>
-                            <option value={TicketStatus.CLOSED}>Cerrado</option>
-                          </select>
-                          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                            <ChevronDown className={`w-4 h-4 ${
-                              ticket.status === TicketStatus.OPEN ? 'text-blue-500' 
-                              : ticket.status === TicketStatus.IN_PROGRESS ? 'text-violet-500'
-                              : ticket.status === TicketStatus.PENDING_REVIEW ? 'text-amber-500'
-                              : ticket.status === TicketStatus.RESOLVED ? 'text-emerald-500'
-                              : 'text-slate-500'
-                            }`} />
-                          </div>
-                        </div>
-                      )}
-                      
                       {canViewTicketDetails(ticket) && (
                         <button
                           onClick={() => setSelectedTicket(ticket)}
@@ -1827,6 +1786,66 @@ function TicketDetailModal({
                   <div>
                     <span className="text-sm text-slate-500 dark:text-slate-400">Estado</span>
                     <p className="font-medium text-slate-800 dark:text-white">{ticket.status.replace('_', ' ')}</p>
+                    
+                    {/* Status Selector for Admin and Tech Support */}
+                    {userRole === UserRole.ADMIN || userRole === UserRole.TECH_SUPPORT ? (
+                      <div className="relative mt-2">
+                        <select
+                          value={ticket.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value as TicketStatus;
+                            try {
+                              await TicketService.updateTicket(ticket.id, { status: newStatus }, user?.id || '');
+                              onUpdate();
+                            } catch (error) {
+                              console.error('Error updating status:', error);
+                            }
+                          }}
+                          className={`appearance-none px-3 py-1.5 pr-8 rounded-lg text-sm font-medium cursor-pointer transition-all border ${
+                            ticket.status === TicketStatus.OPEN 
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/50' 
+                              : ticket.status === TicketStatus.IN_PROGRESS
+                              ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700 hover:bg-violet-200 dark:hover:bg-violet-900/50'
+                              : ticket.status === TicketStatus.PENDING_REVIEW
+                              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/50'
+                              : ticket.status === TicketStatus.RESOLVED
+                              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
+                              : ticket.status === TicketStatus.CLOSED
+                              ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
+                          }`}
+                        >
+                          <option value={TicketStatus.OPEN}>Abierto</option>
+                          <option value={TicketStatus.IN_PROGRESS}>En Progreso</option>
+                          <option value={TicketStatus.PENDING_REVIEW}>Revisión Pendiente</option>
+                          <option value={TicketStatus.RESOLVED}>Resuelto</option>
+                          <option value={TicketStatus.CLOSED}>Cerrado</option>
+                        </select>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <ChevronDown className={`w-4 h-4 ${
+                            ticket.status === TicketStatus.OPEN ? 'text-blue-500' 
+                            : ticket.status === TicketStatus.IN_PROGRESS ? 'text-violet-500'
+                            : ticket.status === TicketStatus.PENDING_REVIEW ? 'text-amber-500'
+                            : ticket.status === TicketStatus.RESOLVED ? 'text-emerald-500'
+                            : ticket.status === TicketStatus.CLOSED ? 'text-slate-500'
+                            : 'text-slate-500'
+                          }`} />
+                        </div>
+                      </div>
+                    ) : (
+                      // Just show status badge for non-admin users
+                      <div>
+                        {(() => {
+                          const statusStyles = getStatusStyles(ticket.status);
+                          return (
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}>
+                              {statusStyles.icon}
+                              {ticket.status.replace('_', ' ')}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <span className="text-sm text-slate-500 dark:text-slate-400">Creado por</span>
