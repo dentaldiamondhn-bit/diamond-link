@@ -63,9 +63,8 @@ function canAccessRouteServer(userRole: string, pathname: string): boolean {
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
-    // Get fresh auth for each request - no caching
-    const authResult = await auth();
-    const { userId } = authResult;
+    // Get auth data for each request
+    const { userId } = await auth();
     
     if (!userId) {
       const { redirectToSignIn } = await auth();
@@ -73,15 +72,11 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     // Get user role from metadata - check multiple locations
-    const session = await auth();
-    const sessionClaims = session?.sessionClaims as any;
-    const user = await auth().getUser();
+    const { sessionClaims, userId: recheckedUserId } = await auth();
     
-    // Try different metadata locations
+    // Try different metadata locations from session claims
     let userRole = 'staff'; // default
-    if (user?.publicMetadata?.role) {
-      userRole = user.publicMetadata.role;
-    } else if (sessionClaims?.public_metadata?.role) {
+    if (sessionClaims?.public_metadata?.role) {
       userRole = sessionClaims.public_metadata.role;
     } else if (sessionClaims?.metadata?.role) {
       userRole = sessionClaims.metadata.role;
@@ -89,14 +84,18 @@ export default clerkMiddleware(async (auth, req) => {
       userRole = sessionClaims.role;
     }
     
+    // Special case for known tech support user
+    if (recheckedUserId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6') {
+      userRole = 'tech_support';
+    }
+    
     // DEBUG: Log user role and access attempt
     console.log('🔍 MIDDLEWARE DEBUG:', {
-      userId,
+      userId: recheckedUserId,
       pathname: req.nextUrl.pathname,
       detectedRole: userRole,
       sessionClaims: sessionClaims,
       publicMetadata: sessionClaims?.public_metadata,
-      userPublicMetadata: user?.publicMetadata,
       metadata: sessionClaims?.metadata
     });
     
@@ -104,7 +103,7 @@ export default clerkMiddleware(async (auth, req) => {
     if (userRole === 'tech_support' || 
         userRole === 'tech-support' || 
         req.nextUrl.pathname.startsWith('/tech-support/') ||
-        userId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6') { // Specific tech support user
+        recheckedUserId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6') { // Specific tech support user
       
       // If tech support user is trying to access general dashboard, redirect to tech support dashboard
       if (req.nextUrl.pathname === '/dashboard' || req.nextUrl.pathname === '/') {
@@ -158,7 +157,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
     
     // EMERGENCY BYPASS: Allow tech-support/users access for tech support user while metadata is broken
-    if (userId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6' && 
+    if (recheckedUserId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6' && 
         req.nextUrl.pathname === '/tech-support/users') {
       return NextResponse.next();
     }
