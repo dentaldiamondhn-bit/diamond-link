@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         last_name: user.lastName || '',
         email: user.emailAddresses?.[0]?.emailAddress || '',
         role: user.publicMetadata?.role || user.privateMetadata?.role || 'staff',
-        profileImageUrl: user.profileImageUrl || user.imageUrl || null
+        profileImageUrl: user.imageUrl || null
       };
       
       console.log('Transformed user:', transformedUser);
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
           email: user.emailAddresses?.[0]?.emailAddress || '',
           role: user.publicMetadata?.role || user.privateMetadata?.role || 'STAFF',
           department: user.publicMetadata?.department || user.privateMetadata?.department || '',
-          profileImageUrl: user.profileImageUrl || user.imageUrl || null,
+          profileImageUrl: user.imageUrl || null,
           created_at: user.createdAt || new Date().toISOString(),
           updated_at: user.updatedAt || new Date().toISOString()
         }))
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
           email: userList.emailAddresses?.[0]?.emailAddress || '',
           role: userList.publicMetadata?.role || userList.privateMetadata?.role || 'STAFF',
           department: userList.publicMetadata?.department || userList.privateMetadata?.department || '',
-          profileImageUrl: userList.profileImageUrl || userList.imageUrl || null,
+          profileImageUrl: userList.imageUrl || null,
           created_at: userList.createdAt || new Date().toISOString(),
           updated_at: userList.updatedAt || new Date().toISOString()
         }]; // Single user case

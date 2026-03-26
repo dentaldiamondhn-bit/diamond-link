@@ -94,9 +94,16 @@ export default function TechSupportDashboard() {
       const openTickets = tickets.filter(t => t.status === TicketStatus.OPEN || t.status === TicketStatus.IN_PROGRESS).length;
       const resolvedToday = tickets.filter(t => {
         if (t.status !== TicketStatus.RESOLVED) return false;
-        const resolvedDate = t.resolved_at ? new Date(t.resolved_at) : null;
+        // Find the most recent status change activity that changed status to RESOLVED
+        const resolvedActivity = t.activities?.find(activity => 
+          activity.activity_type === 'STATUS_CHANGE' && 
+          activity.metadata?.new_status === TicketStatus.RESOLVED
+        );
+        if (!resolvedActivity) return false;
+        
+        const resolvedDate = new Date(resolvedActivity.created_at);
         const today = new Date();
-        return resolvedDate && resolvedDate.toDateString() === today.toDateString();
+        return resolvedDate.toDateString() === today.toDateString();
       }).length;
       const highPriority = tickets.filter(t => t.priority === TicketPriority.HIGH && t.status !== TicketStatus.RESOLVED).length;
 
@@ -146,7 +153,7 @@ export default function TechSupportDashboard() {
           type: 'ticket',
           message: `Ticket #${tickets[0]?.ticket_number || 'N/A'}: ${tickets[0]?.title || 'Sin tickets'}`,
           timestamp: now.toISOString(),
-          priority: tickets[0]?.priority || 'medium'
+          priority: (tickets[0]?.priority || 'medium').toLowerCase() as 'high' | 'medium' | 'low'
         },
         {
           id: '2',

@@ -76,12 +76,12 @@ export default clerkMiddleware(async (auth, req) => {
     
     // Try different metadata locations from session claims
     let userRole = 'staff'; // default
-    if (sessionClaims?.public_metadata?.role) {
-      userRole = sessionClaims.public_metadata.role;
-    } else if (sessionClaims?.metadata?.role) {
-      userRole = sessionClaims.metadata.role;
-    } else if (sessionClaims?.role) {
-      userRole = sessionClaims.role;
+    if ((sessionClaims as any)?.public_metadata?.role) {
+      userRole = (sessionClaims as any).public_metadata.role;
+    } else if ((sessionClaims as any)?.metadata?.role) {
+      userRole = (sessionClaims as any).metadata.role;
+    } else if ((sessionClaims as any)?.role) {
+      userRole = (sessionClaims as any).role as string;
     }
     
     // Special case for known tech support user
