@@ -75,10 +75,13 @@ export default clerkMiddleware(async (auth, req) => {
     // Get user role from metadata - check multiple locations
     const session = await auth();
     const sessionClaims = session?.sessionClaims as any;
+    const user = await auth().getUser();
     
     // Try different metadata locations
-    let userRole = 'staff';
-    if (sessionClaims?.public_metadata?.role) {
+    let userRole = 'staff'; // default
+    if (user?.publicMetadata?.role) {
+      userRole = user.publicMetadata.role;
+    } else if (sessionClaims?.public_metadata?.role) {
       userRole = sessionClaims.public_metadata.role;
     } else if (sessionClaims?.metadata?.role) {
       userRole = sessionClaims.metadata.role;
@@ -93,6 +96,7 @@ export default clerkMiddleware(async (auth, req) => {
       detectedRole: userRole,
       sessionClaims: sessionClaims,
       publicMetadata: sessionClaims?.public_metadata,
+      userPublicMetadata: user?.publicMetadata,
       metadata: sessionClaims?.metadata
     });
     
@@ -101,6 +105,13 @@ export default clerkMiddleware(async (auth, req) => {
         userRole === 'tech-support' || 
         req.nextUrl.pathname.startsWith('/tech-support/') ||
         userId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6') { // Specific tech support user
+      
+      // If tech support user is trying to access general dashboard, redirect to tech support dashboard
+      if (req.nextUrl.pathname === '/dashboard' || req.nextUrl.pathname === '/') {
+        console.log('🔄 REDIRECTING TECH SUPPORT TO TECH DASHBOARD');
+        return NextResponse.redirect(new URL('/tech-support/dashboard', req.url));
+      }
+      
       return NextResponse.next();
     }
     
