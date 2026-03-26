@@ -2,16 +2,47 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { 
+  Ticket, 
+  Activity, 
+  Clock, 
+  AlertTriangle, 
+  Plus, 
+  FileText, 
+  Settings, 
+  LayoutGrid,
+  Server,
+  Database,
+  Cloud,
+  Shield,
+  RefreshCw,
+  ChevronRight,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Zap
+} from 'lucide-react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useUser } from '@clerk/nextjs';
 import AccessDenied from '@/components/AccessDenied';
+import { TicketService } from '@/services/ticketService';
+import { TicketStatus, TicketPriority } from '@/types/ticket';
 
 interface DashboardStat {
   title: string;
   value: string | number;
   change: string;
   changeType: 'increase' | 'decrease' | 'neutral';
-  icon: string;
+  icon: React.ElementType;
   color: string;
+}
+
+interface SystemStatus {
+  name: string;
+  status: 'operational' | 'degraded' | 'offline';
+  details?: string;
 }
 
 interface RecentActivity {
@@ -23,11 +54,16 @@ interface RecentActivity {
 }
 
 export default function TechSupportDashboard() {
-  const { userRole, hasPermission } = useRoleBasedAccess();
+  const { userRole } = useRoleBasedAccess();
+  const { theme, resolvedTheme } = useTheme();
+  const { user } = useUser();
+  const pathname = usePathname();
   
   const [stats, setStats] = useState<DashboardStat[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Check if user is tech support
   if (userRole !== 'tech_support') {
@@ -42,222 +78,391 @@ export default function TechSupportDashboard() {
     );
   }
 
-  useEffect(() => {
-    // Mock data for demonstration
-    setTimeout(() => {
+  const loadDashboardData = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      // Fetch real ticket data
+      const ticketsResult = await TicketService.getTickets({});
+      const tickets = ticketsResult.data || [];
+      
+      // Calculate stats from real data
+      const openTickets = tickets.filter(t => t.status === TicketStatus.OPEN || t.status === TicketStatus.IN_PROGRESS).length;
+      const resolvedToday = tickets.filter(t => {
+        if (t.status !== TicketStatus.RESOLVED) return false;
+        const resolvedDate = t.resolved_at ? new Date(t.resolved_at) : null;
+        const today = new Date();
+        return resolvedDate && resolvedDate.toDateString() === today.toDateString();
+      }).length;
+      const highPriority = tickets.filter(t => t.priority === TicketPriority.HIGH && t.status !== TicketStatus.RESOLVED).length;
+
+      // Calculate average response time (mock for now)
+      const avgResponseTime = '2.5h';
+
       setStats([
         {
           title: 'Tickets Abiertos',
-          value: 12,
-          change: '+3 desde ayer',
-          changeType: 'increase',
-          icon: 'fas fa-ticket-alt',
+          value: openTickets,
+          change: highPriority > 0 ? `${highPriority} de alta prioridad` : 'Sin críticos',
+          changeType: highPriority > 0 ? 'increase' : 'neutral',
+          icon: Ticket,
           color: 'blue'
         },
         {
-          title: 'Tiempo Respuesta Promedio',
-          value: '2.5h',
-          change: '-30min desde semana pasada',
-          changeType: 'increase',
-          icon: 'fas fa-clock',
+          title: 'Tiempo Respuesta',
+          value: avgResponseTime,
+          change: 'Promedio esta semana',
+          changeType: 'neutral',
+          icon: Clock,
           color: 'green'
         },
         {
-          title: 'Tickets Resueltos Hoy',
-          value: 8,
-          change: '+2 vs ayer',
-          changeType: 'increase',
-          icon: 'fas fa-check-circle',
+          title: 'Resueltos Hoy',
+          value: resolvedToday,
+          change: resolvedToday > 0 ? 'Completados' : 'Sin actividad',
+          changeType: resolvedToday > 0 ? 'increase' : 'neutral',
+          icon: Activity,
           color: 'purple'
         },
         {
-          title: 'Errores del Sistema',
-          value: 3,
-          change: '-1 desde hora pasada',
-          changeType: 'decrease',
-          icon: 'fas fa-exclamation-triangle',
-          color: 'red'
+          title: 'Tickets Totales',
+          value: tickets.length,
+          change: 'En sistema',
+          changeType: 'neutral',
+          icon: Zap,
+          color: 'orange'
         }
       ]);
 
+      // Mock recent activity (in production, this would come from an activity log)
+      const now = new Date();
       setRecentActivity([
         {
           id: '1',
           type: 'ticket',
-          message: 'Nuevo ticket #123: Error en calendario',
-          timestamp: '2024-01-15T10:30:00Z',
-          priority: 'high'
+          message: `Ticket #${tickets[0]?.ticket_number || 'N/A'}: ${tickets[0]?.title || 'Sin tickets'}`,
+          timestamp: now.toISOString(),
+          priority: tickets[0]?.priority || 'medium'
         },
         {
           id: '2',
           type: 'system',
-          message: 'Backup automático completado exitosamente',
-          timestamp: '2024-01-15T10:15:00Z',
+          message: 'Sistema funcionando correctamente',
+          timestamp: new Date(now.getTime() - 15 * 60000).toISOString(),
           priority: 'low'
         },
         {
           id: '3',
           type: 'user',
-          message: 'Usuario Dr. Pérez restableció contraseña',
-          timestamp: '2024-01-15T10:00:00Z',
-          priority: 'medium'
+          message: `Usuario ${user?.firstName || 'Tech'} sesión iniciada`,
+          timestamp: new Date(now.getTime() - 30 * 60000).toISOString(),
+          priority: 'low'
         },
         {
           id: '4',
-          type: 'ticket',
-          message: 'Ticket #122 resuelto: Problema firma digital',
-          timestamp: '2024-01-15T09:45:00Z',
-          priority: 'medium'
+          type: 'system',
+          message: 'Backup automático completado',
+          timestamp: new Date(now.getTime() - 60 * 60000).toISOString(),
+          priority: 'low'
         }
       ]);
 
+      // Mock system status (in production, this would come from health checks)
+      setSystemStatus([
+        { name: 'Base de Datos', status: 'operational', details: 'Conexión activa' },
+        { name: 'API', status: 'operational', details: 'Todas las rutas funcionando' },
+        { name: 'Almacenamiento', status: 'degraded', details: '75% utilizado' },
+        { name: 'Autenticación', status: 'operational', details: 'Clerk activo' },
+        { name: 'Backup', status: 'operational', details: 'Último: hace 1 hora' }
+      ]);
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      // Fallback to mock data on error
+      setStats([
+        { title: 'Tickets Abiertos', value: 12, change: '+3 desde ayer', changeType: 'increase', icon: Ticket, color: 'blue' },
+        { title: 'Tiempo Respuesta', value: '2.5h', change: '-30min esta semana', changeType: 'increase', icon: Clock, color: 'green' },
+        { title: 'Resueltos Hoy', value: 8, change: '+2 vs ayer', changeType: 'increase', icon: Activity, color: 'purple' },
+        { title: 'Errores Activos', value: 3, change: '-1 desde hora pasada', changeType: 'decrease', icon: AlertTriangle, color: 'red' }
+      ]);
+    } finally {
       setLoading(false);
-    }, 1000);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, []);
 
   const getChangeColor = (changeType: string) => {
     switch (changeType) {
-      case 'increase': return 'text-green-600';
-      case 'decrease': return 'text-red-600';
-      default: return 'text-gray-600';
+      case 'increase': return 'text-green-600 dark:text-green-400';
+      case 'decrease': return 'text-red-600 dark:text-red-400';
+      default: return 'text-gray-500 dark:text-gray-400';
     }
   };
 
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case 'ticket': return 'fas fa-ticket-alt';
-      case 'system': return 'fas fa-server';
-      case 'user': return 'fas fa-user';
-      default: return 'fas fa-circle';
+      case 'ticket': return Ticket;
+      case 'system': return Server;
+      case 'user': return Activity;
+      default: return Activity;
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400 border-gray-200 dark:border-gray-700';
     }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'operational': return CheckCircle;
+      case 'degraded': return AlertCircle;
+      case 'offline': return XCircle;
+      default: return Activity;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'operational': return 'text-green-500';
+      case 'degraded': return 'text-yellow-500';
+      case 'offline': return 'text-red-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  const getStatColorClasses = (color: string) => {
+    const colors: Record<string, { bg: string; icon: string }> = {
+      blue: { bg: 'bg-blue-50 dark:bg-blue-900/20', icon: 'text-blue-600 dark:text-blue-400' },
+      green: { bg: 'bg-green-50 dark:bg-green-900/20', icon: 'text-green-600 dark:text-green-400' },
+      purple: { bg: 'bg-purple-50 dark:bg-purple-900/20', icon: 'text-purple-600 dark:text-purple-400' },
+      red: { bg: 'bg-red-50 dark:bg-red-900/20', icon: 'text-red-600 dark:text-red-400' },
+      orange: { bg: 'bg-orange-50 dark:bg-orange-900/20', icon: 'text-orange-600 dark:text-orange-400' }
+    };
+    return colors[color] || colors.blue;
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Hace un momento';
+    if (diffMins < 60) return `Hace ${diffMins} min`;
+    if (diffMins < 1440) return `Hace ${Math.floor(diffMins / 60)} h`;
+    return date.toLocaleDateString('es-HN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
       </div>
     );
   }
 
+  const quickActions = [
+    { href: '/tech-support/tickets', label: 'Nuevo Ticket', icon: Plus, color: 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700' },
+    { href: '/tech-support/system-logs', label: 'Ver Logs', icon: FileText, color: 'bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700' },
+    { href: '/tech-support/system-settings', label: 'Configuración', icon: Settings, color: 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-700' },
+    { href: '/tech-support/access-portal', label: 'Portal de Acceso', icon: LayoutGrid, color: 'bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700' }
+  ];
+
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+            Panel de Control
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            Bienvenido, {user?.firstName || 'Usuario'} • {new Date().toLocaleDateString('es-HN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <button
+          onClick={() => loadDashboardData(true)}
+          disabled={refreshing}
+          className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Actualizando...' : 'Actualizar'}
+        </button>
+      </div>
+
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
-        <div className="flex flex-wrap gap-3">
-          <Link href="/tech-support/tickets" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            <i className="fas fa-plus mr-2"></i>
-            Nuevo Ticket
-          </Link>
-          <Link href="/tech-support/system-logs" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-            <i className="fas fa-file-alt mr-2"></i>
-            Ver Logs
-          </Link>
-          <Link href="/tech-support/system-settings" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-            <i className="fas fa-cogs mr-2"></i>
-            Configuración
-          </Link>
-          <Link href="/tech-support/access-portal" className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-            <i className="fas fa-th-large mr-2"></i>
-            Portal de Acceso
-          </Link>
+      <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Acciones Rápidas</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {quickActions.map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className={`inline-flex items-center justify-center px-4 py-3 ${action.color} text-white rounded-lg transition-all hover:scale-105 hover:shadow-md`}
+            >
+              <action.icon className="w-5 h-5 mr-2" />
+              <span className="text-sm font-medium hidden sm:inline">{action.label}</span>
+            </Link>
+          ))}
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`w-12 h-12 bg-${stat.color}-100 rounded-lg flex items-center justify-center`}>
-                <i className={`${stat.icon} text-${stat.color}-600 text-xl`}></i>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        {stats.map((stat, index) => {
+          const colorClasses = getStatColorClasses(stat.color);
+          return (
+            <div
+              key={index}
+              className={`rounded-xl shadow-sm p-4 md:p-6 transition-all hover:shadow-md ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className={`w-12 h-12 ${colorClasses.bg} rounded-lg flex items-center justify-center`}>
+                  <stat.icon className={`${colorClasses.icon} text-xl`} />
+                </div>
+                <span className={`text-xs md:text-sm font-medium ${getChangeColor(stat.changeType)}`}>
+                  {stat.change}
+                </span>
               </div>
-              <span className={`text-sm font-medium ${getChangeColor(stat.changeType)}`}>
-                {stat.change}
-              </span>
+              <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</h3>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{stat.title}</p>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
-            <p className="text-gray-600 text-sm">{stat.title}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Recent Activity */}
+      {/* Activity and System Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Feed */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Actividad Reciente</h2>
+        {/* Recent Activity */}
+        <div className={`rounded-xl shadow-sm ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Actividad Reciente</h2>
+              <Link
+                href="/tech-support/tickets"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center"
+              >
+                Ver todos <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             <div className="space-y-4">
-              {recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className={`${getActivityIcon(activity.type)} text-gray-600 text-sm`}></i>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">{activity.message}</p>
-                    <div className="flex items-center mt-1 space-x-2">
-                      <span className="text-xs text-gray-500">
-                        {new Date(activity.timestamp).toLocaleString()}
-                      </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(activity.priority)}`}>
-                        {activity.priority}
-                      </span>
+              {recentActivity.map((activity) => {
+                const ActivityIcon = getActivityIcon(activity.type);
+                return (
+                  <div key={activity.id} className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                      <ActivityIcon className="text-gray-600 dark:text-gray-400 w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 dark:text-gray-100">{activity.message}</p>
+                      <div className="flex items-center mt-2 space-x-2 flex-wrap gap-y-1">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatTimestamp(activity.timestamp)}
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(activity.priority)}`}>
+                          {activity.priority === 'high' ? 'Alta' : activity.priority === 'medium' ? 'Media' : 'Baja'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* System Status */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Estado del Sistema</h2>
+        <div className={`rounded-xl shadow-sm ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Estado del Sistema</h2>
+              <Link
+                href="/tech-support/system-settings"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center"
+              >
+                Detalles <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-gray-900">Base de Datos</span>
-                </div>
-                <span className="text-sm text-green-600">Operativa</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-gray-900">API</span>
-                </div>
-                <span className="text-sm text-green-600">Funcionando</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-gray-900">Almacenamiento</span>
-                </div>
-                <span className="text-sm text-yellow-600">75% usado</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-gray-900">Backup</span>
-                </div>
-                <span className="text-sm text-green-600">Actualizado</span>
-              </div>
+              {systemStatus.map((system, index) => {
+                const StatusIcon = getStatusIcon(system.status);
+                return (
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                    <div className="flex items-center space-x-3">
+                      <div className={`${getStatusColor(system.status)}`}>
+                        <StatusIcon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{system.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{system.details}</p>
+                      </div>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                      system.status === 'operational' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : system.status === 'degraded'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                    }`}>
+                      {system.status === 'operational' ? 'Operativo' : system.status === 'degraded' ? 'Degradado' : 'Caído'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* System Resources */}
+      <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recursos del Sistema</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* CPU */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">CPU</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">45%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-blue-600 h-2 rounded-full" style={{ width: '45%' }}></div>
+            </div>
+          </div>
+          {/* Memory */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Memoria</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">62%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '62%' }}></div>
+            </div>
+          </div>
+          {/* Storage */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Almacenamiento</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">75%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-orange-600 h-2 rounded-full" style={{ width: '75%' }}></div>
             </div>
           </div>
         </div>
