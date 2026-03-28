@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Advanced SVG Studio | Vectorizer & Editor</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/potrace@2.1.8/dist/potrace.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #6366f1;
+      --dark-bg: #0f172a;
+    }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, var(--dark-bg) 0%, #0c0f1a 100%);
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    .preview-container {
+      background-color: #1f2937;
+      border: 1px solid #374151;
+      position: relative;
+      overflow: hidden;
+      background-image: radial-gradient(#374151 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    #vectorPreviewWrapper {
+      transform-origin: center center;
+      transition: transform 0.2s ease-in-out;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+    #vectorPreview svg {
+      max-width: 100%;
+      max-height: 100%;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+    .custom-slider {
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: #334155;
+      outline: none;
+    }
+    .custom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+    }
+    .dpad {
+      display: grid;
+      grid-template-columns: 40px 40px 40px;
+      grid-template-rows: 40px 40px 40px;
+      gap: 4px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .dpad button {
+      background: #334155;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+      font-size: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background-color 0.2s;
+    }
+    .dpad button:hover {
+      background: #6366f1;
+    }
+    .dpad .empty {
+      pointer-events: none;
+      background: transparent;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-6">
+  <div class="max-w-7xl mx-auto">
+    <header class="text-center mb-8">
+      <h1
+        class="text-3xl md:text-5xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400"
+      >
+        SVG Studio Pro
+      </h1>
+      <p class="text-gray-400">Vectorize images or edit SVG code in real-time</p>
+    </header>
+
+    <div class="grid lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-1 space-y-6">
+        <div class="glass-card p-6">
+          <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-blue-400">
+            Vectorizer
+          </h2>
+          <div
+            id="dropZone"
+            class="border-2 border-dashed border-gray-600 rounded-xl p-4 text-center cursor-pointer hover:border-blue-400 transition-all mb-4"
+          >
+            <input type="file" id="fileInput" class="hidden" accept="image/*" />
+            <p class="text-sm text-gray-400" id="dropZoneText">
+              Drop image or click to upload
+            </p>
+          </div>
+          <div class="space-y-3">
+            <div class="flex justify-between text-xs">
+              <label>Contrast Threshold</label><span id="threshVal">128</span>
+            </div>
+            <input
+              type="range"
+              id="thresholdInput"
+              min="0"
+              max="255"
+              value="128"
+              class="w-full custom-slider"
+            />
+            <button
+              id="vectorBtn"
+              class="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition-all disabled:opacity-50"
+            >
+              Convert to SVG
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-card p-6">
+          <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-purple-400">
+            SVG Code
+          </h2>
+          <textarea
+            id="svgEditor"
+            rows="8"
+            class="w-full p-3 rounded-lg bg-gray-900 text-gray-100 font-mono text-[11px] border border-gray-800 focus:ring-2 focus:ring-purple-500 resize-none"
+            placeholder="Paste SVG code..."
+          ></textarea>
+          <div
+            class="flex justify-between mt-2 text-[10px] text-gray-500"
+          >
+            <span id="codeStats">0 lines, 0 chars</span>
+            <div class="flex gap-2">
+              <button onclick="formatSVG()" class="hover:text-white">Format</button>
+              <button onclick="minifySVG()" class="hover:text-white">Minify</button>
+            </div>
+          </div>
+          <button
+            id="applyChangesBtn"
+            class="w-full mt-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold transition-all"
+          >
+            Apply Changes
+          </button>
+        </div>
+
+        <div class="glass-card p-6">
+          <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-green-400">
+            Advanced Styling
+          </h2>
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  class="block text-[10px] text-gray-400 uppercase font-bold"
+                  >Fill Color</label
+                >
+                <div class="flex gap-1 mt-1">
+                  <input
+                    type="color"
+                    id="fillColorInput"
+                    value="#6366f1"
+                    class="w-8 h-8 rounded bg-transparent cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    id="fillColorText"
+                    value="#6366F1"
+                    class="w-full bg-gray-800 border border-gray-700 rounded px-2 text-[10px] text-white"
+                  />
+                </div>
+              </div>
+              <div>
+                <label
+                  class="block text-[10px] text-gray-400 uppercase font-bold"
+                  >Stroke Width</label
+                >
+                <input
+                  type="number"
+                  id="strokeWidthInput"
+                  value="0"
+                  step="0.5"
+                  min="0"
+                  class="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  class="block text-[10px] text-gray-400 uppercase font-bold"
+                  >Icon Width (px)</label
+                >
+                <input
+                  type="number"
+                  id="iconWidthInput"
+                  value="500"
+                  min="1"
+                  class="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label
+                  class="block text-[10px] text-gray-400 uppercase font-bold"
+                  >Icon Height (px)</label
+                >
+                <input
+                  type="number"
+                  id="iconHeightInput"
+                  value="500"
+                  min="1"
+                  class="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                />
+              </div>
+            </div>
+
+            <!-- Alignment controls -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  class="block text-[10px] text-gray-400 uppercase font-bold"
+                  >Horizontal Align</label
+                >
+                <select
+                  id="alignHorizontal"
+                  class="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                >
+                  <option value="center" selected>Center</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  class="block text-[10px] text-gray-400 uppercase font-bold"
+                  >Vertical Align</label
+                >
+                <select
+                  id="alignVertical"
+                  class="w-full mt-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                >
+                  <option value="middle" selected>Middle</option>
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- D-pad controls -->
+            <div>
+              <label class="block text-[10px] text-gray-400 uppercase font-bold mb-1">
+                Nudge Icon Position
+              </label>
+              <div class="dpad" aria-label="D-pad controls for icon position">
+                <button id="dpadUp" title="Up">▲</button>
+                <button class="empty" disabled></button>
+                <button id="dpadRight" title="Right">▶</button>
+                <button id="dpadLeft" title="Left">◀</button>
+                <button class="empty" disabled></button>
+                <button id="dpadDown" title="Down">▼</button>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-gray-700 space-y-2">
+              <label class="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="addBgCard"
+                  class="rounded text-blue-500 bg-gray-800 border-gray-700"
+                />
+                <span class="ml-2 text-sm">Background Card</span>
+              </label>
+
+              <label class="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="bgUseGradient"
+                  class="rounded text-blue-500 bg-gray-800 border-gray-700"
+                />
+                <span class="ml-2 text-sm">Use Gradient</span>
+              </label>
+
+              <div
+                id="bgSettings"
+                class="mt-3 space-y-3 pl-4 border-l-2 border-blue-500 hidden"
+              >
+                <div class="grid grid-cols-2 gap-2">
+                  <input
+                    type="color"
+                    id="bgColor1"
+                    value="#000000"
+                    class="w-full h-8 rounded bg-transparent"
+                  />
+                  <input
+                    type="color"
+                    id="bgColor2"
+                    value="#000000"
+                    class="w-full h-8 rounded bg-transparent"
+                  />
+                </div>
+
+                <label
+                  for="bgGradientDirection"
+                  class="block text-[10px] text-gray-400 uppercase font-bold"
+                  >Gradient Direction</label
+                >
+                <select
+                  id="bgGradientDirection"
+                  class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white"
+                >
+                  <option value="top-bottom" selected>Top to Bottom</option>
+                  <option value="bottom-top">Bottom to Top</option>
+                  <option value="left-right">Left to Right</option>
+                  <option value="right-left">Right to Left</option>
+                  <option value="corner-to-corner">Corner to Corner</option>
+                  <option value="middle-out">Middle Out</option>
+                  <option value="out-middle">Out to Middle</option>
+                </select>
+
+                <div class="flex justify-between text-[10px]">
+                  <span>Opacity: <span id="opacityVal">100</span>%</span>
+                </div>
+                <input
+                  type="range"
+                  id="bgOpacity"
+                  min="0"
+                  max="100"
+                  value="100"
+                  class="w-full custom-slider"
+                />
+                <div class="flex justify-between text-[10px]">
+                  <span>Padding: <span id="padVal">20</span>px</span>
+                </div>
+                <input
+                  type="range"
+                  id="bgPadding"
+                  min="0"
+                  max="150"
+                  value="20"
+                  class="w-full custom-slider"
+                />
+                <div class="flex justify-between text-[10px]">
+                  <span>Radius: <span id="radiusVal">15</span>px</span>
+                </div>
+                <input
+                  type="range"
+                  id="bgRadius"
+                  min="0"
+                  max="100"
+                  value="15"
+                  class="w-full custom-slider"
+                />
+              </div>
+            </div>
+            <button
+              id="updateStylesBtn"
+              class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold text-sm"
+            >
+              Update Styling
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2 flex flex-col space-y-6">
+        <div class="glass-card p-6 flex-1 flex flex-col">
+          <div class="flex justify-between items-center mb-4">
+            <h2
+              class="text-xl font-bold flex items-center gap-2"
+            >
+              Preview
+              <span id="statusMessage" class="text-xs font-normal ml-4"></span>
+            </h2>
+            <div class="flex gap-2">
+              <button
+                id="zoomOutBtn"
+                class="p-2 bg-gray-800 hover:bg-gray-700 rounded text-xs"
+              >
+                Zoom-
+              </button>
+              <button
+                id="zoomInBtn"
+                class="p-2 bg-gray-800 hover:bg-gray-700 rounded text-xs"
+              >
+                Zoom+
+              </button>
+              <button
+                id="downloadBtn"
+                class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-xs font-bold"
+              >
+                Download SVG
+              </button>
+              <button
+                id="copyBtn"
+                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-xs font-bold"
+                title="Copy SVG code to clipboard"
+              >
+                Copy SVG
+              </button>
+            </div>
+          </div>
+          <div
+            class="preview-container rounded-xl flex-1 flex items-center justify-center min-h-[500px]"
+          >
+            <div id="vectorPreviewWrapper">
+              <div id="vectorPreview" class="flex items-center justify-center">
+                <p id="placeholder" class="text-gray-500 text-sm">
+                  Upload image or paste SVG code
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="glass-card p-6">
+          <div
+            class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center"
+          >
+            <div>
+              <div class="text-xl font-bold text-blue-400" id="statPaths">0</div>
+              <div class="text-[10px] text-gray-500 uppercase tracking-wider">
+                Paths
+              </div>
+            </div>
+            <div>
+              <div class="text-xl font-bold text-purple-400" id="statNodes">0</div>
+              <div class="text-[10px] text-gray-500 uppercase tracking-wider">
+                Nodes
+              </div>
+            </div>
+            <div>
+              <div class="text-xl font-bold text-green-400" id="statSize">0 KB</div>
+              <div class="text-[10px] text-gray-500 uppercase tracking-wider">
+                Size
+              </div>
+            </div>
+            <div>
+              <div class="text-xl font-bold text-yellow-400" id="statDim">-</div>
+              <div class="text-[10px] text-gray-500 uppercase tracking-wider">
+                Dimensions
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="hiddenCanvas" style="display:none;"></canvas>
+
+  <script>
+    let currentSVG = '';
+    let currentZoom = 1;
+    let originalImage = null;
+
+    let lastAppliedStyle = {
+      fill: null,
+      stroke: null,
+      iconWidth: null,
+      iconHeight: null,
+      bgCard: null,
+      bgSettings: null,
+      alignH: null,
+      alignV: null,
+      offsetX: 0,
+      offsetY: 0,
+      useGradient: null,
+      gradientDirection: null,
+    };
+
+    let nudgeOffsetX = 0;
+    let nudgeOffsetY = 0;
+
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const svgEditor = document.getElementById('svgEditor');
+
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          originalImage = img;
+          document.getElementById('dropZoneText').textContent = file.name;
+          setStatus('Image loaded.', 'success');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function vectorizeImage() {
+      if (!originalImage) return setStatus('Upload image first', 'error');
+      setStatus('Vectorizing...', 'info');
+
+      const canvas = document.getElementById('hiddenCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = originalImage.width;
+      canvas.height = originalImage.height;
+      ctx.drawImage(originalImage, 0, 0);
+
+      try {
+        potrace.process(canvas, (err, svg) => {
+          if (err) throw err;
+          updateCode(svg);
+          renderPreview(svg);
+          setStatus('Vectorized!', 'success');
+        });
+      } catch (err) {
+        setStatus('Tracing error', 'error');
+      }
+    }
+
+    function updateCode(code) {
+      currentSVG = code;
+      svgEditor.value = code;
+      updateStats();
+    }
+
+    function renderPreview(code) {
+      const container = document.getElementById('vectorPreview');
+      const placeholder = document.getElementById('placeholder');
+      if (!container) return;
+      container.innerHTML = code || '';
+      const svg = container.querySelector('svg');
+      if (svg) {
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        svg.style.width = '100%';
+        svg.style.height = 'auto';
+        if (placeholder) placeholder.style.display = 'none';
+        updateLiveStats(svg);
+      } else if (placeholder) {
+        placeholder.style.display = 'block';
+      }
+    }
+
+    svgEditor.addEventListener('input', () => {
+      currentSVG = svgEditor.value;
+      updateStats();
+      try {
+        renderPreview(currentSVG);
+        setStatus('SVG code updated', 'success');
+      } catch {
+        setStatus('Invalid SVG code', 'error');
+      }
+    });
+
+    function shallowEqual(obj1, obj2) {
+      if (!obj1 || !obj2) return false;
+      const keys1 = Object.keys(obj1);
+      const keys2 = Object.keys(obj2);
+      if (keys1.length !== keys2.length) return false;
+      for (const key of keys1) {
+        if (obj1[key] !== obj2[key]) return false;
+      }
+      return true;
+    }
+
+    function applyStyling() {
+      const fill = document.getElementById('fillColorInput').value;
+      const stroke = parseFloat(document.getElementById('strokeWidthInput').value) || 0;
+      const iconWidth = parseFloat(document.getElementById('iconWidthInput').value) || 500;
+      const iconHeight = parseFloat(document.getElementById('iconHeightInput').value) || 500;
+      const bgCard = document.getElementById('addBgCard').checked;
+      const useGradient = document.getElementById('bgUseGradient').checked;
+      const gradientDirection = document.getElementById('bgGradientDirection').value;
+      const bgSettings = {
+        color1: document.getElementById('bgColor1').value,
+        color2: document.getElementById('bgColor2').value,
+        opacity: document.getElementById('bgOpacity').value,
+        padding: document.getElementById('bgPadding').value,
+        radius: document.getElementById('bgRadius').value,
+      };
+      const alignH = document.getElementById('alignHorizontal').value;
+      const alignV = document.getElementById('alignVertical').value;
+
+      const currentStyle = {
+        fill,
+        stroke,
+        iconWidth,
+        iconHeight,
+        bgCard,
+        bgSettings: JSON.stringify(bgSettings),
+        alignH,
+        alignV,
+        offsetX: nudgeOffsetX,
+        offsetY: nudgeOffsetY,
+        useGradient,
+        gradientDirection,
+      };
+
+      if (shallowEqual(currentStyle, lastAppliedStyle)) {
+        setStatus('No styling changes detected', 'info');
+        return;
+      }
+
+      lastAppliedStyle = currentStyle;
+
+      const svgCode = svgEditor.value;
+      if (!svgCode.trim()) {
+        setStatus('SVG code is empty', 'error');
+        return;
+      }
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgCode, 'image/svg+xml');
+      const svg = doc.documentElement;
+
+      if (svg.nodeName !== 'svg') {
+        setStatus('Invalid SVG code', 'error');
+        return;
+      }
+
+      try {
+        const styledSvg = svg.cloneNode(true);
+
+        const padding = bgCard ? parseInt(bgSettings.padding) : 0;
+        const containerWidth = 500 + padding * 2;
+        const containerHeight = 500 + padding * 2;
+
+        styledSvg.setAttribute('width', containerWidth);
+        styledSvg.setAttribute('height', containerHeight);
+
+        if (!styledSvg.getAttribute('viewBox')) {
+          styledSvg.setAttribute('viewBox', `0 0 ${containerWidth} ${containerHeight}`);
+        }
+
+        // Apply fill and stroke to all relevant elements, regardless of existing fill attribute
+        const elementsToStyle = styledSvg.querySelectorAll('path, circle, rect, polygon, ellipse');
+
+        elementsToStyle.forEach((el) => {
+          el.setAttribute('fill', fill);
+          if (stroke > 0) {
+            el.setAttribute('stroke', fill);
+            el.setAttribute('stroke-width', stroke);
+          } else {
+            el.removeAttribute('stroke');
+            el.removeAttribute('stroke-width');
+          }
+        });
+
+        // Also apply fill to <g> elements if they have no fill attribute (optional)
+        styledSvg.querySelectorAll('g').forEach((g) => {
+          if (!g.hasAttribute('fill')) {
+            g.setAttribute('fill', fill);
+          }
+        });
+
+        const scaleX = iconWidth / 500;
+        const scaleY = iconHeight / 500;
+
+        const baseWidth = 500;
+        const baseHeight = 500;
+        const totalWidth = baseWidth * scaleX;
+        const totalHeight = baseHeight * scaleY;
+
+        const alignOffsetX = getHorizontalOffset(alignH, totalWidth, 500);
+        const alignOffsetY = getVerticalOffset(alignV, totalHeight, 500);
+
+        const translateX = padding + alignOffsetX + nudgeOffsetX;
+        const translateY = padding + alignOffsetY + nudgeOffsetY;
+
+        const g = styledSvg.querySelector('g');
+        if (g) {
+          g.setAttribute(
+            'transform',
+            `translate(${translateX}, ${translateY}) scale(${scaleX}, ${scaleY})`
+          );
+        }
+
+        const firstChild = styledSvg.firstElementChild;
+        const isWrapped =
+          firstChild && firstChild.tagName === 'rect' && firstChild.hasAttribute('fill-opacity');
+
+        if (bgCard && !isWrapped) {
+          wrapWithCard(styledSvg, bgSettings, useGradient, gradientDirection);
+        } else if (!bgCard && isWrapped) {
+          const rect = styledSvg.querySelector('rect');
+          if (rect) styledSvg.removeChild(rect);
+          const defs = styledSvg.querySelector('defs');
+          if (defs) styledSvg.removeChild(defs);
+        } else if (bgCard && isWrapped) {
+          updateCardBackground(styledSvg, bgSettings, useGradient, gradientDirection);
+        }
+
+        const finalCode = new XMLSerializer().serializeToString(styledSvg);
+        currentSVG = finalCode;
+        svgEditor.value = finalCode;
+        renderPreview(finalCode);
+        updateStats();
+        setStatus('Styling applied', 'success');
+      } catch (e) {
+        setStatus('Error applying styling: ' + e.message, 'error');
+      }
+    }
+
+
+    function wrapWithCard(svg, bgSettings, useGradient, gradientDirection) {
+      const padding = parseInt(bgSettings.padding);
+      const radius = bgSettings.radius;
+      const color1 = bgSettings.color1;
+      const color2 = bgSettings.color2;
+      const opacity = bgSettings.opacity / 100;
+
+      const vb = svg.viewBox.baseVal;
+      const w = vb.width;
+      const h = vb.height;
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('width', w);
+      rect.setAttribute('height', h);
+      rect.setAttribute('fill-opacity', opacity);
+      rect.setAttribute('rx', radius);
+
+      if (useGradient && color1 !== color2) {
+        const defs = svg.querySelector('defs') || document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        if (!svg.querySelector('defs')) svg.insertBefore(defs, svg.firstChild);
+
+        let grad = svg.querySelector('linearGradient#bgGrad');
+        if (!grad) {
+          grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+          grad.setAttribute('id', 'bgGrad');
+          defs.appendChild(grad);
+        }
+        setGradientDirection(grad, gradientDirection);
+        grad.innerHTML = `
+          <stop offset="0%" stop-color="${color1}"/>
+          <stop offset="100%" stop-color="${color2}"/>
+        `;
+        rect.setAttribute('fill', 'url(#bgGrad)');
+      } else {
+        // Remove gradient defs if any
+        const defs = svg.querySelector('defs');
+        if (defs) svg.removeChild(defs);
+        rect.setAttribute('fill', color1);
+      }
+
+      svg.insertBefore(rect, svg.firstChild);
+    }
+
+    function updateCardBackground(svg, bgSettings, useGradient, gradientDirection) {
+      const rect = svg.querySelector('rect');
+      if (!rect) return;
+
+      const color1 = bgSettings.color1;
+      const color2 = bgSettings.color2;
+      const opacity = bgSettings.opacity / 100;
+      const radius = bgSettings.radius;
+
+      rect.setAttribute('fill-opacity', opacity);
+      rect.setAttribute('rx', radius);
+
+      if (useGradient && color1 !== color2) {
+        let grad = svg.querySelector('linearGradient#bgGrad');
+        if (!grad) {
+          const defs = svg.querySelector('defs') || document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+          if (!svg.querySelector('defs')) svg.insertBefore(defs, svg.firstChild);
+          grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+          grad.setAttribute('id', 'bgGrad');
+          defs.appendChild(grad);
+        }
+        setGradientDirection(grad, gradientDirection);
+        grad.innerHTML = `
+          <stop offset="0%" stop-color="${color1}"/>
+          <stop offset="100%" stop-color="${color2}"/>
+        `;
+        rect.setAttribute('fill', 'url(#bgGrad)');
+      } else {
+        const defs = svg.querySelector('defs');
+        if (defs) svg.removeChild(defs);
+        rect.setAttribute('fill', color1);
+      }
+    }
+
+    function setGradientDirection(grad, direction) {
+      grad.removeAttribute('x1');
+      grad.removeAttribute('y1');
+      grad.removeAttribute('x2');
+      grad.removeAttribute('y2');
+      grad.removeAttribute('gradientUnits');
+      grad.removeAttribute('cx');
+      grad.removeAttribute('cy');
+      grad.removeAttribute('r');
+      grad.removeAttribute('fx');
+      grad.removeAttribute('fy');
+
+      switch (direction) {
+        case 'top-bottom':
+          grad.setAttribute('x1', '0%');
+          grad.setAttribute('y1', '0%');
+          grad.setAttribute('x2', '0%');
+          grad.setAttribute('y2', '100%');
+          break;
+        case 'bottom-top':
+          grad.setAttribute('x1', '0%');
+          grad.setAttribute('y1', '100%');
+          grad.setAttribute('x2', '0%');
+          grad.setAttribute('y2', '0%');
+          break;
+        case 'left-right':
+          grad.setAttribute('x1', '0%');
+          grad.setAttribute('y1', '0%');
+          grad.setAttribute('x2', '100%');
+          grad.setAttribute('y2', '0%');
+          break;
+        case 'right-left':
+          grad.setAttribute('x1', '100%');
+          grad.setAttribute('y1', '0%');
+          grad.setAttribute('x2', '0%');
+          grad.setAttribute('y2', '0%');
+          break;
+        case 'corner-to-corner':
+          grad.setAttribute('x1', '0%');
+          grad.setAttribute('y1', '0%');
+          grad.setAttribute('x2', '100%');
+          grad.setAttribute('y2', '100%');
+          break;
+        case 'middle-out':
+          grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+          grad.setAttribute('cx', '50%');
+          grad.setAttribute('cy', '50%');
+          grad.setAttribute('r', '50%');
+          grad.setAttribute('fx', '50%');
+          grad.setAttribute('fy', '50%');
+          break;
+        case 'out-middle':
+          grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+          grad.setAttribute('cx', '50%');
+          grad.setAttribute('cy', '50%');
+          grad.setAttribute('r', '50%');
+          grad.setAttribute('fx', '0%');
+          grad.setAttribute('fy', '0%');
+          break;
+        default:
+          // Default to top-bottom
+          grad.setAttribute('x1', '0%');
+          grad.setAttribute('y1', '0%');
+          grad.setAttribute('x2', '0%');
+          grad.setAttribute('y2', '100%');
+      }
+    }
+
+    function getHorizontalOffset(align, contentWidth, containerWidth) {
+      switch (align) {
+        case 'left':
+          return 0;
+        case 'right':
+          return containerWidth - contentWidth;
+        case 'center':
+        default:
+          return (containerWidth - contentWidth) / 2;
+      }
+    }
+
+    function getVerticalOffset(align, contentHeight, containerHeight) {
+      switch (align) {
+        case 'top':
+          return 0;
+        case 'bottom':
+          return containerHeight - contentHeight;
+        case 'middle':
+        default:
+          return (containerHeight - contentHeight) / 2;
+      }
+    }
+
+    function setupDpad() {
+      const step = 5;
+      document.getElementById('dpadUp').onclick = () => {
+        nudgeOffsetY -= step;
+        applyStyling();
+      };
+      document.getElementById('dpadDown').onclick = () => {
+        nudgeOffsetY += step;
+        applyStyling();
+      };
+      document.getElementById('dpadLeft').onclick = () => {
+        nudgeOffsetX -= step;
+        applyStyling();
+      };
+      document.getElementById('dpadRight').onclick = () => {
+        nudgeOffsetX += step;
+        applyStyling();
+      };
+    }
+
+    window.formatSVG = () => {
+      svgEditor.value = svgEditor.value.replace(/></g, '>\n<').replace(/\s{2,}/g, ' ');
+      updateStats();
+    };
+    window.minifySVG = () => {
+      svgEditor.value = svgEditor.value.replace(/>\s+</g, '><').trim();
+      updateStats();
+    };
+
+    function updateStats() {
+      const text = svgEditor.value;
+      document.getElementById('codeStats').textContent = `${text.split('\n').length} lines, ${text.length} chars`;
+    }
+
+    function updateLiveStats(svg) {
+      const paths = svg.querySelectorAll('path').length;
+      let nodes = 0;
+      svg.querySelectorAll('path').forEach(
+        (p) => (nodes += (p.getAttribute('d')?.match(/[MmLlCcZz]/g) || []).length)
+      );
+      document.getElementById('statPaths').textContent = paths;
+      document.getElementById('statNodes').textContent = nodes;
+      document.getElementById('statSize').textContent = (currentSVG.length / 1024).toFixed(1) + ' KB';
+      const vb = svg.viewBox.baseVal;
+      document.getElementById('statDim').textContent = vb
+        ? `${Math.round(vb.width)}×${Math.round(vb.height)}`
+        : '-';
+    }
+
+    function setStatus(m, type) {
+      const s = document.getElementById('statusMessage');
+      if (!s) return;
+      s.textContent = m;
+      s.className = `text-xs font-bold ml-4 ${
+        type === 'error'
+          ? 'text-red-400'
+          : type === 'success'
+          ? 'text-green-400'
+          : 'text-blue-400'
+      }`;
+    }
+
+    function downloadSVG() {
+      if (!currentSVG) return;
+      const blob = new Blob([currentSVG], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'studio-output.svg';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function copySVG() {
+      if (!currentSVG) {
+        setStatus('No SVG code to copy', 'error');
+        return;
+      }
+      navigator.clipboard.writeText(currentSVG).then(() => {
+        setStatus('SVG code copied to clipboard!', 'success');
+      }).catch(() => {
+        setStatus('Failed to copy SVG code', 'error');
+      });
+    }
+
+    document.getElementById('vectorBtn').onclick = vectorizeImage;
+    document.getElementById('applyChangesBtn').onclick = applyStyling;
+    document.getElementById('updateStylesBtn').onclick = applyStyling;
+    document.getElementById('downloadBtn').onclick = downloadSVG;
+    document.getElementById('copyBtn').onclick = copySVG;
+    document.getElementById('zoomInBtn').onclick = () => {
+      currentZoom *= 1.2;
+      document.getElementById('vectorPreviewWrapper').style.transform = `scale(${currentZoom})`;
+    };
+    document.getElementById('zoomOutBtn').onclick = () => {
+      currentZoom /= 1.2;
+      document.getElementById('vectorPreviewWrapper').style.transform = `scale(${currentZoom})`;
+    };
+
+    document.getElementById('thresholdInput').oninput = (e) =>
+      (document.getElementById('threshVal').textContent = e.target.value);
+    document.getElementById('bgPadding').oninput = (e) =>
+      (document.getElementById('padVal').textContent = e.target.value);
+    document.getElementById('bgRadius').oninput = (e) =>
+      (document.getElementById('radiusVal').textContent = e.target.value);
+    document.getElementById('bgOpacity').oninput = (e) =>
+      (document.getElementById('opacityVal').textContent = e.target.value);
+    document.getElementById('addBgCard').onchange = (e) =>
+      document.getElementById('bgSettings').classList.toggle('hidden', !e.target.checked);
+    document.getElementById('bgUseGradient').onchange = (e) =>
+      applyStyling();
+    document.getElementById('bgGradientDirection').onchange = (e) =>
+      applyStyling();
+    document.getElementById('fillColorInput').oninput = (e) =>
+      (document.getElementById('fillColorText').value = e.target.value.toUpperCase());
+    document.getElementById('fillColorText').oninput = (e) =>
+      (document.getElementById('fillColorInput').value = e.target.value);
+
+    // Initialize stats, status, and D-pad
+    updateStats();
+    setStatus('Ready', 'success');
+    setupDpad();
+  </script>
+</body>
+</html>

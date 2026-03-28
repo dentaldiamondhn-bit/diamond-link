@@ -1,0 +1,656 @@
+:root {
+  --primary: #0a4d4a;
+  --primary-light: #0d6d69;
+  --primary-dark: #083836;
+  --secondary: #f8f9fa;
+  --dark: #343a40;
+  --light: #f8f9fa;
+  --danger: #dc3545;
+  --success: #28a745;
+  --warning: #ffc107;
+  --info: #17a2b8;
+  --gradient-start: #0a4d4a;
+  --gradient-end: #0d6d69;
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+/* Ensure proper viewport handling */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+  position: relative;
+}
+
+.login-container {
+  display: flex;
+  min-height: 100vh;
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated Background Elements */
+.background-shapes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.shape {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  backdrop-filter: blur(10px);
+  animation: float 20s infinite ease-in-out;
+}
+
+.shape-1 {
+  width: 300px;
+  height: 300px;
+  top: -150px;
+  left: -150px;
+  animation-delay: 0s;
+}
+
+.shape-2 {
+  width: 200px;
+  height: 200px;
+  top: 50%;
+  right: -100px;
+  animation-delay: 5s;
+}
+
+.shape-3 {
+  width: 150px;
+  height: 150px;
+  bottom: -75px;
+  left: 30%;
+  animation-delay: 10s;
+}
+
+.shape-4 {
+  width: 250px;
+  height: 250px;
+  top: 20%;
+  left: 60%;
+  animation-delay: 15s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(30px, -30px) rotate(90deg);
+  }
+  50% {
+    transform: translate(-20px, 20px) rotate(180deg);
+  }
+  75% {
+    transform: translate(-30px, -20px) rotate(270deg);
+  }
+}
+
+.login-left {
+  flex: 1;
+  background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 50%, #1a7a77 100%) !important;
+  color: white;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  z-index: 10;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.login-left::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.logo-container {
+  width: 100%;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.logo-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.login-logo {
+  max-width: 200px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+  transition: transform 0.3s ease;
+}
+
+.logo-wrapper:hover .login-logo {
+  transform: scale(1.05);
+}
+
+.logo-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+.content-wrapper {
+  position: relative;
+  z-index: 10;
+}
+
+.badge {
+  display: inline-block;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  animation: slideInDown 0.6s ease-out;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #e0f2f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-description {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+}
+
+.features {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.feature-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  font-size: 1.25rem;
+}
+
+/* Force white background for all elements */
+.login-right,
+.login-right *,
+.login-box,
+.login-box *,
+.cl-card,
+.cl-card * {
+  background: #ffffff !important;
+}
+
+.login-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  background: #ffffff !important;
+  position: relative;
+  z-index: 10;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.login-box {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  padding: 0.825rem;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  overflow: visible;
+  transform: scale(1.1);
+  transform-origin: center;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.login-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+  color: white;
+  box-shadow: 0 4px 8px rgba(10, 77, 74, 0.3);
+}
+
+.login-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--dark);
+  margin-bottom: 0.125rem;
+}
+
+.login-subtitle {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.login-footer {
+  margin-top: 0.75rem;
+  text-align: center;
+}
+
+.footer-text {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+/* Clerk component overrides */
+.cl-internal-b3fm6y {
+  display: none;
+}
+
+.cl-card {
+  box-shadow: none !important;
+  width: 100% !important;
+  background: #ffffff !important;
+}
+
+.cl-formFieldInput {
+  background: #ffffff !important;
+}
+
+.cl-socialButtonsBlockButton {
+  background: #ffffff !important;
+}
+
+.cl-formButtonPrimary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%) !important;
+}
+
+.cl-formButtonSecondary {
+  background: #ffffff !important;
+}
+
+.cl-headerTitle, .cl-headerSubtitle {
+  text-align: center;
+  color: var(--dark) !important;
+}
+
+.cl-formFieldInput {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.375rem !important;
+  padding: 0.375rem 0.5rem !important;
+  transition: all 0.2s ease !important;
+  background: white !important;
+  font-size: 0.75rem !important;
+  height: 2rem !important;
+}
+
+.cl-formFieldInput:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(10, 77, 74, 0.1) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Universal rule to remove any white background from PRIMARY button elements only */
+.cl-formButtonPrimary *,
+.cl-formButtonPrimary * * {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+.cl-formButtonPrimary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%) !important;
+  border: none !important;
+  font-weight: 600 !important;
+  padding: 0.375rem 0.75rem !important;
+  font-size: 0.75rem !important;
+  height: 2rem !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(10, 77, 74, 0.3) !important;
+  position: static !important;
+  overflow: visible !important;
+}
+
+/* Force remove all possible white overlays from PRIMARY button only */
+.cl-formButtonPrimary,
+.cl-formButtonPrimary * {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%) !important;
+  background-image: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%) !important;
+}
+
+.cl-formButtonPrimary::before,
+.cl-formButtonPrimary::after,
+.cl-formButtonPrimary *::before,
+.cl-formButtonPrimary *::after {
+  display: none !important;
+  content: none !important;
+  background: none !important;
+  background-image: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+}
+
+.cl-formButtonPrimary:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 16px rgba(10, 77, 74, 0.3) !important;
+}
+
+.cl-footerActionLink {
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+}
+
+.cl-footerActionLink:hover {
+  color: var(--primary-light) !important;
+  text-decoration: underline !important;
+}
+
+.cl-socialButtonsBlockButton {
+  transition: all 0.2s ease !important;
+  padding: 0.375rem 0.75rem !important;
+  font-size: 0.75rem !important;
+  height: 2rem !important;
+}
+
+.cl-socialButtonsBlockButton:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .login-container {
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  
+  .login-left {
+    flex: none;
+    height: auto;
+    min-height: 200px;
+    padding: 1.5rem 1rem 1rem;
+    text-align: center;
+    background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%) !important;
+    justify-content: center;
+  }
+  
+  .login-right {
+    flex: 1;
+    padding: 1rem;
+    height: auto;
+    min-height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+  }
+  
+  .login-box {
+    padding: 1.5rem;
+    max-width: 100%;
+    margin: 0;
+    width: 100%;
+    border-radius: 16px;
+  }
+  
+  .login-logo {
+    max-width: 100px;
+    height: auto;
+    margin-bottom: 0.75rem;
+  }
+  
+  .logo-container {
+    margin-bottom: 0.75rem;
+  }
+  
+  .features {
+    gap: 1rem;
+  }
+  
+  .feature-item {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  
+  /* Hide text content on mobile, show only logo */
+  .login-left h1,
+  .login-left h2,
+  .login-left p,
+  .badge,
+  .features {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-left {
+    padding: 1rem 0.75rem 0.75rem;
+    min-height: 180px;
+  }
+  
+  .login-right {
+    padding: 0.75rem 0.5rem;
+    height: auto;
+    min-height: auto;
+  }
+  
+  .login-box {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+  
+  .login-logo {
+    max-width: 80px;
+  }
+  
+  .logo-glow {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+/* Small mobile improvements */
+@media (max-width: 360px) {
+  .login-left {
+    padding: 0.75rem 0.5rem 0.5rem;
+    min-height: 160px;
+  }
+  
+  .login-right {
+    padding: 0.5rem;
+    height: auto;
+    min-height: auto;
+  }
+  
+  .login-box {
+    padding: 0.75rem;
+  }
+  
+  .login-logo {
+    max-width: 70px;
+  }
+}
+
+/* Prevent horizontal overflow */
+.login-container {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.login-left, .login-right {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Form field improvements for mobile */
+@media (max-width: 768px) {
+  .cl-formFieldInput {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 0.875rem 1rem !important;
+  }
+  
+  .cl-formButtonPrimary {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 0.875rem 1rem !important;
+    min-height: 48px; /* Touch target size */
+  }
+  
+  .cl-socialButtonsBlockButton {
+    min-height: 48px; /* Touch target size */
+    font-size: 16px !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .login-right {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  }
+  
+  .login-box {
+    background: rgba(30, 30, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .login-title {
+    color: white;
+  }
+  
+  .login-subtitle {
+    color: #a0a0a0;
+  }
+  
+  .footer-text {
+    color: #a0a0a0;
+  }
+}
+
+/* Handle very tall screens */
+@media (min-height: 1200px) {
+  .login-right {
+    justify-content: center;
+  }
+  
+  .login-box {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}
+
+/* Handle very short screens */
+@media (max-height: 600px) {
+  .login-left {
+    min-height: 120px;
+  }
+  
+  .login-right {
+    height: auto;
+    min-height: auto;
+  }
+  
+  .login-box {
+    padding: 1rem;
+  }
+  
+  .login-header {
+    margin-bottom: 0.5rem;
+  }
+}

@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced WebP Converter | Optimize & Convert Images</title>
+    
+    <script src="shared-webp-converter.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/javascript-canvas-to-blob/3.29.0/js/canvas-to-blob.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --dark-bg: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+        }
+        
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #0c0f1a 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .preview-container {
+            background: 
+                linear-gradient(45deg, #2c3543 25%, transparent 25%),
+                linear-gradient(-45deg, #2c3543 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #2c3543 75%),
+                linear-gradient(-45deg, transparent 75%, #2c3543 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .slider-track {
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+            outline: none;
+        }
+        
+        .slider-track::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            border: 2px solid #8b5cf6;
+            box-shadow: 0 2px 10px rgba(139, 92, 246, 0.5);
+        }
+        
+        .image-comparison {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+        
+        .comparison-slider {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 3px;
+            height: 100%;
+            background: #6366f1;
+            cursor: ew-resize;
+            z-index: 10;
+        }
+        
+        .comparison-slider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            background: #6366f1;
+            border-radius: 50%;
+            border: 3px solid white;
+        }
+        
+        .file-size-badge {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6 min-h-screen">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-3xl md:text-5xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                Advanced WebP Converter
+            </h1>
+            <p class="text-gray-400 mb-4 max-w-2xl mx-auto">Optimize and convert images to modern WebP format with superior compression.</p>
+        </header>
+
+        <div class="grid lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1 space-y-6">
+                <div class="glass-card p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                        </svg>
+                        1. Upload Image
+                    </h2>
+                    
+                    <div class="mb-4">
+                        <div class="border-2 border-dashed border-gray-700 rounded-xl p-6 text-center hover:border-blue-500 transition-colors cursor-pointer" id="dropZone">
+                            <input type="file" id="fileInput" accept="image/png, image/jpeg, image/jpg, image/bmp, image/webp, image/gif, image/tiff" class="hidden"/>
+                            <svg class="w-12 h-12 mx-auto mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <p class="text-gray-400 mb-2">Drop image here or click to browse</p>
+                            <p class="text-xs text-gray-500">PNG, JPG, JPEG, BMP, GIF, TIFF, WebP</p>
+                            <p class="text-xs text-gray-500 mt-1">Max size: 20MB</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Image Size</label>
+                            <div id="imageDimensions" class="text-lg font-bold text-gray-200">-</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">File Size</label>
+                            <div id="fileSizeInfo" class="text-lg font-bold text-gray-200">-</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Format</label>
+                            <div id="imageFormat" class="text-sm font-bold text-gray-200">-</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Colors</label>
+                            <div id="imageColors" class="text-sm font-bold text-gray-200">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                        </svg>
+                        2. WebP Settings
+                    </h2>
+                    
+                    <div class="mb-6">
+                        <div class="flex justify-between mb-2">
+                            <label class="text-sm font-medium text-gray-300">Quality</label>
+                            <span id="qualityValue" class="text-sm font-bold text-green-400">85%</span>
+                        </div>
+                        <input type="range" id="qualitySlider" min="1" max="100" value="85" class="slider-track w-full">
+                        <div class="flex justify-between text-xs text-gray-400 mt-1">
+                            <span>Small File</span>
+                            <span>High Quality</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="text-sm font-medium text-gray-300">Lossless Compression</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="losslessToggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500">Preserves all image data. File size may be larger than lossy compression.</p>
+                    </div>
+
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-3">
+                            <label class="text-sm font-medium text-gray-300">Resize Image</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="resizeToggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        
+                        <div id="resizeOptions" class="space-y-3 opacity-50 pointer-events-none">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Width</label>
+                                    <input type="number" id="resizeWidth" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" placeholder="Auto">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Height</label>
+                                    <input type="number" id="resizeHeight" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" placeholder="Auto">
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center">
+                                <input type="checkbox" id="preserveAspect" class="w-4 h-4 bg-gray-800 border-gray-700 rounded text-blue-600 focus:ring-blue-600 focus:ring-2" checked>
+                                <label class="ml-2 text-xs text-gray-400">Maintain aspect ratio</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-3">Metadata</label>
+                        <div class="space-y-2">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="stripMetadata" class="w-4 h-4 bg-gray-800 border-gray-700 rounded text-blue-600 focus:ring-blue-600 focus:ring-2" checked>
+                                <label class="ml-2 text-sm text-gray-400">Remove metadata (EXIF, etc.)</label>
+                            </div>
+                            <p class="text-xs text-gray-500">Removing metadata can reduce file size by 5-20%.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        3. Convert & Download
+                    </h2>
+                    
+                    <div class="space-y-3">
+                        <button id="convertButton" disabled onclick="convertToWebP()" 
+                                class="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                            </svg>
+                            Convert to WebP
+                        </button>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <button id="downloadButton" disabled onclick="downloadWebP()"
+                                    class="py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                Download WebP
+                            </button>
+                            
+                            <button id="compareButton" disabled onclick="toggleComparison()"
+                                    class="py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 13v-1m4 1v-3m4 3V8M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                                </svg>
+                                Compare
+                            </button>
+                        </div>
+                        
+                        <button id="batchButton" disabled onclick="showBatchModal()"
+                                class="w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Batch Convert
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-800">
+                        <div class="text-center">
+                            <p id="statusMessage" class="text-sm h-6 text-gray-400">Ready to upload an image.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-6">
+                <div class="glass-card p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        4. Image Comparison
+                    </h2>
+                    
+                    <div class="relative mb-6">
+                        <div id="comparisonContainer" class="image-comparison h-64 md:h-96">
+                            <div class="absolute top-0 left-0 w-full h-full overflow-hidden">
+                                <img id="originalPreview" src="" alt="Original" class="w-full h-full object-contain">
+                                <div class="file-size-badge" id="originalFileSizeBadge">-</div>
+                            </div>
+                            
+                            <div id="webpContainer" class="absolute top-0 left-0 w-1/2 h-full overflow-hidden" style="width: 50%">
+                                <img id="webpPreview" src="" alt="WebP" class="w-full h-full object-contain">
+                                <div class="file-size-badge" id="webpFileSizeBadge">-</div>
+                            </div>
+                            
+                            <div class="comparison-slider" id="comparisonSlider" style="left: 50%"></div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center mt-4">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                <span class="text-sm text-gray-300">Original</span>
+                            </div>
+                            <div class="text-xs text-gray-400">Drag slider to compare</div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                <span class="text-sm text-gray-300">WebP</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-300 mb-3">Quality Analysis</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-gray-900/50 rounded-xl p-4 text-center">
+                                <div class="text-2xl font-bold text-blue-400" id="statOriginalSize">0 KB</div>
+                                <div class="text-xs text-gray-400 mt-1">Original Size</div>
+                            </div>
+                            <div class="bg-gray-900/50 rounded-xl p-4 text-center">
+                                <div class="text-2xl font-bold text-green-400" id="statWebpSize">0 KB</div>
+                                <div class="text-xs text-gray-400 mt-1">WebP Size</div>
+                            </div>
+                            <div class="bg-gray-900/50 rounded-xl p-4 text-center">
+                                <div class="text-2xl font-bold text-purple-400" id="statReduction">0%</div>
+                                <div class="text-xs text-gray-400 mt-1">Size Reduction</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        Advanced Statistics
+                    </h2>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-gray-900/50 rounded-xl p-4 text-center">
+                            <div class="text-xl font-bold text-blue-400" id="statCompression">-</div>
+                            <div class="text-xs text-gray-400 mt-1">Compression Ratio</div>
+                        </div>
+                        <div class="bg-gray-900/50 rounded-xl p-4 text-center">
+                            <div class="text-xl font-bold text-green-400" id="statSavings">-</div>
+                            <div class="text-xs text-gray-400 mt-1">Estimated Savings</div>
+                        </div>
+                        <div class="bg-gray-900/50 rounded-xl p-4 text-center">
+                            <div class="text-xl font-bold text-purple-400" id="statPixels">0</div>
+                            <div class="text-xs text-gray-400 mt-1">Total Pixels</div>
+                        </div>
+                        <div class="bg-gray-900/50 rounded-xl p-4 text-center">
+                            <div class="text-xl font-bold text-yellow-400" id="statLoadTime">0ms</div>
+                            <div class="text-xs text-gray-400 mt-1">Faster Load Time</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 pt-6 border-t border-gray-800">
+                        <h3 class="text-sm font-medium text-gray-300 mb-3">Conversion History</h3>
+                        <div class="space-y-2 max-h-40 overflow-y-auto" id="conversionHistory">
+                            <div class="text-center py-4 text-gray-500 text-sm" id="historyPlaceholder">
+                                No conversions yet
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="batchModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-white">Batch Convert Images</h3>
+                    <button onclick="hideBatchModal()" class="text-gray-400 hover:text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-6">
+                    <div class="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer" id="batchDropZone">
+                        <input type="file" id="batchFileInput" multiple accept="image/png, image/jpeg, image/jpg, image/bmp, image/gif, image/tiff" class="hidden"/>
+                        <svg class="w-12 h-12 mx-auto mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <p class="text-gray-400 mb-2">Drop multiple images here or click to browse</p>
+                        <p class="text-xs text-gray-500">Supports multiple files selection</p>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="text-sm font-medium text-gray-300 mb-3">Selected Files</h4>
+                    <div class="bg-gray-900/50 rounded-lg p-4 max-h-48 overflow-y-auto" id="batchFileList">
+                        <div class="text-center text-gray-500 text-sm py-4">No files selected</div>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="text-sm font-medium text-gray-300 mb-3">Batch Settings</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Quality</label>
+                            <input type="range" id="batchQuality" min="1" max="100" value="85" class="slider-track w-full">
+                            <div class="text-xs text-gray-400 text-center mt-1"><span id="batchQualityValue">85%</span></div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Max Width</label>
+                            <input type="number" id="batchMaxWidth" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" placeholder="No resize">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="startBatchConversion()" id="batchConvertButton" disabled
+                            class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        Convert All
+                    </button>
+                    <button onclick="hideBatchModal()"
+                            class="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="processingCanvas" class="hidden"></canvas>
+
+    <script>
+        // State variables
+        let originalImage = null;
+        let originalFile = null; // Added to store the file object for the new API
+        let webpImage = null;
+        let originalImageData = null;
+        let webpBlob = null;
+        let originalFileSize = 0;
+        let webpFileSize = 0;
+        let originalWidth = 0;
+        let originalHeight = 0;
+        let isComparisonActive = false;
+        let batchFiles = [];
+        
+        // DOM elements
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const originalPreview = document.getElementById('originalPreview');
+        const webpPreview = document.getElementById('webpPreview');
+        const convertButton = document.getElementById('convertButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const compareButton = document.getElementById('compareButton');
+        const batchButton = document.getElementById('batchButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const processingCanvas = document.getElementById('processingCanvas');
+        const ctx = processingCanvas.getContext('2d');
+        
+        const qualitySlider = document.getElementById('qualitySlider');
+        const losslessToggle = document.getElementById('losslessToggle');
+        const resizeToggle = document.getElementById('resizeToggle');
+        const resizeOptions = document.getElementById('resizeOptions');
+        const resizeWidth = document.getElementById('resizeWidth');
+        const resizeHeight = document.getElementById('resizeHeight');
+        const preserveAspect = document.getElementById('preserveAspect');
+        const stripMetadata = document.getElementById('stripMetadata');
+        
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            updateSliderValues();
+            updateResizeOptions();
+        });
+        
+        function setupEventListeners() {
+            fileInput.addEventListener('change', handleFileSelect);
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => { 
+                e.preventDefault(); 
+                dropZone.classList.add('border-blue-500', 'bg-blue-500/10'); 
+            });
+            dropZone.addEventListener('dragleave', () => { 
+                dropZone.classList.remove('border-blue-500', 'bg-blue-500/10'); 
+            });
+            dropZone.addEventListener('drop', handleFileDrop);
+            
+            qualitySlider.addEventListener('input', updateSliderValues);
+            losslessToggle.addEventListener('change', updateQualityForLossless);
+            resizeToggle.addEventListener('change', updateResizeOptions);
+            
+            // Batch conversion listeners
+            const batchFileInput = document.getElementById('batchFileInput');
+            const batchDropZone = document.getElementById('batchDropZone');
+            
+            batchDropZone.addEventListener('click', () => batchFileInput.click());
+            batchFileInput.addEventListener('change', handleBatchFileSelect);
+            
+            // Comparison slider
+            setupComparisonSlider();
+        }
+        
+        function handleFileDrop(e) {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-500/10');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect({ target: fileInput });
+            }
+        }
+        
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file || !file.type.startsWith('image/')) {
+                setStatus('Please select a valid image file', 'error');
+                resetOutputs();
+                return;
+            }
+            
+            // Check file size 
+            if (file.size > 20 * 1024 * 1024) {
+                setStatus('File size must be under 20MB', 'error');
+                resetOutputs();
+                return;
+            }
+            originalFileSize = file.size;
+            originalFile = file; // Store the file object
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    originalWidth = originalImage.width;
+                    originalHeight = originalImage.height;
+
+                    // Update preview
+                    originalPreview.src = event.target.result;
+                    
+                    // Update info
+                    document.getElementById('imageDimensions').textContent = 
+                        `${originalWidth} Ã— ${originalHeight}`;
+                    document.getElementById('fileSizeInfo').textContent = 
+                        formatFileSize(originalFileSize);
+                    document.getElementById('imageFormat').textContent = 
+                        file.type.split('/')[1].toUpperCase();
+                    
+                    // Analyze image colors
+                    analyzeImageColors(event.target.result);
+                    
+                    // Set resize inputs
+                    resizeWidth.value = originalWidth;
+                    resizeHeight.value = originalHeight;
+                    
+                    // Enable buttons
+                    convertButton.disabled = false;
+                    batchButton.disabled = false;
+                    
+                    // Update stats
+                    updateStats();
+                    
+                    setStatus('Image loaded. Adjust WebP settings and convert.', 'success');
+                };
+                originalImage.onerror = () => {
+                    setStatus('Failed to load image', 'error');
+                    resetOutputs();
+                };
+                originalImage.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function analyzeImageColors(dataUrl) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                const colors = new Set();
+                
+                // Sample colors (check every 100th pixel for performance)
+                for (let i = 0; i < data.length; i += 400) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const color = `rgb(${r},${g},${b})`;
+                    colors.add(color);
+                }
+                
+                const colorCount = colors.size;
+                document.getElementById('imageColors').textContent = 
+                    colorCount > 1000 ? '1000+' : colorCount;
+            };
+            img.src = dataUrl;
+        }
+        
+        function updateSliderValues() {
+            document.getElementById('qualityValue').textContent = `${qualitySlider.value}%`;
+            document.getElementById('batchQualityValue').textContent = `${document.getElementById('batchQuality').value}%`;
+        }
+        
+        function updateQualityForLossless() {
+            if (losslessToggle.checked) {
+                qualitySlider.value = 100;
+                qualitySlider.disabled = true;
+            } else {
+                qualitySlider.disabled = false;
+            }
+            updateSliderValues();
+        }
+        
+        function updateResizeOptions() {
+            const isResizeEnabled = resizeToggle.checked;
+            resizeOptions.classList.toggle('opacity-50', !isResizeEnabled);
+            resizeOptions.classList.toggle('pointer-events-none', !isResizeEnabled);
+            
+            if (preserveAspect.checked && originalImage) {
+                resizeWidth.addEventListener('input', updateHeightForAspectRatio);
+                resizeHeight.addEventListener('input', updateWidthForAspectRatio);
+            } else {
+                resizeWidth.removeEventListener('input', updateHeightForAspectRatio);
+                resizeHeight.removeEventListener('input', updateWidthForAspectRatio);
+            }
+        }
+        
+        function updateHeightForAspectRatio() {
+            if (!preserveAspect.checked || !originalImage) return;
+            const aspectRatio = originalHeight / originalWidth;
+            resizeHeight.value = Math.round(resizeWidth.value * aspectRatio);
+        }
+        
+        function updateWidthForAspectRatio() {
+            if (!preserveAspect.checked || !originalImage) return;
+            const aspectRatio = originalWidth / originalHeight;
+            resizeWidth.value = Math.round(resizeHeight.value * aspectRatio);
+        }
+        
+        // --- Updated convertToWebP function using the shared library ---
+        async function convertToWebP() {
+            if (!originalImage || !originalFile) return;
+            
+            convertButton.disabled = true;
+            downloadButton.disabled = true;
+            compareButton.disabled = true;
+            
+            try {
+                const startTime = performance.now();
+                setStatus('Converting to WebP...', 'info');
+                
+                const quality = parseInt(qualitySlider.value) / 100;
+                const maxWidth = resizeToggle.checked ? parseInt(resizeWidth.value) || null : null;
+                
+                // Call the shared library function
+                const result = await WebPConverter.convertToWebP(originalFile, {
+                    quality: quality,
+                    maxWidth: maxWidth,
+                    lossless: document.getElementById('losslessToggle').checked,
+                    stripMetadata: document.getElementById('stripMetadata').checked
+                });
+                
+                // Update UI with result
+                webpBlob = result.blob;
+                webpFileSize = result.webpSize;
+                webpPreview.src = result.url;
+                
+                // Update file size badges
+                document.getElementById('originalFileSizeBadge').textContent = 
+                    formatFileSize(originalFileSize);
+                document.getElementById('webpFileSizeBadge').textContent = 
+                    formatFileSize(webpFileSize);
+                
+                // Enable download and compare buttons
+                downloadButton.disabled = false;
+                compareButton.disabled = false;
+                
+                // Update stats
+                updateStats();
+                
+                // Add to history
+                addToConversionHistory(originalFileSize, webpFileSize);
+                
+                const conversionTime = Math.round(performance.now() - startTime);
+                setStatus(`Conversion complete in ${conversionTime}ms! Size reduced by ${calculateReduction()}%`, 'success');
+                
+            } catch (error) {
+                console.error('Conversion error:', error);
+                setStatus('Conversion failed: ' + error.message, 'error');
+            } finally {
+                convertButton.disabled = false;
+            }
+        }
+        // --- End of Updated convertToWebP function ---
+        
+        function calculateReduction() {
+            if (!originalFileSize || !webpFileSize) return 0;
+            return Math.round((1 - webpFileSize / originalFileSize) * 100);
+        }
+        
+        function updateStats() {
+            // Basic stats
+            document.getElementById('statOriginalSize').textContent = formatFileSize(originalFileSize);
+            document.getElementById('statWebpSize').textContent = formatFileSize(webpFileSize);
+            document.getElementById('statReduction').textContent = `${calculateReduction()}%`;
+            
+            // Advanced stats
+            const reduction = calculateReduction();
+            document.getElementById('statCompression').textContent = 
+                originalFileSize && webpFileSize ? `1:${(originalFileSize / webpFileSize).toFixed(1)}` : '-';
+            document.getElementById('statSavings').textContent = 
+                originalFileSize && webpFileSize ? formatFileSize(originalFileSize - webpFileSize) : '-';
+            document.getElementById('statPixels').textContent = 
+                originalWidth && originalHeight ? (originalWidth * originalHeight).toLocaleString() : '0';
+            
+            // Estimated load time improvement (assuming 5Mbps connection)
+            if (originalFileSize && webpFileSize) {
+                const speedMbps = 5; // 5 Mbps connection
+                const originalLoadTime = (originalFileSize * 8) / (speedMbps * 1000000) * 1000; // ms
+                const webpLoadTime = (webpFileSize * 8) / (speedMbps * 1000000) * 1000; // ms
+                const timeSaved = Math.round(originalLoadTime - webpLoadTime);
+                document.getElementById('statLoadTime').textContent = 
+                    timeSaved > 0 ? `${timeSaved}ms` : '0ms';
+            }
+        }
+        
+        function downloadWebP() {
+            if (!webpBlob) return;
+            
+            const url = URL.createObjectURL(webpBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `converted_${Date.now()}.webp`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            setStatus('WebP image downloaded successfully', 'success');
+        }
+        
+        function setupComparisonSlider() {
+            const slider = document.getElementById('comparisonSlider');
+            const container = document.getElementById('comparisonContainer');
+            const webpContainer = document.getElementById('webpContainer');
+            
+            let isDragging = false;
+            
+            slider.addEventListener('mousedown', startDrag);
+            slider.addEventListener('touchstart', startDrag);
+            
+            function startDrag(e) {
+                e.preventDefault();
+                isDragging = true;
+                document.addEventListener('mousemove', onDrag);
+                document.addEventListener('touchmove', onDrag);
+                document.addEventListener('mouseup', stopDrag);
+                document.addEventListener('touchend', stopDrag);
+            }
+            
+            function onDrag(e) {
+                if (!isDragging) return;
+                
+                e.preventDefault();
+                const containerRect = container.getBoundingClientRect();
+                let x;
+                
+                if (e.type.includes('touch')) {
+                    x = e.touches[0].clientX - containerRect.left;
+                } else {
+                    x = e.clientX - containerRect.left;
+                }
+                
+                // Constrain x to container bounds
+                x = Math.max(0, Math.min(x, containerRect.width));
+                
+                // Update slider and webp container position
+                const percentage = (x / containerRect.width) * 100;
+                slider.style.left = `${percentage}%`;
+                webpContainer.style.width = `${percentage}%`;
+            }
+            
+            function stopDrag() {
+                isDragging = false;
+                document.removeEventListener('mousemove', onDrag);
+                document.removeEventListener('touchmove', onDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                document.removeEventListener('touchend', stopDrag);
+            }
+        }
+        
+        function toggleComparison() {
+            isComparisonActive = !isComparisonActive;
+            compareButton.innerHTML = isComparisonActive ? 
+                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>View Single' :
+                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 13v-1m4 1v-3m4 3V8M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>Compare';
+            
+            if (isComparisonActive) {
+                document.getElementById('comparisonSlider').style.display = 'block';
+            } else {
+                document.getElementById('comparisonSlider').style.display = 'none';
+                document.getElementById('webpContainer').style.width = '100%';
+            }
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function addToConversionHistory(originalSize, webpSize) {
+            const historyContainer = document.getElementById('conversionHistory');
+            const placeholder = document.getElementById('historyPlaceholder');
+            
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
+            
+            const reduction = Math.round((1 - webpSize / originalSize) * 100);
+            const historyItem = document.createElement('div');
+            historyItem.className = 'flex items-center justify-between p-2 bg-gray-800/50 rounded-lg';
+            historyItem.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-300">${formatFileSize(originalSize)} â†’ ${formatFileSize(webpSize)}</div>
+                        <div class="text-xs text-gray-500">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                    </div>
+                </div>
+                <div class="text-sm font-bold ${reduction > 0 ? 'text-green-400' : 'text-red-400'}">
+                    ${reduction > 0 ? '-' : '+'}${Math.abs(reduction)}%
+                </div>
+            `;
+            
+            // Add to top of history
+            historyContainer.insertBefore(historyItem, historyContainer.firstChild);
+            
+            // Limit history to 5 items
+            const items = historyContainer.children;
+            if (items.length > 5) {
+                historyContainer.removeChild(items[items.length - 1]);
+            }
+        }
+        
+        function showBatchModal() {
+            document.getElementById('batchModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function hideBatchModal() {
+            document.getElementById('batchModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+        
+        function handleBatchFileSelect(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            batchFiles = files.filter(file => file.type.startsWith('image/'));
+            
+            const fileList = document.getElementById('batchFileList');
+            const batchConvertButton = document.getElementById('batchConvertButton');
+            
+            if (batchFiles.length === 0) {
+                fileList.innerHTML = '<div class="text-center text-gray-500 text-sm py-4">No valid image files selected</div>';
+                batchConvertButton.disabled = true;
+                return;
+            }
+            
+            fileList.innerHTML = '';
+            batchFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'flex items-center justify-between p-2 hover:bg-gray-800/30 rounded';
+                fileItem.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <span class="text-sm text-gray-300 truncate max-w-[200px]">${file.name}</span>
+                    </div>
+                    <span class="text-xs text-gray-400">${formatFileSize(file.size)}</span>
+                `;
+                fileList.appendChild(fileItem);
+            });
+            
+            batchConvertButton.disabled = false;
+            setStatus(`Selected ${batchFiles.length} image${batchFiles.length === 1 ? '' : 's'} for batch conversion`, 'info');
+        }
+        
+        async function startBatchConversion() {
+            if (batchFiles.length === 0) return;
+            
+            const batchConvertButton = document.getElementById('batchConvertButton');
+            const batchQuality = parseInt(document.getElementById('batchQuality').value) / 100;
+            const batchMaxWidth = parseInt(document.getElementById('batchMaxWidth').value) || null;
+            
+            batchConvertButton.disabled = true;
+            batchConvertButton.textContent = 'Converting...';
+            
+            let convertedCount = 0;
+            let totalSavings = 0;
+            
+            for (const file of batchFiles) {
+                try {
+                    // Using the new shared function for batch conversion
+                    const result = await WebPConverter.convertToWebP(file, {
+                        quality: batchQuality,
+                        maxWidth: batchMaxWidth,
+                        lossless: false, // Assuming batch mode uses standard settings
+                        stripMetadata: true // Assuming batch mode uses standard settings
+                    });
+
+                    if (result && result.blob) {
+                        convertedCount++;
+                        totalSavings += file.size - result.webpSize;
+                        
+                        // Download automatically
+                        const url = URL.createObjectURL(result.blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = file.name.replace(/\.[^/.]+$/, "") + '.webp';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }
+                } catch (error) {
+                    console.error(`Failed to convert ${file.name}:`, error);
+                }
+            }
+            
+            setStatus(`Batch conversion complete! Converted ${convertedCount}/${batchFiles.length} images. Total savings: ${formatFileSize(totalSavings)}`, 'success');
+            
+            batchConvertButton.disabled = false;
+            batchConvertButton.textContent = 'Convert All';
+            hideBatchModal();
+        }
+        
+        // Removed the old convertSingleFile as it's replaced by WebPConverter.convertToWebP
+        
+        function resetOutputs() {
+            originalImage = null;
+            originalFile = null; // Reset originalFile
+            webpImage = null;
+            webpBlob = null;
+            originalFileSize = 0;
+            webpFileSize = 0;
+            
+            originalPreview.src = '';
+            webpPreview.src = '';
+            
+            document.getElementById('originalFileSizeBadge').textContent = '-';
+            document.getElementById('webpFileSizeBadge').textContent = '-';
+            
+            document.getElementById('imageDimensions').textContent = '-';
+            document.getElementById('fileSizeInfo').textContent = '-';
+            document.getElementById('imageFormat').textContent = '-';
+            document.getElementById('imageColors').textContent = '-';
+            
+            convertButton.disabled = true;
+            downloadButton.disabled = true;
+            compareButton.disabled = true;
+            batchButton.disabled = true;
+            
+            updateStats();
+            setStatus('Ready to upload an image.', 'info');
+        }
+        
+        function setStatus(message, type = 'info') {
+            statusMessage.textContent = message;
+            statusMessage.className = 'text-center text-sm h-6 ';
+            
+            switch(type) {
+                case 'success':
+                    statusMessage.classList.add('text-green-400');
+                    break;
+                case 'error':
+                    statusMessage.classList.add('text-red-400');
+                    break;
+                case 'warning':
+                    statusMessage.classList.add('text-yellow-400');
+                    break;
+                default:
+                    statusMessage.classList.add('text-blue-400');
+            }
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (statusMessage.textContent === message) {
+                        statusMessage.textContent = '';
+                    }
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
