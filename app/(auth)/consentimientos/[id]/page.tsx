@@ -409,6 +409,16 @@ export default function ConsentimientoDocument() {
                       /\{\{REPRESENTANTE_LEGAL\}\}/g, 
                       `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient?.representante_legal || '_________________________________________'}</span>`
                     );
+
+                    content = content.replace(
+                      /\{\{REP_NUMERO_IDENTIDAD\}\}/g, 
+                      `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient?.rep_numero_identidad || '_________________________'}</span>`
+                    );
+
+                    content = content.replace(
+                      /\{\{CLINIC_NAME\}\}/g, 
+                      `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">Clínica Dental Diamond HN</span>`
+                    );
                     
                     // Convert newlines to <br> tags for proper formatting
                     content = content.replace(/\n/g, '<br>');

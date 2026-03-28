@@ -73,9 +73,9 @@ Yo, {{PATIENT_NAME}} con el documento de identidad{{PATIENT_ID}} y que resido en
     content: `CONSENTIMIENTO INFORMADO 
 
 {{CURRENT_DATE}} 
-Yo, {{REPRESENTANTE_LEGAL}} Padre/Madre/Tutor legal del paciente {{PATIENT_NAME}} con DNI _________________________________ y domicilio en __________________________________________,
- DECLARO: 
-1. Que soy el representante legal del paciente menor de edad y otorgo consentimiento para la atención odontológica en la clínica __________________________________________, bajo la responsabilidad del/la odontólogo/a __________________________________________. 
+Yo, {{REPRESENTANTE_LEGAL}} con DNI {{REP_NUMERO_IDENTIDAD}} y domicilio en {{PATIENT_ADDRESS}}, Padre/Madre/Tutor legal del paciente {{PATIENT_NAME}},
+DECLARO: 
+1. Que soy el representante legal del paciente menor de edad y otorgo consentimiento para la atención odontológica en {{CLINIC_NAME}}, bajo la responsabilidad del/la odontólogo/a {{DOCTOR_NAME}}. 
 2. Que se me ha informado de manera clara y comprensible: 
 a. La necesidad de realizar una historia clínica odontopediátrica completa, incluyendo examen intraoral, extraoral, radiográfico y de laboratorio si fuese necesario. o La naturaleza de las posibles enfermedades bucales detectadas, su evolución y las opciones de tratamiento disponibles.
 b. Los beneficios esperados, riesgos y complicaciones potenciales de los procedimientos odontológicos (dolor, inflamación, dificultad para masticar, riesgo de infección, reacciones adversas a anestesia local, entre otros). 
