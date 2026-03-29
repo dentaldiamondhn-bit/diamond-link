@@ -16,7 +16,11 @@ ADD COLUMN IF NOT EXISTS pediatra TEXT,
 ADD COLUMN IF NOT EXISTS psicologo TEXT,
 ADD COLUMN IF NOT EXISTS otro_medico TEXT,
 ADD COLUMN IF NOT EXISTS frecuencia_cepillado_detalle TEXT,
-ADD COLUMN IF NOT EXISTS cepillado_acompanado TEXT;
+ADD COLUMN IF NOT EXISTS cepillado_acompanado TEXT,
+ADD COLUMN IF NOT EXISTS peso DECIMAL(5,2),
+ADD COLUMN IF NOT EXISTS talla DECIMAL(5,2),
+ADD COLUMN IF NOT EXISTS tipo_alimentacion TEXT,
+ADD COLUMN IF NOT EXISTS momentos_azucar TEXT;
 
 -- Add comments for documentation
 COMMENT ON COLUMN patients.rep_tipo_identificacion IS 'Tipo de identificación del representante legal (HN, US, GT, SV, NI, ES, OTRO)';
@@ -30,6 +34,10 @@ COMMENT ON COLUMN patients.psicologo IS 'Nombre del psicólogo del paciente';
 COMMENT ON COLUMN patients.otro_medico IS 'Nombre de otro tipo de médico del paciente';
 COMMENT ON COLUMN patients.frecuencia_cepillado_detalle IS 'Detalle sobre cuándo se cepilla los dientes';
 COMMENT ON COLUMN patients.cepillado_acompanado IS 'Indica si el cepillado es acompañado o supervisado';
+COMMENT ON COLUMN patients.peso IS 'Peso del paciente en kg (principalmente para menores)';
+COMMENT ON COLUMN patients.talla IS 'Talla del paciente en cm (principalmente para menores)';
+COMMENT ON COLUMN patients.tipo_alimentacion IS 'Tipo de alimentación del paciente (principalmente para menores)';
+COMMENT ON COLUMN patients.momentos_azucar IS 'Momentos en que consume azúcar (principalmente para menores)';
 
 -- Create index for better performance
 CREATE INDEX IF NOT EXISTS idx_patients_rep_tipo_identificacion ON patients(rep_tipo_identificacion);
@@ -41,6 +49,10 @@ CREATE INDEX IF NOT EXISTS idx_patients_psicologo ON patients(psicologo);
 CREATE INDEX IF NOT EXISTS idx_patients_otro_medico ON patients(otro_medico);
 CREATE INDEX IF NOT EXISTS idx_patients_frecuencia_cepillado_detalle ON patients(frecuencia_cepillado_detalle);
 CREATE INDEX IF NOT EXISTS idx_patients_cepillado_acompanado ON patients(cepillado_acompanado);
+CREATE INDEX IF NOT EXISTS idx_patients_peso ON patients(peso);
+CREATE INDEX IF NOT EXISTS idx_patients_talla ON patients(talla);
+CREATE INDEX IF NOT EXISTS idx_patients_tipo_alimentacion ON patients(tipo_alimentacion);
+CREATE INDEX IF NOT EXISTS idx_patients_momentos_azucar ON patients(momentos_azucar);
 
 -- Add check constraint for rep_tipo_identificacion
 DO $$

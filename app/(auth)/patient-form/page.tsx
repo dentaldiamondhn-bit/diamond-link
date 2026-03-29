@@ -323,6 +323,12 @@ function PatientFormContent() {
   const [frecuenciaCepilladoDetalle, setFrecuenciaCepilladoDetalle] = useState('');
   const [cepilladoAcompanado, setCepilladoAcompanado] = useState('');
   
+  // Additional minor-specific fields
+  const [peso, setPeso] = useState<number | ''>('');
+  const [talla, setTalla] = useState<number | ''>('');
+  const [tipoAlimentacion, setTipoAlimentacion] = useState('');
+  const [momentosAzucar, setMomentosAzucar] = useState('');
+  
   const [otroGenero, setOtroGenero] = useState('');
   const [tipoSangre, setTipoSangre] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -571,6 +577,12 @@ function PatientFormContent() {
       setOtroMedico(patient.otro_medico || '');
       setFrecuenciaCepilladoDetalle(patient.frecuencia_cepillado_detalle || '');
       setCepilladoAcompanado(patient.cepillado_acompanado || '');
+      
+      // Additional minor-specific fields
+      setPeso(patient.peso || '');
+      setTalla(patient.talla || '');
+      setTipoAlimentacion(patient.tipo_alimentacion || '');
+      setMomentosAzucar(patient.momentos_azucar || '');
       
       setDoctor(patient.doctor || '');
       setFechaInicio(patient.fecha_inicio);
@@ -2347,6 +2359,25 @@ function PatientFormContent() {
             </>
           )}
 
+          {/* Conditional field for minors - Tipo de Alimentación */}
+          {edad !== '' && edad < 18 && (
+            <label htmlFor="tipo_alimentacion" className="block mb-1 font-medium mt-2">Tipo de Alimentación:</label>
+          )}
+          {edad !== '' && edad < 18 && (
+            <input 
+              type="text" 
+              id="tipo_alimentacion" 
+              name="tipo_alimentacion" 
+              className={`input text-gray-900 dark:text-white ${getFieldStyle('tipo_alimentacion')}`} 
+              value={tipoAlimentacion || ''} 
+              onChange={(e) => {
+                setTipoAlimentacion(e.target.value);
+                updateFieldValidation('tipo_alimentacion', e.target.value);
+              }} 
+              placeholder="Ej: Balanceada, vegetariana, etc."
+            />
+          )}
+
           <label htmlFor="muerdeObjetosSelect" className="block mb-1 font-medium mt-4">Muerde objetos:</label>
           <select
             id="muerdeObjetosSelect"
@@ -2421,6 +2452,25 @@ function PatientFormContent() {
             <option value="no">No</option>
             <option value="si">Sí</option>
           </select>
+
+          {/* Conditional field for minors - Momentos de Azúcar */}
+          {edad !== '' && edad < 18 && (
+            <label htmlFor="momentos_azucar" className="block mb-1 font-medium mt-2">Momentos de Azúcar:</label>
+          )}
+          {edad !== '' && edad < 18 && (
+            <input 
+              type="text" 
+              id="momentos_azucar" 
+              name="momentos_azucar" 
+              className={`input text-gray-900 dark:text-white ${getFieldStyle('momentos_azucar')}`} 
+              value={momentosAzucar || ''} 
+              onChange={(e) => {
+                setMomentosAzucar(e.target.value);
+                updateFieldValidation('momentos_azucar', e.target.value);
+              }} 
+              placeholder="Ej: Después de comer, entre comidas, etc."
+            />
+          )}
 
           <label htmlFor="pegajosos" className="block mb-1 font-medium mt-4">Consume alimentos pegajosos (chicles):</label>
           <select id="pegajosos" name="pegajosos" required className="input" value={pegajosos || ''} onChange={(e) => setPegajosos(e.target.value)}>
@@ -2781,6 +2831,46 @@ function PatientFormContent() {
               <label htmlFor="tipo_enjuague_bucal" className="block mb-1 font-medium mt-4">Tipo enjuague bucal:</label>
               <input type="text" id="tipo_enjuague_bucal" name="tipo_enjuague_bucal" className="input" value={tipoEnjuagueBucal} onChange={(e) => setTipoEnjuagueBucal(e.target.value)} />
             </>
+          )}
+
+          {/* Conditional field for minors - Peso */}
+          {edad !== '' && edad < 18 && (
+            <label htmlFor="peso" className="block mb-1 font-medium mt-4">Peso:</label>
+          )}
+          {edad !== '' && edad < 18 && (
+            <input 
+              type="number" 
+              id="peso" 
+              name="peso" 
+              className={`input text-gray-900 dark:text-white ${getFieldStyle('peso')}`} 
+              value={peso || ''} 
+              onChange={(e) => {
+                setPeso(e.target.value ? parseFloat(e.target.value) : '');
+                updateFieldValidation('peso', e.target.value);
+              }} 
+              placeholder="Ej: 25.5"
+              step="0.1"
+            />
+          )}
+
+          {/* Conditional field for minors - Talla */}
+          {edad !== '' && edad < 18 && (
+            <label htmlFor="talla" className="block mb-1 font-medium mt-2">Talla:</label>
+          )}
+          {edad !== '' && edad < 18 && (
+            <input 
+              type="number" 
+              id="talla" 
+              name="talla" 
+              className={`input text-gray-900 dark:text-white ${getFieldStyle('talla')}`} 
+              value={talla || ''} 
+              onChange={(e) => {
+                setTalla(e.target.value ? parseFloat(e.target.value) : '');
+                updateFieldValidation('talla', e.target.value);
+              }} 
+              placeholder="Ej: 120"
+              step="0.1"
+            />
           )}
 
         </section>

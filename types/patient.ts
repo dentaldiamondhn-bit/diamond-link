@@ -26,6 +26,10 @@ export interface Patient {
   otro_medico?: string;
   frecuencia_cepillado_detalle?: string;
   cepillado_acompanado?: string;
+  peso?: number;
+  talla?: number;
+  tipo_alimentacion?: string;
+  momentos_azucar?: string;
   rep_celular?: string;
   codigopaisrepresentante?: string;
   rep_pais_codigo?: string;

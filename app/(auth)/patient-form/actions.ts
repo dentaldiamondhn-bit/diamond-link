@@ -88,6 +88,12 @@ export async function createPatient(formData: FormData) {
         frecuencia_cepillado_detalle: formData.get('frecuencia_cepillado_detalle') as Patient['frecuencia_cepillado_detalle'] || undefined,
         cepillado_acompanado: formData.get('cepillado_acompanado') as Patient['cepillado_acompanado'] || undefined,
         
+        // Additional minor-specific fields
+        peso: formData.get('peso') ? parseFloat(formData.get('peso') as string) : undefined,
+        talla: formData.get('talla') ? parseFloat(formData.get('talla') as string) : undefined,
+        tipo_alimentacion: formData.get('tipo_alimentacion') as Patient['tipo_alimentacion'] || undefined,
+        momentos_azucar: formData.get('momentos_azucar') as Patient['momentos_azucar'] || undefined,
+        
         sexo: formData.get('sexo') as Patient['sexo'],
         otro_genero: formData.get('otro_genero') as string || undefined,
         tipo_sangre: formData.get('tipo_sangre') as Patient['tipo_sangre'],
