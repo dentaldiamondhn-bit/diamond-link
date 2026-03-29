@@ -7,17 +7,42 @@ ADD COLUMN IF NOT EXISTS rep_tipo_identificacion TEXT,
 ADD COLUMN IF NOT EXISTS rep_otro_tipo_identificacion TEXT,
 ADD COLUMN IF NOT EXISTS rep_numero_identidad TEXT;
 
+-- Add new columns for minor-specific fields
+ALTER TABLE patients 
+ADD COLUMN IF NOT EXISTS apodo TEXT,
+ADD COLUMN IF NOT EXISTS enfermedades_sistemicas_texto TEXT,
+ADD COLUMN IF NOT EXISTS pediatra_otorrinolaringologo TEXT,
+ADD COLUMN IF NOT EXISTS pediatra TEXT,
+ADD COLUMN IF NOT EXISTS psicologo TEXT,
+ADD COLUMN IF NOT EXISTS otro_medico TEXT,
+ADD COLUMN IF NOT EXISTS frecuencia_cepillado_detalle TEXT,
+ADD COLUMN IF NOT EXISTS cepillado_acompanado TEXT;
+
 -- Add comments for documentation
 COMMENT ON COLUMN patients.rep_tipo_identificacion IS 'Tipo de identificación del representante legal (HN, US, GT, SV, NI, ES, OTRO)';
 COMMENT ON COLUMN patients.rep_otro_tipo_identificacion IS 'Especificación del tipo de identificación del representante legal cuando es OTRO';
 COMMENT ON COLUMN patients.rep_numero_identidad IS 'Número de identificación del representante legal';
+COMMENT ON COLUMN patients.apodo IS 'Apodo o nickname del paciente (principalmente para menores)';
+COMMENT ON COLUMN patients.enfermedades_sistemicas_texto IS 'Texto adicional sobre enfermedades sistémicas del paciente';
+COMMENT ON COLUMN patients.pediatra_otorrinolaringologo IS 'Nombre del pediatra otorrinolaringólogo del paciente';
+COMMENT ON COLUMN patients.pediatra IS 'Nombre del pediatra del paciente';
+COMMENT ON COLUMN patients.psicologo IS 'Nombre del psicólogo del paciente';
+COMMENT ON COLUMN patients.otro_medico IS 'Nombre de otro tipo de médico del paciente';
+COMMENT ON COLUMN patients.frecuencia_cepillado_detalle IS 'Detalle sobre cuándo se cepilla los dientes';
+COMMENT ON COLUMN patients.cepillado_acompanado IS 'Indica si el cepillado es acompañado o supervisado';
 
 -- Create index for better performance
 CREATE INDEX IF NOT EXISTS idx_patients_rep_tipo_identificacion ON patients(rep_tipo_identificacion);
 CREATE INDEX IF NOT EXISTS idx_patients_rep_numero_identidad ON patients(rep_numero_identidad);
+CREATE INDEX IF NOT EXISTS idx_patients_apodo ON patients(apodo);
+CREATE INDEX IF NOT EXISTS idx_patients_pediatra_otorrinolaringologo ON patients(pediatra_otorrinolaringologo);
+CREATE INDEX IF NOT EXISTS idx_patients_pediatra ON patients(pediatra);
+CREATE INDEX IF NOT EXISTS idx_patients_psicologo ON patients(psicologo);
+CREATE INDEX IF NOT EXISTS idx_patients_otro_medico ON patients(otro_medico);
+CREATE INDEX IF NOT EXISTS idx_patients_frecuencia_cepillado_detalle ON patients(frecuencia_cepillado_detalle);
+CREATE INDEX IF NOT EXISTS idx_patients_cepillado_acompanado ON patients(cepillado_acompanado);
 
 -- Add check constraint for rep_tipo_identificacion
--- First check if constraint exists, then add it
 DO $$
 BEGIN
     IF NOT EXISTS (

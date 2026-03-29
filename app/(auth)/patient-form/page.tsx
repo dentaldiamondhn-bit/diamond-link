@@ -312,6 +312,17 @@ function PatientFormContent() {
   const [repOtroTipoIdentificacion, setRepOtroTipoIdentificacion] = useState('');
   const [repNumeroIdentidad, setRepNumeroIdentidad] = useState('');
   const [currentRepIdNumber, setCurrentRepIdNumber] = useState('');
+  
+  // Additional fields for minors
+  const [apodo, setApodo] = useState('');
+  const [enfermedadesSistemicasTexto, setEnfermedadesSistemicasTexto] = useState('');
+  const [pediatraOtorrinolaringologo, setPediatraOtorrinolaringologo] = useState('');
+  const [pediatra, setPediatra] = useState('');
+  const [psicologo, setPsicologo] = useState('');
+  const [otroMedico, setOtroMedico] = useState('');
+  const [frecuenciaCepilladoDetalle, setFrecuenciaCepilladoDetalle] = useState('');
+  const [cepilladoAcompanado, setCepilladoAcompanado] = useState('');
+  
   const [otroGenero, setOtroGenero] = useState('');
   const [tipoSangre, setTipoSangre] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -549,13 +560,24 @@ function PatientFormContent() {
       setTrabajo(patient.trabajo);
       setContactoEmergencia(patient.contacto_emergencia);
       setContactoTelefono(patient.contacto_telefono);
-      setMedicoCabecera(patient.medico_cabecera);
-      setDoctor(patient.doctor);
+      setMedicoCabecera(patient.medico_cabecera || '');
+      
+      // Additional fields for minors
+      setApodo(patient.apodo || '');
+      setEnfermedadesSistemicasTexto(patient.enfermedades_sistemicas_texto || '');
+      setPediatraOtorrinolaringologo(patient.pediatra_otorrinolaringologo || '');
+      setPediatra(patient.pediatra || '');
+      setPsicologo(patient.psicologo || '');
+      setOtroMedico(patient.otro_medico || '');
+      setFrecuenciaCepilladoDetalle(patient.frecuencia_cepillado_detalle || '');
+      setCepilladoAcompanado(patient.cepillado_acompanado || '');
+      
+      setDoctor(patient.doctor || '');
       setFechaInicio(patient.fecha_inicio);
       setSeguro(patient.seguro || '');
-      setContacto(patient.contacto);
-      setHospitalizaciones(patient.hospitalizaciones);
-      setCirugias(patient.cirugias);
+      setContacto(patient.contacto || '');
+      setHospitalizaciones(patient.hospitalizaciones || '');
+      setCirugias(patient.cirugias || '');
       setEmbarazo(patient.embarazo);
       setSemanasEmbarazo(patient.semanas_embarazo?.toString() || '');
       setMedicamentosEmbarazo(patient.medicamentos_embarazo || '');
@@ -1560,6 +1582,24 @@ function PatientFormContent() {
             }}
           />
 
+          {/* Conditional field for minors - Apodo */}
+          {edad !== '' && edad < 18 && (
+            <label htmlFor="apodo" className="block mb-1 font-medium mt-2">Apodo:</label>
+          )}
+          {edad !== '' && edad < 18 && (
+            <input 
+              type="text" 
+              id="apodo" 
+              name="apodo" 
+              className={`input text-gray-900 dark:text-white ${getFieldStyle('apodo')}`} 
+              value={apodo || ''} 
+              onChange={(e) => {
+                setApodo(e.target.value);
+                updateFieldValidation('apodo', e.target.value);
+              }} 
+            />
+          )}
+
           <label htmlFor="tipo_identificacion" className="block mb-1 font-medium">Tipo de Identificación:</label>
           <select
             id="tipo_identificacion"
@@ -1881,6 +1921,64 @@ function PatientFormContent() {
           <label htmlFor="medico_cabecera" className="block mb-1 font-medium mt-4">Medico de cabecera:</label>
           <input type="text" id="medico_cabecera" name="medico_cabecera" className="input" value={medicoCabecera} onChange={(e) => setMedicoCabecera(e.target.value)} />
 
+          {/* Conditional fields for minors - Doctor types */}
+          {edad !== '' && edad < 18 && (
+            <>
+              <label htmlFor="pediatra_otorrinolaringologo" className="block mb-1 font-medium mt-2">Pediatra Otorrinolaringólogo:</label>
+              <input 
+                type="text" 
+                id="pediatra_otorrinolaringologo" 
+                name="pediatra_otorrinolaringologo" 
+                className={`input text-gray-900 dark:text-white ${getFieldStyle('pediatra_otorrinolaringologo')}`} 
+                value={pediatraOtorrinolaringologo || ''} 
+                onChange={(e) => {
+                  setPediatraOtorrinolaringologo(e.target.value);
+                  updateFieldValidation('pediatra_otorrinolaringologo', e.target.value);
+                }} 
+              />
+
+              <label htmlFor="pediatra" className="block mb-1 font-medium mt-2">Pediatra:</label>
+              <input 
+                type="text" 
+                id="pediatra" 
+                name="pediatra" 
+                className={`input text-gray-900 dark:text-white ${getFieldStyle('pediatra')}`} 
+                value={pediatra || ''} 
+                onChange={(e) => {
+                  setPediatra(e.target.value);
+                  updateFieldValidation('pediatra', e.target.value);
+                }} 
+              />
+
+              <label htmlFor="psicologo" className="block mb-1 font-medium mt-2">Psicólogo:</label>
+              <input 
+                type="text" 
+                id="psicologo" 
+                name="psicologo" 
+                className={`input text-gray-900 dark:text-white ${getFieldStyle('psicologo')}`} 
+                value={psicologo || ''} 
+                onChange={(e) => {
+                  setPsicologo(e.target.value);
+                  updateFieldValidation('psicologo', e.target.value);
+                }} 
+              />
+
+              <label htmlFor="otro_medico" className="block mb-1 font-medium mt-2">Otro:</label>
+              <input 
+                type="text" 
+                id="otro_medico" 
+                name="otro_medico" 
+                className={`input text-gray-900 dark:text-white ${getFieldStyle('otro_medico')}`} 
+                value={otroMedico || ''} 
+                onChange={(e) => {
+                  setOtroMedico(e.target.value);
+                  updateFieldValidation('otro_medico', e.target.value);
+                }} 
+                placeholder="Especifique tipo de médico"
+              />
+            </>
+          )}
+
           <label htmlFor="doctor" className="block mb-1 font-medium mt-4">Atendido por:</label>
           <select
             id="doctor"
@@ -1985,6 +2083,19 @@ function PatientFormContent() {
             setEnfermedades(e.target.value);
             updateFieldValidation('enfermedades', e.target.value);
           }} />
+
+          {/* Reminder text for minors */}
+          {edad !== '' && edad < 18 && (
+            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-700">
+              <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">Ejemplos de enfermedades sistémicas:</p>
+              <ul className="text-sm text-blue-700 dark:text-blue-300 mt-1 ml-4 list-disc">
+                <li>a) Respiratorios</li>
+                <li>b) Cardiovasculares</li>
+                <li>c) Trastornos Nutricionales</li>
+                <li>d) Otros (Genéticos, Neurológicos, Infecciosos, Endocrinos, Hematológicos, etc.)</li>
+              </ul>
+            </div>
+          )}
 
           <label htmlFor="alergias" className="block mb-1 font-medium mt-4">Alergias:</label>
           <textarea id="alergias" name="alergias" required className={`textarea text-gray-900 dark:text-white ${getFieldStyle('alergias')}`} value={alergias} onChange={(e) => {
@@ -2603,6 +2714,44 @@ function PatientFormContent() {
 
           <label htmlFor="f_cepillado" className="block mb-1 font-medium mt-4">Frecuencia de cepillado diario:</label>
           <input type="number" id="f_cepillado" name="f_cepillado" required className="input" value={fCepillado} onChange={(e) => setFCepillado(e.target.value)} />
+
+          {/* Conditional field for minors - ¿Cuándo? */}
+          {edad !== '' && edad < 18 && (
+            <label htmlFor="frecuencia_cepillado_detalle" className="block mb-1 font-medium mt-2">¿Cuándo?</label>
+          )}
+          {edad !== '' && edad < 18 && (
+            <input 
+              type="text" 
+              id="frecuencia_cepillado_detalle" 
+              name="frecuencia_cepillado_detalle" 
+              className={`input text-gray-900 dark:text-white ${getFieldStyle('frecuencia_cepillado_detalle')}`} 
+              value={frecuenciaCepilladoDetalle || ''} 
+              onChange={(e) => {
+                setFrecuenciaCepilladoDetalle(e.target.value);
+                updateFieldValidation('frecuencia_cepillado_detalle', e.target.value);
+              }} 
+              placeholder="Ej: Después de cada comida, antes de dormir, etc."
+            />
+          )}
+
+          {/* Conditional field for minors - ¿Se realiza acompañado? */}
+          {edad !== '' && edad < 18 && (
+            <label htmlFor="cepillado_acompanado" className="block mb-1 font-medium mt-2">¿Se realiza acompañado?</label>
+          )}
+          {edad !== '' && edad < 18 && (
+            <input 
+              type="text" 
+              id="cepillado_acompanado" 
+              name="cepillado_acompanado" 
+              className={`input text-gray-900 dark:text-white ${getFieldStyle('cepillado_acompanado')}`} 
+              value={cepilladoAcompanado || ''} 
+              onChange={(e) => {
+                setCepilladoAcompanado(e.target.value);
+                updateFieldValidation('cepillado_acompanado', e.target.value);
+              }} 
+              placeholder="Ej: Solo, con ayuda de padres, con supervisión, etc."
+            />
+          )}
 
           <label htmlFor="tipocepillo" className="block mb-1 font-medium mt-4">Tipo de cepillo dental:</label>
           <input type="text" id="tipocepillo" name="tipocepillo" className="input" value={tipocepillo} onChange={(e) => setTipocepillo(e.target.value)} />

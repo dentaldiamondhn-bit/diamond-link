@@ -174,6 +174,9 @@ export async function updatePatient(patientId: string, formData: FormData) {
       'protesis', 'sensibilidad', 'bruxismo', 'vacunas',
       'observaciones_medicas', 'motivo_consulta', 'plan_tratamiento',
       'proximo_control', 'notas_odontologo', 'tratamiento', 'observaciones_plan',
+      // Additional fields for minors
+      'apodo', 'enfermedades_sistemicas_texto', 'pediatra_otorrinolaringologo', 'pediatra', 'psicologo', 'otro_medico',
+      'frecuencia_cepillado_detalle', 'cepillado_acompanado',
       // Missing fields that were not being saved
       'medico_cabecera', 'doctor', 'fecha_inicio', 'seguro', 'poliza', 'contacto',
       'hospitalizaciones', 'cirugias', 'embarazo', 'medicamentos_embarazo', 'tipo_droga',

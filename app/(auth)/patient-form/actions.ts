@@ -77,6 +77,17 @@ export async function createPatient(formData: FormData) {
         rep_numero_identidad: formData.get('rep_numero_identidad') as string || undefined,
         rep_celular: formData.get('rep_celular') as string || undefined,
         codigopaisrepresentante: formData.get('codigopaisrepresentante') as string || undefined,
+        
+        // Additional fields for minors
+        apodo: formData.get('apodo') as Patient['apodo'] || undefined,
+        enfermedades_sistemicas_texto: formData.get('enfermedades_sistemicas_texto') as Patient['enfermedades_sistemicas_texto'] || undefined,
+        pediatra_otorrinolaringologo: formData.get('pediatra_otorrinolaringologo') as Patient['pediatra_otorrinolaringologo'] || undefined,
+        pediatra: formData.get('pediatra') as Patient['pediatra'] || undefined,
+        psicologo: formData.get('psicologo') as Patient['psicologo'] || undefined,
+        otro_medico: formData.get('otro_medico') as Patient['otro_medico'] || undefined,
+        frecuencia_cepillado_detalle: formData.get('frecuencia_cepillado_detalle') as Patient['frecuencia_cepillado_detalle'] || undefined,
+        cepillado_acompanado: formData.get('cepillado_acompanado') as Patient['cepillado_acompanado'] || undefined,
+        
         sexo: formData.get('sexo') as Patient['sexo'],
         otro_genero: formData.get('otro_genero') as string || undefined,
         tipo_sangre: formData.get('tipo_sangre') as Patient['tipo_sangre'],

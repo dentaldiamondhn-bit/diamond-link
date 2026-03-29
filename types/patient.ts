@@ -12,10 +12,20 @@ export interface Patient {
   fecha_nacimiento: string;
   representante_legal?: string;
   parentesco?: 'padre' | 'madre' | 'tutor' | 'otro';
-  otro_parentesco?: string;
+  // Representative identification fields for minors
   rep_tipo_identificacion?: 'HN' | 'US' | 'GT' | 'SV' | 'NI' | 'ES' | 'OTRO';
   rep_otro_tipo_identificacion?: string;
   rep_numero_identidad?: string;
+  
+  // Additional fields for minors
+  apodo?: string;
+  enfermedades_sistemicas_texto?: string;
+  pediatra_otorrinolaringologo?: string;
+  pediatra?: string;
+  psicologo?: string;
+  otro_medico?: string;
+  frecuencia_cepillado_detalle?: string;
+  cepillado_acompanado?: string;
   rep_celular?: string;
   codigopaisrepresentante?: string;
   rep_pais_codigo?: string;
