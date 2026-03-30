@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import { TicketService } from '@/services/ticketService';
 import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData, ActivityType } from '@/types/ticket';
 import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/lib/supabase';
 import { 
   Plus, 
   Filter, 
@@ -64,6 +65,61 @@ export default function TicketsPage() {
   useEffect(() => {
     loadTickets();
   }, [userRole]);
+
+  // Real-time subscription for ticket updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('tickets-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tickets' },
+        (payload) => {
+          console.log('Real-time ticket update:', payload);
+          
+          // Handle different types of changes
+          if (payload.eventType === 'UPDATE') {
+            // Update ticket in local state if it exists
+            setTickets(prevTickets => 
+              prevTickets.map(ticket => 
+                ticket.id === payload.new.id 
+                  ? { ...ticket, ...payload.new }
+                  : ticket
+              )
+            );
+            
+            // Show notification for status changes
+            if (payload.new.status !== payload.old.status) {
+              // You could add a toast notification here
+              console.log(`Ticket ${payload.new.ticket_number} status changed from ${payload.old.status} to ${payload.new.status}`);
+            }
+          } else if (payload.eventType === 'INSERT') {
+            // Add new ticket to local state
+            setTickets(prevTickets => [...prevTickets, payload.new as Ticket]);
+            console.log(`New ticket created: ${payload.new.ticket_number}`);
+          } else if (payload.eventType === 'DELETE') {
+            // Remove ticket from local state
+            setTickets(prevTickets => 
+              prevTickets.filter(ticket => ticket.id !== payload.old.id)
+            );
+            console.log(`Ticket deleted: ${payload.old.ticket_number}`);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Real-time subscription established for tickets');
+        } else if (status === 'CLOSED') {
+          console.log('Real-time subscription closed for tickets');
+        }
+      });
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     applyFilters();
@@ -196,7 +252,7 @@ export default function TicketsPage() {
         setUploadedDocuments([]);
         setUploadMessage(null);
         setIsUploading(false);
-        loadTickets(); // Refresh tickets
+        // No need to manually refresh - real-time subscription will handle new tickets
       }
     } catch (error) {
       console.error('Error creating ticket:', error);
@@ -212,7 +268,7 @@ export default function TicketsPage() {
   const handleStatusChange = async (ticketId: string, newStatus: TicketStatus) => {
     try {
       await TicketService.updateTicket(ticketId, { status: newStatus }, user?.id || '');
-      loadTickets(); // Refresh tickets
+      // No need to manually refresh - real-time subscription will handle updates
     } catch (error) {
       console.error('Error updating ticket status:', error);
     }
