@@ -445,10 +445,10 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     }
 
     return (
-      <div className="grid grid-cols-7 bg-gray-100 dark:bg-gray-700 rounded-tl-lg rounded-tr-lg overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-7 bg-gray-100 dark:bg-gray-700 rounded-tl-lg rounded-tr-lg overflow-hidden">
         {/* Header */}
         {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
-          <div key={day} className="bg-gradient-to-b from-slate-700 to-slate-800 p-3 text-center text-sm font-semibold text-white shadow-sm">
+          <div key={day} className="bg-gradient-to-b from-slate-700 to-slate-800 p-2 sm:p-3 text-center text-sm font-semibold text-white shadow-sm">
             {day}
           </div>
         ))}
@@ -463,7 +463,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           return (
             <div
               key={index}
-              className={`bg-white dark:bg-gray-900 p-2 min-h-[120px] cursor-pointer hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-gray-700 transition-all duration-200 ${
+              className={`bg-white dark:bg-gray-900 p-1 sm:p-2 min-h-[100px] sm:min-h-[120px] cursor-pointer hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-gray-700 transition-all duration-200 ${
                 !isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50' : ''
               } ${isToday ? 'ring-2 ring-inset ring-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : ''}`}
               onClick={() => handleDateClick(date)}
@@ -530,12 +530,12 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     return (
       <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-8 bg-gradient-to-r from-slate-700 to-slate-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="p-3 text-sm font-semibold text-white/80">Hora</div>
+        <div className="grid grid-cols-1 sm:grid-cols-8 bg-gradient-to-r from-slate-700 to-slate-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="p-2 sm:p-3 text-sm font-semibold text-white/80">Hora</div>
           {days.map((date, index) => (
-            <div key={index} className="p-3 text-center text-white border-l border-white/10">
-              <div className="text-xs font-medium uppercase tracking-wide opacity-80">{format(date, 'EEE', { locale: es })}</div>
-              <div className={`text-xl font-bold mt-1 ${isSameDay(date, new Date()) ? 'bg-white text-blue-600 rounded-full w-8 h-8 flex items-center justify-center mx-auto' : ''}`}>
+            <div key={index} className="p-2 sm:p-3 text-center text-white border-l border-white/10">
+              <div className="text-xs sm:text-sm font-medium uppercase tracking-wide opacity-80">{format(date, 'EEE', { locale: es })}</div>
+              <div className={`text-lg sm:text-xl font-bold mt-1 ${isSameDay(date, new Date()) ? 'bg-white text-blue-600 rounded-full w-6 sm:w-8 h-6 sm:h-8 flex items-center justify-center mx-auto' : ''}`}>
                 {format(date, 'd')}
               </div>
             </div>
@@ -545,8 +545,8 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
         {/* Time slots */}
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {hours.map(hour => (
-            <div key={hour} className="grid grid-cols-8 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-              <div className="p-2 text-xs text-gray-500 dark:text-gray-400 border-r border-gray-100 dark:border-gray-800 font-medium">
+            <div key={hour} className="grid grid-cols-1 sm:grid-cols-8 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              <div className="p-2 sm:p-3 text-xs sm:text-sm text-gray-500 dark:text-gray-400 border-r border-gray-100 dark:border-gray-800 font-medium">
                 {format(new Date().setHours(hour, 0, 0, 0), 'h:mm a')}
               </div>
               {days.map((date, dayIndex) => {
@@ -559,6 +559,8 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                   const taskHour = new Date(task.due_date).getHours();
                   return taskHour === hour;
                 });
+                const hasEvents = dayEvents.length > 0 || dayTasks.length > 0;
+                const isCurrentHour = new Date().getHours() === hour;
 
                 return (
                   <div
@@ -658,14 +660,14 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                       <div className="font-bold">{event.title}</div>
                       {event.patient && (
                         <div className="text-xs opacity-90 mt-1 flex items-center">
-                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                           </svg>
                           {event.patient.nombre_completo}
                         </div>
                       )}
                       <div className="text-xs opacity-75 mt-1 flex items-center">
-                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                         </svg>
                         {format(formatEventDate(event.start_date), 'h:mm a')} - {format(formatEventDate(event.end_date), 'h:mm a')}
@@ -683,7 +685,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                     >
                       <div className="font-bold flex items-center">
                         {task.status === 'completed' && (
-                          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         )}
@@ -691,7 +693,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                       </div>
                       {task.patient && (
                         <div className="text-xs opacity-90 mt-1 flex items-center">
-                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                           </svg>
                           {task.patient.nombre_completo}
@@ -721,19 +723,19 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       <div className="space-y-4">
         {/* Modern Header */}
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-950 rounded-xl shadow-lg p-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-2 md:gap-4">
+            <div className="flex items-center space-x-2 md:space-x-4">
               <button
                 onClick={navigatePrevious}
-                className="p-2 hover:bg-white/10 rounded-lg transition-all duration-200 text-white/80 hover:text-white"
+                className="p-2 md:p-2.5 hover:bg-white/10 rounded-lg transition-all duration-200 text-white/80 hover:text-white"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-white">
+                <h2 className="text-lg md:text-2xl font-bold text-white">
                   {format(currentDate, 'MMMM yyyy', { locale: es }).charAt(0).toUpperCase() + format(currentDate, 'MMMM yyyy', { locale: es }).slice(1)}
                 </h2>
                 <p className="text-white/60 text-sm">{format(currentDate, 'yyyy')}</p>
@@ -750,22 +752,23 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
               
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="ml-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 text-sm font-medium"
+                className="ml-1 md:ml-2 px-3 md:px-4 py-2 md:py-2.5 bg-white/10 hover:bg-white/20 text-sm md:text-base text-white rounded-lg transition-all duration-200 font-medium"
               >
-                Hoy
+                <span className="hidden sm:inline">Hoy</span>
+                <span className="sm:hidden">Hoy</span>
               </button>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 md:space-x-2">
               <div className="flex bg-white/10 backdrop-blur rounded-lg p-1">
                 {(['month', 'week', 'day'] as const).map(viewType => (
                   <button
                     key={viewType}
                     onClick={() => setView(viewType)}
-                    className={`px-4 py-2 text-sm rounded-md transition-all duration-200 ${
+                    className={`px-2 md:px-3 md:py-2 py-1.5 text-sm md:text-base rounded-md transition-all duration-200 ${
                       view === viewType
                         ? 'bg-white text-slate-800 shadow-md'
-                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                        : 'text-white/60 hover:bg-white/20'
                     }`}
                   >
                     {viewType === 'month' ? 'Mes' : viewType === 'week' ? 'Semana' : 'Día'}
@@ -774,19 +777,20 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 md:space-x-3">
               <button
                 onClick={() => {
                   setSelectedEvent(null);
                   setSelectedDate(new Date());
                   setShowEventModal(true);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center space-x-2 font-medium"
+                className="px-3 md:px-5 py-2 md:py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center space-x-1 md:space-x-2 text-sm md:text-base font-medium"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2 2h-8a2 2 0 002 2M9 5l2 2 4-4" />
                 </svg>
-                <span>Nuevo Evento</span>
+                <span className="hidden sm:inline md:inline">Nuevo Evento</span>
+                <span className="sm:hidden md:hidden">Evento</span>
               </button>
               <button
                 onClick={() => {
@@ -794,7 +798,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                   setSelectedDate(new Date());
                   setShowTaskModal(true);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center space-x-2 font-medium"
+                className="px-3 md:px-5 py-2 md:py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center space-x-1 md:space-x-2 text-sm md:text-base font-medium"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
