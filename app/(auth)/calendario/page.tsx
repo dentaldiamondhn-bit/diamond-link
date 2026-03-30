@@ -18,24 +18,32 @@ export default function CalendarPage() {
 
   if (!isLoaded) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-red-600">No autorizado</div>
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-red-600 text-center p-4">
+          <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <p className="text-lg font-semibold">No autorizado</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Por favor inicia sesión para acceder</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      {/* Main Calendar */}
-      <Calendar userId={user.id} userRole={userRole} />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Mobile-optimized Calendar Container */}
+      <div className="px-2 sm:px-4 py-4 lg:py-6 max-w-full">
+        <Calendar userId={user.id} userRole={userRole} />
+      </div>
     </div>
   );
 }
