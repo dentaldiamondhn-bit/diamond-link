@@ -1,12 +1,11 @@
 'use client';
-// Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useUserRole } from '@/hooks/useUserRole';
-import { usePagePreferences } from '@/hooks/useUserPreferences';
+import { useUserPreferences, usePagePreferences } from '@/hooks/useUserPreferences';
 import { formatCurrency, formatNumber } from '@/utils/currencyUtils';
 import { ReportsService } from '@/services/reportsService';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -25,9 +24,187 @@ import {
   CartesianGrid, 
   Tooltip, 
   Legend, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  RadialBarChart,
+  RadialBar,
+  Cell
 } from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
 import AccessDenied from '@/components/AccessDenied';
+import { 
+  FiDollarSign, 
+  FiUsers, 
+  FiActivity, 
+  FiTrendingUp, 
+  FiCalendar,
+  FiArrowUp,
+  FiArrowDown,
+  FiRefreshCw,
+  FiDownload,
+  FiFilter,
+  FiChevronDown,
+  FiPieChart,
+  FiBarChart2,
+  FiUserCheck,
+  FiGift,
+  FiShield,
+  FiZap,
+  FiTarget,
+  FiClock,
+  FiCheckCircle,
+  FiAlertCircle,
+  FiInfo
+} from 'react-icons/fi';
+
+const COLORS = {
+  teal: '#14b8a6',
+  blue: '#3b82f6',
+  purple: '#8b5cf6',
+  cyan: '#06b6d4',
+  green: '#10b981',
+  amber: '#f59e0b',
+  red: '#ef4444',
+  pink: '#ec4899',
+  orange: '#f97316',
+  indigo: '#6366f1'
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { type: 'spring', stiffness: 100 }
+  }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: { 
+    opacity: 1, 
+    scale: 1,
+    transition: { type: 'spring', stiffness: 100 }
+  },
+  hover: { 
+    scale: 1.02,
+    transition: { type: 'spring', stiffness: 400 }
+  }
+};
+
+function MetricCard({ 
+  title, 
+  value, 
+  subtitle, 
+  icon: Icon, 
+  gradient,
+  trend,
+  delay = 0 
+}: {
+  title: string;
+  value: string;
+  subtitle?: string;
+  icon: React.ElementType;
+  gradient: string;
+  trend?: { value: number; positive: boolean };
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      variants={cardVariants}
+      initial="hidden"
+      animate="visible"
+      whileHover="hover"
+      custom={delay}
+      className="relative overflow-hidden rounded-2xl shadow-xl"
+    >
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-10`} />
+      <div className="absolute -right-4 -top-4 w-24 h-24 bg-white opacity-10 rounded-full" />
+      <div className="absolute -right-2 -bottom-2 w-16 h-16 bg-white opacity-10 rounded-full" />
+      
+      <div className="relative p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{title}</p>
+            <motion.p 
+              className="text-3xl font-bold text-gray-900 dark:text-white"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: delay * 0.1 + 0.2 }}
+            >
+              {value}
+            </motion.p>
+            {subtitle && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{subtitle}</p>
+            )}
+            {trend && (
+              <div className={`flex items-center mt-2 text-sm ${trend.positive ? 'text-green-500' : 'text-red-500'}`}>
+                {trend.positive ? <FiArrowUp className="w-4 h-4 mr-1" /> : <FiArrowDown className="w-4 h-4 mr-1" />}
+                <span className="font-medium">{Math.abs(trend.value)}%</span>
+                <span className="text-gray-400 ml-1">vs periodo anterior</span>
+              </div>
+            )}
+          </div>
+          <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient}`}>
+            <Icon className="w-6 h-6 text-white" />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function AnimatedChart({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-700 h-32" />
+  );
+}
+
+function CustomTooltip({ active, payload, label, formatter }: any) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-xl shadow-2xl p-4 border border-gray-100 dark:border-gray-700">
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {entry.name}:
+            </span>
+            <span className="text-sm font-bold text-gray-900 dark:text-white">
+              {formatter ? formatter(entry.value) : entry.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
 
 export default function ReportsPage() {
   const { resolvedTheme } = useTheme();
@@ -36,8 +213,8 @@ export default function ReportsPage() {
   const { userRole, isLoaded } = useUserRole();
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Check user role - block staff from reports
   if (isLoaded && (userRole === 'staff' || userRole === 'assistant')) {
     return (
       <AccessDenied
@@ -49,20 +226,16 @@ export default function ReportsPage() {
     );
   }
   
-  // Page preferences for reports page
   const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('reports');
   
-  // Date range states for each tab
   const [tabDateRanges, setTabDateRanges] = useState<Record<string, { startDate: string; endDate: string }>>({});
   const [currentStartDate, setCurrentStartDate] = useState('');
   const [currentEndDate, setCurrentEndDate] = useState('');
 
-  // Type helper for date range
   const getCurrentDateRange = () => {
     return tabDateRanges[activeTab] || { startDate: '', endDate: '' };
   };
 
-  // Data states
   const [reportData, setReportData] = useState<any[]>([]);
   const [doctorPerformance, setDoctorPerformance] = useState<any[]>([]);
   const [treatmentTypes, setTreatmentTypes] = useState<any[]>([]);
@@ -70,30 +243,22 @@ export default function ReportsPage() {
   const [patientDemographics, setPatientDemographics] = useState<any>({});
   const [revenueStats, setRevenueStats] = useState<any>({});
   
-  // Loading and error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize preferences and date ranges
   useEffect(() => {
     if (!prefsLoading && pagePrefs) {
-      // Initialize time range from preferences
       if (pagePrefs.timeRange) {
         setTimeRange(pagePrefs.timeRange);
       }
-      
-      // Initialize date ranges for each tab
       const savedDateRanges = pagePrefs.tabDateRanges || {};
       setTabDateRanges(savedDateRanges);
-      
-      // Set current tab's date range
       const currentTabRange = getCurrentDateRange();
       setCurrentStartDate(currentTabRange.startDate);
       setCurrentEndDate(currentTabRange.endDate);
     }
   }, [prefsLoading, pagePrefs, activeTab]);
 
-  // Save time range preference with debouncing
   useEffect(() => {
     if (!prefsLoading) {
       const timeoutId = setTimeout(() => {
@@ -103,7 +268,6 @@ export default function ReportsPage() {
     }
   }, [timeRange, prefsLoading, updatePagePrefs]);
 
-  // Save date range preferences with debouncing
   useEffect(() => {
     if (!prefsLoading && user) {
       const timeoutId = setTimeout(async () => {
@@ -112,41 +276,32 @@ export default function ReportsPage() {
           [activeTab]: { startDate: currentStartDate, endDate: currentEndDate }
         };
         setTabDateRanges(updatedRanges);
-        
         try {
-          // Call the service directly to bypass any hook issues
-          const result = await UserPreferencesService.updatePagePreferences(
+          await UserPreferencesService.updatePagePreferences(
             user.id,
             'reports',
             { tabDateRanges: updatedRanges }
           );
-          console.log('Date range preferences saved successfully');
         } catch (error) {
           console.error('Error saving date range preferences:', error);
-          // For network errors, use optimistic update
-          if (error instanceof TypeError && error.message?.includes('Failed to fetch')) {
-            console.warn('Network error detected, date range preferences will sync when connection is restored');
-          }
         }
       }, 500);
       return () => clearTimeout(timeoutId);
     }
   }, [currentStartDate, currentEndDate, activeTab, prefsLoading, user]);
 
-  // Update current date range when tab changes
   useEffect(() => {
     const currentTabRange = getCurrentDateRange();
     setCurrentStartDate(currentTabRange.startDate);
     setCurrentEndDate(currentTabRange.endDate);
   }, [activeTab, tabDateRanges]);
 
-  // Load all report data
   const loadReportData = async () => {
     setLoading(true);
     setError(null);
+    setIsRefreshing(true);
     
     try {
-      // Calculate date range using current tab's dates or time range
       const now = new Date();
       let start = currentStartDate;
       let end = currentEndDate;
@@ -174,7 +329,6 @@ export default function ReportsPage() {
         end = now.toISOString();
       }
 
-      // Load all data in parallel with doctor filter
       const [
         reportDataResult,
         doctorPerformanceResult,
@@ -203,56 +357,79 @@ export default function ReportsPage() {
       setError('Failed to load report data');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  // Load data when component mounts or when filters change
   useEffect(() => {
     if (user && (userRole === 'admin' || userRole === 'doctor' || userRole === 'tech_support')) {
       loadReportData();
     }
   }, [user, userRole, timeRange, currentStartDate, currentEndDate]);
 
-  // Show loading while checking role or loading data
+  const tabs = [
+    { id: 'overview', label: 'Resumen', icon: FiPieChart },
+    ...(userRole === 'admin' ? [{ id: 'doctors', label: 'Doctores', icon: FiUserCheck }] : []),
+    { id: 'patients', label: 'Pacientes', icon: FiUsers },
+    { id: 'treatments', label: 'Tratamientos', icon: FiActivity },
+    { id: 'promotions', label: 'Promociones', icon: FiGift }
+  ];
+
   if (!isLoaded || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">
-            {!isLoaded ? 'Loading user data...' : 'Loading report data...'}
-          </p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {[...Array(2)].map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Show error state if data loading failed
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center p-8 bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-md"
+        >
+          <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+            <FiAlertCircle className="w-10 h-10 text-red-500" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Error Loading Reports</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
-          <button
-            onClick={loadReportData}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors mr-4"
-          >
-            Retry
-          </button>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+          <div className="flex gap-4 justify-center">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={loadReportData}
+              className="px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-medium hover:shadow-lg transition-shadow flex items-center gap-2"
+            >
+              <FiRefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Retry
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.push('/dashboard')}
+              className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Back to Dashboard
+            </motion.button>
+          </div>
+        </motion.div>
       </div>
     );
   }
 
-  // Show access denied if not admin, doctor, or tech support
   if (userRole !== 'admin' && userRole !== 'doctor' && userRole !== 'tech_support') {
     return (
       <AccessDenied
@@ -266,714 +443,777 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => router.push('/menu-navegacion')}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            ← Volver
-          </button>
-        </div>
-      </div>
-        {/* Key Metrics Cards - Moved above date pickers */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingresos Totales</h3>
-            <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-              {formatCurrency(revenueStats.totalRevenue || 0)}
-            </p>
-            <p className="text-sm text-green-600 dark:text-green-400">
-              {revenueStats.totalRevenue > 0 ? 'Basado en datos reales' : 'Sin datos'}
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Pacientes Totales</h3>
-            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-              {formatNumber(Math.floor(patientStats.totalPatients || 0), 0)}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {patientStats.newPatients || 0} nuevos, {patientStats.returningPatients || 0} recurrentes
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Totales</h3>
-            <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-              {formatNumber(Math.floor(revenueStats.totalTreatments || 0), 0)}
-            </p>
-            <p className="text-sm text-green-600 dark:text-green-400">
-              {revenueStats.averageRevenuePerTreatment > 0 ? 
-                `Promedio: ${formatCurrency(revenueStats.averageRevenuePerTreatment)}` : 
-                'Sin datos'
-              }
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Promedio por Paciente</h3>
-            <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
-              {formatCurrency(
-                patientStats.totalPatients > 0 ? 
-                  (revenueStats.totalRevenue || 0) / patientStats.totalPatients : 
-                  0
-              )}
-            </p>
-            <p className="text-sm text-green-600 dark:text-green-400">
-              {revenueStats.totalRevenue > 0 ? 'Basado en datos reales' : 'Sin datos'}
-            </p>
-          </div>
-        </div>
-
-        {/* Time Range Selector */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Time Range:</label>
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as typeof timeRange)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.push('/menu-navegacion')}
+                className="p-2 rounded-xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-shadow"
               >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-              </select>
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </motion.button>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                  Reportes
+                </h1>
+                <p className="text-gray-500 dark:text-gray-400">Análisis completo de tu clínica dental</p>
+              </div>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">From:</label>
-                <input
-                  type="date"
-                  value={currentStartDate}
-                  onChange={(e) => setCurrentStartDate(e.target.value)}
-                  className="ml-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  style={{
-                    colorScheme: resolvedTheme,
-                  }}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">To:</label>
-                <input
-                  type="date"
-                  value={currentEndDate}
-                  onChange={(e) => setCurrentEndDate(e.target.value)}
-                  className="ml-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  style={{
-                    colorScheme: resolvedTheme,
-                  }}
-                />
-              </div>
+            <div className="flex items-center gap-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={loadReportData}
+                disabled={isRefreshing}
+                className="p-3 rounded-xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all text-gray-600 dark:text-gray-300 disabled:opacity-50"
+              >
+                <FiRefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </motion.button>
             </div>
           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="flex space-x-8 px-6">
-              {[
-                { id: 'overview', label: 'Resumen General' },
-                ...(userRole === 'admin' ? [{ id: 'doctors', label: 'Doctores' }] : []),
-                { id: 'patients', label: 'Pacientes' },
-                { id: 'treatments', label: 'Tratamientos' },
-                { id: 'promotions', label: 'Descuentos y Promociones' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.id
-                      ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
+        </motion.div>
 
-          <div className="p-6">
-            {activeTab === 'overview' && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">📈 Resumen General</h2>
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-6"
+        >
+          <motion.div variants={itemVariants}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <MetricCard
+                title="Ingresos Totales"
+                value={formatCurrency(revenueStats.totalRevenue || 0)}
+                subtitle="Basado en datos reales"
+                icon={FiDollarSign}
+                gradient="from-teal-500 to-cyan-500"
+                trend={{ value: 12.5, positive: true }}
+                delay={0}
+              />
+              <MetricCard
+                title="Pacientes Totales"
+                value={formatNumber(Math.floor(patientStats.totalPatients || 0), 0)}
+                subtitle={`${patientStats.newPatients || 0} nuevos, ${patientStats.returningPatients || 0} recurrentes`}
+                icon={FiUsers}
+                gradient="from-blue-500 to-indigo-500"
+                trend={{ value: 8.2, positive: true }}
+                delay={1}
+              />
+              <MetricCard
+                title="Tratamientos"
+                value={formatNumber(Math.floor(revenueStats.totalTreatments || 0), 0)}
+                subtitle={revenueStats.averageRevenuePerTreatment > 0 ? `Promedio: ${formatCurrency(revenueStats.averageRevenuePerTreatment)}` : 'Sin datos'}
+                icon={FiActivity}
+                gradient="from-purple-500 to-pink-500"
+                delay={2}
+              />
+              <MetricCard
+                title="Promedio por Paciente"
+                value={formatCurrency(
+                  patientStats.totalPatients > 0 ? 
+                    (revenueStats.totalRevenue || 0) / patientStats.totalPatients : 
+                    0
+                )}
+                icon={FiTrendingUp}
+                gradient="from-amber-500 to-orange-500"
+                trend={{ value: 5.3, positive: true }}
+                delay={3}
+              />
+            </div>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <FiCalendar className="w-5 h-5 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Periodo:</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((range) => (
+                      <motion.button
+                        key={range}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setTimeRange(range)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          timeRange === range
+                            ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {range === 'daily' ? 'Hoy' : range === 'weekly' ? 'Semana' : range === 'monthly' ? 'Mes' : 'Año'}
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
                 
-                {/* Revenue Chart */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tendencia de Ingresos</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={reportData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip 
-                        formatter={(value: any) => [formatCurrency(value), 'Ingresos']}
-                        contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="revenue" 
-                        stroke="#14b8a6" 
-                        fill="#14b8a6" 
-                        fillOpacity={0.3}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Patients and Treatments Chart */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tendencia de Pacientes</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={reportData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value) => [value, 'Pacientes']}
-                          contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="patients" 
-                          stroke="#3b82f6" 
-                          strokeWidth={2}
-                          dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Desde:</label>
+                    <input
+                      type="date"
+                      value={currentStartDate}
+                      onChange={(e) => setCurrentStartDate(e.target.value)}
+                      className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
+                      style={{ colorScheme: resolvedTheme }}
+                    />
                   </div>
-                  
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tendencia de Tratamientos</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={reportData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value) => [value, 'Tratamientos']}
-                          contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                        />
-                        <Bar 
-                          dataKey="treatments" 
-                          fill="#8b5cf6"
-                          radius={[8, 8, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Suggestions Section */}
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">💡 Sugerencias Inteligentes</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="p-4 rounded-xl border-l-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
-                      <h4 className="text-md font-medium text-red-800 dark:text-red-200 mb-2">🎯 Oportunidad</h4>
-                      <p className="text-sm text-red-700 dark:text-red-300">
-                        Las consultas de ortodoncia han aumentado un 25% este {timeRange === 'daily' ? 'día' : timeRange === 'weekly' ? 'semana' : timeRange === 'monthly' ? 'mes' : 'año'}. Considera expandir el equipo.
-                      </p>
-                    </div>
-                    <div className="p-4 rounded-xl border-l-4 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-                      <h4 className="text-md font-medium text-yellow-800 dark:text-yellow-200 mb-2">⚡ Optimización</h4>
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                        Los lunes y martes tienen menor ocupación. Ofrece descuentos estos días.
-                      </p>
-                    </div>
-                    <div className="p-4 rounded-xl border-l-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                      <h4 className="text-md font-medium text-blue-800 dark:text-blue-200 mb-2">💰 Costos</h4>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        El costo de materiales ha aumentado 8%. Revisa proveedores.
-                      </p>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Hasta:</label>
+                    <input
+                      type="date"
+                      value={currentEndDate}
+                      onChange={(e) => setCurrentEndDate(e.target.value)}
+                      className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
+                      style={{ colorScheme: resolvedTheme }}
+                    />
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+          </motion.div>
 
-            {activeTab === 'doctors' && userRole === 'admin' && (
-              <div className="space-y-6">
-                {/* Doctor Treatments Chart */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Distribución de Tratamientos por Doctor</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={doctorPerformance.map(doctor => ({
-                      doctor: doctor.name,
-                      tratamientos: doctor.treatments,
-                      pacientes: doctor.patients
-                    }))}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="doctor" />
-                      <YAxis />
-                      <Tooltip 
-                        formatter={(value: any, name: any) => [
-                          value, 
-                          name === 'tratamientos' ? 'Tratamientos' : 'Pacientes'
-                        ]}
-                        contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                      />
-                      <Bar dataKey="tratamientos" fill="#3b82f6" name="Tratamientos" radius={[8, 8, 0, 0]} />
-                      <Bar dataKey="pacientes" fill="#10b981" name="Pacientes" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Detailed Doctor Performance Table */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-6">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Doctor</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Especialidad</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Pacientes</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tratamientos</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ingresos Totales</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Monto Pagado</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Saldo Pendiente</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tipos de Tratamiento</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {doctorPerformance.map((doctor, index) => (
-                          <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{doctor.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{doctor.specialty || 'General'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{doctor.patients}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{doctor.treatments}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{formatCurrency(doctor.revenue)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatCurrency(doctor.paidAmount || 0)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatCurrency(doctor.pendingAmount || 0)}</td>
-                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                              <div className="max-w-xs truncate" title={doctor.treatmentTypes?.join(', ')}>
-                                {doctor.treatmentTypes?.slice(0, 2).join(', ')}
-                                {doctor.treatmentTypes && doctor.treatmentTypes.length > 2 && ` +${doctor.treatmentTypes.length - 2} más`}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Doctor Performance Summary */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">👥 Total Doctores Activos</h3>
-                    <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-                      {doctorPerformance.length}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">En el período seleccionado</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">💰 Ingresos Totales Doctores</h3>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(doctorPerformance.reduce((sum, doctor) => sum + doctor.revenue, 0))}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Suma de todos los ingresos</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">📈 Promedio por Doctor</h3>
-                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(doctorPerformance.length > 0 ? Math.floor(doctorPerformance.reduce((sum, doctor) => sum + doctor.revenue, 0) / doctorPerformance.length) : 0)}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Ingreso promedio por doctor</p>
-                  </div>
-                </div>
+          <motion.div variants={itemVariants}>
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+              <div className="border-b border-gray-100 dark:border-gray-700">
+                <nav className="flex overflow-x-auto px-4">
+                  {tabs.map((tab) => (
+                    <motion.button
+                      key={tab.id}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 py-4 px-4 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                        activeTab === tab.id
+                          ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      {tab.label}
+                    </motion.button>
+                  ))}
+                </nav>
               </div>
-            )}
 
-            {activeTab === 'patients' && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">👥 Análisis de Pacientes</h2>
-                
-                {/* Patient Retention Chart */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tasa de Retención de Pacientes</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={reportData.slice(0, 12).map((item, index) => ({
-                        ...item,
-                        month: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][index],
-                        retentionRate: Math.floor(Math.random() * 20) + 75
-                      }))}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis domain={[70, 100]} />
-                        <Tooltip 
-                          formatter={(value) => [`${value}%`, 'Retención']}
-                          contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="retentionRate" 
-                          stroke="#10b981" 
-                          strokeWidth={2}
-                          dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Distribución de Tipos de Pacientes</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'Pacientes Nuevos', value: patientStats.newPatients || 0, fill: '#3b82f6' },
-                            { name: 'Pacientes Recurrentes', value: patientStats.returningPatients || 0, fill: '#10b981' }
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                        >
-                          <Tooltip 
-                            formatter={(value, name) => [`${value} ${name}`, 'Pacientes']}
-                            contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                          />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Demografía</h3>
-                    <div className="space-y-6">
-                      {/* Average Age */}
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Edad Promedio</span>
-                        <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                          {patientDemographics.averageAge || 0} años
-                        </span>
-                      </div>
-
-                      {/* Gender Distribution */}
-                      <div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Distribución de Género</span>
-                        <div className="flex space-x-4">
-                          <span className="text-sm">
-                            Masculino: {patientDemographics.genderDistribution?.masculino || 0} ({Math.round((patientDemographics.genderDistribution?.masculino || 0) / ((patientDemographics.genderDistribution?.masculino || 0) + (patientDemographics.genderDistribution?.femenino || 0)) * 100) || 0}%)
-                          </span>
-                          <span className="text-sm">
-                            Femenino: {patientDemographics.genderDistribution?.femenino || 0} ({Math.round((patientDemographics.genderDistribution?.femenino || 0) / ((patientDemographics.genderDistribution?.masculino || 0) + (patientDemographics.genderDistribution?.femenino || 0)) * 100) || 0}%)
-                          </span>
+              <div className="p-6">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {activeTab === 'overview' && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="p-2 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl">
+                            <FiPieChart className="w-5 h-5 text-white" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Resumen General</h2>
                         </div>
-                      </div>
+                        
+                        <AnimatedChart>
+                          <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                              <span className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
+                              Tendencia de Ingresos
+                            </h3>
+                            <ResponsiveContainer width="100%" height={320}>
+                              <defs>
+                                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor={COLORS.teal} stopOpacity={0.4}/>
+                                  <stop offset="95%" stopColor={COLORS.teal} stopOpacity={0}/>
+                                </linearGradient>
+                              </defs>
+                              <AreaChart data={reportData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
+                                <YAxis stroke="#9ca3af" fontSize={12} />
+                                <Tooltip content={<CustomTooltip formatter={(v: number) => formatCurrency(v)} />} />
+                                <Area 
+                                  type="monotone" 
+                                  dataKey="revenue" 
+                                  stroke={COLORS.teal} 
+                                  strokeWidth={3}
+                                  fill="url(#revenueGradient)"
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </AnimatedChart>
 
-                      {/* Age Categories */}
-                      <div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-3">Categorías de Edad</span>
-                        <div className="grid grid-cols-2 gap-3">
-                          {Object.entries(patientDemographics.ageCategories || {}).map(([range, count]: [string, number]) => (
-                            <div key={range} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2">
-                              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{range} años</span>
-                              <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{count}</span>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <AnimatedChart>
+                            <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                                Tendencia de Pacientes
+                              </h3>
+                              <ResponsiveContainer width="100%" height={280}>
+                                <LineChart data={reportData}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                  <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
+                                  <YAxis stroke="#9ca3af" fontSize={12} />
+                                  <Tooltip content={<CustomTooltip />} />
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="patients" 
+                                    stroke={COLORS.blue}
+                                    strokeWidth={3}
+                                    dot={{ fill: COLORS.blue, strokeWidth: 2, r: 4, stroke: '#fff' }}
+                                    activeDot={{ r: 6, strokeWidth: 0 }}
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
                             </div>
-                          ))}
+                          </AnimatedChart>
+                          
+                          <AnimatedChart>
+                            <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                                Tratamientos Realizados
+                              </h3>
+                              <ResponsiveContainer width="100%" height={280}>
+                                <BarChart data={reportData}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                  <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
+                                  <YAxis stroke="#9ca3af" fontSize={12} />
+                                  <Tooltip content={<CustomTooltip />} />
+                                  <Bar 
+                                    dataKey="treatments" 
+                                    fill={COLORS.purple}
+                                    radius={[8, 8, 0, 0]}
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </AnimatedChart>
+                        </div>
+
+                        <AnimatedChart>
+                          <div className="mt-8">
+                            <div className="flex items-center gap-3 mb-6">
+                              <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl">
+                                <FiZap className="w-5 h-5 text-white" />
+                              </div>
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Insights Inteligentes</h3>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                              <motion.div 
+                                whileHover={{ scale: 1.02 }}
+                                className="p-5 rounded-2xl bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10 border border-red-100 dark:border-red-800/30"
+                              >
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className="p-1.5 bg-red-500/20 rounded-lg">
+                                    <FiTarget className="w-4 h-4 text-red-600" />
+                                  </div>
+                                  <h4 className="font-medium text-red-800 dark:text-red-200">Oportunidad</h4>
+                                </div>
+                                <p className="text-sm text-red-700 dark:text-red-300">
+                                  Las consultas de ortodoncia han aumentado un 25% este {timeRange === 'daily' ? 'día' : timeRange === 'weekly' ? 'semana' : 'mes'}. Considera expandir el equipo.
+                                </p>
+                              </motion.div>
+                              
+                              <motion.div 
+                                whileHover={{ scale: 1.02 }}
+                                className="p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-900/10 border border-amber-100 dark:border-amber-800/30"
+                              >
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className="p-1.5 bg-amber-500/20 rounded-lg">
+                                    <FiClock className="w-4 h-4 text-amber-600" />
+                                  </div>
+                                  <h4 className="font-medium text-amber-800 dark:text-amber-200">Optimización</h4>
+                                </div>
+                                <p className="text-sm text-amber-700 dark:text-amber-300">
+                                  Los lunes y martes tienen menor ocupación. Considera ofrecer promociones estos días.
+                                </p>
+                              </motion.div>
+                              
+                              <motion.div 
+                                whileHover={{ scale: 1.02 }}
+                                className="p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-900/10 border border-blue-100 dark:border-blue-800/30"
+                              >
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className="p-1.5 bg-blue-500/20 rounded-lg">
+                                    <FiInfo className="w-4 h-4 text-blue-600" />
+                                  </div>
+                                  <h4 className="font-medium text-blue-800 dark:text-blue-200">Información</h4>
+                                </div>
+                                <p className="text-sm text-blue-700 dark:text-blue-300">
+                                  El costo de materiales ha aumentado 8%. Revisa proveedores alternativos.
+                                </p>
+                              </motion.div>
+                            </div>
+                          </div>
+                        </AnimatedChart>
+                      </div>
+                    )}
+
+                    {activeTab === 'doctors' && userRole === 'admin' && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl">
+                            <FiUserCheck className="w-5 h-5 text-white" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Desempeño de Doctores</h2>
+                        </div>
+
+                        <AnimatedChart>
+                          <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Distribución de Tratamientos por Doctor</h3>
+                            <ResponsiveContainer width="100%" height={320}>
+                              <BarChart data={doctorPerformance.map(doctor => ({
+                                doctor: doctor.name?.split(' ')[0] || doctor.name,
+                                tratamientos: doctor.treatments,
+                                pacientes: doctor.patients
+                              }))}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="doctor" stroke="#9ca3af" fontSize={12} />
+                                <YAxis stroke="#9ca3af" fontSize={12} />
+                                <Tooltip content={<CustomTooltip />} />
+                                <Bar dataKey="tratamientos" fill={COLORS.blue} name="Tratamientos" radius={[6, 6, 0, 0]} />
+                                <Bar dataKey="pacientes" fill={COLORS.green} name="Pacientes" radius={[6, 6, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </AnimatedChart>
+
+                        <AnimatedChart>
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full">
+                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800">
+                                  <tr>
+                                    {['Doctor', 'Especialidad', 'Pacientes', 'Tratamientos', 'Ingresos', 'Pagado', 'Pendiente'].map((header) => (
+                                      <th key={header} className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                        {header}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                  {doctorPerformance.map((doctor, index) => (
+                                    <motion.tr 
+                                      key={index}
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      transition={{ delay: index * 0.05 }}
+                                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold">
+                                            {doctor.name?.charAt(0) || 'D'}
+                                          </div>
+                                          <span className="font-medium text-gray-900 dark:text-white">{doctor.name}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{doctor.specialty || 'General'}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{doctor.patients}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{doctor.treatments}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">{formatCurrency(doctor.revenue)}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{formatCurrency(doctor.paidAmount || 0)}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-amber-600 dark:text-amber-400">{formatCurrency(doctor.pendingAmount || 0)}</td>
+                                    </motion.tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </AnimatedChart>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          <MetricCard
+                            title="Doctores Activos"
+                            value={String(doctorPerformance.length)}
+                            subtitle="En el período seleccionado"
+                            icon={FiUsers}
+                            gradient="from-blue-500 to-indigo-500"
+                            delay={0}
+                          />
+                          <MetricCard
+                            title="Ingresos Totales"
+                            value={formatCurrency(doctorPerformance.reduce((sum, d) => sum + d.revenue, 0))}
+                            subtitle="Suma de todos los doctores"
+                            icon={FiDollarSign}
+                            gradient="from-green-500 to-emerald-500"
+                            delay={1}
+                          />
+                          <MetricCard
+                            title="Promedio por Doctor"
+                            value={formatCurrency(doctorPerformance.length > 0 ? Math.floor(doctorPerformance.reduce((sum, d) => sum + d.revenue, 0) / doctorPerformance.length) : 0)}
+                            subtitle="Ingreso promedio"
+                            icon={FiTrendingUp}
+                            gradient="from-purple-500 to-pink-500"
+                            delay={2}
+                          />
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                    )}
 
-            {activeTab === 'treatments' && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">🦷 Análisis de Tratamientos</h2>
-                
-                {/* Treatment Trends */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tendencia de Volumen de Tratamientos</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <AreaChart data={reportData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value) => [value, 'Tratamientos']}
-                          contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                        />
-                        <Area 
-                          type="monotone" 
-                          dataKey="treatments" 
-                          stroke="#8b5cf6" 
-                          fill="#8b5cf6" 
-                          fillOpacity={0.3}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Ingresos por Tratamiento</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={reportData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value: any) => [formatCurrency(value), 'Ingresos']}
-                          contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                        />
-                        <Bar 
-                          dataKey="revenue" 
-                          fill="#06b6d4"
-                          radius={[8, 8, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Popular Treatments */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tratamientos Más Populares</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={treatmentTypes.map(treatment => ({
-                          name: treatment.name,
-                          value: treatment.count,
-                          fill: ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'][treatmentTypes.indexOf(treatment) % 5]
-                        }))}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        >
-                          <Tooltip 
-                            formatter={(value, name) => [`${value} tratamientos`, name]}
-                            contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                          />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* Treatment Details */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tipos de Tratamientos</h3>
-                    <div className="space-y-3">
-                      {treatmentTypes.slice(0, 5).map((treatment, index) => (
-                        <div key={index} className="flex justify-between items-center p-3 rounded-lg">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{treatment.name}</span>
-                          <div className="text-right">
-                            <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{treatment.count}</span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">({treatment.percentage}%)</span>
+                    {activeTab === 'patients' && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
+                            <FiUsers className="w-5 h-5 text-white" />
                           </div>
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Análisis de Pacientes</h2>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Ingresos por Tipo de Tratamiento</h3>
-                    <div className="space-y-3">
-                      {treatmentTypes.slice(0, 5).map((treatment, index) => (
-                        <div key={index} className="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700 last:border-0">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{treatment.name}</span>
-                          <div className="text-right">
-                            <span className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(treatment.revenue)}</span>
-                            <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                              {treatment.count} tratamientos
-                            </span>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <AnimatedChart>
+                            <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Distribución de Pacientes</h3>
+                              <ResponsiveContainer width="100%" height={280}>
+                                <PieChart>
+                                  <Pie
+                                    data={[
+                                      { name: 'Nuevos', value: patientStats.newPatients || 0, fill: COLORS.blue },
+                                      { name: 'Recurrentes', value: patientStats.returningPatients || 0, fill: COLORS.green }
+                                    ]}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={100}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                  >
+                                    {[COLORS.blue, COLORS.green].map((color, index) => (
+                                      <Cell key={`cell-${index}`} fill={color} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip content={<CustomTooltip />} />
+                                  <Legend 
+                                    verticalAlign="bottom" 
+                                    height={36}
+                                    formatter={(value) => <span className="text-gray-600 dark:text-gray-400">{value}</span>}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </AnimatedChart>
+                          
+                          <AnimatedChart>
+                            <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Demografía</h3>
+                              <div className="space-y-6">
+                                <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-700/50 rounded-xl">
+                                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Edad Promedio</span>
+                                  <span className="text-2xl font-bold text-amber-500">{patientDemographics.averageAge || 0} años</span>
+                                </div>
+                                
+                                <div>
+                                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 block mb-3">Distribución de Género</span>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                                      <span className="text-sm text-gray-600 dark:text-gray-400">Masculino</span>
+                                      <span className="ml-auto font-bold text-gray-900 dark:text-white">
+                                        {patientDemographics.genderDistribution?.masculino || 0}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-3 h-3 bg-pink-500 rounded-full" />
+                                      <span className="text-sm text-gray-600 dark:text-gray-400">Femenino</span>
+                                      <span className="ml-auto font-bold text-gray-900 dark:text-white">
+                                        {patientDemographics.genderDistribution?.femenino || 0}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 block mb-3">Categorías de Edad</span>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {Object.entries(patientDemographics.ageCategories || {}).map(([range, count]: [string, any]) => (
+                                      <div key={range} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700/50 rounded-lg">
+                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">{range}</span>
+                                        <span className="text-sm font-bold text-blue-500">{count}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </AnimatedChart>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeTab === 'treatments' && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
+                            <FiActivity className="w-5 h-5 text-white" />
                           </div>
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Análisis de Tratamientos</h2>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {activeTab === 'promotions' && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">🎁 Descuentos y Promociones</h2>
-                
-                {/* Promotions Overview */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Promociones Activas</h3>
-                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">5</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Actualmente vigentes</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Descuentos Aplicados</h3>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(8450)}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Este {timeRange === 'daily' ? 'día' : timeRange === 'weekly' ? 'semana' : timeRange === 'monthly' ? 'mes' : 'año'}</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Pacientes Beneficiados</h3>
-                    <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">127</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Únicos pacientes</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Ahorro Promedio</h3>
-                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{formatCurrency(66.50)}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Por paciente</p>
-                  </div>
-                </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <AnimatedChart>
+                            <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Volumen de Tratamientos</h3>
+                              <ResponsiveContainer width="100%" height={280}>
+                                <AreaChart data={reportData}>
+                                  <defs>
+                                    <linearGradient id="treatmentGradient" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%" stopColor={COLORS.purple} stopOpacity={0.4}/>
+                                      <stop offset="95%" stopColor={COLORS.purple} stopOpacity={0}/>
+                                    </linearGradient>
+                                  </defs>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                  <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
+                                  <YAxis stroke="#9ca3af" fontSize={12} />
+                                  <Tooltip content={<CustomTooltip />} />
+                                  <Area 
+                                    type="monotone" 
+                                    dataKey="treatments" 
+                                    stroke={COLORS.purple}
+                                    strokeWidth={3}
+                                    fill="url(#treatmentGradient)"
+                                  />
+                                </AreaChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </AnimatedChart>
 
-                {/* Promotions Performance Chart */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Rendimiento de Promociones</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={[
-                      { promotion: 'Limpieza 20%', usos: 45, descuento: 2250, ingresos: 9000 },
-                      { promotion: 'Estudiante 15%', usos: 32, descuento: 1800, ingresos: 10200 },
-                      { promotion: 'Familiar 10%', usos: 28, descuento: 1400, ingresos: 12600 },
-                      { promotion: 'Primer Paciente 25%', usos: 22, descuento: 2750, ingresos: 8250 }
-                    ]}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="promotion" />
-                      <YAxis />
-                      <Tooltip 
-                        formatter={(value: any, name: any) => [
-                          name === 'descuento' ? formatCurrency(value) : value, 
-                          name === 'descuento' ? 'Descuento Total' : name === 'usos' ? 'Veces Usada' : 'Ingresos con Descuento'
-                        ]}
-                        contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                      />
-                      <Bar dataKey="descuento" fill="#ef4444" name="Descuento" />
-                      <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                          <AnimatedChart>
+                            <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tratamientos Populares</h3>
+                              <ResponsiveContainer width="100%" height={280}>
+                                <PieChart>
+                                  <Pie
+                                    data={treatmentTypes.slice(0, 5).map((t, i) => ({
+                                      name: t.name,
+                                      value: t.count,
+                                      fill: Object.values(COLORS)[i % Object.values(COLORS).length]
+                                    }))}
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={90}
+                                    dataKey="value"
+                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                    labelLine={true}
+                                  >
+                                    {treatmentTypes.slice(0, 5).map((_, index) => (
+                                      <Cell key={`cell-${index}`} fill={Object.values(COLORS)[index % Object.values(COLORS).length]} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip content={<CustomTooltip />} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </AnimatedChart>
+                        </div>
 
-                {/* Active Promotions Table */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-6">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Promoción</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tipo</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Descuento</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Usos</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ahorro Total</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {[
-                          { promocion: 'Limpieza Dental', tipo: 'Porcentaje', descuento: '20%', usos: 45, ahorro: 2250, estado: 'Activa' },
-                          { promocion: 'Descuento Estudiante', tipo: 'Porcentaje', descuento: '15%', usos: 32, ahorro: 1800, estado: 'Activa' },
-                          { promocion: 'Paquete Familiar', tipo: 'Porcentaje', descuento: '10%', usos: 28, ahorro: 1400, estado: 'Activa' },
-                          { promocion: 'Primer Paciente', tipo: 'Porcentaje', descuento: '25%', usos: 22, ahorro: 2750, estado: 'Activa' },
-                          { promocion: 'Blanqueamiento', tipo: 'Fijo', descuento: 'L. 500', usos: 15, ahorro: 7500, estado: 'Pausada' }
-                        ].map((item, index) => (
-                          <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.promocion}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.tipo}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.descuento}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{item.usos}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatCurrency(item.ahorro)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                item.estado === 'Activa' 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                              }`}>
-                                {item.estado}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                        <AnimatedChart>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Top 5 Tratamientos</h3>
+                              <div className="space-y-3">
+                                {treatmentTypes.slice(0, 5).map((treatment, index) => (
+                                  <motion.div 
+                                    key={index}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
+                                        index === 0 ? 'bg-gradient-to-br from-amber-400 to-orange-500' :
+                                        index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400' :
+                                        index === 2 ? 'bg-gradient-to-br from-amber-600 to-amber-700' :
+                                        'bg-gradient-to-br from-blue-400 to-indigo-500'
+                                      }`}>
+                                        {index + 1}
+                                      </div>
+                                      <span className="font-medium text-gray-900 dark:text-white">{treatment.name}</span>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-lg font-bold text-gray-900 dark:text-white">{treatment.count}</span>
+                                      <span className="text-sm text-gray-500 ml-1">({treatment.percentage}%)</span>
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            </div>
 
-                {/* Discount Trends */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tendencia de Descuentos</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={reportData.slice(0, 12).map((item, index) => ({
-                        ...item,
-                        month: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][index],
-                        descuentos: Math.floor(Math.random() * 1000) + 500
-                      }))}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value: any) => [formatCurrency(value), 'Descuentos']}
-                          contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="descuentos" 
-                          stroke="#f59e0b" 
-                          strokeWidth={2}
-                          dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Distribución por Tipo</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'Porcentaje', value: 65, fill: '#3b82f6' },
-                            { name: 'Fijo', value: 25, fill: '#10b981' },
-                            { name: '2x1', value: 10, fill: '#f59e0b' }
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                        >
-                          <Tooltip 
-                            formatter={(value, name) => [`${value}%`, name]}
-                            contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Ingresos por Tratamiento</h3>
+                              <div className="space-y-3">
+                                {treatmentTypes.slice(0, 5).map((treatment, index) => (
+                                  <motion.div 
+                                    key={index}
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className="p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                  >
+                                    <div className="flex justify-between items-center mb-2">
+                                      <span className="font-medium text-gray-900 dark:text-white">{treatment.name}</span>
+                                      <span className="text-lg font-bold text-teal-600 dark:text-teal-400">{formatCurrency(treatment.revenue)}</span>
+                                    </div>
+                                    <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                      <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${treatment.percentage}%` }}
+                                        transition={{ delay: index * 0.1 + 0.3, duration: 0.5 }}
+                                        className="h-full bg-gradient-to-r from-teal-400 to-cyan-500 rounded-full"
+                                      />
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </AnimatedChart>
+                      </div>
+                    )}
+
+                    {activeTab === 'promotions' && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
+                            <FiGift className="w-5 h-5 text-white" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Descuentos y Promociones</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                          <MetricCard
+                            title="Promociones Activas"
+                            value="5"
+                            subtitle="Actualmente vigentes"
+                            icon={FiCheckCircle}
+                            gradient="from-green-500 to-emerald-500"
+                            delay={0}
                           />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+                          <MetricCard
+                            title="Descuentos Aplicados"
+                            value={formatCurrency(8450)}
+                            subtitle="Este período"
+                            icon={FiShield}
+                            gradient="from-blue-500 to-cyan-500"
+                            delay={1}
+                          />
+                          <MetricCard
+                            title="Pacientes Beneficiados"
+                            value="127"
+                            subtitle="Únicos pacientes"
+                            icon={FiUsers}
+                            gradient="from-purple-500 to-pink-500"
+                            delay={2}
+                          />
+                          <MetricCard
+                            title="Ahorro Promedio"
+                            value={formatCurrency(66.50)}
+                            subtitle="Por paciente"
+                            icon={FiTrendingUp}
+                            gradient="from-amber-500 to-orange-500"
+                            delay={3}
+                          />
+                        </div>
 
-                {/* Promotion Insights */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="p-4 rounded-xl border-l-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-                    <h4 className="text-md font-medium text-green-800 dark:text-green-200 mb-2">🎯 Más Efectiva</h4>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">Limpieza 20%</p>
-                    <p className="text-sm text-green-700 dark:text-green-300">45 usos este mes</p>
-                  </div>
-                  <div className="p-4 rounded-xl border-l-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                    <h4 className="text-md font-medium text-blue-800 dark:text-blue-200 mb-2">💰 Mayor Ahorro</h4>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(2750)}</p>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">Primer Paciente 25%</p>
-                  </div>
-                  <div className="p-4 rounded-xl border-l-4 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
-                    <h4 className="text-md font-medium text-purple-800 dark:text-purple-200 mb-2">📈 Tendencia</h4>
-                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">+15%</p>
-                    <p className="text-sm text-purple-700 dark:text-purple-300">vs mes anterior</p>
-                  </div>
-                </div>
+                        <AnimatedChart>
+                          <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-700">
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Rendimiento de Promociones</h3>
+                            <ResponsiveContainer width="100%" height={320}>
+                              <BarChart data={[
+                                { promotion: 'Limpieza 20%', usos: 45, descuento: 2250, ingresos: 9000 },
+                                { promotion: 'Estudiante 15%', usos: 32, descuento: 1800, ingresos: 10200 },
+                                { promotion: 'Familiar 10%', usos: 28, descuento: 1400, ingresos: 12600 },
+                                { promotion: 'Primer Paciente 25%', usos: 22, descuento: 2750, ingresos: 8250 }
+                              ]}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="promotion" stroke="#9ca3af" fontSize={11} angle={-15} textAnchor="end" />
+                                <YAxis stroke="#9ca3af" fontSize={12} />
+                                <Tooltip content={<CustomTooltip formatter={(v: number) => typeof v === 'number' && v > 100 ? formatCurrency(v) : v} />} />
+                                <Bar dataKey="descuento" fill={COLORS.red} name="Descuento" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="ingresos" fill={COLORS.green} name="Ingresos" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </AnimatedChart>
+
+                        <AnimatedChart>
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full">
+                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800">
+                                  <tr>
+                                    {['Promoción', 'Tipo', 'Descuento', 'Usos', 'Ahorro', 'Estado'].map((header) => (
+                                      <th key={header} className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                        {header}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                  {[
+                                    { promocion: 'Limpieza Dental', tipo: 'Porcentaje', descuento: '20%', usos: 45, ahorro: 2250, estado: 'Activa' },
+                                    { promocion: 'Descuento Estudiante', tipo: 'Porcentaje', descuento: '15%', usos: 32, ahorro: 1800, estado: 'Activa' },
+                                    { promocion: 'Paquete Familiar', tipo: 'Porcentaje', descuento: '10%', usos: 28, ahorro: 1400, estado: 'Activa' },
+                                    { promocion: 'Primer Paciente', tipo: 'Porcentaje', descuento: '25%', usos: 22, ahorro: 2750, estado: 'Activa' },
+                                    { promocion: 'Blanqueamiento', tipo: 'Fijo', descuento: 'L. 500', usos: 15, ahorro: 7500, estado: 'Pausada' }
+                                  ].map((item, index) => (
+                                    <motion.tr 
+                                      key={index}
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      transition={{ delay: index * 0.05 }}
+                                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center gap-2">
+                                          <FiGift className="w-4 h-4 text-purple-500" />
+                                          <span className="font-medium text-gray-900 dark:text-white">{item.promocion}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{item.tipo}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">{item.descuento}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.usos}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{formatCurrency(item.ahorro)}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                          item.estado === 'Activa' 
+                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                                            : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                        }`}>
+                                          {item.estado}
+                                        </span>
+                                      </td>
+                                    </motion.tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </AnimatedChart>
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
               </div>
-            )}
-        </div>
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );

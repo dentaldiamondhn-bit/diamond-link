@@ -456,6 +456,13 @@ function PatientFormContent() {
       setEdad('');
       return;
     }
+    
+    // Validate year is exactly 4 digits
+    const yearMatch = fecha.match(/(\d{4})/);
+    if (!yearMatch) {
+      return; // Invalid year format
+    }
+    
     const birthDate = new Date(fecha);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -470,7 +477,13 @@ function PatientFormContent() {
   const handleFechaInicioChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fechaInicio = e.target.value;
     
+    // Validate year is exactly 4 digits
     if (fechaInicio) {
+      const yearMatch = fechaInicio.match(/(\d{4})/);
+      if (!yearMatch) {
+        return; // Invalid year format
+      }
+      
       const categoryInfo = await getRecordCategoryInfo(fechaInicio);
       setRecordCategoryInfo(categoryInfo);
     } else {
@@ -1675,6 +1688,16 @@ function PatientFormContent() {
               handleFechaNacimientoChange(e);
               updateFieldValidation('fecha_nacimiento', e.target.value);
             }}
+            onInput={(e) => {
+              const input = e.target as HTMLInputElement;
+              // Ensure year is exactly 4 digits by enforcing max/min year range
+              const date = new Date(input.value);
+              const year = date.getFullYear();
+              if (year < 1900 || year > 2100) {
+                // Reset to current year if invalid
+                input.value = new Date().toISOString().split('T')[0];
+              }
+            }}
             style={{
               colorScheme: resolvedTheme,
             }}
@@ -2029,6 +2052,16 @@ function PatientFormContent() {
             onChange={(e) => {
               handleFechaInicioChange(e);
               updateFieldValidation('fecha_inicio', e.target.value);
+            }}
+            onInput={(e) => {
+              const input = e.target as HTMLInputElement;
+              // Ensure year is exactly 4 digits by enforcing max/min year range
+              const date = new Date(input.value);
+              const year = date.getFullYear();
+              if (year < 1900 || year > 2100) {
+                // Reset to current year if invalid
+                input.value = new Date().toISOString().split('T')[0];
+              }
             }}
             style={{
               colorScheme: resolvedTheme,
