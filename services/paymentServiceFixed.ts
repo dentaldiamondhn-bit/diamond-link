@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { Currency } from '../utils/currencyUtils';
 import { currencyConversionService } from './currencyConversionService';
+import { PatientBalanceService } from './patientBalanceService';
 
 export interface Payment {
   id: string;
@@ -18,6 +19,10 @@ export interface Payment {
   creado_por?: string;
   creado_en: string;
   actualizado_en: string;
+  // Positive balance fields
+  aplica_saldo_positivo?: boolean;
+  monto_saldo_aplicado?: number;
+  saldo_restante_despues_pago?: number;
 }
 
 export interface PaymentSummary {
@@ -27,6 +32,9 @@ export interface PaymentSummary {
   pagos: Payment[];
   moneda_principal?: Currency;
   total_tratamiento?: number;
+  // Positive balance information
+  saldo_positivo_disponible?: number;
+  saldo_positivo_aplicado_total?: number;
 }
 
 export class PaymentService {
@@ -40,6 +48,40 @@ export class PaymentService {
         creado_en: new Date().toISOString(),
         actualizado_en: new Date().toISOString()
       };
+
+      // Handle saldo_positivo payments differently
+      if (payment.metodo_pago === 'saldo_positivo') {
+        // Get patient ID from treatment
+        const { data: treatmentData } = await supabase
+          .from('tratamientos_completados')
+          .select('paciente_id')
+          .eq('id', payment.tratamiento_completado_id)
+          .single();
+
+        if (!treatmentData?.paciente_id) {
+          throw new Error('No se pudo encontrar el paciente para este tratamiento');
+        }
+
+        // Get patient's current positive balance
+        const { data: balanceData } = await supabase
+          .from('patient_balance')
+          .select('balance_amount')
+          .eq('paciente_id', treatmentData.paciente_id)
+          .eq('currency', payment.moneda)
+          .single();
+
+        const currentBalance = balanceData?.balance_amount || 0;
+        
+        // Check if sufficient balance is available
+        if (currentBalance < payment.monto_pago) {
+          throw new Error(`Saldo positivo insuficiente. Disponible: ${currentBalance} ${payment.moneda}, Solicitado: ${payment.monto_pago} ${payment.moneda}`);
+        }
+
+        // Mark as positive balance payment
+        paymentData.aplica_saldo_positivo = true;
+        paymentData.monto_saldo_aplicado = payment.monto_pago;
+        paymentData.saldo_restante_despues_pago = 0; // Full amount covered by balance
+      }
 
       if (treatmentCurrency && payment.moneda !== treatmentCurrency) {
         try {
@@ -64,10 +106,10 @@ export class PaymentService {
     }
   }
 
-  static async getPaymentSummary(tratamientoCompletadoId: string) {
+  static async getPaymentSummary(tratamientoCompletadoId: string): Promise<PaymentSummary> {
     const { data: treatment } = await supabase
       .from('tratamientos_completados')
-      .select('total_final, moneda, monto_pagado, saldo_pendiente, estado_pago')
+      .select('total_final, moneda, monto_pagado, saldo_pendiente, estado_pago, paciente_id, saldo_positivo_aplicado')
       .eq('id', tratamientoCompletadoId)
       .single();
 
@@ -77,13 +119,30 @@ export class PaymentService {
       .eq('tratamiento_completado_id', tratamientoCompletadoId)
       .order('fecha_pago', { ascending: false });
 
+    // Get patient's current positive balance
+    let saldoPositivoDisponible = 0;
+    if (treatment?.paciente_id) {
+      const { data: balance } = await PatientBalanceService.getCurrentBalance(
+        treatment.paciente_id, 
+        treatment?.moneda as Currency
+      );
+      saldoPositivoDisponible = balance || 0;
+    }
+
+    // Calculate total positive balance applied to this treatment
+    const saldoPositivoAplicadoTotal = payments.data?.reduce((total, payment) => {
+      return total + (payment.monto_saldo_aplicado || 0);
+    }, 0) || 0;
+
     return {
-      monto_pagado: treatment.monto_pagado || 0,
-      saldo_pendiente: treatment.saldo_pendiente || 0,
-      estado_pago: treatment.estado_pago,
+      monto_pagado: treatment?.monto_pagado || 0,
+      saldo_pendiente: treatment?.saldo_pendiente || 0,
+      estado_pago: treatment?.estado_pago,
       pagos: payments.data || [],
-      moneda_principal: treatment.moneda,
-      total_tratamiento: treatment.total_final || 0
+      moneda_principal: treatment?.moneda,
+      total_tratamiento: treatment?.total_final || 0,
+      saldo_positivo_disponible: saldoPositivoDisponible,
+      saldo_positivo_aplicado_total: saldoPositivoAplicadoTotal
     };
   }
 
@@ -138,7 +197,7 @@ export class PaymentService {
   }
 
   static getPaymentMethods(): string[] {
-    return ['efectivo', 'tarjeta_credito', 'tarjeta_debito', 'transferencia', 'cheque', 'deposito_bancario', 'otro'];
+    return ['efectivo', 'tarjeta_credito', 'tarjeta_debito', 'transferencia', 'cheque', 'deposito_bancario', 'saldo_positivo', 'otro'];
   }
 
   static formatPaymentMethod(method: string): string {
@@ -149,6 +208,7 @@ export class PaymentService {
       'transferencia': 'Transferencia',
       'cheque': 'Cheque',
       'deposito_bancario': 'Extra BAC 6meses',
+      'saldo_positivo': 'Saldo Positivo',
       'otro': 'Otro'
     };
     return methods[method] || method;
