@@ -77,18 +77,10 @@ export class PaymentService {
           throw new Error(`Saldo positivo insuficiente. Disponible: ${currentBalance} ${payment.moneda}, Solicitado: ${payment.monto_pago} ${payment.moneda}`);
         }
 
-        // Mark as positive balance payment (deducting from balance)
+        // Mark as positive balance payment
         paymentData.aplica_saldo_positivo = true;
         paymentData.monto_saldo_aplicado = payment.monto_pago;
         paymentData.saldo_restante_despues_pago = 0; // Full amount covered by balance
-        
-        // Deduct from patient's positive balance
-        await PatientBalanceService.updatePositiveBalance(
-          treatmentData.paciente_id, 
-          payment.monto_pago, 
-          payment.moneda, 
-          'subtract'
-        );
       }
 
       if (treatmentCurrency && payment.moneda !== treatmentCurrency) {
