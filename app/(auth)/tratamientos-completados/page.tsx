@@ -20,7 +20,6 @@ import HistoricalBanner from '../../../components/HistoricalBanner';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
 import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '../../../lib/supabase';
-import { PositiveBalanceManager, PositiveBalanceUsage, PatientBalanceSummary } from '../../../components/PositiveBalanceManager';
 
 function TratamientosCompletadosPageContent() {
   const router = useRouter();
@@ -875,13 +874,6 @@ function TratamientosCompletadosPageContent() {
                                   <i className="fas fa-user-md mr-1"></i>
                                   Tratado por: {tr.doctor_name || 'No especificado'}
                                 </div>
-                                {/* Patient Balance Summary - Only show for treatments from March 2026 onward */}
-                                {new Date(treatment.fecha_cita) >= new Date('2026-03-01') && (
-                                  <PatientBalanceSummary 
-                                    pacienteId={treatment.paciente_id} 
-                                    currency={treatment.moneda || 'HNL'} 
-                                  />
-                                )}
                               </div>
                             </div>
                             <span className="text-sm font-semibold text-teal-600 dark:text-teal-400">
@@ -1087,15 +1079,6 @@ function TratamientosCompletadosPageContent() {
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
                                   Histórico
                                 </span>
-                              )}
-                              {/* Patient Balance Summary - Only show for treatments from March 2026 onward */}
-                              {new Date(treatment.fecha_cita) >= new Date('2026-03-01') && (
-                                <div className="mt-1">
-                                  <PatientBalanceSummary 
-                                    pacienteId={treatment.paciente_id} 
-                                    currency={treatment.moneda || 'HNL'} 
-                                  />
-                                </div>
                               )}
                             </div>
                           </div>
@@ -1322,21 +1305,6 @@ function TratamientosCompletadosPageContent() {
                         </div>
                       </div>
                       
-                      {/* Positive Balance Manager */}
-                      {selectedTreatment.paciente_id && (
-                        <PositiveBalanceManager
-                          pacienteId={selectedTreatment.paciente_id}
-                          pacienteNombre={selectedTreatment.paciente?.nombre_completo || 'Paciente'}
-                          currency={selectedTreatment.moneda || 'HNL'}
-                          onBalanceUpdated={() => {
-                            // Refresh payment summary when balance is updated
-                            if (selectedTreatment) {
-                              PaymentService.getPaymentSummary(selectedTreatment.id).then(setPaymentSummary);
-                            }
-                          }}
-                        />
-                      )}
-                      
                       {loadingPayments ? (
                         <div className="text-center py-4">
                           <i className="fas fa-spinner fa-spin text-teal-600 text-2xl"></i>
@@ -1362,23 +1330,6 @@ function TratamientosCompletadosPageContent() {
                               {PaymentService.getPaymentStatusText(paymentSummary.estado_pago)}
                             </span>
                           </div>
-                          {/* Positive Balance Information */}
-                          {paymentSummary.saldo_positivo_disponible && paymentSummary.saldo_positivo_disponible > 0 && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-300">Saldo Positivo Disponible:</span>
-                              <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                {formatCurrency(paymentSummary.saldo_positivo_disponible, paymentSummary.moneda_principal)}
-                              </span>
-                            </div>
-                          )}
-                          {paymentSummary.saldo_positivo_aplicado_total && paymentSummary.saldo_positivo_aplicado_total > 0 && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-300">Saldo Positivo Aplicado:</span>
-                              <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                {formatCurrency(paymentSummary.saldo_positivo_aplicado_total, paymentSummary.moneda_principal)}
-                              </span>
-                            </div>
-                          )}
                         </div>
                       ) : null}
                     </div>
@@ -1533,8 +1484,6 @@ function TratamientosCompletadosPageContent() {
                                   {SimpleTimezoneFix.formatDateForConsultationAge(payment.fecha_pago)}
                                   {payment.notas_pago && ` - ${payment.notas_pago}`}
                                 </div>
-                                {/* Positive Balance Usage */}
-                                <PositiveBalanceUsage payment={payment} currency={payment.moneda} />
                               </div>
                               <button
                                 onClick={() => deletePayment(payment.id)}
