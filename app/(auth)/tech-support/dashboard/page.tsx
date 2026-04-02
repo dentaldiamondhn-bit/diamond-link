@@ -363,6 +363,141 @@ export default function TechSupportDashboard() {
         </div>
       </div>
 
+      {/* API Sensors */}
+      {userRole === 'tech_support' && (
+        <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Sensores API</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Actualización: 30s</span>
+              <button 
+                onClick={() => apiMonitor.checkAllEndpoints()}
+                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title="Refrescar estado"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {apiStatus.length > 0 ? (
+              apiStatus.map((api) => (
+                <div 
+                    key={api.name} 
+                    className={`p-4 rounded-lg border ${
+                      api.status === 'operational' 
+                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                        : api.status === 'degraded'
+                        ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          api.status === 'operational'
+                            ? 'bg-green-100 dark:bg-green-900/40'
+                            : api.status === 'degraded'
+                            ? 'bg-yellow-100 dark:bg-yellow-900/40'
+                            : 'bg-red-100 dark:bg-red-900/40'
+                        }`}>
+                          {api.status === 'operational' ? (
+                            <CheckCircle className={`w-4 h-4 text-green-600 dark:text-green-400`} />
+                          ) : api.status === 'degraded' ? (
+                            <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{api.name}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {/* Latency */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <Gauge className="w-3 h-3" />
+                          Latencia
+                        </span>
+                        <span className={`font-medium ${
+                          api.latency < 200 
+                            ? 'text-green-600 dark:text-green-400'
+                            : api.latency < 500
+                            ? 'text-yellow-600 dark:text-yellow-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {api.latency}ms
+                        </span>
+                      </div>
+                      
+                      {/* Uptime */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                          <Timer className="w-3 h-3" />
+                          Uptime
+                        </span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{api.uptime.toFixed(1)}%</span>
+                      </div>
+                      
+                      {/* Uptime Bar */}
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                        <div 
+                          className={`h-1.5 rounded-full ${
+                            api.uptime >= 99 
+                              ? 'bg-green-500'
+                              : api.uptime >= 95
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
+                          }`}
+                          style={{ width: `${api.uptime}%` }}
+                        />
+                      </div>
+                      
+                      {/* Last Check */}
+                      <div className="text-xs text-gray-400 dark:text-gray-500">
+                        {new Date(api.lastCheck).toLocaleTimeString('es-HN')}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+              <div className="col-span-full text-center py-8">
+                <Wifi className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">Cargando estado de APIs...</p>
+              </div>
+            )}
+          </div>
+          
+          {/* API Summary */}
+          {apiStatus.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">
+                  Estado General: 
+                  <span className={`ml-2 font-medium ${
+                    apiStatus.every(a => a.status === 'operational')
+                      ? 'text-green-600 dark:text-green-400'
+                      : apiStatus.some(a => a.status === 'offline')
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-yellow-600 dark:text-yellow-400'
+                  }`}>
+                    {apiStatus.every(a => a.status === 'operational') 
+                      ? 'Todos los servicios operativos'
+                      : apiStatus.some(a => a.status === 'offline')
+                      ? `${apiStatus.filter(a => a.status === 'offline').length} servicio(s) caído(s)`
+                      : `${apiStatus.filter(a => a.status === 'degraded').length} servicio(s) degradado(s)`}
+                  </span>
+                </span>
+                <span className="text-gray-400 dark:text-gray-500">
+                  Avg: {Math.round(apiStatus.reduce((acc, a) => acc + a.latency, 0) / apiStatus.length)}ms
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, index) => {
@@ -510,141 +645,6 @@ export default function TechSupportDashboard() {
           </div>
         </div>
       </div>
-
-      {/* API Sensors */}
-      {userRole === 'tech_support' && (
-        <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Sensores API</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 dark:text-gray-400">Actualización: 30s</span>
-              <button 
-                onClick={() => apiMonitor.checkAllEndpoints()}
-                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                title="Refrescar estado"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {apiStatus.length > 0 ? (
-              apiStatus.map((api) => (
-                <div 
-                    key={api.name} 
-                    className={`p-4 rounded-lg border ${
-                      api.status === 'operational' 
-                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                        : api.status === 'degraded'
-                        ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          api.status === 'operational'
-                            ? 'bg-green-100 dark:bg-green-900/40'
-                            : api.status === 'degraded'
-                            ? 'bg-yellow-100 dark:bg-yellow-900/40'
-                            : 'bg-red-100 dark:bg-red-900/40'
-                        }`}>
-                          {api.status === 'operational' ? (
-                            <CheckCircle className={`w-4 h-4 text-green-600 dark:text-green-400`} />
-                          ) : api.status === 'degraded' ? (
-                            <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                          )}
-                        </div>
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">{api.name}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {/* Latency */}
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                          <Gauge className="w-3 h-3" />
-                          Latencia
-                        </span>
-                        <span className={`font-medium ${
-                          api.latency < 200 
-                            ? 'text-green-600 dark:text-green-400'
-                            : api.latency < 500
-                            ? 'text-yellow-600 dark:text-yellow-400'
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          {api.latency}ms
-                        </span>
-                      </div>
-                      
-                      {/* Uptime */}
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
-                          <Timer className="w-3 h-3" />
-                          Uptime
-                        </span>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">{api.uptime.toFixed(1)}%</span>
-                      </div>
-                      
-                      {/* Uptime Bar */}
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                        <div 
-                          className={`h-1.5 rounded-full ${
-                            api.uptime >= 99 
-                              ? 'bg-green-500'
-                              : api.uptime >= 95
-                              ? 'bg-yellow-500'
-                              : 'bg-red-500'
-                          }`}
-                          style={{ width: `${api.uptime}%` }}
-                        />
-                      </div>
-                      
-                      {/* Last Check */}
-                      <div className="text-xs text-gray-400 dark:text-gray-500">
-                        {new Date(api.lastCheck).toLocaleTimeString('es-HN')}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-              <div className="col-span-full text-center py-8">
-                <Wifi className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">Cargando estado de APIs...</p>
-              </div>
-            )}
-          </div>
-          
-          {/* API Summary */}
-          {apiStatus.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">
-                  Estado General: 
-                  <span className={`ml-2 font-medium ${
-                    apiStatus.every(a => a.status === 'operational')
-                      ? 'text-green-600 dark:text-green-400'
-                      : apiStatus.some(a => a.status === 'offline')
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-yellow-600 dark:text-yellow-400'
-                  }`}>
-                    {apiStatus.every(a => a.status === 'operational') 
-                      ? 'Todos los servicios operativos'
-                      : apiStatus.some(a => a.status === 'offline')
-                      ? `${apiStatus.filter(a => a.status === 'offline').length} servicio(s) caído(s)`
-                      : `${apiStatus.filter(a => a.status === 'degraded').length} servicio(s) degradado(s)`}
-                  </span>
-                </span>
-                <span className="text-gray-400 dark:text-gray-500">
-                  Avg: {Math.round(apiStatus.reduce((acc, a) => acc + a.latency, 0) / apiStatus.length)}ms
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
