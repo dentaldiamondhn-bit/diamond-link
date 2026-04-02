@@ -2,7 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
+import { useTheme } from '@/contexts/ThemeContext';
 import AccessDenied from '@/components/AccessDenied';
+import { 
+  Settings, 
+  Mail, 
+  Shield, 
+  Database, 
+  Save, 
+  RotateCcw, 
+  Download,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle
+} from 'lucide-react';
 
 interface SystemSetting {
   key: string;
@@ -15,10 +28,11 @@ interface SystemSetting {
 
 export default function SystemSettings() {
   const { userRole } = useRoleBasedAccess();
+  const { resolvedTheme } = useTheme();
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('general');
 
   // Check if user is tech support
   if (userRole !== 'tech_support') {
@@ -32,9 +46,6 @@ export default function SystemSettings() {
       />
     );
   }
-  
-  const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('general');
 
   // Mock data for demonstration
   useEffect(() => {
@@ -136,7 +147,7 @@ export default function SystemSettings() {
 
   const filteredSettings = settings.filter(setting => setting.category === activeTab);
 
-  const updateSetting = (key: string, value: any) => {
+  const updateSetting = (key: string, value: string | boolean | number) => {
     setSettings(prev => prev.map(setting => 
       setting.key === key ? { ...setting, value } : setting
     ));
@@ -147,7 +158,6 @@ export default function SystemSettings() {
     // Simulate API call
     setTimeout(() => {
       setSaving(false);
-      // Show success message
       alert('Configuración guardada exitosamente');
     }, 1000);
   };
@@ -163,7 +173,7 @@ export default function SystemSettings() {
               onChange={(e) => updateSetting(setting.key, e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
           </label>
         );
       case 'number':
@@ -172,7 +182,7 @@ export default function SystemSettings() {
             type="number"
             value={setting.value as number}
             onChange={(e) => updateSetting(setting.key, parseInt(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-24"
           />
         );
       case 'select':
@@ -180,7 +190,7 @@ export default function SystemSettings() {
           <select
             value={setting.value as string}
             onChange={(e) => updateSetting(setting.key, e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             {setting.options?.map(option => (
               <option key={option} value={option}>{option}</option>
@@ -193,7 +203,7 @@ export default function SystemSettings() {
             type="text"
             value={setting.value as string}
             onChange={(e) => updateSetting(setting.key, e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex-1 min-w-0"
           />
         );
     }
@@ -202,55 +212,95 @@ export default function SystemSettings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
       </div>
     );
   }
 
   const tabs = [
-    { id: 'general', label: 'General', icon: 'fas fa-cog' },
-    { id: 'email', label: 'Email', icon: 'fas fa-envelope' },
-    { id: 'security', label: 'Seguridad', icon: 'fas fa-shield-alt' },
-    { id: 'backup', label: 'Backup', icon: 'fas fa-database' }
+    { id: 'general', label: 'General', icon: Settings, color: 'blue' },
+    { id: 'email', label: 'Email', icon: Mail, color: 'green' },
+    { id: 'security', label: 'Seguridad', icon: Shield, color: 'purple' },
+    { id: 'backup', label: 'Backup', icon: Database, color: 'orange' }
   ];
 
+  const getTabColorClasses = (color: string, isActive: boolean) => {
+    if (!isActive) {
+      return 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600';
+    }
+    const colors: Record<string, string> = {
+      blue: 'border-blue-500 text-blue-600 dark:text-blue-400',
+      green: 'border-green-500 text-green-600 dark:text-green-400',
+      purple: 'border-purple-500 text-purple-600 dark:text-purple-400',
+      orange: 'border-orange-500 text-orange-600 dark:text-orange-400'
+    };
+    return colors[color] || colors.blue;
+  };
+
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+            Configuración del Sistema
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            Gestiona las configuraciones del sistema • {new Date().toLocaleDateString('es-HN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <button
+          onClick={saveSettings}
+          disabled={saving}
+          className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white transition-colors disabled:opacity-50"
+        >
+          {saving ? (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              Guardando...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 mr-2" />
+              Guardar Cambios
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="flex -mb-px">
-            {tabs.map(tab => (
+      <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+        <nav className="flex -mb-px space-x-6 overflow-x-auto">
+          {tabs.map(tab => {
+            const TabIcon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-6 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`inline-flex items-center py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${getTabColorClasses(tab.color, isActive)}`}
               >
-                <i className={`${tab.icon} mr-2`}></i>
+                <TabIcon className="w-4 h-4 mr-2" />
                 {tab.label}
               </button>
-            ))}
-          </nav>
-        </div>
+            );
+          })}
+        </nav>
       </div>
 
       {/* Settings Form */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-          <div className="space-y-6">
+      <div className={`rounded-xl shadow-sm ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+        <div className="p-4 md:p-6">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {filteredSettings.map(setting => (
-              <div key={setting.key} className="flex items-center justify-between">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div key={setting.key} className="flex flex-col sm:flex-row sm:items-center justify-between py-4 first:pt-0 last:pb-0 gap-3">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white">
                     {setting.description}
                   </label>
-                  <p className="text-xs text-gray-500">{setting.key}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{setting.key}</p>
                 </div>
-                <div className="ml-4">
+                <div className="sm:ml-4 flex-shrink-0">
                   {renderSettingInput(setting)}
                 </div>
               </div>
@@ -258,37 +308,16 @@ export default function SystemSettings() {
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="flex justify-between">
-              <button
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <i className="fas fa-undo mr-2"></i>
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row justify-between gap-3">
+              <button className="inline-flex items-center justify-center px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                <RotateCcw className="w-4 h-4 mr-2" />
                 Restablecer Valores
               </button>
-              <div className="space-x-3">
-                <button
-                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <i className="fas fa-download mr-2"></i>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button className="inline-flex items-center justify-center px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  <Download className="w-4 h-4 mr-2" />
                   Exportar Config
-                </button>
-                <button
-                  onClick={saveSettings}
-                  disabled={saving}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {saving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-save mr-2"></i>
-                      Guardar Cambios
-                    </>
-                  )}
                 </button>
               </div>
             </div>
@@ -297,36 +326,86 @@ export default function SystemSettings() {
       </div>
 
       {/* System Status */}
-      <div className="mt-6 bg-white rounded-lg shadow">
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado del Sistema</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                <div>
-                  <p className="text-sm font-medium text-green-800">Base de Datos</p>
-                  <p className="text-xs text-green-600">Conectada</p>
-                </div>
+      <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Estado del Sistema</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+            <div className="flex items-center space-x-3">
+              <div className="text-green-500">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Base de Datos</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Conectada</p>
               </div>
             </div>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                <div>
-                  <p className="text-sm font-medium text-green-800">API</p>
-                  <p className="text-xs text-green-600">Funcionando</p>
-                </div>
+            <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              Operativo
+            </span>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+            <div className="flex items-center space-x-3">
+              <div className="text-green-500">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">API</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Funcionando</p>
               </div>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></div>
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">Almacenamiento</p>
-                  <p className="text-xs text-yellow-600">75% usado</p>
-                </div>
+            <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              Operativo
+            </span>
+          </div>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+            <div className="flex items-center space-x-3">
+              <div className="text-yellow-500">
+                <AlertCircle className="w-5 h-5" />
               </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Almacenamiento</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">75% usado</p>
+              </div>
+            </div>
+            <span className="text-xs font-medium px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+              Degradado
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* System Resources */}
+      <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recursos del Sistema</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* CPU */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">CPU</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">45%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-blue-600 h-2 rounded-full" style={{ width: '45%' }}></div>
+            </div>
+          </div>
+          {/* Memory */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Memoria</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">62%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '62%' }}></div>
+            </div>
+          </div>
+          {/* Storage */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Almacenamiento</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">75%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-orange-600 h-2 rounded-full" style={{ width: '75%' }}></div>
             </div>
           </div>
         </div>
