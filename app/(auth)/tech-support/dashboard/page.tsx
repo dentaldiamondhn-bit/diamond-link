@@ -327,25 +327,6 @@ export default function TechSupportDashboard() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-            Panel de Control
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Bienvenido, {user?.firstName || 'Usuario'} • {new Date().toLocaleDateString('es-HN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-        <button
-          onClick={() => loadDashboardData(true)}
-          disabled={refreshing}
-          className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Actualizando...' : 'Actualizar'}
-        </button>
-      </div>
-
       {/* Quick Actions */}
       <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Acciones Rápidas</h2>
