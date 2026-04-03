@@ -39,14 +39,27 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   ],
+  'tech-support': [
+    { href: '/tech-support/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+    { href: '/tech-support/analytics', label: 'Analytics', icon: 'fas fa-chart-line' },
+    { href: '/tech-support/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
+    { href: '/tech-support/system-logs', label: 'System Logs', icon: 'fas fa-file-alt' },
+    { href: '/tech-support/system-settings', label: 'Settings', icon: 'fas fa-cog' },
+  ],
 };
 
 export default function Navigation() {
   const pathname = usePathname();
   const { user } = useUser();
   
-  // Get user role from metadata
-  const userRole = (user?.publicMetadata?.role as string) || 'staff';
+  // Get user role from metadata with special handling for tech-support
+  let userRole = (user?.publicMetadata?.role as string) || 'staff';
+  
+  // Special case for known tech support user
+  if (user?.id === 'user_3A1mYfR054eV3tqtellpfMKZ7f6') {
+    userRole = 'tech-support';
+  }
+  
   const navItems = roleBasedNavItems[userRole] || roleBasedNavItems.staff;
 
   return (

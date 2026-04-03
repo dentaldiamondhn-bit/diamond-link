@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -111,7 +111,10 @@ export default clerkMiddleware(async (auth, req) => {
         return NextResponse.redirect(new URL('/tech-support/dashboard', req.url));
       }
       
-      return NextResponse.next();
+      const response = NextResponse.next();
+      // Add Cloudflare-specific headers to all responses
+      addCloudflareHeaders(response, req);
+      return response;
     }
     
     // TEMPORARY: Allow basic access for common routes while metadata issue is fixed
@@ -141,16 +144,23 @@ export default clerkMiddleware(async (auth, req) => {
     
     if (isAllowedRoute) {
       console.log('✅ TEMPORARY ACCESS ALLOWED:', { pathname: req.nextUrl.pathname, userRole });
-      return NextResponse.next();
+      const response = NextResponse.next();
+      // Add Cloudflare-specific headers to all responses
+      addCloudflareHeaders(response, req);
+      return response;
     }
 
     // Reports page - restricted to doctors, admins, and tech-support only
     if (req.nextUrl.pathname === '/reports' || req.nextUrl.pathname === '/reportes') {
       // TEMPORARY: Allow all authenticated users to access reports for testing
-      return NextResponse.next();
+      const response = NextResponse.next();
+      addCloudflareHeaders(response, req);
+      return response;
       
       if (userRole === 'doctor' || userRole === 'admin' || userRole === 'tech_support') {
-        return NextResponse.next();
+        const response = NextResponse.next();
+        addCloudflareHeaders(response, req);
+        return response;
       } else {
         return new Response('Access Denied', { status: 403 });
       }
@@ -159,17 +169,23 @@ export default clerkMiddleware(async (auth, req) => {
     // EMERGENCY BYPASS: Allow tech-support/users access for tech support user while metadata is broken
     if (recheckedUserId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6' && 
         req.nextUrl.pathname === '/tech-support/users') {
-      return NextResponse.next();
+      const response = NextResponse.next();
+      addCloudflareHeaders(response, req);
+      return response;
     }
     
     // TEMPORARY: Allow tech-support/users for component-level access control
     if (req.nextUrl.pathname === '/tech-support/users') {
-      return NextResponse.next();
+      const response = NextResponse.next();
+      addCloudflareHeaders(response, req);
+      return response;
     }
     
     // TESTING: Allow odontogram-test for all roles (testing page)
     if (req.nextUrl.pathname.startsWith('/odontogram-test')) {
-      return NextResponse.next();
+      const response = NextResponse.next();
+      addCloudflareHeaders(response, req);
+      return response;
     }
     
     // Check route access using server-side function
@@ -191,10 +207,43 @@ export default clerkMiddleware(async (auth, req) => {
       return new Response('Access Denied', { status: 403 });
     } else {
       console.log('✅ ACCESS GRANTED for:', { userRole, pathname: req.nextUrl.pathname });
-      return NextResponse.next();
+      const response = NextResponse.next();
+      addCloudflareHeaders(response, req);
+      return response;
     }
   }
+  
+  // For public routes, also add Cloudflare headers
+  const response = NextResponse.next();
+  addCloudflareHeaders(response, req);
+  return response;
 });
+
+// Helper function to add Cloudflare headers
+function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
+  // Cloudflare security headers
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  
+  // Cloudflare optimization headers
+  response.headers.set('Vary', 'Accept-Encoding');
+  
+  // Handle API routes differently for Cloudflare caching
+  if (req.nextUrl.pathname.startsWith('/api/')) {
+    response.headers.set('Cache-Control', 'public, max-age=7200, s-maxage=7200');
+    response.headers.set('X-RateLimit-Limit', '100');
+    response.headers.set('X-RateLimit-Remaining', '99');
+    response.headers.set('X-RateLimit-Reset', new Date(Date.now() + 60000).toISOString());
+  }
+  
+  // Handle static assets for Cloudflare caching
+  if (req.nextUrl.pathname.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$/)) {
+    response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+}
 
 export const config = {
   matcher: [

@@ -1,5 +1,7 @@
 import { ClerkProvider } from '@clerk/nextjs'
 import { Inter } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/react'
+import VercelAnalytics from '@/components/VercelAnalytics'
 import './globals.css'
 import BannerAlert from '@/components/BannerAlert'
 
@@ -105,6 +107,8 @@ export default function RootLayout({
         <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
           <BannerAlert />
           {children}
+          <Analytics />
+          <VercelAnalytics />
         </body>
       </html>
     </ClerkProvider>

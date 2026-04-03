@@ -1,0 +1,125 @@
+# Cloudflare Configuration for Diamond Link
+# Add these rules in Cloudflare dashboard after setup
+
+# Page Rules Configuration
+# Rule 1: Force HTTPS
+# Pattern: http://diamond-link.com/*
+# Settings: Always Use HTTPS (ON)
+
+# Rule 2: Cache API Responses
+# Pattern: diamond-link.com/api/*
+# Settings: 
+# - Cache Level: Everything
+# - Edge Cache TTL: 2 hours
+# - Browser Cache TTL: 4 hours
+
+# Rule 3: Protect Admin Routes
+# Pattern: diamond-link.com/(auth)/admin/*
+# Settings:
+# - Cache Level: Bypass
+# - Browser Cache TTL: Respect Existing Headers
+
+# Rate Limiting Rules
+# Rule 1: API Protection
+# Path: /api/*
+# Rate limit: 100 requests per minute
+# Action: Challenge
+# Duration: 1 hour
+
+# Rule 2: Login Protection
+# Path: /sign-in, /sign-up
+# Rate limit: 10 requests per minute
+# Action: Challenge
+# Duration: 30 minutes
+
+# WAF Custom Rules (Free Plan)
+# Rule 1: Block Suspicious User Agents
+# Expression:
+# (http.user_agent contains "bot" and not cf.bot_management.whitelisted) or
+# (http.user_agent contains "scraper") or
+# (http.user_agent contains "crawler")
+# Action: Block
+
+# Rule 2: Protect API Endpoints
+# Expression:
+# (http.request.uri.path contains "/api/" and
+# (cf.threat_score gt 10 or
+#  http.request.method in {"POST", "PUT", "DELETE"} and
+#  cf.bot_management.score gt 30))
+# Action: Challenge
+
+# DNS Records Configuration
+# A Record:
+# Type: A
+# Name: @
+# IPv4 address: 76.76.21.21
+# Proxy status: Proxied (orange cloud)
+# TTL: Auto
+
+# CNAME Record:
+# Type: CNAME
+# Name: www
+# Target: diamond-link.vercel.app
+# Proxy status: Proxied (orange cloud)
+# TTL: Auto
+
+# CNAME Record for Subdomains:
+# Type: CNAME
+# Name: api
+# Target: diamond-link.vercel.app
+# Proxy status: Proxied (orange cloud)
+# TTL: Auto
+
+# Security Headers Configuration
+# Add these in Cloudflare -> Transform Rules -> Modify Response Header
+# Rule 1: Security Headers
+# Expression: (http.request.uri.path matches "/*")
+# Headers to add:
+# X-Frame-Options: DENY
+# X-Content-Type-Options: nosniff
+# X-XSS-Protection: "1; mode=block"
+# Referrer-Policy: "strict-origin-when-cross-origin"
+# Permissions-Policy: "camera=(), microphone=(), geolocation=()"
+
+# SSL/TLS Configuration
+# Encryption Mode: Full (strict)
+# HTTPS Redirects: On
+# HSTS: Enable with max-age=15552000 (6 months)
+# Minimum TLS Version: 1.2
+# Opportunistic Encryption: On
+
+# Caching Configuration
+# Cache Level: Standard
+# Browser Cache TTL: 4 hours
+# Edge Cache TTL: 2 hours
+# Always Online: On
+# Bypass Cache on Cookie: WordPress, wp-*, PHPSESSID
+# Development Mode: Off (unless debugging)
+
+# Performance Optimization
+# Brotli: On
+# Auto Minify: HTML, CSS, JavaScript
+# Rocket Loader: On
+# Mirage: On (for image optimization)
+# Early Hints: On
+
+# Bot Fight Mode
+# Enable: On
+# Super Bot Fight Mode: On (if available in your plan)
+
+# IP Geolocation
+# Enable: On
+# Country-based blocking: Add countries if needed
+# ASN-based blocking: Add malicious ASNs if needed
+
+# DDoS Protection
+# HTTP DDoS Protection: On
+# SYN Flood Protection: On
+# UDP Flood Protection: On
+# Network Layer Protection: On
+
+# Analytics and Monitoring
+# Enable: Cloudflare Analytics
+# Enable: Real User Monitoring (RUM)
+# Enable: Security Event Logging
+# Enable: Web Application Firewall Logging

@@ -216,6 +216,12 @@ export default function AuthLayout({
                       Code Runner
                     </h1>
                   )}
+                  {pathname === '/tech-support/analytics' && (
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                      <i className="fas fa-chart-line mr-2"></i>
+                      Analytics del Sistema
+                    </h1>
+                  )}
                   
                   {/* Existing Admin Pages */}
                   {pathname === '/reports' && (
