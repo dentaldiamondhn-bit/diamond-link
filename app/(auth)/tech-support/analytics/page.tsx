@@ -14,13 +14,13 @@ import {
   Globe,
   Monitor,
   Smartphone,
-  Tablet,
-  World
+  Tablet
 } from 'lucide-react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useVercelAnalytics, trackEvent, trackPageView } from '@/hooks/useVercelAnalytics';
 import AccessDenied from '@/components/AccessDenied';
+import { AnalyticsData } from '@/types/analytics';
 
 export default function TechSupportAnalyticsPage() {
   const { userRole } = useRoleBasedAccess();
