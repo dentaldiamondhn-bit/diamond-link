@@ -49,13 +49,15 @@ export default function SystemLogs() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 
-  // Check if user is tech support
-  if (userRole !== 'tech_support') {
+  // Check if user has permission to view system logs
+  const hasPermission = userRole === 'tech_support' || userRole === 'admin' || userRole === 'doctor' || userRole === 'staff';
+  
+  if (!hasPermission) {
     return (
       <AccessDenied
         title="Acceso Denegado"
         message="No tienes permiso para acceder a esta página."
-        explanation="Esta área es exclusiva para el personal de soporte técnico."
+        explanation="Esta área es exclusiva para el personal autorizado."
         contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
         onGoBack={() => window.history.back()}
       />
