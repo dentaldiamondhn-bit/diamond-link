@@ -15,8 +15,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user role from session claims
-    const userRole = (sessionClaims as any)?.metadata?.role as string || 'STAFF';
+    // Get user role from session claims and map to UserRole enum format
+    const rawRole = (sessionClaims as any)?.metadata?.role as string || 'STAFF';
+    
+    // Map role names to UserRole enum format
+    const roleMapping: Record<string, string> = {
+      'tech_support': 'TECH_SUPPORT',
+      'admin': 'ADMIN', 
+      'doctor': 'DOCTOR',
+      'staff': 'STAFF'
+    };
+    
+    const userRole = roleMapping[rawRole] || 'STAFF';
 
     // Check permission to view system logs
     if (!checkPermission(userRole as any, 'VIEW_SYSTEM_LOGS')) {
@@ -26,8 +36,12 @@ export async function GET(request: NextRequest) {
     // Fetch system update activities
     const { data: logs, error } = await supabase
       .from('ticket_activities')
-      .select('*')
-      .or('activity_type.eq.SYSTEM_UPDATE,activity_type.eq.TICKET_CREATED,activity_type.eq.ATTACHMENT_ADDED')
+      .select(`
+        *,
+        user:user_id(id, name, email, role)
+      `)
+      .eq('activity_type', 'SYSTEM_UPDATE')
+      .or('activity_type.eq.TICKET_CREATED,activity_type.eq.ATTACHMENT_ADDED')
       .order('created_at', { ascending: false })
       .limit(100);
 
