@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/(.*)',
   '/api/terminal/(.*)',
   '/api/tickets/(.*)',  // Add tickets API routes
+  '/api/tickets/system-logs(.*)',  // Explicitly add system-logs API
   '/tech-support/terminal',
   '/tech-support/(.*)',
   '/capacitor-demo',  // Add capacitor demo as public route
@@ -62,6 +63,12 @@ function canAccessRouteServer(userRole: string, pathname: string): boolean {
 }
 
 export default clerkMiddleware(async (auth, req) => {
+  // IMMEDIATE BYPASS for system-logs API - skip all auth logic
+  if (req.nextUrl.pathname.startsWith('/api/tickets/system-logs')) {
+    console.log('🔓 BYPASSING AUTH FOR SYSTEM-LOGS API');
+    return NextResponse.next();
+  }
+  
   if (!isPublicRoute(req)) {
     // Get auth data for each request
     const { userId } = await auth();

@@ -57,12 +57,60 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     loadTasks();
   }, [currentDate, view]);
 
-  // Real-time updates and notifications
+  // Request notification permission with mobile PWA support
   useEffect(() => {
-    // Request notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
+    const requestNotifications = async () => {
+      // Check if notifications are supported
+      if (!('Notification' in window)) {
+        console.log('❌ Notifications not supported');
+        return;
+      }
+
+      // Request permission - must be user-triggered on mobile PWA
+      if (Notification.permission === 'default') {
+        try {
+          const result = await Notification.requestPermission();
+          console.log('🔔 Notification permission result:', result);
+          
+          // If denied, may need to guide user to enable in browser settings
+          if (result === 'denied') {
+            console.warn('⚠️ Notifications denied - user must enable in browser settings');
+          }
+        } catch (error) {
+          console.error('❌ Error requesting notification permission:', error);
+        }
+      }
+
+      // Mobile PWA: Try to register for push via Service Worker
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          
+          // Check if already subscribed
+          let subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            // Need VAPID key from server - this is a simplified version
+            console.log('📱 PWA push not subscribed - need server VAPID key');
+          } else {
+            console.log('📱 PWA push subscribed:', subscription.endpoint);
+          }
+        } catch (error) {
+          console.warn('⚠️ Service worker push not available:', error);
+        }
+      }
+
+      // Capacitor mobile app: Request native permissions
+      if (typeof window !== 'undefined') {
+        try {
+          const capacitorService = CapacitorNotificationService.getInstance();
+          await capacitorService.requestPermissions();
+        } catch (error) {
+          console.warn('⚠️ Capacitor not available (expected on PWA):', error);
+        }
+      }
+    };
+
+    requestNotifications();
 
     // Subscribe to real-time notifications
     const unsubscribeNotifications = calendarRealtimeService.onNotification(async (notification: CalendarRealtimeNotification) => {
@@ -112,6 +160,35 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           });
         } catch (error) {
           console.error('❌ Error creating browser notification:', error);
+          
+          // Mobile PWA fallback: Play notification sound + vibrate on Android
+          try {
+            // Vibrate if supported (Android)
+            if ('vibrate' in navigator) {
+              navigator.vibrate([200, 100, 200]);
+              console.log('📳 Vibration triggered');
+            }
+            
+            // Try to play notification using Web Audio API beep (no file needed)
+            try {
+              const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const oscillator = audioContext.createOscillator();
+              const gainNode = audioContext.createGain();
+              oscillator.connect(gainNode);
+              gainNode.connect(audioContext.destination);
+              oscillator.frequency.value = 880;
+              oscillator.type = 'sine';
+              gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+              gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+              oscillator.start(audioContext.currentTime);
+              oscillator.stop(audioContext.currentTime + 0.5);
+              console.log('🔊 Notification beep played');
+            } catch (beepError) {
+              console.warn('⚠️ Audio beep failed:', beepError);
+            }
+          } catch (audioError) {
+            console.warn('⚠️ Audio/vibration fallback failed:', audioError);
+          }
         }
 
         // Also trigger Capacitor notification for mobile devices (non-blocking)

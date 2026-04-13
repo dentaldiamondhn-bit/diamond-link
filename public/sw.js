@@ -206,8 +206,30 @@ self.addEventListener('periodicsync', (event) => {
 // Check for upcoming reminders
 async function checkReminders() {
   try {
-    // This would check for upcoming reminders and show notifications
     console.log('🔔 Checking for upcoming reminders');
+    
+    // Fetch upcoming events from API
+    const response = await fetch('/api/calendar/reminders/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (response.ok) {
+      const reminders = await response.json();
+      
+      for (const reminder of reminders.upcoming || []) {
+        if (reminder.timeuntil <= 0) {
+          // Show notification for due reminder
+          self.registration.showNotification(reminder.title, {
+            body: reminder.message,
+            icon: '/Logo.svg',
+            badge: '/Logo.svg',
+            tag: `reminder-${reminder.id}`,
+            data: reminder
+          });
+        }
+      }
+    }
   } catch (error) {
     console.error('❌ Error checking reminders:', error);
   }
