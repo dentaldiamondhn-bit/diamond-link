@@ -26,12 +26,8 @@ export async function GET(request: NextRequest) {
     // Fetch system update activities
     const { data: logs, error } = await supabase
       .from('ticket_activities')
-      .select(`
-        *,
-        user:user_id(id, name, email, role)
-      `)
-      .eq('activity_type', 'SYSTEM_UPDATE')
-      .or('activity_type.eq.TICKET_CREATED,activity_type.eq.ATTACHMENT_ADDED')
+      .select('*')
+      .or('activity_type.eq.SYSTEM_UPDATE,activity_type.eq.TICKET_CREATED,activity_type.eq.ATTACHMENT_ADDED')
       .order('created_at', { ascending: false })
       .limit(100);
 
