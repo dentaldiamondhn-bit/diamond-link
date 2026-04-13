@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CalendarView, CalendarEventWithPatient } from '../../types/calendar';
 import { CalendarTaskWithPatient } from '../../types/calendarTasks';
 import calendarRealtimeService, { CalendarRealtimeNotification } from '../../services/calendarRealtimeService';
@@ -10,7 +10,7 @@ import { CapacitorNotificationService } from '../../services/capacitorNotificati
 import { useBellNotifications } from '../../contexts/BellNotificationContext';
 import { EventModal } from './EventModal';
 import { TaskModal } from './TaskModal';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO, getHours, getMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { SimpleTimezoneFix } from '../../services/simpleTimezoneFix';
 
@@ -31,6 +31,11 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [notifications, setNotifications] = useState<CalendarRealtimeNotification[]>([]);
+  const [showAgenda, setShowAgenda] = useState(false);
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEventWithPatient | null>(null);
+  const [quickAddDate, setQuickAddDate] = useState<Date | null>(null);
+  const [quickAddType, setQuickAddType] = useState<'event' | 'task' | null>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
   
   // Bell notification hook for Android tray notifications
   const { addNotification: addBellNotification } = useBellNotifications();
@@ -385,48 +390,51 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     });
   };
 
-  const getEventTypeColor = (eventType: string) => {
-    switch (eventType) {
-      case 'appointment':
-        return 'bg-gradient-to-r from-blue-500 to-blue-600';
-      case 'consultation':
-        return 'bg-gradient-to-r from-emerald-500 to-emerald-600';
-      case 'surgery':
-        return 'bg-gradient-to-r from-rose-500 to-rose-600';
-      case 'follow_up':
-        return 'bg-gradient-to-r from-amber-500 to-amber-600';
-      case 'reminder':
-        return 'bg-gradient-to-r from-violet-500 to-violet-600';
-      default:
-        return 'bg-gradient-to-r from-gray-500 to-gray-600';
-    }
+  const getEventTypeColor = (eventType: string, alpha: number = 1) => {
+    const colors: Record<string, string> = {
+      appointment: `rgba(59, 130, 246, ${alpha})`,
+      consultation: `rgba(16, 185, 129, ${alpha})`,
+      surgery: `rgba(244, 63, 94, ${alpha})`,
+      follow_up: `rgba(245, 158, 11, ${alpha})`,
+      reminder: `rgba(139, 92, 246, ${alpha})`,
+      other: `rgba(107, 114, 128, ${alpha})`,
+    };
+    return colors[eventType] || colors.other;
   };
 
-  const getTaskCategoryColor = (category: string) => {
-    switch (category) {
-      case 'admin':
-        return 'bg-gradient-to-r from-indigo-500 to-indigo-600';
-      case 'clinical':
-        return 'bg-gradient-to-r from-teal-500 to-teal-600';
-      case 'follow_up':
-        return 'bg-gradient-to-r from-orange-500 to-orange-600';
-      case 'documentation':
-        return 'bg-gradient-to-r from-pink-500 to-pink-600';
-      default:
-        return 'bg-gradient-to-r from-gray-500 to-gray-600';
-    }
+  const getTaskCategoryColor = (category: string, alpha: number = 1) => {
+    const colors: Record<string, string> = {
+      admin: `rgba(99, 102, 241, ${alpha})`,
+      clinical: `rgba(20, 184, 166, ${alpha})`,
+      follow_up: `rgba(249, 115, 22, ${alpha})`,
+      documentation: `rgba(236, 72, 153, ${alpha})`,
+      other: `rgba(107, 114, 128, ${alpha})`,
+    };
+    return colors[category] || colors.other;
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getEventTypeLabel = (eventType: string) => {
+    const labels: Record<string, string> = {
+      appointment: 'Cita',
+      consultation: 'Consulta',
+      surgery: 'Cirugía',
+      follow_up: 'Seguimiento',
+      reminder: 'Recordatorio',
+      other: 'Otro',
+    };
+    return labels[eventType] || labels.other;
+  };
+
+  const getPriorityIndicator = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'border-l-4 border-red-500';
+        return { color: '#ef4444', label: 'Alta' };
       case 'medium':
-        return 'border-l-4 border-amber-500';
+        return { color: '#f59e0b', label: 'Media' };
       case 'low':
-        return 'border-l-4 border-emerald-500';
+        return { color: '#10b981', label: 'Baja' };
       default:
-        return 'border-l-4 border-gray-500';
+        return { color: '#6b7280', label: 'Normal' };
     }
   };
 
@@ -444,72 +452,93 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       day = addDays(day, 1);
     }
 
-    return (
-      <div className="grid grid-cols-7 bg-gray-100 dark:bg-gray-700 rounded-tl-lg rounded-tr-lg overflow-hidden">
-        {/* Header */}
-        {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
-          <div key={day} className="bg-gradient-to-b from-slate-700 to-slate-800 p-3 text-center text-sm font-semibold text-white shadow-sm">
-            {day}
-          </div>
-        ))}
-        
-        {/* Days */}
-        {days.map((date, index) => {
-          const dayEvents = getEventsForDate(date);
-          const dayTasks = getTasksForDate(date);
-          const isCurrentMonth = isSameMonth(date, currentDate);
-          const isToday = isSameDay(date, new Date());
+    const weekDays = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const shortWeekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-          return (
-            <div
-              key={index}
-              className={`bg-white dark:bg-gray-900 p-2 min-h-[120px] cursor-pointer hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-gray-700 transition-all duration-200 ${
-                !isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50' : ''
-              } ${isToday ? 'ring-2 ring-inset ring-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : ''}`}
-              onClick={() => handleDateClick(date)}
-            >
-              <div className={`text-sm font-bold mb-2 ${isToday ? 'bg-blue-500 text-white w-7 h-7 rounded-full flex items-center justify-center' : ''} ${!isCurrentMonth ? 'text-gray-400 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
-                {format(date, 'd')}
-              </div>
-              <div className="space-y-1.5">
-                {/* Show events first */}
-                {dayEvents.slice(0, 2).map((event, eventIndex) => (
-                  <div
-                    key={`event-${eventIndex}`}
-                    className={`text-xs px-2 py-1.5 rounded-md text-white truncate shadow-sm hover:shadow-md transition-shadow cursor-pointer ${getEventTypeColor(event.event_type)} ${getPriorityColor(event.priority)}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEventClick(event);
-                    }}
-                    title={event.title}
-                  >
-                    <span className="font-medium">{format(formatEventDate(event.start_date), 'h:mm a')}</span> {event.title}
-                  </div>
-                ))}
-                {/* Show tasks */}
-                {dayTasks.slice(0, 2).map((task, taskIndex) => (
-                  <div
-                    key={`task-${taskIndex}`}
-                    className={`text-xs px-2 py-1.5 rounded-md text-white truncate shadow-sm hover:shadow-md transition-shadow cursor-pointer ${getTaskCategoryColor(task.category)} ${getPriorityColor(task.priority)}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTaskClick(task);
-                    }}
-                    title={task.title}
-                  >
-                    {task.status === 'completed' ? '✓ ' : ''}{task.title}
-                  </div>
-                ))}
-                {/* Show more indicator if needed */}
-                {(dayEvents.length + dayTasks.length) > 4 && (
-                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium bg-blue-100 dark:bg-blue-900/30 rounded px-2 py-1 text-center">
-                    +{dayEvents.length + dayTasks.length - 4} más
-                  </div>
-                )}
-              </div>
+    return (
+      <div className="flex flex-col h-full">
+        {/* Google Calendar Style Header */}
+        <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
+          {shortWeekDays.map((day, index) => (
+            <div key={day} className="py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400">
+              {day}
             </div>
-          );
-        })}
+          ))}
+        </div>
+        
+        {/* Calendar Grid */}
+        <div className="flex-1 grid grid-cols-7 auto-rows-fr">
+          {days.map((date, index) => {
+            const dayEvents = getEventsForDate(date);
+            const dayTasks = getTasksForDate(date);
+            const isCurrentMonth = isSameMonth(date, currentDate);
+            const isToday = isSameDay(date, new Date());
+
+            return (
+              <div
+                key={index}
+                className={`min-h-[100px] sm:min-h-[120px] border-b border-r border-gray-200 dark:border-gray-700 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
+                  !isCurrentMonth ? 'bg-gray-50 dark:bg-gray-900/30' : 'bg-white dark:bg-gray-900'
+                } ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                onClick={() => handleDateClick(date)}
+              >
+                <div className="p-2">
+                  <div className={`inline-flex items-center justify-center w-7 h-7 text-sm font-medium rounded-full ${
+                    isToday 
+                      ? 'bg-blue-500 text-white' 
+                      : isCurrentMonth 
+                        ? 'text-gray-700 dark:text-gray-300' 
+                        : 'text-gray-400 dark:text-gray-600'
+                  }`}>
+                    {format(date, 'd')}
+                  </div>
+                  
+                  {/* Events */}
+                  <div className="mt-1 space-y-1">
+                    {dayEvents.slice(0, 3).map((event, eventIndex) => (
+                      <div
+                        key={`event-${eventIndex}`}
+                        className="group flex items-center gap-1 px-2 py-1 rounded text-xs text-white cursor-pointer hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: getEventTypeColor(event.event_type) }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEventClick(event);
+                        }}
+                      >
+                        <div 
+                          className="w-1.5 h-1.5 rounded-full flex-shrink-0" 
+                          style={{ backgroundColor: getPriorityIndicator(event.priority).color }}
+                        />
+                        <span className="truncate font-medium">{event.title}</span>
+                      </div>
+                    ))}
+                    {dayTasks.slice(0, 2).map((task, taskIndex) => (
+                      <div
+                        key={`task-${taskIndex}`}
+                        className="group flex items-center gap-1 px-2 py-1 rounded text-xs text-white cursor-pointer hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: getTaskCategoryColor(task.category) }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTaskClick(task);
+                        }}
+                      >
+                        <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                        <span className="truncate font-medium">{task.title}</span>
+                      </div>
+                    ))}
+                    {(dayEvents.length + dayTasks.length) > 4 && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-0.5 font-medium">
+                        +{dayEvents.length + dayTasks.length - 4} más
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -527,28 +556,35 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       hours.push(hour);
     }
 
+    const weekDays = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
     return (
-      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {/* Header */}
-        <div className="grid grid-cols-8 bg-gradient-to-r from-slate-700 to-slate-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="p-2 sm:p-3 text-xs sm:text-sm font-semibold text-white/80">Hora</div>
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Header Row */}
+        <div className="grid grid-cols-8 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <div className="p-3 text-xs font-medium text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700"></div>
           {days.map((date, index) => (
-            <div key={index} className="p-2 sm:p-3 text-center text-white border-l border-white/10">
-              <div className="text-xs font-medium uppercase tracking-wide opacity-80 hidden sm:block">{format(date, 'EEE', { locale: es })}</div>
-              <div className="text-xs font-medium uppercase tracking-wide opacity-80 sm:hidden">{format(date, 'EEE', { locale: es }).substring(0, 3)}</div>
-              <div className={`text-lg sm:text-xl font-bold mt-1 ${isSameDay(date, new Date()) ? 'bg-white text-blue-600 rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center mx-auto' : ''}`}>
+            <div key={index} className="p-3 text-center border-l border-gray-200 dark:border-gray-700">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                {weekDays[index].substring(0, 3)}
+              </div>
+              <div className={`text-xl font-semibold mt-1 ${
+                isSameDay(date, new Date()) 
+                  ? 'w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center mx-auto' 
+                  : 'text-gray-900 dark:text-white'
+              }`}>
                 {format(date, 'd')}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Time slots */}
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        {/* Time Grid */}
+        <div className="flex-1 overflow-y-auto">
           {hours.map(hour => (
-            <div key={hour} className="grid grid-cols-8 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-              <div className="p-1 sm:p-2 text-xs text-gray-500 dark:text-gray-400 border-r border-gray-100 dark:border-gray-800 font-medium">
-                {format(new Date().setHours(hour, 0, 0, 0), 'h:mm a')}
+            <div key={hour} className="grid grid-cols-8 min-h-[60px]">
+              <div className="p-2 text-xs text-gray-500 dark:text-gray-400 border-r border-b border-gray-200 dark:border-gray-700 text-right pr-3">
+                {format(new Date().setHours(hour, 0, 0, 0), 'h a')}
               </div>
               {days.map((date, dayIndex) => {
                 const dayEvents = getEventsForDate(date).filter(event => {
@@ -564,7 +600,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                 return (
                   <div
                     key={dayIndex}
-                    className="p-0.5 sm:p-1 border-l border-gray-100 dark:border-gray-800 min-h-[40px] sm:min-h-[60px] cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                    className="border-l border-b border-r border-gray-200 dark:border-gray-700 min-h-[60px] cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                     onClick={() => {
                       const clickDate = new Date(date);
                       clickDate.setHours(hour, 0, 0, 0);
@@ -574,36 +610,33 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
                     {dayEvents.map((event, eventIndex) => (
                       <div
                         key={`event-${eventIndex}`}
-                        className={`text-xs p-1 sm:p-2 rounded text-white mb-1 shadow-sm cursor-pointer hover:shadow-md transition-all ${getEventTypeColor(event.event_type)} ${getPriorityColor(event.priority)}`}
+                        className="mx-1 my-0.5 px-2 py-1 rounded text-xs text-white cursor-pointer hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: getEventTypeColor(event.event_type) }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEventClick(event);
                         }}
                       >
-                        <div className="font-bold hidden sm:block">{event.title}</div>
-                        <div className="font-bold sm:hidden truncate">{event.title}</div>
-                        <div className="text-xs opacity-75 hidden sm:block">
-                          {format(formatEventDate(event.start_date), 'h:mm a')} - {format(formatEventDate(event.end_date), 'h:mm a')}
-                        </div>
+                        <div className="font-semibold truncate">{event.title}</div>
                       </div>
                     ))}
                     {dayTasks.map((task, taskIndex) => (
                       <div
                         key={`task-${taskIndex}`}
-                        className={`text-xs p-1 sm:p-2 rounded text-white mb-1 shadow-sm cursor-pointer hover:shadow-md transition-all ${getTaskCategoryColor(task.category)} ${getPriorityColor(task.priority)}`}
+                        className="mx-1 my-0.5 px-2 py-1 rounded text-xs text-white cursor-pointer hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: getTaskCategoryColor(task.category) }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleTaskClick(task);
                         }}
                       >
-                        <div className="font-bold flex items-center">
+                        <div className="font-semibold flex items-center gap-1">
                           {task.status === 'completed' && (
                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           )}
-                          <span className="hidden sm:block">{task.title}</span>
-                          <span className="sm:hidden truncate">{task.title}</span>
+                          <span className="truncate">{task.title}</span>
                         </div>
                       </div>
                     ))}
@@ -626,17 +659,26 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
     }
 
     return (
-      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {/* Header */}
-        <div className="p-3 sm:p-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-slate-700 to-slate-800">
-          <h3 className="text-lg sm:text-xl font-bold text-white">
-            {format(currentDate, 'EEEE, d MMMM yyyy', { locale: es }).charAt(0).toUpperCase() + format(currentDate, 'EEEE, d MMMM yyyy', { locale: es }).slice(1)}
-          </h3>
-          <p className="text-white/60 text-xs sm:text-sm mt-1">{dayEvents.length} evento{dayEvents.length !== 1 ? 's' : ''} • {dayTasks.length} tarea{dayTasks.length !== 1 ? 's' : ''}</p>
+      <div className="flex flex-col h-full">
+        {/* Day Header */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <div className="flex items-center gap-4">
+            <div className={`text-4xl font-light ${isSameDay(currentDate, new Date()) ? 'text-blue-500' : 'text-gray-900 dark:text-white'}`}>
+              {format(currentDate, 'd')}
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                {format(currentDate, 'EEEE', { locale: es }).charAt(0).toUpperCase() + format(currentDate, 'EEEE', { locale: es }).slice(1)}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {dayEvents.length} evento{dayEvents.length !== 1 ? 's' : ''} • {dayTasks.length} tarea{dayTasks.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Time slots */}
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        {/* Time Slots */}
+        <div className="flex-1 overflow-y-auto">
           {hours.map(hour => {
             const hourEvents = dayEvents.filter(event => {
               const eventHour = formatEventDate(event.start_date).getHours();
@@ -649,67 +691,75 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
             });
 
             return (
-              <div key={hour} className="flex hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div className="w-20 sm:w-24 p-2 sm:p-3 text-xs sm:text-sm text-gray-500 dark:text-gray-400 border-r border-gray-100 dark:border-gray-800 font-medium">
-                  {format(new Date().setHours(hour, 0, 0, 0), 'h:mm a')}
+              <div key={hour} className="flex min-h-[80px] border-b border-gray-100 dark:border-gray-800">
+                <div className="w-20 flex-shrink-0 p-3 text-sm text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700">
+                  {format(new Date().setHours(hour, 0, 0, 0), 'h a')}
                 </div>
-                <div className="flex-1 p-2 sm:p-3 min-h-[60px] sm:min-h-[80px]">
-                  {/* Events */}
+                <div className="flex-1 p-2 flex flex-col gap-2">
                   {hourEvents.map((event, eventIndex) => (
                     <div
                       key={`event-${eventIndex}`}
-                      className={`text-xs sm:text-sm p-2 sm:p-3 rounded-lg text-white mb-2 sm:mb-3 shadow-md cursor-pointer hover:shadow-lg transition-all ${getEventTypeColor(event.event_type)} ${getPriorityColor(event.priority)}`}
+                      className="flex items-start gap-3 p-3 rounded-lg text-white cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                      style={{ backgroundColor: getEventTypeColor(event.event_type) }}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEventClick(event);
                       }}
                     >
-                      <div className="font-bold">{event.title}</div>
-                      {event.patient && (
-                        <div className="text-xs opacity-90 mt-1 flex items-center">
-                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
-                          </svg>
-                          <span className="hidden sm:inline">{event.patient.nombre_completo}</span>
-                          <span className="sm:hidden truncate">{event.patient.nombre_completo.length > 20 ? `${event.patient.nombre_completo.substring(0, 20)}...` : event.patient.nombre_completo}</span>
+                      <div className="flex-1">
+                        <div className="font-semibold">{event.title}</div>
+                        <div className="text-sm opacity-90 mt-1">
+                          {format(formatEventDate(event.start_date), 'h:mm a')} - {format(formatEventDate(event.end_date), 'h:mm a')}
                         </div>
-                      )}
-                      <div className="text-xs opacity-75 mt-1 flex items-center">
-                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                        </svg>
-                        {format(formatEventDate(event.start_date), 'h:mm a')} - {format(formatEventDate(event.end_date), 'h:mm a')}
+                        {event.patient && (
+                          <div className="text-sm opacity-90 mt-1 flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                            </svg>
+                            {event.patient.nombre_completo}
+                          </div>
+                        )}
                       </div>
+                      <div 
+                        className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" 
+                        style={{ backgroundColor: getPriorityIndicator(event.priority).color }}
+                        title={getPriorityIndicator(event.priority).label}
+                      />
                     </div>
                   ))}
-                  {/* Tasks */}
                   {hourTasks.map((task, taskIndex) => (
                     <div
                       key={`task-${taskIndex}`}
-                      className={`text-xs sm:text-sm p-2 sm:p-3 rounded-lg text-white mb-2 sm:mb-3 shadow-md cursor-pointer hover:shadow-lg transition-all ${getTaskCategoryColor(task.category)} ${getPriorityColor(task.priority)}`}
+                      className="flex items-start gap-3 p-3 rounded-lg text-white cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                      style={{ backgroundColor: getTaskCategoryColor(task.category) }}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleTaskClick(task);
                       }}
                     >
-                      <div className="font-bold flex items-center">
-                        {task.status === 'completed' && (
-                          <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                        <span className="hidden sm:inline">{task.title}</span>
-                        <span className="sm:hidden truncate">{task.title.length > 25 ? `${task.title.substring(0, 25)}...` : task.title}</span>
-                      </div>
-                      {task.patient && (
-                        <div className="text-xs opacity-90 mt-1 flex items-center">
-                          <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
-                          </svg>
-                          <span className="hidden sm:inline">{task.patient.nombre_completo}</span>
-                          <span className="sm:hidden truncate">{task.patient.nombre_completo.length > 20 ? `${task.patient.nombre_completo.substring(0, 20)}...` : task.patient.nombre_completo}</span>
+                      <div className="flex-1">
+                        <div className="font-semibold flex items-center gap-2">
+                          {task.status === 'completed' && (
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          {task.title}
                         </div>
-                      )}
+                        {task.patient && (
+                          <div className="text-sm opacity-90 mt-1 flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                            </svg>
+                            {task.patient.nombre_completo}
+                          </div>
+                        )}
+                      </div>
+                      <div 
+                        className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" 
+                        style={{ backgroundColor: getPriorityIndicator(task.priority).color }}
+                        title={getPriorityIndicator(task.priority).label}
+                      />
                     </div>
                   ))}
                 </div>
@@ -731,103 +781,94 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
   return (
     <>
-      <div className="space-y-4">
-        {/* Modern Header - Mobile Optimized */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-950 rounded-xl shadow-lg p-3 sm:p-4">
-          {/* Navigation Controls */}
-          <div className="flex flex-col gap-4">
-            {/* Top Row: Navigation */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 sm:space-x-4">
-                <button
-                  onClick={navigatePrevious}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-all duration-200 text-white/80 hover:text-white"
-                >
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                
-                <div className="text-center">
-                  <h2 className="text-lg sm:text-2xl font-bold text-white">
-                    {format(currentDate, 'MMMM yyyy', { locale: es }).charAt(0).toUpperCase() + format(currentDate, 'MMMM yyyy', { locale: es }).slice(1)}
-                  </h2>
-                  <p className="text-white/60 text-xs sm:text-sm">{format(currentDate, 'yyyy')}</p>
-                </div>
-                
-                <button
-                  onClick={navigateNext}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-all duration-200 text-white/80 hover:text-white"
-                >
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-              
+      <div className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+        {/* Google Calendar Style Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-gray-200 dark:border-gray-700 gap-4">
+          {/* Title & Navigation */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium"
+                onClick={navigatePrevious}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
               >
-                Hoy
-              </button>
-            </div>
-
-            {/* Middle Row: View Selector */}
-            <div className="flex justify-center">
-              <div className="flex bg-white/10 backdrop-blur rounded-lg p-1">
-                {(['month', 'week', 'day'] as const).map(viewType => (
-                  <button
-                    key={viewType}
-                    onClick={() => setView(viewType)}
-                    className={`px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-md transition-all duration-200 ${
-                      view === viewType
-                        ? 'bg-white text-slate-800 shadow-md'
-                        : 'text-white/70 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    {viewType === 'month' ? 'Mes' : viewType === 'week' ? 'Semana' : 'Día'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Bottom Row: Action Buttons - Mobile Optimized */}
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center sm:justify-end">
-              <button
-                onClick={() => {
-                  setSelectedEvent(null);
-                  setSelectedDate(new Date());
-                  setShowEventModal(true);
-                }}
-                className="px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center sm:justify-start space-x-2 font-medium text-sm"
-              >
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <span className="hidden sm:inline">Nuevo Evento</span>
-                <span className="sm:hidden">Evento</span>
               </button>
               <button
-                onClick={() => {
-                  setSelectedTask(null);
-                  setSelectedDate(new Date());
-                  setShowTaskModal(true);
-                }}
-                className="px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center sm:justify-start space-x-2 font-medium text-sm"
+                onClick={navigateNext}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
               >
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-                <span className="hidden sm:inline">Nueva Tarea</span>
-                <span className="sm:hidden">Tarea</span>
               </button>
             </div>
+            
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              {view === 'day' 
+                ? format(currentDate, 'MMMM yyyy', { locale: es }).charAt(0).toUpperCase() + format(currentDate, 'MMMM yyyy', { locale: es }).slice(1)
+                : format(currentDate, 'MMMM yyyy', { locale: es }).charAt(0).toUpperCase() + format(currentDate, 'MMMM yyyy', { locale: es }).slice(1)
+              }
+            </h2>
+            
+            <button
+              onClick={() => setCurrentDate(new Date())}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors text-sm font-medium"
+            >
+              Hoy
+            </button>
+          </div>
+
+          {/* View Switcher */}
+          <div className="flex items-center gap-2">
+            <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              {(['month', 'week', 'day'] as const).map(viewType => (
+                <button
+                  key={viewType}
+                  onClick={() => setView(viewType)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    view === viewType
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  {viewType === 'month' ? 'Mes' : viewType === 'week' ? 'Semana' : 'Día'}
+                </button>
+              ))}
+            </div>
+            
+            <button
+              onClick={() => {
+                setSelectedEvent(null);
+                setSelectedDate(new Date());
+                setShowEventModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-medium shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">Evento</span>
+            </button>
+            <button
+              onClick={() => {
+                setSelectedTask(null);
+                setSelectedDate(new Date());
+                setShowTaskModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors text-sm font-medium shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <span className="hidden sm:inline">Tarea</span>
+            </button>
           </div>
         </div>
 
-        {/* Calendar View */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+        {/* Calendar Content */}
+        <div className="flex-1 overflow-hidden">
           {view === 'month' && renderMonthView()}
           {view === 'week' && renderWeekView()}
           {view === 'day' && renderDayView()}

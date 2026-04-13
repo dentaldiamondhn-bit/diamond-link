@@ -32,6 +32,12 @@ interface LogEntry {
   module: string;
   userId?: string;
   details?: string;
+  user?: {
+    id: string;
+    name?: string;
+    email: string;
+    role: string;
+  };
 }
 
 export default function SystemLogs() {
@@ -56,56 +62,67 @@ export default function SystemLogs() {
     );
   }
 
-  // Mock data for demonstration
+  // Fetch real system logs from API
   useEffect(() => {
-    setTimeout(() => {
-      setLogs([
-        {
-          id: '1',
-          timestamp: '2024-01-15T10:30:00Z',
-          level: 'error',
-          message: 'Database connection failed',
-          module: 'Database',
-          userId: 'user_123',
-          details: 'Connection timeout after 30 seconds. Retrying...'
-        },
-        {
-          id: '2',
-          timestamp: '2024-01-15T10:25:00Z',
-          level: 'warning',
-          message: 'High memory usage detected',
-          module: 'System',
-          details: 'Memory usage at 85%. Consider optimizing queries.'
-        },
-        {
-          id: '3',
-          timestamp: '2024-01-15T10:20:00Z',
-          level: 'info',
-          message: 'User login successful',
-          module: 'Auth',
-          userId: 'user_456'
-        },
-        {
-          id: '4',
-          timestamp: '2024-01-15T10:15:00Z',
-          level: 'debug',
-          message: 'API request processed',
-          module: 'API',
-          details: 'GET /api/patients - 200ms response time'
-        },
-        {
-          id: '5',
-          timestamp: '2024-01-15T10:10:00Z',
-          level: 'error',
-          message: 'File upload failed',
-          module: 'Storage',
-          userId: 'user_789',
-          details: 'File size exceeds limit (10MB max)'
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+    fetchSystemLogs();
   }, []);
+
+  const fetchSystemLogs = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/tickets/system-logs');
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Unauthorized to access system logs');
+          setLogs([]);
+          return;
+        }
+        if (response.status === 403) {
+          console.error('Insufficient permissions to access system logs');
+          setLogs([]);
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      
+      // Transform the data to match the LogEntry interface
+      const transformedLogs = data.logs.map((log: any) => ({
+        id: log.id,
+        timestamp: log.created_at,
+        level: getLogLevel(log.activity_type, log.content),
+        message: log.content,
+        module: getLogModule(log.activity_type, log.metadata),
+        userId: log.user_id,
+        details: log.metadata ? JSON.stringify(log.metadata) : undefined,
+        user: log.user
+      }));
+      
+      setLogs(transformedLogs);
+    } catch (error) {
+      console.error('Error fetching system logs:', error);
+      // Fallback to empty array if API fails
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper functions to transform log data
+  const getLogLevel = (activityType: string, content: string): LogEntry['level'] => {
+    if (content.toLowerCase().includes('error') || activityType.includes('ERROR')) return 'error';
+    if (content.toLowerCase().includes('warning') || activityType.includes('WARNING')) return 'warning';
+    if (content.toLowerCase().includes('debug') || activityType.includes('DEBUG')) return 'debug';
+    return 'info';
+  };
+
+  const getLogModule = (activityType: string, metadata: any): string => {
+    if (metadata?.module) return metadata.module;
+    if (activityType.includes('TICKET')) return 'Tickets';
+    if (activityType.includes('ATTACHMENT')) return 'Storage';
+    if (activityType.includes('SYSTEM')) return 'System';
+    return 'Application';
+  };
 
   const filteredLogs = logs.filter(log => {
     const matchesFilter = filter === 'all' || log.level === filter;
@@ -145,51 +162,55 @@ export default function SystemLogs() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-            Logs del Sistema
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Monitorea y gestiona los registros del sistema • {new Date().toLocaleDateString('es-HN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white transition-colors">
-            <Download className="w-4 h-4 mr-2" />
-            Exportar
-          </button>
-          <button className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition-colors">
-            <Trash2 className="w-4 h-4 mr-2" />
-            Limpiar
-          </button>
-        </div>
-      </div>
-
-      {/* Filters and Search */}
       <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar logs por mensaje o módulo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex-1">
           </div>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="all">Todos los niveles</option>
-            <option value="error">Errores</option>
-            <option value="warning">Advertencias</option>
-            <option value="info">Información</option>
-            <option value="debug">Debug</option>
-          </select>
+          <div className="flex flex-col md:flex-row gap-3">
+            {/* Filters and Search */}
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar logs por mensaje o módulo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="all">Todos los niveles</option>
+                <option value="error">Errores</option>
+                <option value="warning">Advertencias</option>
+                <option value="info">Información</option>
+                <option value="debug">Debug</option>
+              </select>
+            </div>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button 
+                onClick={fetchSystemLogs}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition-colors"
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Actualizando...' : 'Actualizar'}
+              </button>
+              <button className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white transition-colors">
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </button>
+              <button className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white transition-colors">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Limpiar
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -10,7 +10,6 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (isLoaded && user) {
-      // Get user role from metadata
       const role = user.publicMetadata?.role as string || 'staff';
       setUserRole(role);
     }
@@ -39,11 +38,8 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile-optimized Calendar Container */}
-      <div className="px-2 sm:px-4 py-4 lg:py-6 max-w-full">
-        <Calendar userId={user.id} userRole={userRole} />
-      </div>
+    <div className="h-[calc(100vh-64px)] p-4 bg-gray-50 dark:bg-gray-900">
+      <Calendar userId={user.id} userRole={userRole} />
     </div>
   );
 }
