@@ -36,7 +36,7 @@ export interface NotificationAction {
   icon?: string;
 }
 
-// Device detection utility
+// Device detection utility - with error handling for all devices
 function detectDevice(): {
   isAndroid: boolean;
   isIOS: boolean;
@@ -60,33 +60,52 @@ function detectDevice(): {
     };
   }
 
-  const ua = navigator.userAgent.toLowerCase();
-  const isAndroid = ua.includes('android');
-  const isIOS = /iphone|ipad|ipod/.test(ua);
-  
-  // Detect PWA mode
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
-    (window.navigator as any).standalone === true ||
-    document.referrer.includes('android-app://');
+  try {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    const isAndroid = ua.includes('android');
+    const isIOS = /iphone|ipad|ipod/.test(ua);
+    
+    // Detect PWA mode - with try/catch for safety
+    let isPWA = false;
+    try {
+      isPWA = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || 
+        (window.navigator as any).standalone === true ||
+        (document.referrer && document.referrer.includes('android-app://'));
+    } catch (e) {
+      // Ignore errors in PWA detection
+    }
 
-  // Detect browser
-  let browser = 'unknown';
-  if (ua.includes('chrome')) browser = 'chrome';
-  else if (ua.includes('firefox')) browser = 'firefox';
-  else if (ua.includes('safari')) browser = 'safari';
-  else if (ua.includes('samsung')) browser = 'samsung';
-  else if (ua.includes('edge')) browser = 'edge';
+    // Detect browser
+    let browser = 'unknown';
+    if (ua.includes('chrome')) browser = 'chrome';
+    else if (ua.includes('firefox')) browser = 'firefox';
+    else if (ua.includes('safari')) browser = 'safari';
+    else if (ua.includes('samsung')) browser = 'samsung';
+    else if (ua.includes('edge')) browser = 'edge';
 
-  return {
-    isAndroid,
-    isIOS,
-    isPWA,
-    browser,
-    supportsNotifications: 'Notification' in window,
-    supportsVibration: 'vibrate' in navigator,
-    supportsServiceWorker: 'serviceWorker' in navigator,
-    supportsPush: 'serviceWorker' in navigator && 'PushManager' in window
-  };
+    return {
+      isAndroid,
+      isIOS,
+      isPWA,
+      browser,
+      supportsNotifications: typeof Notification !== 'undefined',
+      supportsVibration: typeof navigator !== 'undefined' && 'vibrate' in navigator,
+      supportsServiceWorker: typeof navigator !== 'undefined' && 'serviceWorker' in navigator,
+      supportsPush: typeof navigator !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window
+    };
+  } catch (error) {
+    // Return safe defaults on any error
+    return {
+      isAndroid: false,
+      isIOS: false,
+      isPWA: false,
+      browser: 'unknown',
+      supportsNotifications: false,
+      supportsVibration: false,
+      supportsServiceWorker: false,
+      supportsPush: false
+    };
+  }
 }
 
 class MobileNotificationService {
@@ -177,10 +196,19 @@ class MobileNotificationService {
     };
   }
 
-  // Show local notification (not push) - Multiple fallback methods
+  // Show local notification (not push) - Multiple fallback methods with error handling
   async showLocalNotification(notification: PushNotification): Promise<void> {
-    const device = detectDevice();
-    const permission = this.getPermission();
+    let device;
+    let permission;
+    
+    try {
+      device = detectDevice();
+      permission = this.getPermission();
+    } catch (e) {
+      console.error('❌ Error detecting device:', e);
+      device = { isAndroid: false, supportsVibration: false };
+      permission = { granted: false, denied: true, default: false };
+    }
     
     console.log('📱 Showing notification:', {
       device,
@@ -188,58 +216,59 @@ class MobileNotificationService {
       title: notification.title
     });
 
-    // If no permission, try to request (though should be user-initiated)
-    if (!permission.granted && !permission.denied) {
-      try {
-        const newPerm = await this.requestPermission();
-        if (newPerm.granted) {
-          return await this.showLocalNotification(notification);
-        }
-      } catch (e) {
-        console.warn('⚠️ Could not request permission:', e);
-      }
-    }
-
-    if (!permission.granted) {
-      // Last resort: try振动 + beep without permission on Android
-      console.warn('⚠️ No notification permission, using fallback');
-      return await this.showFallbackNotification(notification, device);
-    }
-
-    const options: NotificationOptions = {
-      body: notification.body,
-      icon: notification.icon || '/Logo.svg',
-      badge: notification.badge || '/Logo.svg',
-      tag: notification.tag,
-      data: notification.data,
-      requireInteraction: notification.requireInteraction || false,
-      silent: notification.silent || false,
-      timestamp: notification.timestamp || Date.now(),
-      vibrate: [200, 100, 200] // Android vibration pattern
-    };
-
-    if (notification.actions && notification.actions.length > 0) {
-      options.actions = notification.actions;
-    }
-
-    // Method 1: Try Service Worker (best for PWAs)
     try {
-      if (!this.swRegistration && 'serviceWorker' in navigator) {
-        this.swRegistration = await navigator.serviceWorker.ready;
-      }
-      if (this.swRegistration) {
-        await this.swRegistration.showNotification(notification.title, options);
-        console.log('✅ Notification via Service Worker');
-        
-        // Vibrate additionally on Android
-        if (device.isAndroid && device.supportsVibration) {
-          navigator.vibrate([200, 100, 200]);
+      // If no permission, try to request (though should be user-initiated)
+      if (!permission.granted && !permission.denied) {
+        try {
+          const newPerm = await this.requestPermission();
+          if (newPerm.granted) {
+            return await this.showLocalNotification(notification);
+          }
+        } catch (e) {
+          console.warn('⚠️ Could not request permission:', e);
         }
-        return;
       }
-    } catch (error) {
-      console.warn('⚠️ Service Worker notification failed:', error);
-    }
+
+      if (!permission.granted) {
+        // Last resort: try振动 + beep without permission on Android
+        console.warn('⚠️ No notification permission, using fallback');
+        return await this.showFallbackNotification(notification, device);
+      }
+
+const options: any = { // Use any to avoid type issues with vibrate property
+        body: notification.body,
+        icon: notification.icon || '/Logo.svg',
+        badge: notification.badge || '/Logo.svg',
+        tag: notification.tag,
+        data: notification.data,
+        requireInteraction: notification.requireInteraction || false,
+        silent: notification.silent || false,
+        timestamp: notification.timestamp || Date.now(),
+        vibrate: [200, 100, 200] // Android vibration pattern
+      };
+
+      if (notification.actions && notification.actions.length > 0) {
+        options.actions = notification.actions;
+      }
+
+      // Method 1: Try Service Worker (best for PWAs)
+      try {
+        if (!this.swRegistration && 'serviceWorker' in navigator) {
+          this.swRegistration = await navigator.serviceWorker.ready;
+        }
+        if (this.swRegistration) {
+          await this.swRegistration.showNotification(notification.title, options);
+          console.log('✅ Notification via Service Worker');
+          
+          // Vibrate additionally on Android
+          if (device.isAndroid && device.supportsVibration) {
+            navigator.vibrate([200, 100, 200]);
+          }
+          return;
+        }
+      } catch (error) {
+        console.warn('⚠️ Service Worker notification failed:', error);
+      }
 
     // Method 2: Try direct Notification API
     if ('Notification' in window) {
@@ -280,7 +309,11 @@ class MobileNotificationService {
     }
 
     // Method 4: Play sound + vibrate as last resort
-    await this.showFallbackNotification(notification, device);
+      await this.showFallbackNotification(notification, device);
+    } catch (error) {
+      // Catch any unexpected error and don't crash
+      console.error('❌ Error showing notification:', error);
+    }
   }
 
   // Android WebView specific notification (for WebView-based browsers)
