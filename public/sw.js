@@ -1,5 +1,5 @@
 // Service Worker for Diamond Link PWA
-const CACHE_NAME = 'diamond-link-v2';
+const CACHE_NAME = 'diamond-link-v1';
 const urlsToCache = [
   '/',
   '/dashboard',
@@ -13,7 +13,6 @@ const urlsToCache = [
 // Install event - cache resources
 self.addEventListener('install', (event) => {
   console.log('🔧 Service Worker installing...');
-  self.skipWaiting(); // Activate immediately
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -39,8 +38,6 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    }).then(() => {
-      return self.clients.claim(); // Take control immediately
     })
   );
 });
@@ -81,70 +78,71 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Push notification event - Multiple fallback methods
+// Push notification event
 self.addEventListener('push', (event) => {
   console.log('📬 Push notification received:', event);
 
-  // Parse data
-  let data = {};
-  if (event.data) {
-    try {
-      data = event.data.json();
-    } catch (e) {
-      // Try text if JSON fails
-      data = { message: event.data.text() };
-    }
+  if (!event.data) {
+    console.log('❌ Push event has no data');
+    return;
   }
 
-  const title = data.title || 'Diamond Link';
-  const message = data.message || data.body || 'Nueva notificación';
-  
-  // Vibration pattern for Android
-  const vibratePattern = data.type?.includes('reminder') 
-    ? [300, 150, 300, 150, 300] 
-    : [200, 100, 200];
+  try {
+    const data = event.data.json();
+    console.log('📬 Push notification data:', data);
 
-  // Try standard notification first
-  const showNotification = async () => {
     const options = {
-      body: message,
+      body: data.message || 'Nueva notificación de Diamond Link',
       icon: '/Logo.svg',
       badge: '/Logo.svg',
-      tag: data.type || 'default',
+      tag: data.type || 'general',
       data: data,
-      requireInteraction: data.requireInteraction || true,
-      vibrate: vibratePattern,
-      // Android-specific options
-      sound: 'default',
-      urgency: 'high' as const,
-      priority: 2 as const, // High priority for Android
-      actions: [
-        { action: 'open', title: 'Abrir' },
-        { action: 'dismiss', title: 'Cerrar' }
-      ]
+      requireInteraction: true
+      // Actions are not supported in all browsers
+      // actions: [
+      //   {
+      //     action: 'open',
+      //     title: 'Ver',
+      //     icon: '/Logo.svg'
+      //   },
+      //   {
+      //     action: 'dismiss',
+      //     title: 'Cerrar',
+      //     icon: '/Logo.svg'
+      //   }
+      // ]
     };
 
-    await self.registration.showNotification(title, options);
-  };
+    // Add event time to notification body if available
+    if (data.metadata?.eventTime || data.metadata?.taskTime) {
+      const eventTime = new Date(data.metadata.eventTime || data.metadata.taskTime);
+      const formattedTime = eventTime.toLocaleDateString('es-HN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      options.body += ` | ${formattedTime}`;
+    }
 
-  // Wait for notification to show
-  event.waitUntil(
-    showNotification()
-      .then(() => console.log('✅ Push notification shown'))
-      .catch(async (error) => {
-        console.error('❌ Push notification failed:', error);
-        
-        // Try simpler notification as fallback
-        try {
-          await self.registration.showNotification(title, {
-            body: message,
-            icon: '/Logo.svg'
-          });
-        } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError);
-        }
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'Diamond Link', options)
+    );
+  } catch (error) {
+    console.error('❌ Error processing push notification:', error);
+    
+    // Fallback notification
+    event.waitUntil(
+      self.registration.showNotification('Diamond Link', {
+        body: 'Tienes una nueva notificación',
+        icon: '/Logo.svg',
+        badge: '/Logo.svg',
+        tag: 'fallback'
       })
-  );
+    );
+  }
 });
 
 // Notification click event
@@ -208,30 +206,8 @@ self.addEventListener('periodicsync', (event) => {
 // Check for upcoming reminders
 async function checkReminders() {
   try {
+    // This would check for upcoming reminders and show notifications
     console.log('🔔 Checking for upcoming reminders');
-    
-    // Fetch upcoming events from API
-    const response = await fetch('/api/calendar/reminders/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-    if (response.ok) {
-      const reminders = await response.json();
-      
-      for (const reminder of reminders.upcoming || []) {
-        if (reminder.timeuntil <= 0) {
-          // Show notification for due reminder
-          self.registration.showNotification(reminder.title, {
-            body: reminder.message,
-            icon: '/Logo.svg',
-            badge: '/Logo.svg',
-            tag: `reminder-${reminder.id}`,
-            data: reminder
-          });
-        }
-      }
-    }
   } catch (error) {
     console.error('❌ Error checking reminders:', error);
   }
