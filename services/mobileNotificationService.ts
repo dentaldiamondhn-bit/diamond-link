@@ -183,17 +183,21 @@ class MobileNotificationService {
 
   // Get current permission status
   getPermission(): NotificationPermission {
-    if (!('Notification' in window)) {
+    try {
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        return { granted: false, denied: true, default: false };
+      }
+      
+      const permission = Notification.permission;
+      
+      return {
+        granted: permission === 'granted',
+        denied: permission === 'denied',
+        default: permission === 'default'
+      };
+    } catch (e) {
       return { granted: false, denied: true, default: false };
     }
-
-    const permission = Notification.permission;
-    
-    return {
-      granted: permission === 'granted',
-      denied: permission === 'denied',
-      default: permission === 'default'
-    };
   }
 
   // Show local notification (not push) - Multiple fallback methods with error handling
@@ -435,17 +439,25 @@ const options: any = { // Use any to avoid type issues with vibrate property
   // Check if running on mobile browser
   private isMobileBrowser(): boolean {
     if (typeof window === 'undefined') return false;
-    const ua = navigator.userAgent.toLowerCase();
-    return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+    try {
+      const ua = (navigator.userAgent || '').toLowerCase();
+      return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+    } catch (e) {
+      return false;
+    }
   }
 
   // Check if push is supported
   isPushSupported(): boolean {
-    return 'serviceWorker' in navigator && 'PushManager' in window;
+    try {
+      return typeof navigator !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
+    } catch (e) {
+      return false;
+    }
   }
 }
 
-// React Hook for using push notifications
+// React Hook for using push notifications - with error handling for all devices
 export const useMobileNotifications = () => {
   const [permission, setPermission] = useState<NotificationPermission>({
     granted: false,
@@ -453,31 +465,65 @@ export const useMobileNotifications = () => {
     default: true
   });
   const [isSupported, setIsSupported] = useState(false);
-  const serviceRef = useRef(MobileNotificationService.getInstance());
+  const serviceRef = useRef<MobileNotificationService | null>(null);
+
+  // Initialize with try/catch to prevent crashes
+  try {
+    serviceRef.current = MobileNotificationService.getInstance();
+  } catch (e) {
+    console.error('❌ Failed to get notification service:', e);
+    serviceRef.current = null;
+  }
 
   useEffect(() => {
+    if (!serviceRef.current) return;
+    
     const service = serviceRef.current;
     
-    // Check if push is supported
-    setIsSupported(service.isPushSupported());
+    try {
+      // Check if push is supported
+      setIsSupported(service.isPushSupported());
+    } catch (e) {
+      console.warn('⚠️ Error checking push support:', e);
+      setIsSupported(false);
+    }
     
-    // Get current permission
-    setPermission(service.getPermission());
+    try {
+      // Get current permission
+      setPermission(service.getPermission());
+    } catch (e) {
+      console.warn('⚠️ Error getting permission:', e);
+    }
     
-    // Initialize service
-    service.initialize();
+    try {
+      // Initialize service
+      service.initialize();
+    } catch (e) {
+      console.warn('⚠️ Error initializing:', e);
+    }
   }, []);
 
   const requestPermission = async (): Promise<NotificationPermission> => {
-    const service = serviceRef.current;
-    const result = await service.requestPermission();
-    setPermission(result);
-    return result;
+    if (!serviceRef.current) {
+      return { granted: false, denied: true, default: false };
+    }
+    try {
+      const result = await serviceRef.current.requestPermission();
+      setPermission(result);
+      return result;
+    } catch (e) {
+      console.error('❌ Error requesting permission:', e);
+      return { granted: false, denied: true, default: false };
+    }
   };
 
   const showNotification = (notification: PushNotification): void => {
-    const service = serviceRef.current;
-    service.showLocalNotification(notification);
+    if (!serviceRef.current) return;
+    try {
+      serviceRef.current.showLocalNotification(notification);
+    } catch (e) {
+      console.error('❌ Error showing notification:', e);
+    }
   };
 
   return {
