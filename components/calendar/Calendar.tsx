@@ -112,83 +112,62 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
 
     requestNotifications();
 
-    // Subscribe to real-time notifications
-    const unsubscribeNotifications = calendarRealtimeService.onNotification(async (notification: CalendarRealtimeNotification) => {
-      console.log('🔔 CALENDAR NOTIFICATION RECEIVED:', {
-        notification,
-        currentUserId: userId,
-        notificationUserId: notification.userId,
-        shouldShow: notification.userId === userId
-      });
-      
-      // Show notification for ALL users (remove filtering to debug)
-      // Add notification to state
-      setNotifications(prev => [...prev.slice(-4), notification]); // Keep max 5 notifications
-      
-      // Show browser notification with better permission handling
-      if (Notification.permission === 'granted') {
-        const notificationOptions: NotificationOptions = {
-          body: notification.message,
-          icon: '/Logo.svg', // Use proper logo
-          badge: '/Logo.svg', // Use proper logo for badge
-          tag: notification.type,
-          requireInteraction: true, // Require interaction for calendar notifications
-          silent: false
-        };
-
-        // Add timestamp for events/tasks
-        if (notification.data.start_date || notification.data.due_date) {
-          const eventDate = notification.data.start_date || notification.data.due_date;
-          if (eventDate) {
-            (notificationOptions as any).timestamp = new Date(eventDate).getTime();
-          }
-        }
-
-        // Create browser notification
-        try {
-          const browserNotification = new Notification(notification.title, notificationOptions);
-          
-          // Auto-close notification after 8 seconds
-          setTimeout(() => {
-            browserNotification.close();
-          }, 8000);
-          
-          console.log('✅ Browser notification created for invitee:', {
-            title: notification.title,
+    // Subscribe to real-time notifications - with error handling
+    let unsubscribeNotifications: (() => void) | null = null;
+    try {
+      unsubscribeNotifications = calendarRealtimeService.onNotification(async (notification: CalendarRealtimeNotification) => {
+        console.log('🔔 CALENDAR NOTIFICATION RECEIVED:', {
+          notification,
+          currentUserId: userId,
+          notificationUserId: notification.userId,
+          shouldShow: notification.userId === userId
+        });
+        
+        // Show notification for ALL users (remove filtering to debug)
+        // Add notification to state
+        setNotifications(prev => [...prev.slice(-4), notification]); // Keep max 5 notifications
+        
+        // Show browser notification with better permission handling
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          const notificationOptions: NotificationOptions = {
             body: notification.message,
-            userId: notification.userId
-          });
-        } catch (error) {
-          console.error('❌ Error creating browser notification:', error);
-          
-          // Mobile PWA fallback: Play notification sound + vibrate on Android
-          try {
-            // Vibrate if supported (Android)
-            if ('vibrate' in navigator) {
-              navigator.vibrate([200, 100, 200]);
-              console.log('📳 Vibration triggered');
+            icon: '/Logo.svg', // Use proper logo
+            badge: '/Logo.svg', // Use proper logo for badge
+            tag: notification.type,
+            requireInteraction: true, // Require interaction for calendar notifications
+            silent: false
+          };
+
+          // Add timestamp for events/tasks
+          if (notification.data.start_date || notification.data.due_date) {
+            const eventDate = notification.data.start_date || notification.data.due_date;
+            if (eventDate) {
+              (notificationOptions as any).timestamp = new Date(eventDate).getTime();
             }
-            
-            // Try to play notification using Web Audio API beep (no file needed)
-            try {
-              const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-              const oscillator = audioContext.createOscillator();
-              const gainNode = audioContext.createGain();
-              oscillator.connect(gainNode);
-              gainNode.connect(audioContext.destination);
-              oscillator.frequency.value = 880;
-              oscillator.type = 'sine';
-              gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-              gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-              oscillator.start(audioContext.currentTime);
-              oscillator.stop(audioContext.currentTime + 0.5);
-              console.log('🔊 Notification beep played');
-            } catch (beepError) {
-              console.warn('⚠️ Audio beep failed:', beepError);
-            }
-          } catch (audioError) {
-            console.warn('⚠️ Audio/vibration fallback failed:', audioError);
           }
+
+          // Create browser notification
+          try {
+            const browserNotification = new Notification(notification.title, notificationOptions);
+            
+            // Auto-close notification after 8 seconds
+            setTimeout(() => {
+              browserNotification.close();
+            }, 8000);
+            
+            console.log('✅ Browser notification created for invitee:', {
+              title: notification.title,
+              body: notification.message,
+              userId: notification.userId
+            });
+          } catch (error) {
+            console.error('❌ Error creating browser notification:', error);
+            // Mobile PWA fallback: Play notification sound + vibrate on Android
+            await showFallbackNotification(notification);
+          }
+        } else {
+          // No permission - use fallback
+          await showFallbackNotification(notification);
         }
 
         // Also trigger Capacitor notification for mobile devices (non-blocking)
@@ -209,11 +188,6 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
           }).catch(error => {
             console.error('❌ Error creating Capacitor notification:', error);
           });
-          console.log('📱 Capacitor notification sent for invitee:', {
-            title: notification.title,
-            body: notification.message,
-            userId: notification.userId
-          });
         } catch (error) {
           console.error('❌ Error creating Capacitor notification:', error);
         }
@@ -231,58 +205,13 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
               eventTime: notification.data.start_date ? new Date(notification.data.start_date) : undefined
             }
           });
-          console.log('🔔 Bell notification added for invitee:', {
-            title: notification.title,
-            userId: notification.userId
-          });
         } catch (error) {
-          console.error('❌ Error adding Bell notification:', error);
+          console.warn('⚠️ Error adding bell notification:', error);
         }
-      } else if (Notification.permission === 'default') {
-        // Request permission if not yet granted
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            console.log('🔔 Notification permission granted for invitee notifications');
-            // Retry notification creation
-            setTimeout(() => {
-              const retryOptions: NotificationOptions = {
-                body: notification.message,
-                icon: '/Logo.svg',
-                badge: '/Logo.svg',
-                tag: notification.type,
-                requireInteraction: true,
-                silent: false
-              };
-              new Notification(notification.title, retryOptions);
-            }, 500);
-          }
-        });
-      } else {
-        console.warn('⚠️ Notification permission denied for invitee notifications');
-      }
-
-      // Auto-remove notification after 8 seconds
-      setTimeout(() => {
-        setNotifications(prev => prev.slice(1));
-      }, 8000);
-
-      // Always reload data to ensure instant updates
-      if (notification.type.includes('event')) {
-        console.log('🔄 Refreshing events due to event notification:', notification.type);
-        loadEvents();
-      } else if (notification.type.includes('task')) {
-        console.log('🔄 Refreshing tasks due to task notification:', notification.type);
-        loadTasks();
-      } else if (notification.type === 'invitee_added') {
-        console.log('🔄 Refreshing events due to invitee notification');
-        loadEvents(); // Refresh events when invitee is added
-        // Also force a more aggressive refresh after a short delay
-        setTimeout(() => {
-          console.log('🔄 Force refreshing events again for invitee');
-          loadEvents();
-        }, 1000);
-      }
-    });
+      });
+    } catch (notifError) {
+      console.error('❌ Error subscribing to notifications:', notifError);
+    }
 
     // Subscribe to event updates for instant refresh
     const unsubscribeEventUpdates = calendarRealtimeService.onEventUpdate((update) => {
@@ -295,11 +224,9 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       });
       
       if (update.table === 'calendar_events') {
-        // Refresh events for any calendar_events update
         console.log('🔄 Refreshing events due to calendar_events update');
         loadEvents();
       } else if (update.table === 'calendar_tasks') {
-        // Refresh tasks for any calendar_tasks update
         console.log('🔄 Refreshing tasks due to calendar_tasks update');
         loadTasks();
       }
@@ -311,11 +238,46 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       }
     });
 
+    // Cleanup
     return () => {
-      unsubscribeNotifications();
+      if (unsubscribeNotifications) unsubscribeNotifications();
       unsubscribeEventUpdates();
     };
-  }, [userId]);
+  }, [userId, calendarRealtimeService]);
+
+  // Fallback notification method for mobile PWA devices without permission
+  const showFallbackNotification = async (notification: any): Promise<void> => {
+    try {
+      // Vibrate if supported (Android) - doesn't require permission
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200]);
+        console.log('📳 Vibration triggered');
+      }
+      
+      // Try to play notification using Web Audio API beep (no file needed)
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) {
+          const audioContext = new AudioContext();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.frequency.value = 880;
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.5);
+          console.log('🔊 Notification beep played');
+        }
+      } catch (beepError) {
+        console.warn('⚠️ Audio beep failed:', beepError);
+      }
+    } catch (fallbackError) {
+      console.error('❌ Fallback notification failed:', fallbackError);
+    }
+  };
 
   const loadEvents = async () => {
     setLoading(true);
