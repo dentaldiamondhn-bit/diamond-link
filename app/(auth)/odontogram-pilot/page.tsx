@@ -1,0 +1,1827 @@
+'use client';
+
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { PatientService } from '@/services/patientService';
+import { OdontogramPilotService } from '@/services/odontogramPilotService';
+
+// Dental quadrant names (matching tooth surfaces)
+const CUADRANTES = ['mesial', 'distal', 'buccal', 'lingual'] as const;
+type Cuadrante = typeof CUADRANTES[number];
+
+interface HistorialCambio {
+  numero: number;
+  cuadrante: string; // 'mesial'|'distal'|'buccal'|'lingual'|'central'
+  estadoAnterior: string;
+  estadoNuevo: string;
+}
+
+const ESTADOS = [
+  { key: "apilado", label: "Apiñamiento", color: "#455A64" },
+  { key: "amalgama", label: "Restauración Amalgama", color: "#607D8B" },
+  { key: "ausente", label: "Ausente", color: "#9E9E9E" },
+  { key: "carilla", label: "Carilla", color: "#00BCD4" },
+  { key: "caries-restauracion", label: "Restauración con Caries", color: "#FFC107" },
+  { key: "cariado", label: "Cariado", color: "#FF5722" },
+  { key: "corona", label: "Corona", color: "#795548" },
+  { key: "endodoncia", label: "Endodoncia", color: "#5D4037" },
+  { key: "erupcion", label: "En Erupción", color: "#FF7043" },
+  { key: "extraccionind", label: "Extracción indicada", color: "#E91E63" },
+  { key: "fistula", label: "Fístula", color: "#7E57C2" },
+  { key: "fracturado", label: "Fracturado", color: "#FF9800" },
+  { key: "implante", label: "Implante", color: "#3F51B5" },
+  { key: "movilidad", label: "Movilidad", color: "#FDD835" },
+  { key: "obturado", label: "Obturado", color: "#2196F3" },
+  { key: "odontopatia", label: "Odontopatía", color: "#CDDC39" },
+  { key: "protesis", label: "Prótesis", color: "#8D6E63" },
+  { key: "raiz", label: "Raíz Residual", color: "#5E35B1" },
+  { key: "resina", label: "Restauración Resina", color: "#8BC34A" },
+  { key: "sano", label: "Sano", color: "#FFFFFF" },
+  { key: "sellante", label: "Sellante", color: "#26C6DA" },
+  { key: "temporal", label: "Restauración Temporal", color: "#9C27B0" },
+  { key: "txpulpar", label: "Trat. pulpar", color: "#1976D2" }
+];
+
+// Tooth positions in FDI notation for adults (permanent teeth)
+const ADULT_TEETH_QUADRANTS = {
+  upperRight: [18, 17, 16, 15, 14, 13, 12, 11], // UR: 8 to 1 (distal to midline)
+  upperLeft: [21, 22, 23, 24, 25, 26, 27, 28],  // UL: 1 to 8 (midline to distal)
+  lowerLeft: [31, 32, 33, 34, 35, 36, 37, 38],  // LL: 1 to 8 (midline to distal)
+  lowerRight: [48, 47, 46, 45, 44, 43, 42, 41]  // LR: 8 to 1 (distal to midline)
+};
+
+const CHILD_TEETH_QUADRANTS = {
+  upperRight: [55, 54, 53, 52, 51], // Primary UR
+  upperLeft: [61, 62, 63, 64, 65],   // Primary UL
+  lowerLeft: [71, 72, 73, 74, 75],   // Primary LL
+  lowerRight: [85, 84, 83, 82, 81]   // Primary LR
+};
+
+interface ToothData {
+  cuadrantes: Record<Cuadrante, string>;
+  central?: string;
+  nota?: string;
+}
+
+interface ToothProps {
+  numero: number;
+  cuadrantes: Record<Cuadrante, string>;
+  central?: string;
+  nota?: string;
+  estadoSeleccionado: string;
+  onCuadranteChange: (numero: number, cuadrante: Cuadrante, estado: string) => void;
+  onCentralChange: (numero: number, estado: string) => void;
+  onShowPopup: (numero: number, show: boolean) => void;
+}
+
+function CircularTooth({ numero, cuadrantes, central, nota, estadoSeleccionado, onCuadranteChange, onCentralChange, onShowPopup }: ToothProps) {
+  const hasNote = !!nota;
+  const radius = 18;
+
+  const handleQuadrantClick = (cuadrante: Cuadrante) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCuadranteChange(numero, cuadrante, estadoSeleccionado);
+  };
+
+  const handleCenterClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCentralChange(numero, estadoSeleccionado);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onShowPopup(numero, true);
+  };
+
+  // SVG arc path generator for a pie slice
+  const pieSlicePath = (startAngle: number, endAngle: number, r: number) => {
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+    const x1 = 0 + r * Math.cos(startRad);
+    const y1 = 0 + r * Math.sin(startRad);
+    const x2 = 0 + r * Math.cos(endRad);
+    const y2 = 0 + r * Math.sin(endRad);
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    return `M 0 0 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+  };
+
+  // Quadrant angles (starting from top, going clockwise)
+  const quadrantAngles: Record<Cuadrante, [number, number]> = {
+    mesial: [0, 90],      // Top-right
+    buccal: [90, 180],    // Bottom-right
+    lingual: [180, 270],  // Bottom-left
+    distal: [270, 360]    // Top-left
+  };
+
+   return (
+     <g
+       onDoubleClick={handleDoubleClick}
+       style={{ cursor: 'pointer' }}
+     >
+       <title>{`Diente ${numero}${nota ? ' - ' + nota : ''}`}</title>
+       {/* Clickable quadrants */}
+      {(Object.entries(quadrantAngles) as [Cuadrante, [number, number]][]).map(([cuadrante, [start, end]]) => {
+        const estado = cuadrantes[cuadrante];
+        const estadoActual = ESTADOS.find(e => e.key === estado);
+        const fillColor = estadoActual?.color || '#FFFFFF';
+        return (
+          <path
+            key={cuadrante}
+            d={pieSlicePath(start, end, radius)}
+            fill={fillColor}
+            stroke="black"
+            strokeWidth="0.8"
+            opacity="0.9"
+            onClick={handleQuadrantClick(cuadrante)}
+            style={{ cursor: 'pointer' }}
+          />
+        );
+      })}
+
+       {/* Center circle with tooth number - clickable */}
+       <circle
+         cx="0"
+         cy="0"
+         r="7.2"
+         fill={central ? (ESTADOS.find(e => e.key === central)?.color || '#FFFFFF') : '#FFFFFF'}
+         stroke="black"
+         strokeWidth="1.5"
+         onClick={handleCenterClick}
+         style={{ cursor: 'pointer' }}
+       />
+       <text
+         x="0"
+         y="0"
+         textAnchor="middle"
+         dominantBaseline="central"
+         fontSize="8"
+         fontWeight="bold"
+         fill={central && central !== 'sano' ? '#FFFFFF' : '#1F2937'}
+         style={{
+           pointerEvents: 'none',
+           userSelect: 'none'
+         }}
+       >
+         {numero}
+       </text>
+
+      {/* Note indicator */}
+      {hasNote && (
+        <circle
+          cx={radius - 2}
+          cy={-radius - 2}
+          r="4"
+          fill="#FF5252"
+          stroke="#FFFFFF"
+          strokeWidth="1"
+          style={{ pointerEvents: 'none' }}
+        />
+      )}
+    </g>
+  );
+}
+
+function OdontogramPilotPageContent() {
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pacienteId = searchParams.get('id');
+  const versionParam = searchParams.get('version');
+  const editParam = searchParams.get('edit');
+
+  const formatDateSpanish = (dateString: string): string => {
+    let date: Date;
+    
+    if (dateString.includes('T') && dateString.includes('Z')) {
+      date = new Date(dateString);
+    } else if (dateString.includes('T')) {
+      date = new Date(dateString + 'Z');
+    } else {
+      date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) return 'Fecha no disponible';
+    
+    const day = date.getUTCDate();
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const month = monthNames[date.getUTCMonth()];
+    const year = date.getUTCFullYear();
+    
+    return `${day} de ${month} ${year}`;
+  };
+
+  const [tipoOdontograma, setTipoOdontograma] = useState<'adulto' | 'nino'>('adulto');
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState('sano');
+  const [dientesData, setDientesData] = useState<Record<number, ToothData>>({});
+   const [historialCambios, setHistorialCambios] = useState<HistorialCambio[]>([]);
+  const [notasGenerales, setNotasGenerales] = useState('');
+  const [fechaOdontograma, setFechaOdontograma] = useState('');
+
+  const [patient, setPatient] = useState<any>(null);
+  const [currentOdontogram, setCurrentOdontogram] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [odontogramasGuardados, setOdontogramasGuardados] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [popupState, setPopupState] = useState<{ show: boolean; toothNumber: number; noteText: string }>({
+    show: false,
+    toothNumber: 0,
+    noteText: ''
+  });
+
+
+  const filteredEstados = ESTADOS.filter(estado =>
+    estado.label.toLowerCase().includes(searchTerm.toLowerCase())
+  ).sort((a, b) => {
+    const searchLower = searchTerm.toLowerCase();
+    const aLabel = a.label.toLowerCase();
+    const bLabel = b.label.toLowerCase();
+    
+    if (aLabel === searchLower && bLabel !== searchLower) return -1;
+    if (bLabel === searchLower && aLabel !== searchLower) return 1;
+    
+    if (aLabel.startsWith(searchLower) && !bLabel.startsWith(searchLower)) return -1;
+    if (bLabel.startsWith(searchLower) && !aLabel.startsWith(searchLower)) return 1;
+    
+    return aLabel.localeCompare(bLabel);
+  });
+
+  const handleEstadoSelect = (estadoKey: string) => {
+    setEstadoSeleccionado(estadoKey);
+    setSearchTerm(ESTADOS.find(e => e.key === estadoKey)?.label || '');
+    setShowDropdown(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showDropdown || filteredEstados.length === 0) return;
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev < filteredEstados.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev > 0 ? prev - 1 : filteredEstados.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0) {
+          handleEstadoSelect(filteredEstados[highlightedIndex].key);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowDropdown(false);
+        setHighlightedIndex(-1);
+        break;
+    }
+   };
+
+  // Helper: create default tooth data with all quadrants = 'sano'
+  const crearDienteCuadrantes = (): Record<Cuadrante, string> => ({
+    mesial: 'sano',
+    distal: 'sano',
+    buccal: 'sano',
+    lingual: 'sano'
+  });
+
+
+
+
+
+  useEffect(() => {
+    if (pacienteId) {
+      loadPatientAndOdontogramData();
+    } else {
+      setLoading(false);
+    }
+  }, [pacienteId, versionParam, editParam]);
+
+  const loadPatientAndOdontogramData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const patientData = await PatientService.getPatientById(pacienteId!);
+      if (!patientData) {
+        setError('Paciente no encontrado');
+        setLoading(false);
+        return;
+      }
+      setPatient(patientData);
+
+      const history = await OdontogramPilotService.getOdontogramHistory(pacienteId!);
+      setOdontogramasGuardados(history.map(h => ({
+        id: h.odontograma.id,
+        nombre: `Versión ${h.odontograma.version}${h.es_version_actual ? ' (Actual)' : ''}`,
+        fecha: (h.odontograma.datos_odontograma as any)?.fecha || h.odontograma.fecha_creacion,
+        version: h.odontograma.version,
+        esActual: h.es_version_actual
+      })));
+
+      if (versionParam && editParam === 'true') {
+        const odontogram = await OdontogramPilotService.getOdontogramByVersion(pacienteId!, parseInt(versionParam));
+        if (odontogram) {
+          setCurrentOdontogram(odontogram);
+          setSelectedVersion(parseInt(versionParam));
+          loadOdontogramData(odontogram);
+        }
+      } else if (!editParam) {
+        const odontogram = await OdontogramPilotService.getActiveOdontogram(pacienteId!);
+        if (odontogram) {
+          setCurrentOdontogram(odontogram);
+          setSelectedVersion(odontogram.version);
+          loadOdontogramData(odontogram);
+        }
+      } else {
+        initializeEmptyOdontogram();
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Error al cargar los datos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadOdontogramData = (odontogram: any) => {
+    const datos: Record<number, ToothData> = {};
+    let notasData: string = '';
+    
+    let odontogramData = odontogram.datos_odontograma;
+    
+    if (odontogramData && odontogramData.datos_odontograma) {
+      odontogramData = odontogramData.datos_odontograma;
+      if (odontogram.datos_odontograma.notas) {
+        notasData = odontogram.datos_odontograma.notas;
+      }
+    }
+    
+    if (odontogram.notas) {
+      notasData = odontogram.notas;
+    }
+    
+    if (odontogramData && odontogramData.tipo) {
+      setTipoOdontograma(odontogramData.tipo);
+    }
+    
+    if (odontogramData && odontogramData.fecha) {
+      const fechaDate = new Date(odontogramData.fecha);
+      setFechaOdontograma(fechaDate.toISOString().split('T')[0]);
+    } else if (odontogramData.fecha_creacion) {
+      const fechaDate = new Date(odontogramData.fecha_creacion);
+      setFechaOdontograma(fechaDate.toISOString().split('T')[0]);
+    }
+    
+    if (odontogramData && odontogramData.dientes) {
+      Object.entries(odontogramData.dientes).forEach(([numero, diente]: [string, any]) => {
+        const toothNum = parseInt(numero);
+        
+        // Check if new quadrant format (has cuadrantes) or legacy format (has estado)
+         if (diente.cuadrantes) {
+           // New quadrant format
+           datos[toothNum] = {
+             cuadrantes: diente.cuadrantes,
+             central: diente.central || 'sano',
+             nota: diente.nota
+           };
+          } else if (diente.estado !== undefined) {
+            // Legacy format: convert single estado to all cuadrantes
+            const estadoLegado = diente.estado || 'sano';
+            datos[toothNum] = {
+              cuadrantes: {
+                mesial: estadoLegado,
+                distal: estadoLegado,
+                buccal: estadoLegado,
+                lingual: estadoLegado
+              },
+              central: 'sano',
+              nota: diente.nota
+            };
+          } else {
+           // Default empty
+           datos[toothNum] = {
+             cuadrantes: crearDienteCuadrantes(),
+             central: 'sano'
+           };
+         }
+      });
+    }
+    
+    setDientesData(datos);
+    setNotasGenerales(notasData || '');
+  };
+
+  const initializeEmptyOdontogram = () => {
+    const datos: Record<number, ToothData> = {};
+    const defaultCuadrantes = crearDienteCuadrantes();
+    
+    if (tipoOdontograma === 'adulto') {
+      const upperTeeth = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
+      const lowerTeeth = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+      
+      [...upperTeeth, ...lowerTeeth].forEach(num => {
+        datos[num] = { cuadrantes: { ...defaultCuadrantes }, central: 'sano' };
+      });
+    } else {
+      const upperTeeth = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65];
+      const lowerTeeth = [85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+      
+      [...upperTeeth, ...lowerTeeth].forEach(num => {
+        datos[num] = { cuadrantes: { ...defaultCuadrantes }, central: 'sano' };
+      });
+    }
+    
+    setDientesData(datos);
+    setNotasGenerales('');
+  };
+
+  const handleCuadranteChange = (numero: number, cuadrante: Cuadrante, nuevoEstado: string) => {
+    const estadoAnterior = dientesData[numero]?.cuadrantes?.[cuadrante] || 'sano';
+    
+    setHistorialCambios(prev => [...prev, { numero, cuadrante: cuadrante as string, estadoAnterior, estadoNuevo: nuevoEstado }]);
+    
+    setDientesData(prev => ({
+      ...prev,
+      [numero]: {
+        ...prev[numero],
+        cuadrantes: {
+          ...prev[numero]?.cuadrantes || crearDienteCuadrantes(),
+          [cuadrante]: nuevoEstado
+        }
+      }
+    }));
+  };
+
+  const handleCentralChange = (numero: number, nuevoEstado: string) => {
+    const estadoAnterior = dientesData[numero]?.central || 'sano';
+    
+    setHistorialCambios(prev => [...prev, { 
+      numero, 
+      cuadrante: 'central', 
+      estadoAnterior, 
+      estadoNuevo: nuevoEstado
+    }]);
+    
+    setDientesData(prev => ({
+      ...prev,
+      [numero]: {
+        ...prev[numero],
+        central: nuevoEstado
+      }
+    }));
+  };
+
+  const handleNotaChange = (numero: number, nota: string) => {
+    setDientesData(prev => ({
+      ...prev,
+      [numero]: { ...prev[numero], nota: nota || undefined }
+    }));
+  };
+
+  const handleShowPopup = (numero: number, show: boolean) => {
+    if (show) {
+      setPopupState({
+        show: true,
+        toothNumber: numero,
+        noteText: dientesData[numero]?.nota || ''
+      });
+    } else {
+      setPopupState({
+        show: false,
+        toothNumber: 0,
+        noteText: ''
+      });
+    }
+  };
+
+  const saveNote = () => {
+    handleNotaChange(popupState.toothNumber, popupState.noteText);
+    setPopupState({
+      show: false,
+      toothNumber: 0,
+      noteText: ''
+    });
+  };
+
+  const deleteNote = () => {
+    handleNotaChange(popupState.toothNumber, '');
+    setPopupState({
+      show: false,
+      toothNumber: 0,
+      noteText: ''
+    });
+  };
+
+   const limpiarTodo = () => {
+     const defaultCuadrantes = crearDienteCuadrantes();
+     const datosLimpios: Record<number, ToothData> = {};
+     
+     Object.keys(dientesData).forEach(num => {
+       const numero = parseInt(num);
+       datosLimpios[numero] = { 
+         cuadrantes: { ...defaultCuadrantes },
+         central: 'sano'
+       };
+     });
+     
+     setDientesData(datosLimpios);
+     setNotasGenerales('');
+     setHistorialCambios([]);
+   };
+
+   const retrocederCambio = () => {
+     if (historialCambios.length === 0) return;
+     
+     const ultimoCambio = historialCambios[historialCambios.length - 1];
+     setDientesData(prev => {
+       const tooth = prev[ultimoCambio.numero] || { cuadrantes: crearDienteCuadrantes(), central: 'sano' };
+       
+       if (ultimoCambio.cuadrante === 'central') {
+         // Undo central change
+         return {
+           ...prev,
+           [ultimoCambio.numero]: {
+             ...tooth,
+             central: ultimoCambio.estadoAnterior
+           }
+         };
+       } else {
+         // Undo quadrant change
+         const cuadrante = ultimoCambio.cuadrante as Cuadrante;
+         return {
+           ...prev,
+           [ultimoCambio.numero]: {
+             ...tooth,
+             cuadrantes: {
+               ...tooth.cuadrantes,
+               [cuadrante]: ultimoCambio.estadoAnterior
+             }
+           }
+         };
+       }
+     });
+     
+     setHistorialCambios(prev => prev.slice(0, -1));
+   };
+
+   const buildOdontogramData = () => {
+     const dientes: Record<string, { cuadrantes: Record<Cuadrante, string>; central?: string; nota?: string }> = {};
+     const defaultCuudrantes = crearDienteCuadrantes();
+     
+     // Get all teeth numbers based on type
+     const allTeethNumbers: number[] = tipoOdontograma === 'adulto'
+       ? [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28, 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38]
+       : [55, 54, 53, 52, 51, 61, 62, 63, 64, 65, 85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+     
+     // Ensure all teeth exist with default cuadrantes
+     allTeethNumbers.forEach(num => {
+       if (!dientesData[num]) {
+         dientes[num.toString()] = { cuadrantes: { ...defaultCuudrantes }, central: 'sano' };
+       } else {
+         const tooth = dientesData[num];
+         dientes[num.toString()] = {
+           cuadrantes: { ...defaultCuudrantes, ...tooth.cuadrantes },
+           central: tooth.central || 'sano',
+           nota: tooth.nota
+         };
+       }
+     });
+     
+      return {
+        tipo: tipoOdontograma,
+        dientes,
+        fecha: fechaOdontograma
+      };
+    };
+
+   const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const odontogram = await OdontogramPilotService.getOdontogramById(odontogramId);
+    if (odontogram) {
+      setCurrentOdontogram(odontogram);
+      setSelectedVersion(version);
+      loadOdontogramData(odontogram);
+    }
+    } catch (err) {
+      console.error('Error loading odontogram version:', err);
+      setError('Error al cargar la versión del odontograma');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const guardarOdontogramaActual = async () => {
+    if (!pacienteId) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const odontogramData = buildOdontogramData();
+      
+      if (currentOdontogram) {
+        await OdontogramPilotService.updateOdontogram(currentOdontogram.id, odontogramData as any, notasGenerales);
+        
+        const updatedOdontogram = await OdontogramPilotService.getActiveOdontogram(pacienteId!);
+        if (updatedOdontogram) {
+          setCurrentOdontogram(updatedOdontogram);
+          loadOdontogramData(updatedOdontogram);
+        }
+        } else {
+          await OdontogramPilotService.createOdontogram(pacienteId, odontogramData as any, notasGenerales);
+          
+          const activeOdontogram = await OdontogramPilotService.getActiveOdontogram(pacienteId);
+          if (activeOdontogram) {
+            setCurrentOdontogram(activeOdontogram);
+            loadOdontogramData(activeOdontogram);
+            setSelectedVersion(activeOdontogram.version);
+          }
+        }
+
+    } catch (err) {
+      console.error('Error saving odontogram:', err);
+      setError('Error al guardar el odontograma');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const guardarNuevoOdontograma = async () => {
+    if (!pacienteId) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const odontogramData = buildOdontogramData();
+
+      await OdontogramPilotService.createNewVersion(pacienteId, odontogramData as any, notasGenerales);
+
+      const history = await OdontogramPilotService.getOdontogramHistory(pacienteId);
+      setOdontogramasGuardados(history.map(h => ({
+        id: h.odontograma.id,
+        nombre: `Versión ${h.odontograma.version}${h.es_version_actual ? ' (Actual)' : ''}`,
+        fecha: (h.odontograma.datos_odontograma as any)?.fecha || h.odontograma.fecha_creacion,
+        version: h.odontograma.version,
+        esActual: h.es_version_actual
+      })));
+
+      const activeOdontogram = await OdontogramPilotService.getActiveOdontogram(pacienteId);
+      if (activeOdontogram) {
+        setCurrentOdontogram(activeOdontogram);
+        loadOdontogramData(activeOdontogram);
+        setSelectedVersion(activeOdontogram.version);
+      }
+    } catch (err) {
+      console.error('Error creating new odontogram version:', err);
+      setError('Error al crear nueva versión del odontograma');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+   const getContadorEstados = () => {
+     const contador: Record<string, number> = {};
+     ESTADOS.forEach(estado => {
+       contador[estado.key] = 0;
+     });
+     
+     let allTeethNumbers: number[] = [];
+     if (tipoOdontograma === 'adulto') {
+       allTeethNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28, 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+     } else {
+       allTeethNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65, 85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+     }
+     
+     // Count each tooth exactly once, using central if set (non-sano), otherwise first non-sano quadrant
+     allTeethNumbers.forEach(numero => {
+       const tooth = dientesData[numero];
+       if (!tooth) {
+         contador['sano'] = (contador['sano'] || 0) + 1;
+         return;
+       }
+       
+       let toothState: string;
+       
+       // Priority: explicit central state (if non-sano), else first non-sano quadrant
+       if (tooth.central && tooth.central !== 'sano') {
+         toothState = tooth.central;
+       } else {
+         const quadrantValues = Object.values(tooth.cuadrantes || {});
+         const firstNonSano = quadrantValues.find(q => q !== 'sano');
+         toothState = firstNonSano || 'sano';
+       }
+       
+       contador[toothState] = (contador[toothState] || 0) + 1;
+     });
+     
+     return contador;
+   };
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-600 mb-4">
+          <i className="fas fa-exclamation-triangle text-4xl"></i>
+        </div>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <button
+          onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
+          className="px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+        >
+          Volver a Registros
+        </button>
+      </div>
+    );
+  }
+
+  if (!patient) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600 mb-4">Paciente no encontrado</p>
+        <button
+          onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
+          className="px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+        >
+          Volver a Registros
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+   }
+
+  return (
+    <>
+       <style jsx>{`
+         .odontogram-container {
+           display: flex;
+           flex-direction: column;
+           align-items: center;
+           gap: 15px;
+           padding: 0 20px 20px 20px;
+           margin-top: -10px;
+         }
+        
+        .odontogram-circle {
+          position: relative;
+          width: 300px;
+          height: 300px;
+          margin: 20px auto;
+        }
+        
+        .quadrant-label {
+          font-size: 12px;
+          font-weight: 600;
+          fill: #374151;
+          text-anchor: middle;
+          dominant-baseline: middle;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+          .quadrant-label {
+            fill: #e2e8f0;
+          }
+        }
+        
+         .center-circle {
+           font-size: 14px;
+           font-weight: bold;
+           fill: #1F2937;
+           text-anchor: middle;
+           dominant-baseline: central;
+         }
+         
+          @media (prefers-color-scheme: dark) {
+            .center-circle {
+              fill: #e2e8f0;
+            }
+          }
+          
+          .odontogram-arch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+          }
+          
+          @media (prefers-color-scheme: dark) {
+            .odontogram-arch {
+              background: rgba(30, 41, 59, 0.8);
+            }
+          }
+          
+          .teeth-row {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+          }
+          
+          .tooth-slot {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px;
+          }
+          
+          .tooth-slot svg {
+            display: block;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+          }
+          
+          .tooth-slot:hover svg {
+            transform: translateY(-2px);
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15));
+          }
+        `}</style>
+
+      <div className="odontogram-container">
+        {/* Patient Info */}
+        <div className="mx-auto max-w-5xl px-5 mt-0">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex flex-wrap gap-8 items-end">
+            <div className="form-group flex-1 min-w-[220px]">
+              <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Nombre completo:</label>
+              <input
+                type="text"
+                value={patient?.nombre_completo || ''}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
+              />
+            </div>
+            
+            <div className="form-group flex-1 min-w-[220px]">
+              <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Identidad:</label>
+              <input
+                type="text"
+                value={patient?.numero_identidad || ''}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
+              />
+            </div>
+            
+            <div className="form-group flex-1 min-w-[220px]">
+              <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Fecha del Odontograma:</label>
+              <input
+                type="date"
+                value={fechaOdontograma}
+                onChange={(e) => {
+                  if (!editParam || editParam !== 'true') {
+                    setFechaOdontograma(e.target.value);
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Main Odontogram - Grid Layout (pilot with circular teeth) */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-4xl">
+          <div className="odontogram-arch">
+            {/* Upper Row */}
+            <div className="teeth-row upper-row">
+              {(tipoOdontograma === 'adulto'
+                ? [...ADULT_TEETH_QUADRANTS.upperRight, ...ADULT_TEETH_QUADRANTS.upperLeft]
+                : [...CHILD_TEETH_QUADRANTS.upperRight, ...CHILD_TEETH_QUADRANTS.upperLeft]
+              ).map(toothNum => {
+                const toothData = dientesData[toothNum];
+                const cuadrantes = toothData?.cuadrantes || crearDienteCuadrantes();
+                const nota = toothData?.nota;
+                return (
+                  <div key={toothNum} className="tooth-slot">
+                    <svg width="40" height="40" viewBox="0 0 40 40" style={{ display: 'block' }}>
+                      <g transform="translate(20,20)">
+                         <CircularTooth
+                           numero={toothNum}
+                           cuadrantes={cuadrantes}
+                           central={toothData?.central}
+                           nota={nota}
+                           estadoSeleccionado={estadoSeleccionado}
+                           onCuadranteChange={handleCuadranteChange}
+                           onCentralChange={handleCentralChange}
+                           onShowPopup={handleShowPopup}
+                         />
+                      </g>
+                    </svg>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Lower Row */}
+            <div className="teeth-row lower-row">
+              {(tipoOdontograma === 'adulto'
+                ? [...ADULT_TEETH_QUADRANTS.lowerRight, ...ADULT_TEETH_QUADRANTS.lowerLeft]
+                : [...CHILD_TEETH_QUADRANTS.lowerRight, ...CHILD_TEETH_QUADRANTS.lowerLeft]
+              ).map(toothNum => {
+                const toothData = dientesData[toothNum];
+                const cuadrantes = toothData?.cuadrantes || crearDienteCuadrantes();
+                const nota = toothData?.nota;
+                return (
+                  <div key={toothNum} className="tooth-slot">
+                    <svg width="40" height="40" viewBox="0 0 40 40" style={{ display: 'block' }}>
+                      <g transform="translate(20,20)">
+                         <CircularTooth
+                           numero={toothNum}
+                           cuadrantes={cuadrantes}
+                           central={toothData?.central}
+                           nota={nota}
+                           estadoSeleccionado={estadoSeleccionado}
+                           onCuadranteChange={handleCuadranteChange}
+                           onCentralChange={handleCentralChange}
+                           onShowPopup={handleShowPopup}
+                         />
+                      </g>
+                    </svg>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Center info display */}
+          <div className="flex justify-center mt-4">
+            <div className="bg-gray-100 dark:bg-gray-700 rounded-full px-6 py-2 text-center">
+              <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                {Object.keys(dientesData).length}
+              </span>
+              <span className="text-sm text-gray-600 dark:text-gray-400 ml-1">Dientes</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Type Selection + State Counter + State Selector */}
+        <div className="flex justify-center" style={{ margin: '20px auto', maxWidth: '1200px' }}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6" style={{ marginRight: '20px' }}>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+              Tipo de odontograma
+            </label>
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setTipoOdontograma('adulto')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                  tipoOdontograma === 'adulto' 
+                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white' 
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Adulto
+              </button>
+              <button
+                onClick={() => setTipoOdontograma('nino')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                  tipoOdontograma === 'nino' 
+                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white' 
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Niño
+              </button>
+            </div>
+          </div>
+           
+          {/* State Counter */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+              Conteo por Estado
+            </h3>
+            <div className="contador-inner">
+              <table>
+                <tbody>
+                  {ESTADOS.filter(estado => getContadorEstados()[estado.key] > 0).map(estado => (
+                    <tr key={estado.key}>
+                      <td>
+                        <span className="small-box" style={{ background: estado.color }}></span>
+                        {estado.label}: {getContadorEstados()[estado.key]}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* State Selector */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6" style={{ marginLeft: '20px' }}>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+              Seleccionar Estado
+            </h3>
+            
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar estado..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setShowDropdown(true);
+                  setHighlightedIndex(-1);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                onKeyDown={handleKeyDown}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+              
+              {showDropdown && filteredEstados.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                   {filteredEstados.map((estado, index) => (
+                     <div
+                       key={estado.key}
+                       className={`px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between ${
+                         index === highlightedIndex ? 'bg-gray-100 dark:bg-gray-600' : ''
+                       }`}
+                       onClick={() => handleEstadoSelect(estado.key)}
+                       onMouseEnter={() => setHighlightedIndex(index)}
+                     >
+                      <span className="flex items-center">
+                        <span 
+                          className="w-4 h-4 rounded mr-2" 
+                          style={{ backgroundColor: estado.color }}
+                        ></span>
+                        {estado.label}
+                        {estado.label.toLowerCase() === searchTerm.toLowerCase() && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                            <i className="fas fa-check"></i>
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <select
+              value={estadoSeleccionado}
+              onChange={(e) => setEstadoSeleccionado(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            >
+              {ESTADOS.map(estado => (
+                <option key={estado.key} value={estado.key}>
+                  {estado.label}
+                </option>
+              ))}
+            </select>
+            
+            <div className="mt-4">
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Estado seleccionado:
+              </div>
+              <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <span 
+                  className="w-5 h-5 rounded border border-gray-300 dark:border-gray-500"
+                  style={{ backgroundColor: ESTADOS.find(e => e.key === estadoSeleccionado)?.color || '#FFFFFF' }}
+                ></span>
+                <span className="text-sm text-gray-900 dark:text-gray-100">
+                  {ESTADOS.find(e => e.key === estadoSeleccionado)?.label || 'Sano'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={limpiarTodo}
+                className="flex-1 px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200 text-sm"
+              >
+                Limpiar Todo
+              </button>
+              <button
+                onClick={retrocederCambio}
+                disabled={historialCambios.length === 0}
+                className="flex-1 px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Deshacer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Left Sidebar with controls */}
+        <div className="main-container" style={{ width: '100%', maxWidth: '1200px' }}>
+          <div className="left-sidebar" style={{ width: '300px' }}>
+            {/* History */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+                Historial de Odontogramas
+              </h3>
+              <div className="max-h-40 overflow-y-auto mb-2 bg-gray-50 dark:bg-gray-700 rounded-md p-2 text-sm">
+                {odontogramasGuardados.length === 0 ? (
+                  <p className="text-center text-gray-500 dark:text-gray-400 m-0">No hay odontogramas guardados</p>
+                ) : (
+                  odontogramasGuardados.map((odo, index) => (
+                    <div 
+                      key={index} 
+                      className={`mb-1 p-1 rounded cursor-pointer border ${
+                        selectedVersion === odo.version 
+                          ? 'bg-green-800 border-teal-500' 
+                          : 'bg-gray-600 dark:bg-gray-600 border-transparent hover:bg-gray-700'
+                      }`}
+                      onClick={() => cargarVersionOdontograma(odo.id, odo.version)}
+                    >
+                      <div className={`font-medium ${
+                        selectedVersion === odo.version ? 'text-teal-400' : 'text-gray-100'
+                      }`}>
+                        {odo.nombre}
+                      </div>
+                      <div className="text-xs text-gray-300">
+                        {formatDateSpanish(odo.fecha)}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <button
+                onClick={guardarOdontogramaActual}
+                disabled={saving}
+                className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full mb-2"
+              >
+                <i className="fas fa-save"></i> {saving ? 'Guardando...' : 'Actualizar Versión Actual'}
+              </button>
+              <button
+                onClick={guardarNuevoOdontograma}
+                disabled={saving}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full"
+              >
+                <i className="fas fa-copy"></i> Guardar como Nueva Versión
+              </button>
+            </div>
+            
+
+
+            {/* General Notes */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                Notas Generales
+              </h3>
+              <textarea
+                value={notasGenerales}
+                onChange={(e) => setNotasGenerales(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                placeholder="Escriba notas generales sobre el odontograma..."
+              />
+            </div>
+          </div>
+
+          {/* Main Content Area (right side) */}
+          <div className="main-content" style={{ flex: 1 }}>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 text-center">
+                Odontograma Circular - Pilot
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
+                Haga clic en un diente para cambiar su estado. Doble clic para agregar una nota.
+              </p>
+              
+              {/* Instructions */}
+              <div className="mt-6 p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg">
+                <h4 className="text-sm font-semibold text-teal-800 dark:text-teal-200 mb-2">
+                  Diseño de Cuadrantes Circulares
+                </h4>
+                <ul className="text-xs text-teal-700 dark:text-teal-300 space-y-1">
+                  <li>• Cada cuadrante representa una sección de la boca</li>
+                  <li>• Los dientes se distribuyen circularmente en cada cuadrante</li>
+                  <li>• Haga clic para seleccionar estado, doble clic para nota</li>
+                  <li>• El círculo central muestra el total de dientes</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Popup for notes */}
+        {popupState.show && (
+          <div className="tooth-popup" onClick={() => setPopupState({ ...popupState, show: false })}>
+            <div className="popup-content" onClick={(e) => e.stopPropagation()}>
+              <div className="popup-title">
+                Nota para diente {popupState.toothNumber}
+                <button
+                  onClick={() => setPopupState({ ...popupState, show: false })}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+              <textarea
+                value={popupState.noteText}
+                onChange={(e) => setPopupState({ ...popupState, noteText: e.target.value })}
+                className="popup-textarea"
+                placeholder="Escriba una nota para este diente..."
+                rows={4}
+                autoFocus
+              />
+              <div className="popup-buttons">
+                <button
+                  onClick={deleteNote}
+                  className="popup-delete"
+                >
+                  <i className="fas fa-trash"></i> Eliminar
+                </button>
+                <button
+                  onClick={() => setPopupState({ ...popupState, show: false })}
+                  className="popup-close"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveNote}
+                  className="popup-save"
+                >
+                  <i className="fas fa-save"></i> Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div style={{ textAlign: 'center', margin: '20px 0' }}>
+        <button
+          onClick={guardarNuevoOdontograma}
+          disabled={saving}
+          style={{ background: 'linear-gradient(135deg, #8fe392ff 0%, #3c9f41ff 100%)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: '0 5px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+          className="hover:shadow-lg"
+        >
+          <i className="fas fa-save"></i> {saving ? 'Guardando...' : 'Crear Nueva Versión'}
+        </button>
+        <button
+          onClick={retrocederCambio}
+          disabled={historialCambios.length === 0}
+          style={{ background: 'linear-gradient(135deg, #ce54e3ff 0%, #8E24AA 100%)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: '0 5px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+          className="hover:shadow-lg"
+        >
+          <i className="fas fa-step-backward"></i> Retroceder último cambio
+        </button>
+        <button
+          onClick={limpiarTodo}
+          style={{ background: 'linear-gradient(135deg, #d27069ff 0%, #E53935 100%)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: '0 5px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+          className="hover:shadow-lg"
+        >
+          <i className="fas fa-broom"></i> Limpiar todo
+        </button>
+        <button
+          onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
+          style={{ background: 'linear-gradient(135deg, #53a7ecff 0%, #0f6bc7ff 100%)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: '0 5px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+          className="hover:shadow-lg"
+        >
+          <i className="fas fa-arrow-left"></i> Volver
+        </button>
+      </div>
+
+      <style jsx>{`
+        .form-group {
+          flex: 1;
+          min-width: 220px;
+          margin-bottom: 5px;
+        }
+
+        .form-group label {
+          display: block;
+          margin-bottom: 5px;
+          color: #374151;
+          font-size: 0.9em;
+          font-weight: 500;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .form-group label {
+            color: #e2e8f0;
+          }
+        }
+
+        .dark .form-group label {
+          color: #e2e8f0;
+        }
+
+        .form-input {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          background: white;
+          color: #111827;
+          font-size: 0.95em;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .form-input {
+            border-color: #475569;
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+          }
+        }
+
+        .dark .form-input {
+          border-color: #475569;
+          background: rgba(15, 23, 42, 0.8);
+          color: #e2e8f0;
+        }
+
+        .form-input:focus {
+          outline: none;
+          border-color: #10b981;
+          box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .form-input:focus {
+            background: rgba(15, 23, 42, 0.9);
+          }
+        }
+
+        .dark .form-input:focus {
+          background: rgba(15, 23, 42, 0.9);
+        }
+
+        .form-input:disabled {
+          background: #f3f4f6;
+          color: #6b7280;
+          cursor: not-allowed;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .form-input:disabled {
+            background: rgba(30, 41, 59, 0.5);
+            color: #94a3b8;
+          }
+        }
+
+        .dark .form-input:disabled {
+          background: rgba(30, 41, 59, 0.5);
+          color: #94a3b8;
+        }
+
+        input[type="date"] {
+          padding: 8px 10px;
+          max-width: 180px;
+        }
+
+        .card {
+          background: white;
+          border-radius: 10px;
+          padding: 15px 20px;
+          margin-bottom: 20px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          border: 1px solid #e5e7eb;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .card {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255,255,255,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+          }
+        }
+
+        .dark .card {
+          background: rgba(30, 41, 59, 0.8);
+          border-color: rgba(255,255,255,0.1);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .btn {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+          background: #10b981;
+          color: white;
+        }
+
+        .btn-primary:hover {
+          background: #059669;
+        }
+
+        .btn-secondary {
+          background: #3b82f6;
+          color: white;
+        }
+
+        .btn-secondary:hover {
+          background: #2563eb;
+        }
+
+        .tooth-popup {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 99999;
+          backdrop-filter: blur(4px);
+          animation: fadeIn 0.2s ease-out;
+          padding: 20px;
+          box-sizing: border-box;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .popup-content {
+          background: white;
+          padding: 24px;
+          border-radius: 12px;
+          width: 90%;
+          max-width: 450px;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+          border: 1px solid #e5e7eb;
+          animation: slideUp 0.3s ease-out;
+          position: relative;
+        }
+
+        @keyframes slideUp {
+          from { 
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .popup-content {
+            background: rgba(30, 41, 59, 0.95);
+            border-color: rgba(255,255,255,0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+          }
+        }
+
+        .dark .popup-content {
+          background: rgba(30, 41, 59, 0.95);
+          border-color: rgba(255,255,255,0.1);
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .popup-title {
+          font-size: 1.3em;
+          font-weight: 600;
+          margin-bottom: 20px;
+          color: #1f2937;
+          border-bottom: 2px solid #e5e7eb;
+          padding-bottom: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .popup-title {
+            color: #f3f4f6;
+            border-color: #4b5563;
+          }
+        }
+
+        .dark .popup-title {
+          color: #f3f4f6;
+          border-color: #4b5563;
+        }
+
+        .popup-textarea {
+          width: 100%;
+          padding: 12px 16px;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          background: #f9fafb;
+          color: #1f2937;
+          font-family: 'Inter', 'Poppins', sans-serif;
+          font-size: 15px;
+          line-height: 1.5;
+          resize: vertical;
+          min-height: 120px;
+          transition: all 0.2s ease;
+        }
+
+        .popup-textarea:focus {
+          outline: none;
+          border-color: #10b981;
+          background: white;
+          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .popup-textarea {
+            border-color: #4b5563;
+            background: rgba(17, 24, 39, 0.8);
+            color: #f3f4f6;
+          }
+          .popup-textarea:focus {
+            background: rgba(17, 24, 39, 0.9);
+            border-color: #10b981;
+          }
+        }
+
+        .dark .popup-textarea {
+          border-color: #4b5563;
+          background: rgba(17, 24, 39, 0.8);
+          color: #f3f4f6;
+        }
+
+        .dark .popup-textarea:focus {
+          background: rgba(17, 24, 39, 0.9);
+          border-color: #10b981;
+        }
+
+        .popup-buttons {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .popup-save, .popup-close, .popup-delete {
+          padding: 10px 20px;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 500;
+          font-size: 14px;
+          transition: all 0.2s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .popup-save {
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white;
+          box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+        }
+
+        .popup-save:hover {
+          background: linear-gradient(135deg, #059669, #047857);
+          box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+          transform: translateY(-1px);
+        }
+
+        .popup-delete {
+          background: linear-gradient(135deg, #dc2626, #b91c1c);
+          color: white;
+          box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+        }
+
+        .popup-delete:hover {
+          background: linear-gradient(135deg, #b91c1c, #991b1b);
+          box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+          transform: translateY(-1px);
+        }
+
+        .popup-close {
+          background: #6b7280;
+          color: white;
+          box-shadow: 0 2px 4px rgba(107, 114, 128, 0.2);
+        }
+
+        .popup-close:hover {
+          background: #4b5563;
+          box-shadow: 0 4px 8px rgba(107, 114, 128, 0.3);
+          transform: translateY(-1px);
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .popup-close {
+            background: #4b5563;
+            color: #f3f4f6;
+          }
+          .popup-close:hover {
+            background: #374151;
+          }
+        }
+
+        .dark .popup-close {
+          background: #4b5563;
+          color: #f3f4f6;
+        }
+
+        .dark .popup-close:hover {
+          background: #374151;
+        }
+
+        .contador {
+          margin: 20px auto;
+          max-width: 800px;
+          text-align: center;
+        }
+
+        .contador-inner {
+          display: inline-flex;
+          flex-direction: column;
+          gap: 10px;
+          align-items: center;
+          background: white;
+          padding: 15px 25px;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          width: auto;
+          border: 1px solid #e5e7eb;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .contador-inner {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255,255,255,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          }
+        }
+
+        .dark .contador-inner {
+          background: rgba(30, 41, 59, 0.8);
+          border-color: rgba(255,255,255,0.1);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .contador table {
+          margin: 0 auto;
+          border-collapse: collapse;
+          width: auto;
+        }
+
+        .contador td {
+          padding: 8px 15px;
+          text-align: left;
+          border-bottom: 1px solid #d1d5db;
+          color: #374151;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .contador td {
+            border-color: #475569;
+            color: #e2e8f0;
+          }
+        }
+
+        .dark .contador td {
+          border-color: #475569;
+          color: #e2e8f0;
+        }
+
+        .contador tr:last-child td {
+          border-bottom: none;
+        }
+
+        .small-box {
+          display: inline-block;
+          width: 12px;
+          height: 12px;
+          margin-right: 5px;
+          vertical-align: middle;
+        }
+
+        .state-search {
+          width: 100%;
+          padding: 8px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          background: white;
+          color: #111827;
+          font-size: 0.9em;
+          margin-bottom: 10px;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .state-search {
+            border-color: #475569;
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+          }
+        }
+
+        .dark .state-search {
+          border-color: #475569;
+          background: rgba(15, 23, 42, 0.8);
+          color: #e2e8f0;
+        }
+
+        .state-search:focus {
+          outline: none;
+          border-color: #10b981;
+          box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .state-search:focus {
+            background: rgba(15, 23, 42, 0.9);
+          }
+        }
+
+        .dark .state-search:focus {
+          background: rgba(15, 23, 42, 0.9);
+        }
+
+        .state-search::placeholder {
+          color: #9ca3af;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .state-search::placeholder {
+            color: #94a3b8;
+          }
+        }
+
+        .dark .state-search::placeholder {
+          color: #94a3b8;
+        }
+
+        @media (max-width: 768px) {
+          .form-group {
+            min-width: 100%;
+          }
+        }
+
+        .main-container {
+          display: flex;
+          gap: 20px;
+          margin: 20px auto;
+          max-width: 1400px;
+          padding: 0 20px;
+        }
+
+        .left-sidebar {
+          width: 300px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .main-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .card {
+          background: white;
+          border-radius: 10px;
+          padding: 15px 20px;
+          margin-bottom: 20px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          border: 1px solid #e5e7eb;
+        }
+
+        .dark .card {
+          background: rgba(30, 41, 59, 0.8);
+          border-color: rgba(255,255,255,0.1);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+      `}</style>
+    </>
+  );
+}
+
+export default function OdontogramPilotPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    }>
+      <OdontogramPilotPageContent />
+    </Suspense>
+  );
+}
