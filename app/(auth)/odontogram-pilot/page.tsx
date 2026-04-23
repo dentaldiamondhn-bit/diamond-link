@@ -928,7 +928,9 @@ function OdontogramPilotPageContent() {
           
           @media (max-width: 1024px) {
             .teeth-row {
-              gap: 10px;
+              gap: 8px;
+              flex-wrap: wrap;
+              justify-content: center;
             }
           }
           
@@ -1929,6 +1931,13 @@ function OdontogramPilotPageContent() {
           
           .teeth-row {
             gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+          }
+          
+          .tooth-slot svg {
+            width: 50px !important;
+            height: 50px !important;
           }
         }
         
