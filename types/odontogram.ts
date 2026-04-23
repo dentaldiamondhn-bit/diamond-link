@@ -27,7 +27,7 @@ export interface OdontogramData {
 
 export interface DienteData {
   numero: string; // 11, 12, 13, etc.
-  estado: 'sano' | 'caries' | 'obturado' | 'extraccion' | 'ausente' | 'corona' | 'puente' | 'implante' | 'endodoncia' | 'fracturado' | 'sellante';
+  estado: 'sano' | 'caries' | 'obturado' | 'extraccion' | 'ausente' | 'corona' | 'puente' | 'implante' | 'endodoncia' | 'fracturado' | 'sellante' | 'fistula';
   caras: {
     oclusal?: CaraDiente;
     vestibular?: CaraDiente;
@@ -41,7 +41,7 @@ export interface DienteData {
 }
 
 export interface CaraDiente {
-  estado: 'sano' | 'caries' | 'obturado' | 'fracturado' | 'abrasion' | 'erosion' | 'hipoplasia' | 'mancha' | 'sellante';
+  estado: 'sano' | 'caries' | 'obturado' | 'fracturado' | 'abrasion' | 'erosion' | 'hipoplasia' | 'mancha' | 'sellante' | 'fistula';
   tratamiento?: string;
   observaciones?: string;
 }

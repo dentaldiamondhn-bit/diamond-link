@@ -19,6 +19,7 @@ const ESTADOS = [
   { key: "endodoncia", label: "Endodoncia", color: "#5D4037" },
   { key: "erupcion", label: "En Erupción", color: "#FF7043" },
   { key: "extraccionind", label: "Extracción indicada", color: "#E91E63" },
+  { key: "fistula", label: "Fístula", color: "#7E57C2" },
   { key: "fracturado", label: "Fracturado", color: "#FF9800" },
   { key: "implante", label: "Implante", color: "#3F51B5" },
   { key: "movilidad", label: "Movilidad", color: "#FDD835" },
@@ -1618,7 +1619,7 @@ function OdontogramPageContent() {
               {tipoOdontograma === 'adulto' ? (
                 <>
                   {/* Upper teeth - direct grid children */}
-                  {[18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28].map((numero, index) => (
+                  {[18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28].map((numero) => (
                     <Tooth
                       key={numero}
                       numero={numero}

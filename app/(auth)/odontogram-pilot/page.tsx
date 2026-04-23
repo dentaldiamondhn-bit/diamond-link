@@ -839,8 +839,8 @@ function OdontogramPilotPageContent() {
           
           .teeth-row {
             display: flex;
-            justify-content: center;
-            gap: 8px;
+            justify-content: space-between;
+            gap: 12px;
             flex-wrap: nowrap;
           }
           
@@ -903,7 +903,32 @@ function OdontogramPilotPageContent() {
         </div>
 
         {/* Main Odontogram - Grid Layout (pilot with circular teeth) */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-4xl">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full" style={{ maxWidth: '1600px' }}>
+          {/* Tipo de odontograma buttons */}
+          <div className="flex justify-center mb-4">
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setTipoOdontograma('adulto')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                  tipoOdontograma === 'adulto' 
+                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white' 
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Adulto
+              </button>
+              <button
+                onClick={() => setTipoOdontograma('nino')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                  tipoOdontograma === 'nino' 
+                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white' 
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Niño
+              </button>
+            </div>
+          </div>
           <div className="odontogram-arch">
             {/* Upper Row */}
             <div className="teeth-row upper-row">
@@ -916,7 +941,7 @@ function OdontogramPilotPageContent() {
                 const nota = toothData?.nota;
                 return (
                   <div key={toothNum} className="tooth-slot">
-                    <svg width="40" height="40" viewBox="0 0 40 40" style={{ display: 'block' }}>
+                    <svg width="60" height="60" viewBox="0 0 40 40" style={{ display: 'block' }}>
                       <g transform="translate(20,20)">
                          <CircularTooth
                            numero={toothNum}
@@ -946,7 +971,7 @@ function OdontogramPilotPageContent() {
                 const nota = toothData?.nota;
                 return (
                   <div key={toothNum} className="tooth-slot">
-                    <svg width="40" height="40" viewBox="0 0 40 40" style={{ display: 'block' }}>
+                    <svg width="60" height="60" viewBox="0 0 40 40" style={{ display: 'block' }}>
                       <g transform="translate(20,20)">
                          <CircularTooth
                            numero={toothNum}
@@ -966,46 +991,18 @@ function OdontogramPilotPageContent() {
             </div>
           </div>
           
-          {/* Center info display */}
+          {/* Notas Generales Section (where "Odontograma Circular - Pilot" was removed) */}
           <div className="flex justify-center mt-4">
             <div className="bg-gray-100 dark:bg-gray-700 rounded-full px-6 py-2 text-center">
               <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                {Object.keys(dientesData).length}
+                {notasGenerales || 'Sin notas'}
               </span>
-              <span className="text-sm text-gray-600 dark:text-gray-400 ml-1">Dientes</span>
             </div>
           </div>
         </div>
 
         {/* Type Selection + State Counter + State Selector */}
         <div className="flex justify-center" style={{ margin: '20px auto', maxWidth: '1200px' }}>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6" style={{ marginRight: '20px' }}>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-              Tipo de odontograma
-            </label>
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-              <button
-                onClick={() => setTipoOdontograma('adulto')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
-                  tipoOdontograma === 'adulto' 
-                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white' 
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Adulto
-              </button>
-              <button
-                onClick={() => setTipoOdontograma('nino')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
-                  tipoOdontograma === 'nino' 
-                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white' 
-                    : 'bg-gray-600 text-white hover:bg-gray-700'
-                }`}
-              >
-                Niño
-              </button>
-            </div>
-          </div>
            
           {/* State Counter */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
@@ -1122,98 +1119,76 @@ function OdontogramPilotPageContent() {
               </button>
             </div>
           </div>
+          
+          {/* Historial de Odontogramas - moved to right side of State Selector */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6" style={{ marginLeft: '20px', minWidth: '280px' }}>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+              Historial de Odontogramas
+            </h3>
+            <div className="max-h-40 overflow-y-auto mb-2 bg-gray-50 dark:bg-gray-700 rounded-md p-2 text-sm">
+              {odontogramasGuardados.length === 0 ? (
+                <p className="text-center text-gray-500 dark:text-gray-400 m-0">No hay odontogramas guardados</p>
+              ) : (
+                odontogramasGuardados.map((odo, index) => (
+                  <div 
+                    key={index} 
+                    className={`mb-1 p-1 rounded cursor-pointer border ${
+                      selectedVersion === odo.version 
+                        ? 'bg-green-800 border-teal-500' 
+                        : 'bg-gray-600 dark:bg-gray-600 border-transparent hover:bg-gray-700'
+                    }`}
+                    onClick={() => cargarVersionOdontograma(odo.id, odo.version)}
+                  >
+                    <div className={`font-medium ${
+                      selectedVersion === odo.version ? 'text-teal-400' : 'text-gray-100'
+                    }`}>
+                      {odo.nombre}
+                    </div>
+                    <div className="text-xs text-gray-300">
+                      {formatDateSpanish(odo.fecha)}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <button
+              onClick={guardarOdontogramaActual}
+              disabled={saving}
+              className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full mb-2"
+            >
+              <i className="fas fa-save"></i> {saving ? 'Guardando...' : 'Actualizar Versión Actual'}
+            </button>
+            <button
+              onClick={guardarNuevoOdontograma}
+              disabled={saving}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full"
+            >
+              <i className="fas fa-copy"></i> Guardar como Nueva Versión
+            </button>
+          </div>
+        </div>
+
+        {/* General Notes - Same size and position as teeth layout */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full" style={{ maxWidth: '1600px', margin: '20px auto' }}>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+            Notas Generales
+          </h3>
+          <textarea
+            value={notasGenerales}
+            onChange={(e) => setNotasGenerales(e.target.value)}
+            rows={4}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+            placeholder="Escriba notas generales sobre el odontograma..."
+          />
         </div>
 
         {/* Left Sidebar with controls */}
         <div className="main-container" style={{ width: '100%', maxWidth: '1200px' }}>
           <div className="left-sidebar" style={{ width: '300px' }}>
-            {/* History */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
-                Historial de Odontogramas
-              </h3>
-              <div className="max-h-40 overflow-y-auto mb-2 bg-gray-50 dark:bg-gray-700 rounded-md p-2 text-sm">
-                {odontogramasGuardados.length === 0 ? (
-                  <p className="text-center text-gray-500 dark:text-gray-400 m-0">No hay odontogramas guardados</p>
-                ) : (
-                  odontogramasGuardados.map((odo, index) => (
-                    <div 
-                      key={index} 
-                      className={`mb-1 p-1 rounded cursor-pointer border ${
-                        selectedVersion === odo.version 
-                          ? 'bg-green-800 border-teal-500' 
-                          : 'bg-gray-600 dark:bg-gray-600 border-transparent hover:bg-gray-700'
-                      }`}
-                      onClick={() => cargarVersionOdontograma(odo.id, odo.version)}
-                    >
-                      <div className={`font-medium ${
-                        selectedVersion === odo.version ? 'text-teal-400' : 'text-gray-100'
-                      }`}>
-                        {odo.nombre}
-                      </div>
-                      <div className="text-xs text-gray-300">
-                        {formatDateSpanish(odo.fecha)}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              <button
-                onClick={guardarOdontogramaActual}
-                disabled={saving}
-                className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full mb-2"
-              >
-                <i className="fas fa-save"></i> {saving ? 'Guardando...' : 'Actualizar Versión Actual'}
-              </button>
-              <button
-                onClick={guardarNuevoOdontograma}
-                disabled={saving}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full"
-              >
-                <i className="fas fa-copy"></i> Guardar como Nueva Versión
-              </button>
-            </div>
-            
-
-
-            {/* General Notes */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-                Notas Generales
-              </h3>
-              <textarea
-                value={notasGenerales}
-                onChange={(e) => setNotasGenerales(e.target.value)}
-                rows={4}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
-                placeholder="Escriba notas generales sobre el odontograma..."
-              />
-            </div>
           </div>
 
           {/* Main Content Area (right side) */}
           <div className="main-content" style={{ flex: 1 }}>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 text-center">
-                Odontograma Circular - Pilot
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
-                Haga clic en un diente para cambiar su estado. Doble clic para agregar una nota.
-              </p>
-              
-              {/* Instructions */}
-              <div className="mt-6 p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg">
-                <h4 className="text-sm font-semibold text-teal-800 dark:text-teal-200 mb-2">
-                  Diseño de Cuadrantes Circulares
-                </h4>
-                <ul className="text-xs text-teal-700 dark:text-teal-300 space-y-1">
-                  <li>• Cada cuadrante representa una sección de la boca</li>
-                  <li>• Los dientes se distribuyen circularmente en cada cuadrante</li>
-                  <li>• Haga clic para seleccionar estado, doble clic para nota</li>
-                  <li>• El círculo central muestra el total de dientes</li>
-                </ul>
-              </div>
-            </div>
           </div>
         </div>
 

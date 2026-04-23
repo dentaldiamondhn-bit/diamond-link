@@ -729,7 +729,7 @@ function MenuNavegacionContent() {
           <span>Actualice la información personal, contacto y antecedentes médicos del paciente.</span>
           {patient?.edad_al_momento_consulta && (
             <div className="mt-2 text-green-600 font-medium">
-              Edad al momento: {patient.edad_al_momento_consulta} años 
+              Edad al momento: {patient.edad_al_momento_consulta} años
               {patient.fecha_inicio && (
                 <span className="text-green-500 text-sm ml-1">
                   ({SimpleTimezoneFix.formatDateForConsultationAge(patient.fecha_inicio)})
@@ -747,6 +747,22 @@ function MenuNavegacionContent() {
       title: 'Odontograma',
       description: getOdontogramDescription(),
       href: `/odontogram?id=${validPacienteId}`
+    },
+    {
+      id: 'odontograma-pilot',
+      icon: 'fas fa-tooth',
+      title: 'Odontograma Pilot (Nuevo)',
+      description: (
+        <div>
+          <span className="text-teal-600 dark:text-teal-400 font-medium">
+            Versión experimental con diseño de cuadrantes circulares
+          </span>
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Diseño de 4 secciones circulares con centro unificado
+          </div>
+        </div>
+      ),
+      href: `/odontogram-pilot?id=${validPacienteId}`
     },
     {
       id: 'historia-clinica-ortodoncia',
@@ -982,9 +998,10 @@ function MenuNavegacionContent() {
                     className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl font-medium text-sm transform hover:scale-105"
                   >
                     <i className="fas fa-arrow-right mr-2"></i>
-                    {item.id === 'editar-datos-btn' ? 'Editar Datos' : 
+                    {item.id === 'editar-datos-btn' ? 'Editar Datos' :
                      item.id === 'registros-paciente' ? 'Ver Registros' :
                      item.id === 'odontograma' ? 'Ir al Odontograma' :
+                     item.id === 'odontograma-pilot' ? 'Ir al Pilot' :
                      item.id === 'estudios-ortodonticos' ? 'Ir a Estudios Ortodónticos' :
                      item.id === 'estudios-periodontales' ? 'Ir a Estudios Periodontales' :
                      item.id === 'consentimientos' ? 'Consentimientos' :
