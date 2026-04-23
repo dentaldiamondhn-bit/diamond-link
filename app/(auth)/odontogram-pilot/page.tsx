@@ -9,6 +9,17 @@ import { OdontogramPilotService } from '@/services/odontogramPilotService';
 const CUADRANTES = ['mesial', 'distal', 'buccal', 'lingual'] as const;
 type Cuadrante = typeof CUADRANTES[number];
 
+// Statuses that apply to all tooth sections at once
+const ALL_SECTION_STATUSES = [
+  'ausente',
+  'corona', 
+  'extraccionind',
+  'erupcion',
+  'implante',
+  'protesis',
+  'raiz'
+] as const;
+
 interface HistorialCambio {
   numero: number;
   cuadrante: string; // 'mesial'|'distal'|'buccal'|'lingual'|'central'
@@ -17,12 +28,12 @@ interface HistorialCambio {
 }
 
 const ESTADOS = [
-  { key: "apilado", label: "Apiñamiento", color: "#455A64" },
   { key: "amalgama", label: "Restauración Amalgama", color: "#607D8B" },
+  { key: "apilado", label: "Apiñamiento", color: "#455A64" },
   { key: "ausente", label: "Ausente", color: "#9E9E9E" },
   { key: "carilla", label: "Carilla", color: "#00BCD4" },
-  { key: "caries-restauracion", label: "Restauración con Caries", color: "#FFC107" },
   { key: "cariado", label: "Cariado", color: "#FF5722" },
+  { key: "caries-restauracion", label: "Restauración con Caries", color: "#FFC107" },
   { key: "corona", label: "Corona", color: "#795548" },
   { key: "endodoncia", label: "Endodoncia", color: "#5D4037" },
   { key: "erupcion", label: "En Erupción", color: "#FF7043" },
@@ -71,21 +82,36 @@ interface ToothProps {
   estadoSeleccionado: string;
   onCuadranteChange: (numero: number, cuadrante: Cuadrante, estado: string) => void;
   onCentralChange: (numero: number, estado: string) => void;
+  onAllSectionsChange: (numero: number, estado: string) => void;
   onShowPopup: (numero: number, show: boolean) => void;
 }
 
-function CircularTooth({ numero, cuadrantes, central, nota, estadoSeleccionado, onCuadranteChange, onCentralChange, onShowPopup }: ToothProps) {
+function CircularTooth({ numero, cuadrantes, central, nota, estadoSeleccionado, onCuadranteChange, onCentralChange, onAllSectionsChange, onShowPopup }: ToothProps) {
   const hasNote = !!nota;
   const radius = 18;
 
   const handleQuadrantClick = (cuadrante: Cuadrante) => (e: React.MouseEvent) => {
     e.stopPropagation();
-    onCuadranteChange(numero, cuadrante, estadoSeleccionado);
+    // Check if this status should apply to all sections
+    if (ALL_SECTION_STATUSES.includes(estadoSeleccionado as any)) {
+      // Apply to all sections
+      onAllSectionsChange(numero, estadoSeleccionado);
+    } else {
+      // Apply only to this quadrant
+      onCuadranteChange(numero, cuadrante, estadoSeleccionado);
+    }
   };
 
   const handleCenterClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onCentralChange(numero, estadoSeleccionado);
+    // Check if this status should apply to all sections
+    if (ALL_SECTION_STATUSES.includes(estadoSeleccionado as any)) {
+      // Apply to all sections
+      onAllSectionsChange(numero, estadoSeleccionado);
+    } else {
+      // Apply only to center
+      onCentralChange(numero, estadoSeleccionado);
+    }
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -472,13 +498,52 @@ function OdontogramPilotPageContent() {
       numero, 
       cuadrante: 'central', 
       estadoAnterior, 
-      estadoNuevo: nuevoEstado
+      estadoNuevo: nuevoEstado 
     }]);
     
     setDientesData(prev => ({
       ...prev,
       [numero]: {
         ...prev[numero],
+        central: nuevoEstado
+      }
+    }));
+  };
+
+  const handleAllSectionsChange = (numero: number, nuevoEstado: string) => {
+    const toothData = dientesData[numero] || { cuadrantes: crearDienteCuadrantes() };
+    
+    // Record changes for all sections
+    const cambios = [];
+    
+    // Record changes for all quadrants
+    CUADRANTES.forEach(cuadrante => {
+      const estadoAnterior = toothData.cuadrantes[cuadrante] || 'sano';
+      if (estadoAnterior !== nuevoEstado) {
+        cambios.push({ numero, cuadrante: cuadrante as string, estadoAnterior, estadoNuevo: nuevoEstado });
+      }
+    });
+    
+    // Record change for center
+    const estadoAnteriorCentral = toothData.central || 'sano';
+    if (estadoAnteriorCentral !== nuevoEstado) {
+      cambios.push({ numero, cuadrante: 'central', estadoAnterior: estadoAnteriorCentral, estadoNuevo: nuevoEstado });
+    }
+    
+    // Add all changes to history
+    if (cambios.length > 0) {
+      setHistorialCambios(prev => [...prev, ...cambios]);
+    }
+    
+    // Update all sections at once
+    setDientesData(prev => ({
+      ...prev,
+      [numero]: {
+        ...prev[numero],
+        cuadrantes: {
+          ...toothData.cuadrantes,
+          ...Object.fromEntries(CUADRANTES.map(c => [c, nuevoEstado]))
+        },
         central: nuevoEstado
       }
     }));
@@ -951,6 +1016,7 @@ function OdontogramPilotPageContent() {
                            estadoSeleccionado={estadoSeleccionado}
                            onCuadranteChange={handleCuadranteChange}
                            onCentralChange={handleCentralChange}
+                           onAllSectionsChange={handleAllSectionsChange}
                            onShowPopup={handleShowPopup}
                          />
                       </g>
@@ -981,6 +1047,7 @@ function OdontogramPilotPageContent() {
                            estadoSeleccionado={estadoSeleccionado}
                            onCuadranteChange={handleCuadranteChange}
                            onCentralChange={handleCentralChange}
+                           onAllSectionsChange={handleAllSectionsChange}
                            onShowPopup={handleShowPopup}
                          />
                       </g>
