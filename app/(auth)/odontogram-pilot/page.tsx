@@ -194,8 +194,8 @@ function CircularTooth({ numero, cuadrantes, central, nota, estadoSeleccionado, 
       {/* Note indicator */}
       {hasNote && (
         <circle
-          cx={radius - 2}
-          cy={-radius - 2}
+          cx={radius - 4}
+          cy={-radius + 4}
           r="4"
           fill="#FF5252"
           stroke="#FFFFFF"
