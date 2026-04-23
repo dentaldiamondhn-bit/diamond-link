@@ -889,11 +889,28 @@ function OdontogramPilotPageContent() {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
             padding: 20px;
             background: white;
             border-radius: 12px;
             width: 100%;
+          }
+          
+          @media (max-width: 1024px) {
+            .odontogram-arch {
+              padding: 15px;
+            }
+          }
+          
+          @media (max-width: 768px) {
+            .odontogram-arch {
+              padding: 10px;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            .odontogram-arch {
+              padding: 8px;
+            }
           }
           
           @media (prefers-color-scheme: dark) {
@@ -907,6 +924,26 @@ function OdontogramPilotPageContent() {
             justify-content: space-between;
             gap: 12px;
             flex-wrap: nowrap;
+          }
+          
+          @media (max-width: 1024px) {
+            .teeth-row {
+              gap: 10px;
+            }
+          }
+          
+          @media (max-width: 768px) {
+            .teeth-row {
+              gap: 6px;
+              flex-wrap: wrap;
+              justify-content: center;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            .teeth-row {
+              gap: 4px;
+            }
           }
           
           .tooth-slot {
@@ -968,7 +1005,7 @@ function OdontogramPilotPageContent() {
         </div>
 
         {/* Main Odontogram - Grid Layout (pilot with circular teeth) */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full" style={{ maxWidth: '1600px' }}>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full odontogram-main-container" style={{ maxWidth: '1600px' }}>
           {/* Tipo de odontograma buttons */}
           <div className="flex justify-center mb-4">
             <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
@@ -1236,7 +1273,7 @@ function OdontogramPilotPageContent() {
         </div>
 
         {/* General Notes - Same size and position as teeth layout */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full" style={{ maxWidth: '1600px', margin: '20px auto' }}>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full notas-generales-container" style={{ maxWidth: '1600px', margin: '20px auto' }}>
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
             Notas Generales
           </h3>
@@ -1808,10 +1845,137 @@ function OdontogramPilotPageContent() {
         .dark .state-search::placeholder {
           color: #94a3b8;
         }
+        
+        /* Responsive odontogram containers */
+        .odontogram-main-container {
+          margin: 20px auto;
+        }
+        
+        .notas-generales-container {
+          margin: 20px auto;
+        }
+        
+        @media (max-width: 1024px) {
+          .odontogram-main-container,
+          .notas-generales-container {
+            margin: 15px auto;
+            max-width: 100%;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .odontogram-main-container,
+          .notas-generales-container {
+            margin: 10px auto;
+            padding: 12px !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .odontogram-main-container,
+          .notas-generales-container {
+            margin: 8px auto;
+            padding: 8px !important;
+          }
+        }
+        
+        /* Touch-friendly buttons for mobile */
+        @media (max-width: 768px) {
+          .odontogram-main-container button {
+            min-height: 44px;
+            font-size: 14px;
+            padding: 8px 12px;
+          }
+          
+          .notas-generales-container textarea {
+            min-height: 80px;
+            font-size: 14px;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .odontogram-main-container button {
+            min-height: 40px;
+            font-size: 13px;
+            padding: 6px 10px;
+          }
+          
+          .notas-generales-container textarea {
+            min-height: 70px;
+            font-size: 13px;
+          }
+        }
 
+        /* Tablet styles */
+        @media (max-width: 1024px) {
+          .main-container {
+            flex-direction: column;
+            max-width: 100%;
+            padding: 0 15px;
+          }
+          
+          .left-sidebar {
+            width: 100%;
+            order: 2;
+          }
+          
+          .main-content {
+            order: 1;
+          }
+          
+          .odontogram-arch {
+            padding: 15px;
+          }
+          
+          .teeth-row {
+            gap: 8px;
+          }
+        }
+        
+        /* Mobile styles */
         @media (max-width: 768px) {
           .form-group {
             min-width: 100%;
+          }
+          
+          .main-container {
+            padding: 0 10px;
+            gap: 15px;
+          }
+          
+          .teeth-row {
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+          }
+          
+          .tooth-slot svg {
+            width: 45px !important;
+            height: 45px !important;
+          }
+          
+          .odontogram-arch {
+            padding: 10px;
+          }
+        }
+        
+        /* Small mobile styles */
+        @media (max-width: 480px) {
+          .teeth-row {
+            gap: 4px;
+          }
+          
+          .tooth-slot svg {
+            width: 40px !important;
+            height: 40px !important;
+          }
+          
+          .odontogram-arch {
+            padding: 8px;
+          }
+          
+          .main-container {
+            padding: 0 8px;
           }
         }
 
@@ -1822,12 +1986,46 @@ function OdontogramPilotPageContent() {
           max-width: 1400px;
           padding: 0 20px;
         }
+        
+        @media (max-width: 1024px) {
+          .main-container {
+            max-width: 100%;
+            padding: 0 15px;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .main-container {
+            padding: 0 10px;
+            gap: 15px;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .main-container {
+            padding: 0 8px;
+            gap: 10px;
+          }
+        }
 
         .left-sidebar {
           width: 300px;
           display: flex;
           flex-direction: column;
           gap: 20px;
+        }
+        
+        @media (max-width: 1024px) {
+          .left-sidebar {
+            width: 100%;
+            gap: 15px;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .left-sidebar {
+            gap: 12px;
+          }
         }
 
         .main-content {
