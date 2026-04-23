@@ -234,20 +234,112 @@ export class OdontogramMigrationService {
   /**
    * Get count of odontograms available for migration
    */
-  static async getMigrationStats(): Promise<{ totalOdontograms: number; uniquePatients: number }> {
+  static async getMigrationStats(): Promise<{ 
+    totalOdontograms: number; 
+    uniquePatients: number;
+    totalMigrated: number;
+    missingMigration: number;
+    failedMigration: number;
+  }> {
     const { data: odontograms } = await supabase
       .from('odontograms')
       .select('paciente_id');
 
     if (!odontograms) {
-      return { totalOdontograms: 0, uniquePatients: 0 };
+      return { 
+        totalOdontograms: 0, 
+        uniquePatients: 0,
+        totalMigrated: 0,
+        missingMigration: 0,
+        failedMigration: 0
+      };
     }
 
     const uniquePatients = new Set(odontograms.map(o => o.paciente_id)).size;
+    
+    // Get pilot odontograms to calculate migration status
+    const { data: pilotOdontograms } = await supabase
+      .from('odontogram_pilots')
+      .select('paciente_id');
+      
+    const migratedPatients = new Set(pilotOdontograms?.map(o => o.paciente_id) || []);
+    const totalMigrated = migratedPatients.size;
+    const missingMigration = uniquePatients - totalMigrated;
+    
+    // For now, we'll track failed migrations through a separate mechanism
+    // This could be enhanced by adding a migration_status field
+    const failedMigration = 0;
 
     return {
       totalOdontograms: odontograms.length,
-      uniquePatients
+      uniquePatients,
+      totalMigrated,
+      missingMigration,
+      failedMigration
+    };
+  }
+
+  /**
+   * Compare tables to identify missing migrations and potential issues
+   */
+  static async compareTables(): Promise<{
+    missingPatients: string[];
+    sampleOriginalData: any[];
+    samplePilotData: any[];
+    issues: string[];
+  }> {
+    // Get all patients from odontograms
+    const { data: odontograms } = await supabase
+      .from('odontograms')
+      .select('paciente_id, datos_odontograma, fecha_creacion, notas')
+      .limit(5);
+
+    // Get all patients from odontogram_pilots
+    const { data: pilotOdontograms } = await supabase
+      .from('odontogram_pilots')
+      .select('paciente_id, datos_odontograma, fecha_creacion, notas')
+      .limit(5);
+
+    // Get all unique patient IDs from both tables
+    const { data: allOriginalPatients } = await supabase
+      .from('odontograms')
+      .select('paciente_id');
+
+    const { data: allPilotPatients } = await supabase
+      .from('odontogram_pilots')
+      .select('paciente_id');
+
+    const originalPatientIds = new Set(allOriginalPatients?.map(o => o.paciente_id) || []);
+    const pilotPatientIds = new Set(allPilotPatients?.map(o => o.paciente_id) || []);
+
+    // Find missing patients
+    const missingPatients = [...originalPatientIds].filter(id => !pilotPatientIds.has(id));
+
+    const issues: string[] = [];
+
+    // Check for data structure differences
+    if (odontograms && odontograms.length > 0) {
+      const sampleOriginal = odontograms[0];
+      if (!sampleOriginal.datos_odontograma) {
+        issues.push('Original odontogram missing datos_odontograma');
+      }
+      if (!sampleOriginal.fecha_creacion) {
+        issues.push('Original odontogram missing fecha_creacion');
+      }
+    }
+
+    if (pilotOdontograms && pilotOdontograms.length > 0) {
+      const samplePilot = pilotOdontograms[0];
+      if (!samplePilot.datos_odontograma) {
+        issues.push('Pilot odontogram missing datos_odontograma');
+      }
+    }
+
+    return {
+      missingPatients: missingPatients.slice(0, 10), // Return first 10 for brevity
+      sampleOriginalData: odontograms || [],
+      samplePilotData: pilotOdontograms || [],
+      issues
     };
   }
 }

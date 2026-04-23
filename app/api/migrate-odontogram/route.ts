@@ -26,8 +26,13 @@ export async function POST(request: Request) {
         const batchResult = await OdontogramMigrationService.migrateBatchOdontograms(batchLimit);
         return NextResponse.json(batchResult);
 
+      case 'compare':
+        // Compare tables to identify missing migrations
+        const comparison = await OdontogramMigrationService.compareTables();
+        return NextResponse.json(comparison);
+
       default:
-        return NextResponse.json({ error: 'Invalid action. Use: stats, single, or batch' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid action. Use: stats, single, batch, or compare' }, { status: 400 });
     }
   } catch (error) {
     console.error('Migration API error:', error);

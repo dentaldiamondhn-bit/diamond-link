@@ -5,6 +5,16 @@ import { useState } from 'react';
 interface MigrationStats {
   totalOdontograms: number;
   uniquePatients: number;
+  totalMigrated: number;
+  missingMigration: number;
+  failedMigration: number;
+}
+
+interface ComparisonResult {
+  missingPatients: string[];
+  sampleOriginalData: any[];
+  samplePilotData: any[];
+  issues: string[];
 }
 
 interface MigrationResult {
@@ -27,6 +37,7 @@ export default function OdontogramMigrationPage() {
   const [batchLimit, setBatchLimit] = useState('10');
   const [results, setResults] = useState<BatchResult | null>(null);
   const [error, setError] = useState('');
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -91,6 +102,24 @@ export default function OdontogramMigrationPage() {
     }
   };
 
+  const compareTables = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/migrate-odontogram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'compare' })
+      });
+      const data = await response.json();
+      setComparison(data);
+    } catch (err) {
+      setError('Table comparison failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
@@ -110,9 +139,16 @@ export default function OdontogramMigrationPage() {
           >
             {loading ? 'Loading...' : 'Get Statistics'}
           </button>
+          <button
+            onClick={compareTables}
+            disabled={loading}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded disabled:opacity-50"
+          >
+            {loading ? 'Comparing...' : 'Compare Tables'}
+          </button>
         </div>
         {stats && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded">
               <div className="text-2xl font-bold text-gray-900 dark:text-white">
                 {stats.totalOdontograms}
@@ -127,6 +163,72 @@ export default function OdontogramMigrationPage() {
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 Unique Patients
+              </div>
+            </div>
+            <div className="bg-green-50 dark:bg-green-900 p-4 rounded">
+              <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+                {stats.totalMigrated}
+              </div>
+              <div className="text-sm text-green-700 dark:text-green-300">
+                Migrated
+              </div>
+            </div>
+            <div className="bg-orange-50 dark:bg-orange-900 p-4 rounded">
+              <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                {stats.missingMigration}
+              </div>
+              <div className="text-sm text-orange-700 dark:text-orange-300">
+                Missing Migration
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Comparison Results */}
+        {comparison && (
+          <div className="mt-6 bg-blue-50 dark:bg-blue-900 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+              Table Comparison Results
+            </h3>
+            
+            {comparison.issues.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-medium text-red-700 dark:text-red-300 mb-2">Issues Found:</h4>
+                <ul className="list-disc pl-5 text-sm text-gray-700 dark:text-gray-300">
+                  {comparison.issues.map((issue, index) => (
+                    <li key={index}>{issue}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {comparison.missingPatients.length > 0 && (
+              <div className="mb-4">
+                <h4 className="font-medium text-orange-700 dark:text-orange-300 mb-2">
+                  Missing Patients (showing first 10):
+                </h4>
+                <div className="max-h-40 overflow-y-auto">
+                  {comparison.missingPatients.map((patientId, index) => (
+                    <div key={index} className="text-sm text-gray-700 dark:text-gray-300 py-1">
+                      {patientId}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Sample Original Data:</h4>
+                <pre className="text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto">
+                  {JSON.stringify(comparison.sampleOriginalData, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Sample Pilot Data:</h4>
+                <pre className="text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto">
+                  {JSON.stringify(comparison.samplePilotData, null, 2)}
+                </pre>
               </div>
             </div>
           </div>
