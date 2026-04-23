@@ -1097,15 +1097,6 @@ function OdontogramPilotPageContent() {
               })}
             </div>
           </div>
-          
-          {/* Notas Generales Section (where "Odontograma Circular - Pilot" was removed) */}
-          <div className="flex justify-center mt-4">
-            <div className="bg-gray-100 dark:bg-gray-700 rounded-full px-6 py-2 text-center">
-              <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                {notasGenerales || 'Sin notas'}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Type Selection + State Counter + State Selector */}

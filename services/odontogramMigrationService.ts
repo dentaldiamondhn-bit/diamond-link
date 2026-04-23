@@ -56,8 +56,25 @@ export class OdontogramMigrationService {
       transformedDientes[numericToothNum] = transformedDiente;
     });
     
-    // Use the original odontogram's creation date
-    const fecha = originalFechaCreacion;
+    // Use the original odontogram's creation date, with fallback to informacion_general.fecha or current date
+    let fecha = originalFechaCreacion;
+    
+    // Validate the date and provide fallbacks
+    if (!fecha || fecha === 'Invalid Date') {
+      fecha = originalData.informacion_general?.fecha || new Date().toISOString();
+    }
+    
+    // Ensure the date is in a valid ISO format
+    try {
+      const dateObj = new Date(fecha);
+      if (isNaN(dateObj.getTime())) {
+        fecha = new Date().toISOString();
+      } else {
+        fecha = dateObj.toISOString();
+      }
+    } catch {
+      fecha = new Date().toISOString();
+    }
     
     return {
       tipo,
