@@ -928,9 +928,10 @@ function OdontogramPilotPageContent() {
           
           @media (max-width: 1024px) {
             .teeth-row {
-              gap: 8px;
+              gap: 6px;
               flex-wrap: wrap;
               justify-content: center;
+              max-width: 100%;
             }
           }
           
@@ -1927,17 +1928,25 @@ function OdontogramPilotPageContent() {
           
           .odontogram-arch {
             padding: 15px;
+            max-width: 100%;
+            overflow-x: hidden;
           }
           
           .teeth-row {
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
             justify-content: center;
+            max-width: 100%;
           }
           
           .tooth-slot svg {
-            width: 50px !important;
-            height: 50px !important;
+            width: 42px !important;
+            height: 42px !important;
+          }
+          
+          .odontogram-main-container {
+            max-width: 100% !important;
+            overflow-x: hidden;
           }
         }
         
