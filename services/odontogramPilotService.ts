@@ -14,9 +14,14 @@ export interface DientePilotData {
   nota?: string;
 }
 
+export interface DienteOlearyData {
+  cuadrantes: CuadranteDientes;
+  nota?: string;
+}
+
 export interface OdontogramPilotData {
-  tipo: 'adulto' | 'nino';
-  dientes: Record<number, DientePilotData>;
+  tipo: 'adulto' | 'nino' | 'oleary_adulto';
+  dientes: Record<number, DientePilotData | DienteOlearyData>;
   fecha: string;
 }
 
@@ -38,6 +43,31 @@ export interface OdontogramPilotHistory {
 }
 
 export class OdontogramPilotService {
+  // Helper function to create standard pilot tooth data (with center)
+  static crearDientePilotData(): DientePilotData {
+    return {
+      cuadrantes: {
+        mesial: 'sano',
+        distal: 'sano',
+        buccal: 'sano',
+        lingual: 'sano'
+      },
+      central: 'sano'
+    };
+  }
+
+  // Helper function to create O'Leary tooth data (no center)
+  static crearDienteOlearyData(): DienteOlearyData {
+    return {
+      cuadrantes: {
+        mesial: 'sano',
+        distal: 'sano',
+        buccal: 'sano',
+        lingual: 'sano'
+      }
+    };
+  }
+
   // Create a new pilot odontogram for a patient
   static async createOdontogram(
     pacienteId: string,
