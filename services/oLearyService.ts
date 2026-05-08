@@ -2,10 +2,10 @@ import { supabase } from '../lib/supabase';
 
 // O'Leary-specific types
 export interface CuadranteOleary {
-  mesial: 'sano' | 'placa';
-  distal: 'sano' | 'placa';
-  buccal: 'sano' | 'placa';
-  lingual: 'sano' | 'placa';
+  mesial: 'sano' | 'placa' | 'ausente';
+  distal: 'sano' | 'placa' | 'ausente';
+  buccal: 'sano' | 'placa' | 'ausente';
+  lingual: 'sano' | 'placa' | 'ausente';
 }
 
 export interface DienteOlearyData {
@@ -244,9 +244,12 @@ export class OlearyService {
 
       Object.values(teeth).forEach(diente => {
         Object.values(diente.cuadrantes).forEach(status => {
-          totalSurfaces++;
-          if (status === 'placa') {
-            plaqueSurfaces++;
+          // Exclude ausente teeth from plaque index calculations
+          if (status !== 'ausente') {
+            totalSurfaces++;
+            if (status === 'placa') {
+              plaqueSurfaces++;
+            }
           }
         });
       });
