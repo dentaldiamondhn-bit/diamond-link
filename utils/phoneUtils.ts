@@ -16,23 +16,45 @@ export const countries = [
 ];
 
 // Helper function to create WhatsApp URL
-export const createWhatsAppUrl = (phoneNumber: string, countryCode?: string | null) => {
+export const createWhatsAppUrl = (phoneNumber: string, messageOrCountryCode?: string | null, countryCode?: string | null) => {
   if (!phoneNumber) return '#';
-  
+
   // Clean phone number - remove spaces, dashes, parentheses
   let cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
-  
+
+  // Handle old combined format if it exists
+  if (cleanPhone.startsWith('+')) {
+    // Already has country code
+    cleanPhone = cleanPhone.substring(1);
+  }
+
   // If we have a separate country code, combine them
   if (countryCode) {
     cleanPhone = countryCode + cleanPhone;
-  } else {
-    // Handle old combined format if it exists
-    if (cleanPhone.startsWith('+')) {
-      // Already has country code
-      cleanPhone = cleanPhone.substring(1);
+  }
+
+  // Determine if the second argument is a message or country code
+  let message = '';
+  if (messageOrCountryCode) {
+    // Check if it looks like a country code (numeric)
+    if (/^\d+$/.test(messageOrCountryCode)) {
+      // It's a country code
+      if (!countryCode) {
+        cleanPhone = messageOrCountryCode + cleanPhone;
+      }
+    } else {
+      // It's a message
+      message = messageOrCountryCode;
     }
   }
-  
+
+  // Build URL with message if provided
+  if (message) {
+    // Use encodeURIComponent for proper URL encoding, but preserve emojis
+    const encodedMessage = encodeURIComponent(message);
+    return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMessage}`;
+  }
+
   return `https://wa.me/${cleanPhone}`;
 };
 
