@@ -812,6 +812,9 @@ export default function TratamientosPage() {
 
           const newPromotion = await response.json();
           setPromotions(prev => [...prev, newPromotion]);
+
+          // Reload promotions to ensure data consistency
+          await loadPromotions();
         }
 
         // Clear form data

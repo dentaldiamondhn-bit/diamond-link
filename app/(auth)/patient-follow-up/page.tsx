@@ -13,6 +13,7 @@ interface PatientFollowUp {
   dias_ultimo_tratamiento: number;
   tipo_seguimiento: 'limpieza' | 'ortodoncia' | 'otro';
   follow_up_status?: {
+    id: string;
     whatsapp_sent: boolean;
     patient_responded: boolean;
     appointment_scheduled: boolean;
