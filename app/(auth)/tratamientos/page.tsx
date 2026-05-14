@@ -793,9 +793,9 @@ export default function TratamientosPage() {
           }
 
           const updatedPromotion = await response.json();
-          setPromotions(prev => prev.map(p => 
-            p.id === selectedPromotion.id ? updatedPromotion : p
-          ));
+
+          // Reload promotions to ensure data consistency
+          await loadPromotions();
         } else {
           // Add new promotion
           const response = await fetch('/api/promociones', {
@@ -809,9 +809,6 @@ export default function TratamientosPage() {
           if (!response.ok) {
             throw new Error('Failed to create promotion');
           }
-
-          const newPromotion = await response.json();
-          setPromotions(prev => [...prev, newPromotion]);
 
           // Reload promotions to ensure data consistency
           await loadPromotions();
@@ -898,7 +895,8 @@ export default function TratamientosPage() {
           throw new Error('Failed to delete promotion');
         }
 
-        setPromotions(prev => prev.filter(p => p.id !== selectedPromotion.id));
+        // Reload promotions to ensure data consistency
+        await loadPromotions();
       } else if (activeTab === 'paquetes' && selectedPaquete) {
         const response = await fetch(`/api/paquetes?id=${selectedPaquete.id}`, {
           method: 'DELETE',
