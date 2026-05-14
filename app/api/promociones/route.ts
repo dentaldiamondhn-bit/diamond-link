@@ -12,16 +12,28 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       const promotions = await TreatmentService.searchPromotions(search);
-      return NextResponse.json(promotions);
+      return NextResponse.json(promotions, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
     } else {
       const promotions = await TreatmentService.getPromotions();
-      return NextResponse.json(promotions);
+      return NextResponse.json(promotions, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
     }
   } catch (error) {
     console.error('Error in GET /api/promociones:', error);
     // Return proper JSON error response instead of HTML
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch promotions',
         message: error instanceof Error ? error.message : 'Unknown error',
         details: error

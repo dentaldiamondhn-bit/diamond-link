@@ -148,12 +148,19 @@ export default function TratamientosPage() {
 
   const loadPromotions = async () => {
     try {
-      const response = await fetch('/api/promociones');
+      // Add cache-busting timestamp to force fresh data
+      const response = await fetch(`/api/promociones?t=${Date.now()}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      setPromotions(data);
+
+      // Deduplicate by ID to prevent duplicates in state
+      const uniquePromotions = data.filter((promotion: any, index: number, self: any[]) =>
+        index === self.findIndex((p: any) => p.id === promotion.id)
+      );
+
+      setPromotions(uniquePromotions);
     } catch (error) {
       console.error('Error loading promotions:', error);
       // Set empty array if API fails
