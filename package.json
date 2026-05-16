@@ -47,6 +47,7 @@
     "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.69.0",
     "react-icons": "^5.5.0",
+    "react-is": "^19.2.6",
     "react-signature-pad-wrapper": "^4.3.2",
     "react-spring": "^9.7.4",
     "react-syntax-highlighter": "^16.1.0",

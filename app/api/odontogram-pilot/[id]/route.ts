@@ -49,6 +49,8 @@ export async function PUT(
     const body = await request.json();
     const { datos_odontograma, notas, activo } = body;
 
+    console.log('PUT odontogram-pilot:', { odontogramId, hasDatos: !!datos_odontograma, hasNotas: !!notas, activo });
+
     const { data: updatedOdontogram, error } = await supabase
       .from('odontogram_pilots')
       .update({
@@ -63,20 +65,22 @@ export async function PUT(
 
     if (error) {
       console.error('Error updating odontogram-pilot:', error);
-      return NextResponse.json({ error: 'Failed to update odontogram-pilot' }, { status: 500 });
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      return NextResponse.json({ error: 'Failed to update odontogram-pilot', details: error.message }, { status: 500 });
     }
 
     if (!updatedOdontogram) {
       return NextResponse.json({ error: 'Odontogram-pilot not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Odontogram-pilot updated successfully',
-      odontogram: updatedOdontogram 
+      odontogram: updatedOdontogram
     });
   } catch (error) {
     console.error('Error in PUT /api/odontogram-pilot/[id]:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error details:', error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
 }
 

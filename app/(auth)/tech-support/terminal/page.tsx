@@ -29,42 +29,53 @@ export default function TechSupportTerminal() {
   useEffect(() => {
     if (!terminalRef.current) return;
 
+    // Only run on client
+    if (typeof document === 'undefined') {
+      return;
+    }
+
     const initTerminal = async () => {
-      // Dynamically import xterm only on client
-      const xtermModule = await import('xterm');
-      const xterm = xtermModule.Terminal || xtermModule.default;
-      const { FitAddon } = await import('xterm-addon-fit');
-      const { WebLinksAddon } = await import('xterm-addon-web-links');
+      try {
+        // Dynamically import xterm only on client
+        const xtermModule = await import('xterm');
+        const { FitAddon } = await import('xterm-addon-fit');
+        const { WebLinksAddon } = await import('xterm-addon-web-links');
 
-      const terminal = new xterm({
-        cursorBlink: true,
-        fontSize: 14,
-        fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
-        theme: {
-          background: '#000000',
-          foreground: '#ffffff',
-          cursor: '#ffffff',
-        },
-        scrollback: 1000,
-        cols: 80,
-        rows: 24,
-      });
+        const terminal = new xtermModule.Terminal({
+          cursorBlink: true,
+          fontSize: 14,
+          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
+          theme: {
+            background: '#000000',
+            foreground: '#ffffff',
+            cursor: '#ffffff',
+          },
+          scrollback: 1000,
+          cols: 80,
+          rows: 24,
+        });
 
-      const fitAddon = new FitAddon();
-      const webLinksAddon = new WebLinksAddon();
+        const fitAddon = new FitAddon();
+        const webLinksAddon = new WebLinksAddon();
 
-      terminal.loadAddon(fitAddon);
-      terminal.loadAddon(webLinksAddon);
+        terminal.loadAddon(fitAddon);
+        terminal.loadAddon(webLinksAddon);
 
-      terminal.open(terminalRef.current);
-      terminalInstanceRef.current = terminal;
+        terminal.open(terminalRef.current);
+        terminalInstanceRef.current = terminal;
 
-      // Fit terminal
-      setTimeout(() => {
-        fitAddon.fit();
-      }, 100);
+        // Fit terminal
+        setTimeout(() => {
+          fitAddon.fit();
+        }, 100);
 
-      terminal.writeln('Terminal initialized. Connecting to cluster...');
+        terminal.writeln('Terminal initialized. Connecting to cluster...');
+      } catch (error) {
+        // If we are on the server, we expect the import to fail because xterm requires DOM.
+        // We can ignore the error and return.
+        console.warn('Failed to initialize terminal: ', error);
+        return;
+      }
     };
 
     initTerminal();
