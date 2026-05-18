@@ -3,45 +3,28 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
-import { OlearyService } from '../../../services/oLearyService';
+import { OdontogramPilotService } from '@/services/odontogramPilotService';
+import { OlearyService } from '@/services/oLearyService';
 
-// API helper functions for odontogram-pilot
 const getActiveOdontogram = async (patientId: string) => {
-  const response = await fetch(`/api/odontogram-pilot/active?patient_id=${patientId}`);
-  const data = await response.json();
-  return data.odontogram;
+  return await OdontogramPilotService.getActiveOdontogram(patientId);
 };
 
 const getOdontogramHistory = async (patientId: string) => {
-  const response = await fetch(`/api/odontogram-pilot/history?patient_id=${patientId}`);
-  const data = await response.json();
-  return data.history;
+  const history = await OdontogramPilotService.getOdontogramHistory(patientId);
+  return history.map((entry) => entry.odontograma);
 };
 
 const getOdontogramById = async (id: string) => {
-  const response = await fetch(`/api/odontogram-pilot/${id}`);
-  const data = await response.json();
-  return data.odontogram;
+  return await OdontogramPilotService.getOdontogramById(id);
 };
 
 const createOdontogram = async (patientId: string, datosOdontograma: any, notas: string) => {
-  const response = await fetch('/api/odontogram-pilot', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ paciente_id: patientId, datos_odontograma: datosOdontograma, notas })
-  });
-  const data = await response.json();
-  return data.odontogram;
+  return await OdontogramPilotService.createOdontogram(patientId, datosOdontograma, notas);
 };
 
 const updateOdontogram = async (id: string, datosOdontograma: any, notas: string) => {
-  const response = await fetch(`/api/odontogram-pilot/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ datos_odontograma: datosOdontograma, notas })
-  });
-  const data = await response.json();
-  return data.odontogram;
+  return await OdontogramPilotService.updateOdontogram(id, datosOdontograma, notas);
 };
 
 // Dental quadrant names (matching tooth surfaces)
@@ -481,8 +464,7 @@ function OdontogramPilotPageContent() {
         })));
 
         if (versionParam && editParam === 'true') {
-          const history = await getOdontogramHistory(pacienteId!);
-          const odontogram = history.find((o: any) => o.version === parseInt(versionParam));
+          const odontogram = await OdontogramPilotService.getOdontogramByVersion(pacienteId!, parseInt(versionParam));
           if (odontogram) {
             setCurrentOdontogram(odontogram);
             setSelectedVersion(parseInt(versionParam));
@@ -806,46 +788,39 @@ function OdontogramPilotPageContent() {
      const dientes: Record<string, { cuadrantes: Record<Cuadrante, string>; central?: string; nota?: string }> = {};
      const defaultCuudrantes = crearDienteCuadrantes();
 
-     // Get all teeth numbers based on type
-     const allTeethNumbers: number[] = (tipoOdontograma === 'adulto' || tipoOdontograma === 'oleary_adulto')
+     // Preserve every tooth currently stored in state, even if it belongs to the other layout.
+     Object.keys(dientesData).forEach(key => {
+       const numero = parseInt(key);
+       const tooth = dientesData[numero];
+
+       dientes[key] = {
+         cuadrantes: { ...defaultCuudrantes, ...tooth.cuadrantes },
+         ...(tooth.central !== undefined ? { central: tooth.central || 'sano' } : {}),
+         ...(tooth.nota ? { nota: tooth.nota } : {})
+       };
+     });
+
+     // Ensure all teeth for the current type exist with defaults.
+     const currentTypeTeeth: number[] = (tipoOdontograma === 'adulto' || tipoOdontograma === 'oleary_adulto')
        ? [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28, 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38]
        : [55, 54, 53, 52, 51, 61, 62, 63, 64, 65, 85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
 
-     // Ensure all teeth exist with default cuadrantes
-     allTeethNumbers.forEach(num => {
-       if (!dientesData[num]) {
+     currentTypeTeeth.forEach(num => {
+       if (!dientes[num.toString()]) {
          if (tipoOdontograma === 'oleary_adulto') {
-           // O'Leary mode: no center section
            dientes[num.toString()] = { cuadrantes: { ...defaultCuudrantes } };
          } else {
-           // Standard mode: include center section
            dientes[num.toString()] = { cuadrantes: { ...defaultCuudrantes }, central: 'sano' };
-         }
-       } else {
-         const tooth = dientesData[num];
-         if (tipoOdontograma === 'oleary_adulto') {
-           // O'Leary mode: no center section
-           dientes[num.toString()] = {
-             cuadrantes: { ...defaultCuudrantes, ...tooth.cuadrantes },
-             nota: tooth.nota
-           };
-         } else {
-           // Standard mode: include center section
-           dientes[num.toString()] = {
-             cuadrantes: { ...defaultCuudrantes, ...tooth.cuadrantes },
-             central: tooth.central || 'sano',
-             nota: tooth.nota
-           };
          }
        }
      });
 
-      return {
-        tipo: tipoOdontograma,
-        dientes,
-        fecha: fechaOdontograma
-      };
-    };
+     return {
+       tipo: tipoOdontograma,
+       dientes,
+       fecha: fechaOdontograma
+     };
+   };
 
    const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
     try {
@@ -913,9 +888,13 @@ function OdontogramPilotPageContent() {
         if (currentOdontogram) {
           await updateOdontogram(currentOdontogram.id, odontogramData as any, notasGenerales);
           
-          const updatedOdontogram = await getActiveOdontogram(pacienteId!);
+          const updatedOdontogram = currentOdontogram.activo
+            ? await getActiveOdontogram(pacienteId!)
+            : await getOdontogramById(currentOdontogram.id);
+
           if (updatedOdontogram) {
             setCurrentOdontogram(updatedOdontogram);
+            setSelectedVersion(updatedOdontogram.version);
             loadOdontogramData(updatedOdontogram);
           }
         } else {
