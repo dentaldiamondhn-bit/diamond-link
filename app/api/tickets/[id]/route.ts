@@ -3,8 +3,6 @@ import { auth } from '@clerk/nextjs/server';
 import { TicketService } from '@/services/ticketService';
 import { UpdateTicketData, ActivityType } from '@/types/ticket';
 
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
 
 // GET /api/tickets/[id] - Get single ticket
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {

@@ -5,8 +5,6 @@ import { CreateTicketData, UpdateTicketData, TicketStatus, UserRole } from '@/ty
 import { createClient } from '@supabase/supabase-js';
 import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
 
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
 
 // GET /api/tickets - Fetch tickets with filters
 export async function GET(request: NextRequest) {

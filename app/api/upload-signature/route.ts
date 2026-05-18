@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
+// Prevent static generation for this API route
+export const revalidate = 0;
+
 // Create service role client for storage operations (bypasses RLS)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,9 +18,6 @@ const supabaseAdmin = createClient(
   }
 );
 
-
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {

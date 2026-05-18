@@ -3,8 +3,6 @@ import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
 import { Doctor } from '@/config/doctors';
 
 
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {

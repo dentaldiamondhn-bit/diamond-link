@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Prevent static generation for this API route
+export const revalidate = 0;
+
 // GET /api/maintenance-alerts - Fetch active maintenance alerts
 export async function GET(request: NextRequest) {
   try {

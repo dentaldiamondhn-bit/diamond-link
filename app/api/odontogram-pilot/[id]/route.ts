@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -51,14 +50,21 @@ export async function PUT(
 
     console.log('PUT odontogram-pilot:', { odontogramId, hasDatos: !!datos_odontograma, hasNotas: !!notas, activo });
 
+    const updatePayload: Record<string, any> = {
+      datos_odontograma,
+      fecha_actualizacion: new Date().toISOString()
+    };
+
+    if (notas !== undefined) {
+      updatePayload.notas = notas;
+    }
+    if (activo !== undefined) {
+      updatePayload.activo = activo;
+    }
+
     const { data: updatedOdontogram, error } = await supabase
       .from('odontogram_pilots')
-      .update({
-        datos_odontograma,
-        notas,
-        activo,
-        fecha_actualizacion: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', odontogramId)
       .select()
       .single();

@@ -4,8 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 // In-memory storage for demo (in production, use database)
 const notifications: any[] = [];
 
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {

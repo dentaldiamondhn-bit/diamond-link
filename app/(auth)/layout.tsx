@@ -25,9 +25,6 @@ import { usePathname } from 'next/navigation';
 import { useNotificationListener } from '@/hooks/useNotificationListener';
 import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
 
-// Force dynamic rendering for this layout
-export const dynamic = 'force-dynamic';
-
 export default function AuthLayout({
   children,
 }: {
@@ -160,232 +157,270 @@ export default function AuthLayout({
                     )}
                   </div>
                 </div>
-          {/* Main Content */}
-          <div className="flex-1 lg:ml-0 overflow-auto flex flex-col">
-            {/* Header with User Info */}
-            <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4">
-              <div className="flex items-center justify-between">
-                {/* Left side - Page Title */}
-                <div className="flex items-center">
-                  {/* Tech Support Pages */}
-                  {pathname === '/tech-support/dashboard' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-tachometer-alt mr-2"></i>
-                      Dashboard de Soporte Técnico
-                    </h1>
-                  )}
-                  {pathname === '/tickets' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-ticket-alt mr-2"></i>
-                      Tickets
-                    </h1>
-                  )}
-                  {pathname === '/tech-support/tickets' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-ticket-alt mr-2"></i>
-                      Tickets de Soporte
-                    </h1>
-                  )}
-                  {pathname === '/tech-support/system-logs' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-file-alt mr-2"></i>
-                      Logs del Sistema
-                    </h1>
-                  )}
-                  {pathname === '/tech-support/system-settings' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-cogs mr-2"></i>
-                      Configuración del Sistema
-                    </h1>
-                  )}
-                  {pathname === '/tech-support/access-portal' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-th-large mr-2"></i>
-                      Portal de Acceso
-                    </h1>
-                  )}
-                  {pathname === '/tech-support/terminal' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-terminal mr-2"></i>
-                      Terminal
-                    </h1>
-                  )}
-                  {pathname === '/tech-support/code-runner' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-code mr-2"></i>
-                      Code Runner
-                    </h1>
-                  )}
-                  {pathname === '/tech-support/analytics' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-chart-line mr-2"></i>
-                      Analytics del Sistema
-                    </h1>
-                  )}
-                  
-                  {/* Existing Admin Pages */}
-                  {pathname === '/reports' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                      <div className="w-6 h-6 mr-3 flex items-center justify-center">
-                        <AnimatedReport />
+                {/* Main Content */}
+                <div className="flex-1 lg:ml-0 overflow-auto flex flex-col">
+                  {/* Header with User Info */}
+                  <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      {/* Left side - Page Title */}
+                      <div className="flex items-center">
+                        {/* Tech Support Pages */}
+                        {pathname === '/tech-support/dashboard' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-tachometer-alt mr-2"></i>
+                            Dashboard de Soporte Técnico
+                          </h1>
+                        )}
+                        {pathname === '/tickets' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-ticket-alt mr-2"></i>
+                            Tickets
+                          </h1>
+                        )}
+                        {pathname === '/tech-support/tickets' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-ticket-alt mr-2"></i>
+                            Tickets de Soporte
+                          </h1>
+                        )}
+                        {pathname === '/tech-support/system-logs' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-file-alt mr-2"></i>
+                            Logs del Sistema
+                          </h1>
+                        )}
+                        {pathname === '/tech-support/system-settings' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-cogs mr-2"></i>
+                            Configuración del Sistema
+                          </h1>
+                        )}
+                        {pathname === '/tech-support/access-portal' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-th-large mr-2"></i>
+                            Portal de Acceso
+                          </h1>
+                        )}
+                        {pathname === '/tech-support/terminal' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-terminal mr-2"></i>
+                            Terminal
+                          </h1>
+                        )}
+                        {pathname === '/tech-support/code-runner' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-code mr-2"></i>
+                            Code Runner
+                          </h1>
+                        )}
+                        {pathname === '/tech-support/analytics' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-chart-line mr-2"></i>
+                            Analytics del Sistema
+                          </h1>
+                        )}
+                        
+                        {/* Existing Admin Pages */}
+                        {pathname === '/reports' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                            <div className="w-6 h-6 mr-3 flex items-center justify-center">
+                              <AnimatedReport />
+                            </div>
+                            Reportes y Análisis
+                          </h1>
+                        )}
+                        {pathname === '/pacientes' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-user-injured mr-2"></i>
+                            Todos los Pacientes
+                          </h1>
+                        )}
+                        {pathname === '/tratamientos' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-tooth mr-2"></i>
+                            Tratamientos
+                          </h1>
+                        )}
+                        {pathname === '/historia-clinica-ortodoncia' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-tooth mr-2"></i>
+                            Historia Ortodoncia
+                          </h1>
+                        )}
+                        {pathname === '/doctores' && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-user-md mr-2"></i>
+                            Gestión de Doctores
+                          </h1>
+                        )}
+                        {pathname === '/estudio-periodontal' && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-teeth mr-2 text-teal-600"></i>
+                            Estudio Periodontal
+                          </h1>
+                        )}
+                        {pathname === '/calendario' && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
+                            Calendario
+                          </h1>
+                        )}
+                        {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                            <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                              <AnimatedFolder />
+                            </div>
+                            Gestión Documental
+                          </h1>
+                        )}
+                        {pathname === '/tratamientos' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-tooth mr-2"></i>
+                            Tratamientos
+                          </h1>
+                        )}
+                        {pathname === '/historia-clinica-ortodoncia' && (
+                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-tooth mr-2"></i>
+                            Historia Ortodoncia
+                          </h1>
+                        )}
+                        {pathname === '/doctores' && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-user-md mr-2"></i>
+                            Gestión de Doctores
+                          </h1>
+                        )}
+                        {pathname === '/estudio-periodontal' && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-teeth mr-2 text-teal-600"></i>
+                            Estudio Periodontal
+                          </h1>
+                        )}
+                        {pathname === '/calendario' && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
+                            Calendario
+                          </h1>
+                        )}
+                        {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                            <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                              <AnimatedFolder />
+                            </div>
+                            Gestión Documental
+                          </h1>
+                        )}
+                        {pathname.startsWith('/admin/users') && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                            <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                              <AnimatedUsers />
+                            </div>
+                            User Administration
+                          </h1>
+                        )}
+                        {pathname.startsWith('/tech-support/users') && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                            <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                              <AnimatedUsers />
+                            </div>
+                            User Management
+                          </h1>
+                        )}
+                        {pathname.startsWith('/odontogram-test') && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                            <i className="fas fa-tooth mr-2 text-teal-600"></i>
+                            Odontogram Testing
+                          </h1>
+                        )}
+                        {pathname.startsWith('/odontogram-pilot') && (
+                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                            <i className="fas fa-circle-notch mr-2 text-teal-600"></i>
+                            Odontograma Pilot
+                          </h1>
+                        )}
+                        {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (
+                          <div className="flex items-center">
+                            <i className="fas fa-x-ray text-2xl text-teal-600 mr-3"></i>
+                            <div>
+                              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                                Visor de Rayos X
+                              </h1>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Gestiona y visualiza estudios radiográficos de pacientes
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      Reportes y Análisis
-                    </h1>
-                  )}
-                  {pathname === '/pacientes' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-user-injured mr-2"></i>
-                      Todos los Pacientes
-                    </h1>
-                  )}
-                  {pathname === '/tratamientos' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-tooth mr-2"></i>
-                      Tratamientos
-                    </h1>
-                  )}
-                  {pathname === '/historia-clinica-ortodoncia' && (
-                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-tooth mr-2"></i>
-                      Historia Ortodoncia
-                    </h1>
-                  )}
-                  {pathname === '/doctores' && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-user-md mr-2"></i>
-                      Gestión de Doctores
-                    </h1>
-                  )}
-                  {pathname === '/estudio-periodontal' && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-teeth mr-2 text-teal-600"></i>
-                      Estudio Periodontal
-                    </h1>
-                  )}
-                  {pathname === '/calendario' && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                      <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
-                      Calendario
-                    </h1>
-                  )}
-                  {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                      <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                        <AnimatedFolder />
-                      </div>
-                      Gestión Documental
-                    </h1>
-                  )}
-                  {pathname.startsWith('/admin/users') && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                      <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                        <AnimatedUsers />
-                      </div>
-                      User Administration
-                    </h1>
-                  )}
-                  {pathname.startsWith('/tech-support/users') && (
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                      <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                        <AnimatedUsers />
-                      </div>
-                      User Management
-                    </h1>
-                  )}
-                   {pathname.startsWith('/odontogram-test') && (
-                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                       <i className="fas fa-tooth mr-2 text-teal-600"></i>
-                       Odontogram Testing
-                     </h1>
-                   )}
-                   {pathname.startsWith('/odontogram-pilot') && (
-                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                       <i className="fas fa-circle-notch mr-2 text-teal-600"></i>
-                       Odontograma Pilot
-                     </h1>
-                   )}
-                  {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (
-                    <div className="flex items-center">
-                      <i className="fas fa-x-ray text-2xl text-teal-600 mr-3"></i>
-                      <div>
-                        <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                          Visor de Rayos X
-                        </h1>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Gestiona y visualiza estudios radiográficos de pacientes
-                        </p>
+                      
+                      {/* Right side - User Info and Actions */}
+                      <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                        {/* Header Actions - Left of User Info */}
+                        <div className="hidden sm:flex items-center space-x-3">
+                          {/* Dark Mode Toggle */}
+                          <DarkModeToggle />
+                          
+                          {/* Notifications */}
+                          <NotificationDropdown />
+                        </div>
+                        
+                        {/* Mobile Actions */}
+                        <div className="flex sm:hidden items-center space-x-2">
+                          <DarkModeToggle />
+                          <NotificationDropdown />
+                        </div>
+                        
+                        {/* User Info */}
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          {/* User Name and Email - Hidden on mobile */}
+                          <div className="hidden sm:block text-right">
+                            <div className="flex items-center space-x-2">
+                              <h2 className="text-sm lg:text-lg font-semibold text-gray-900 truncate max-w-[100px] lg:max-w-none">
+                                {user?.firstName || 'Usuario'} {user?.lastName || ''}
+                              </h2>
+                              {/* Role Badge */}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleBadgeInfo.bgColor} ${roleBadgeInfo.textColor} ${roleBadgeInfo.borderColor} border`}>
+                                <i className={`${roleBadgeInfo.icon} mr-1`}></i>
+                                {roleBadgeInfo.label}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-600 truncate max-w-[120px] lg:max-w-none">
+                              {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
+                            </p>
+                          </div>
+                          
+                          {/* Clerk User Avatar */}
+                          <div className="relative flex-shrink-0">
+                            <UserButton 
+                              appearance={{
+                                elements: {
+                                  avatarBox: "w-8 h-8 lg:w-10 lg:h-10 shadow-md",
+                                  userButton: "hover:bg-gray-100 rounded-lg transition-colors"
+                                }
+                              }}
+                            />
+                            {/* Online indicator */}
+                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
+                  </header>
+                  
+                  {/* Page Content */}
+                  <div className="flex-1 p-6 overflow-auto">
+                    {children}
+                  </div>
                 </div>
                 
-                {/* Right side - User Info and Actions */}
-                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-                  {/* Header Actions - Left of User Info */}
-                  <div className="hidden sm:flex items-center space-x-3">
-                    {/* Dark Mode Toggle */}
-                    <DarkModeToggle />
-                    
-                    {/* Notifications */}
-                    <NotificationDropdown />
-                  </div>
-                  
-                  {/* Mobile Actions */}
-                  <div className="flex sm:hidden items-center space-x-2">
-                    <DarkModeToggle />
-                    <NotificationDropdown />
-                  </div>
-                  
-                  {/* User Info */}
-                  <div className="flex items-center space-x-2 sm:space-x-3">
-                    {/* User Name and Email - Hidden on mobile */}
-                    <div className="hidden sm:block text-right">
-                      <div className="flex items-center space-x-2">
-                        <h2 className="text-sm lg:text-lg font-semibold text-gray-900 truncate max-w-[100px] lg:max-w-none">
-                          {user?.firstName || 'Usuario'} {user?.lastName || ''}
-                        </h2>
-                        {/* Role Badge */}
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleBadgeInfo.bgColor} ${roleBadgeInfo.textColor} ${roleBadgeInfo.borderColor} border`}>
-                          <i className={`${roleBadgeInfo.icon} mr-1`}></i>
-                          {roleBadgeInfo.label}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600 truncate max-w-[120px] lg:max-w-none">
-                        {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
-                      </p>
-                    </div>
-                    
-                    {/* Clerk User Avatar */}
-                    <div className="relative flex-shrink-0">
-                      <UserButton 
-                        appearance={{
-                          elements: {
-                            avatarBox: "w-8 h-8 lg:w-10 lg:h-10 shadow-md",
-                            userButton: "hover:bg-gray-100 rounded-lg transition-colors"
-                          }
-                        }}
-                      />
-                      {/* Online indicator */}
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
+                {/* Tutorial Modal */}
+                <TutorialModal />
               </div>
-            </header>
-            
-            {/* Page Content */}
-            <div className="flex-1 p-6 overflow-auto">
-              {children}
-            </div>
-          </div>
-          
-          {/* Tutorial Modal */}
-          <TutorialModal />
-        </div>
-        </NotificationListenerWrapper>
-      </BellNotificationProvider>
-    </HistoricalModeProvider>
-  </ThemeProvider>
-</TutorialProvider>
-);  
+            </NotificationListenerWrapper>
+          </BellNotificationProvider>
+        </HistoricalModeProvider>
+      </ThemeProvider>
+    </TutorialProvider>
+  );  
 }

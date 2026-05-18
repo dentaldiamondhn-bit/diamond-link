@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -35,6 +34,8 @@ export async function POST(request: NextRequest) {
       .update({ activo: false })
       .eq('paciente_id', paciente_id);
 
+    const now = new Date().toISOString();
+
     // Create new odontogram-pilot
     const { data: newOdontogram, error } = await supabase
       .from('odontogram_pilots')
@@ -43,7 +44,9 @@ export async function POST(request: NextRequest) {
         datos_odontograma,
         notas,
         version: nextVersion,
-        activo: true
+        activo: true,
+        fecha_creacion: now,
+        fecha_actualizacion: now
       })
       .select()
       .single();

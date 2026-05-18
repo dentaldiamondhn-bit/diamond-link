@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TreatmentService } from '../../../services/treatmentService';
 
-
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
+// Prevent static generation for this API route
+export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {

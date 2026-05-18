@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { clerkClient } from '@clerk/nextjs/server';
 
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
+// Prevent static generation for this API route
+export const dynamic = 'force-static';
 
 export async function GET(request: NextRequest) {
   try {

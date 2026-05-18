@@ -1,6 +1,5 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';

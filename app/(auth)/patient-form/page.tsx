@@ -1,7 +1,6 @@
 'use client';
 
 // Force dynamic rendering for this page
-export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';

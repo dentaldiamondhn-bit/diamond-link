@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
+// Prevent static generation for this API route
+export const revalidate = 0;
+
 // In-memory storage for demo (in production, use database)
 let notifications: any[] = [];
-
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
