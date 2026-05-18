@@ -497,20 +497,20 @@ function OdontogramPageContent() {
       dientes[key] = dientesData[numero];
     });
     
-    // Also ensure all teeth for current type are included with default 'sano' state
-    if (tipoOdontograma === 'adulto') {
-      for (let i = 18; i <= 48; i++) {
-        if (![11, 12, 13, 14, 15, 16, 17, 18].includes(i) && !dientes[i.toString()]) {
-          dientes[i.toString()] = { estado: 'sano' };
-        }
+    // Also ensure all valid teeth for the current odontogram type are included with default 'sano'.
+    const adultTeeth = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
+      48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+    const childTeeth = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
+      85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+
+    const teethToFill = tipoOdontograma === 'nino' ? childTeeth : adultTeeth;
+
+    teethToFill.forEach((numero) => {
+      const key = numero.toString();
+      if (!dientes[key]) {
+        dientes[key] = { estado: 'sano' };
       }
-    } else {
-      for (let i = 51; i <= 85; i++) {
-        if (![55, 56, 64, 65, 75, 85].includes(i) && !dientes[i.toString()]) {
-          dientes[i.toString()] = { estado: 'sano' };
-        }
-      }
-    }
+    });
 
     return {
       tipo: tipoOdontograma,

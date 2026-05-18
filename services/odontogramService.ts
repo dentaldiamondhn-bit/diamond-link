@@ -323,15 +323,39 @@ export class OdontogramService {
       // Calculate tooth status counts from the latest active odontogram
       const statusCounts: Record<string, number> = {};
 
+      const adultToothNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
+        48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+      const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
+        85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+      const validToothKeys = new Set<string>([
+        ...adultToothNumbers.map((n) => n.toString()),
+        ...childToothNumbers.map((n) => n.toString())
+      ]);
+      // Only count teeth that match the odontogram type to avoid cross-type overcounting
+      const targetToothKeys = latestVersion?.datos_odontograma?.tipo === 'nino'
+        ? new Set(childToothNumbers.map((n) => n.toString()))
+        : latestVersion?.datos_odontograma?.tipo === 'adulto'
+          ? new Set(adultToothNumbers.map((n) => n.toString()))
+          : validToothKeys;
+
+      const addStatus = (estado: string | undefined | null) => {
+        const normalized = estado && typeof estado === 'string' && estado.trim() !== '' ? estado : 'sano';
+        statusCounts[normalized] = (statusCounts[normalized] || 0) + 1;
+      };
+
       if (latestVersion && latestVersion.datos_odontograma?.dientes) {
-        Object.values(latestVersion.datos_odontograma.dientes).forEach((diente: any) => {
-          const estado = diente.estado;
-          if (estado) {
-            // Initialize count if this status hasn't been seen before
-            if (!statusCounts[estado]) {
-              statusCounts[estado] = 0;
-            }
-            statusCounts[estado]++;
+        Object.entries(latestVersion.datos_odontograma.dientes).forEach(([key, diente]: [string, any]) => {
+          // First check: must be a valid tooth key (filters phantom entries)
+          if (!validToothKeys.has(key)) {
+            return;
+          }
+          // Second check: must match the odontogram type (filters cross-type teeth)
+          if (!targetToothKeys.has(key)) {
+            return;
+          }
+          // Count all valid teeth, defaulting to 'sano' if estado is not set or empty
+          if (diente && typeof diente === 'object') {
+            addStatus(diente.estado);
           }
         });
       }

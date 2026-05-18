@@ -345,11 +345,10 @@ function MenuNavegacionContent() {
     const allStates = Object.entries(status_counts)
       .filter(([_, count]: [string, number]) => count > 0)
       .sort(([stateA, countA]: [string, number], [stateB, countB]: [string, number]) => {
-        // Sort by status type order: Sanos first, then others alphabetically
-        const order = ['sano', 'ausente', 'caries', 'obturado', 'extraccion', 'corona', 'puente', 'implante', 'endodoncia', 'fracturado', 'sellante'];
-        const aIndex = order.indexOf(stateA);
-        const bIndex = order.indexOf(stateB);
-        
+        // Sort by status type order: Sanos first, then others in the desired business order.
+        const sortOrder = ['sano', 'ausente', 'caries', 'obturado', 'resina', 'extraccion', 'corona', 'puente', 'implante', 'endodoncia', 'fracturado', 'sellante'];
+        const aIndex = sortOrder.indexOf(stateA);
+        const bIndex = sortOrder.indexOf(stateB);
         if (aIndex === -1 && bIndex === -1) return stateA.localeCompare(stateB);
         if (aIndex === -1) return 1;
         if (bIndex === -1) return -1;
@@ -361,6 +360,7 @@ function MenuNavegacionContent() {
         sano: 'Sano',
         caries: 'Cariado',
         obturado: 'Obturado',
+        resina: 'Restauración Resina',
         extraccion: 'Extracción indicada',
         ausente: 'Ausente',
         corona: 'Corona',
