@@ -1339,35 +1339,24 @@ function OdontogramPilotPageContent() {
                 );
               })}
             </div>
+
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {(tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS)
+                .filter(estado => getContadorEstados()[estado.key] > 0)
+                .map(estado => (
+                  <div key={estado.key} className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <span className="w-3 h-3 rounded-full" style={{ background: estado.color }} />
+                    <span className="text-xs font-semibold">{estado.label}</span>
+                    <span className="text-xs font-semibold">{getContadorEstados()[estado.key]}</span>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
 
-        {/* Type Selection + State Counter + State Selector */}
+        {/* State Selector */}
         <div className="flex justify-center" style={{ margin: '20px auto', maxWidth: '1200px' }}>
-           
-          {/* State Counter */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
-              Conteo por Estado
-            </h3>
-            <div className="contador-inner">
-              <table>
-                <tbody>
-                  {(tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS).filter(estado => getContadorEstados()[estado.key] > 0).map(estado => (
-                    <tr key={estado.key}>
-                      <td>
-                        <span className="small-box" style={{ background: estado.color }}></span>
-                        {estado.label}: {getContadorEstados()[estado.key]}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* State Selector */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6" style={{ marginLeft: '20px' }}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-[540px]">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Seleccionar Estado
             </h3>
