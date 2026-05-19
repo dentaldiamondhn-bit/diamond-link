@@ -305,6 +305,7 @@ function OdontogramPilotPageContent() {
   const [patient, setPatient] = useState<any>(null);
   const [currentOdontogram, setCurrentOdontogram] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [versionLoading, setVersionLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -822,35 +823,35 @@ function OdontogramPilotPageContent() {
      };
    };
 
-   const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
-    try {
-      setLoading(true);
-      setError(null);
+    const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
+      try {
+        setVersionLoading(true);
+        setError(null);
 
-      if (tipoOdontograma === 'oleary_adulto') {
-        // Handle O'Leary mode
-        const oleary = await OlearyService.getOdontogramById(odontogramId);
-        if (oleary) {
-          setCurrentOdontogram(oleary);
-          setSelectedVersion(version);
-          loadOlearyData(oleary);
+        if (tipoOdontograma === 'oleary_adulto') {
+          // Handle O'Leary mode
+          const oleary = await OlearyService.getOdontogramById(odontogramId);
+          if (oleary) {
+            setCurrentOdontogram(oleary);
+            setSelectedVersion(version);
+            loadOlearyData(oleary);
+          }
+        } else {
+          // Handle regular odontogram mode
+          const odontogram = await getOdontogramById(odontogramId);
+          if (odontogram) {
+            setCurrentOdontogram(odontogram);
+            setSelectedVersion(version);
+            loadOdontogramData(odontogram);
+          }
         }
-      } else {
-        // Handle regular odontogram mode
-        const odontogram = await getOdontogramById(odontogramId);
-        if (odontogram) {
-          setCurrentOdontogram(odontogram);
-          setSelectedVersion(version);
-          loadOdontogramData(odontogram);
-        }
+      } catch (err) {
+        console.error('Error loading odontogram version:', err);
+        setError('Error al cargar la versión del odontograma');
+      } finally {
+        setVersionLoading(false);
       }
-    } catch (err) {
-      console.error('Error loading odontogram version:', err);
-      setError('Error al cargar la versión del odontograma');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   const guardarOdontogramaActual = async () => {
     if (!pacienteId) return;
@@ -1452,9 +1453,16 @@ function OdontogramPilotPageContent() {
           
           {/* Historial de Odontogramas - moved to right side of State Selector */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6" style={{ marginLeft: '20px', minWidth: '280px' }}>
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
-              Historial de Odontogramas
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center flex-1">
+                Historial de Odontogramas
+              </h3>
+              {versionLoading && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                  Cargando versión...
+                </div>
+              )}
+            </div>
             <div className="max-h-40 overflow-y-auto mb-2 bg-gray-50 dark:bg-gray-700 rounded-md p-2 text-sm">
               {odontogramasGuardados.length === 0 ? (
                 <p className="text-center text-gray-500 dark:text-gray-400 m-0">No hay odontogramas guardados</p>
