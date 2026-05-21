@@ -8,6 +8,7 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { PatientService } from '@/services/patientService';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import { OdontogramService } from '@/services/odontogramService';
+import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { consentimientoService } from '@/services/consentimientoService';
 import { presupuestoService } from '@/services/presupuestoService';
 import { OrthodonticHistoryServiceClient } from '@/services/orthodonticHistoryServiceClient';
@@ -42,6 +43,8 @@ function MenuNavegacionContent() {
   const [treatmentStatsLoading, setTreatmentStatsLoading] = useState(true);
   const [odontogramStats, setOdontogramStats] = useState<any>(null);
   const [odontogramStatsLoading, setOdontogramStatsLoading] = useState(true);
+  const [odontogramPilotStats, setOdontogramPilotStats] = useState<any>(null);
+  const [odontogramPilotStatsLoading, setOdontogramPilotStatsLoading] = useState(true);
   const [consentimientoStats, setConsentimientoStats] = useState<any>(null);
   const [consentimientoStatsLoading, setConsentimientoStatsLoading] = useState(true);
   const [presupuestoStats, setPresupuestoStats] = useState<any>(null);
@@ -156,6 +159,25 @@ function MenuNavegacionContent() {
     };
 
     loadOdontogramStats();
+  }, [patient]);
+
+  useEffect(() => {
+    const loadOdontogramPilotStats = async () => {
+      if (!patient) return;
+
+      try {
+        setOdontogramPilotStatsLoading(true);
+        const stats = await OdontogramPilotService.getPatientOdontogramStatistics(patient.paciente_id);
+        setOdontogramPilotStats(stats);
+      } catch (error) {
+        console.error('Error loading odontogram pilot statistics:', error);
+        setOdontogramPilotStats(null);
+      } finally {
+        setOdontogramPilotStatsLoading(false);
+      }
+    };
+
+    loadOdontogramPilotStats();
   }, [patient]);
 
   useEffect(() => {
@@ -328,19 +350,6 @@ function MenuNavegacionContent() {
 
     const { total_versions, latest_version, status_counts } = odontogramStats;
 
-    // Format latest version date
-    const formatDate = (dateString: string) => {
-      if (!dateString) return null;
-      const date = new Date(dateString);
-      // Adjust for Honduras timezone (UTC-6)
-      const hondurasDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
-      return hondurasDate.toLocaleDateString('es-HN', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      });
-    };
-
     // Get all tooth states for display
     const allStates = Object.entries(status_counts)
       .filter(([_, count]: [string, number]) => count > 0)
@@ -390,7 +399,80 @@ function MenuNavegacionContent() {
         {latest_version && (
           <div className="flex items-center space-x-2">
             <span className="text-purple-600 dark:text-purple-400 font-medium">
-              {formatDate(latest_version.fecha_creacion)}
+              {SimpleTimezoneFix.formatDisplayDate(latest_version.fecha_creacion)}
+            </span>
+          </div>
+        )}
+        {allStates.length > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              {allStates.map(([state, count]) => `${getStateLabel(state)}: ${count}`).join(' • ')}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const getOdontogramPilotDescription = (): JSX.Element => {
+    if (odontogramPilotStatsLoading) {
+      return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
+    }
+
+    if (!odontogramPilotStats) {
+      return <span className="text-gray-500 dark:text-gray-400">No hay odontogramas pilot registrados</span>;
+    }
+
+    const { total_versions, latest_version, status_counts } = odontogramPilotStats;
+
+    const allStates = Object.entries(status_counts)
+      .filter(([_, count]: [string, number]) => count > 0)
+      .sort(([stateA, countA]: [string, number], [stateB, countB]: [string, number]) => {
+        const sortOrder = ['sano', 'ausente', 'caries', 'obturado', 'resina', 'extraccion', 'corona', 'puente', 'implante', 'endodoncia', 'fracturado', 'sellante'];
+        const aIndex = sortOrder.indexOf(stateA);
+        const bIndex = sortOrder.indexOf(stateB);
+        if (aIndex === -1 && bIndex === -1) return stateA.localeCompare(stateB);
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+      });
+
+    const getStateLabel = (state: string) => {
+      const labels: Record<string, string> = {
+        sano: 'Sano',
+        caries: 'Cariado',
+        obturado: 'Obturado',
+        resina: 'Restauración Resina',
+        extraccion: 'Extracción indicada',
+        ausente: 'Ausente',
+        corona: 'Corona',
+        puente: 'Puente',
+        implante: 'Implante',
+        endodoncia: 'Endodoncia',
+        fracturado: 'Fracturado',
+        sellante: 'Sellante'
+      };
+      return labels[state] || state.charAt(0).toUpperCase() + state.slice(1);
+    };
+
+    return (
+      <div className="text-sm space-y-1">
+        <div className="flex items-center space-x-2">
+          <span className="text-gray-700 dark:text-gray-300">
+            {total_versions} versión{total_versions !== 1 ? 'es' : ''}
+          </span>
+        </div>
+        {latest_version && (
+          <div className="flex items-center space-x-2">
+            <span className="text-blue-600 dark:text-blue-400 font-medium">
+              Última: v{latest_version.version}
+            </span>
+          </div>
+        )}
+        {latest_version && (
+          <div className="flex items-center space-x-2">
+            <span className="text-purple-600 dark:text-purple-400 font-medium">
+              {SimpleTimezoneFix.formatDisplayDate(latest_version.fecha_creacion)}
             </span>
           </div>
         )}
@@ -751,16 +833,7 @@ function MenuNavegacionContent() {
       id: 'odontograma-pilot',
       icon: 'fas fa-tooth',
       title: 'Odontograma Pilot (Nuevo)',
-      description: (
-        <div>
-          <span className="text-teal-600 dark:text-teal-400 font-medium">
-            Versión experimental con diseño de cuadrantes circulares
-          </span>
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Diseño de 4 secciones circulares con centro unificado
-          </div>
-        </div>
-      ),
+      description: getOdontogramPilotDescription(),
       href: `/odontogram-pilot?id=${validPacienteId}`
     },
     {

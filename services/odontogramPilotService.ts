@@ -80,6 +80,96 @@ export class OdontogramPilotService {
     }
   }
 
+  static async getPatientOdontogramStatistics(pacienteId: string): Promise<any> {
+    try {
+      const { data: odontograms, error } = await supabase
+        .from('odontogram_pilots')
+        .select('*')
+        .eq('paciente_id', pacienteId)
+        .order('version', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching odontogram-pilot statistics:', error);
+        throw error;
+      }
+
+      const totalVersions = odontograms.length;
+      const latestVersion = odontograms.length > 0 ? odontograms[0] : null;
+
+      const statusCounts: Record<string, number> = {};
+
+      const adultToothNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
+        48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+      const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
+        85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+
+      const getToothState = (diente: any, odontogramType?: string) => {
+        if (!diente || typeof diente !== 'object') {
+          return 'sano';
+        }
+
+        if (diente.estado !== undefined) {
+          return diente.estado || 'sano';
+        }
+
+        const cuadrantes = diente.cuadrantes;
+        const central = diente.central;
+
+        if (cuadrantes && typeof cuadrantes === 'object') {
+          const quadrantValues = Object.values(cuadrantes).filter((value) => typeof value === 'string') as string[];
+          const firstNonSano = quadrantValues.find((value) => value !== 'sano');
+
+          if (odontogramType === 'oleary_adulto') {
+            return firstNonSano || 'sano';
+          }
+
+          if (central && typeof central === 'string' && central !== 'sano') {
+            return central;
+          }
+
+          return firstNonSano || 'sano';
+        }
+
+        if (central && typeof central === 'string') {
+          return central || 'sano';
+        }
+
+        return 'sano';
+      };
+
+      const toothKeys = latestVersion?.datos_odontograma?.tipo === 'nino'
+        ? childToothNumbers
+        : adultToothNumbers;
+
+      if (latestVersion && latestVersion.datos_odontograma?.dientes) {
+        toothKeys.forEach((toothNumber) => {
+          const key = toothNumber.toString();
+          const diente = latestVersion.datos_odontograma.dientes[key];
+          const toothState = getToothState(diente, latestVersion.datos_odontograma?.tipo);
+          statusCounts[toothState] = (statusCounts[toothState] || 0) + 1;
+        });
+      } else {
+        // If there is no tooth data, count all teeth as sano
+        const defaultKeys = latestVersion?.datos_odontograma?.tipo === 'nino' ? childToothNumbers : adultToothNumbers;
+        defaultKeys.forEach(() => {
+          statusCounts['sano'] = (statusCounts['sano'] || 0) + 1;
+        });
+      }
+
+      return {
+        total_versions: totalVersions,
+        latest_version: latestVersion ? {
+          version: latestVersion.version,
+          fecha_creacion: latestVersion.fecha_creacion
+        } : null,
+        status_counts: statusCounts
+      };
+    } catch (error) {
+      console.error('Unexpected error fetching odontogram-pilot statistics:', error);
+      throw error;
+    }
+  }
+
   static async getOdontogramHistory(pacienteId: string): Promise<OdontogramHistory[]> {
     try {
       const { data, error } = await supabase
