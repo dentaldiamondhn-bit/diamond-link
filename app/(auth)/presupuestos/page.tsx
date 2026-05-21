@@ -59,8 +59,8 @@ function PresupuestosPageContent() {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('');
   const [treatmentSearch, setTreatmentSearch] = useState<string>('');
-  const [odontogram, setOdontogram] = useState<Odontogram | null>(null);
-  const [loadingOdontogram, setLoadingOdontogram] = useState(false);
+  const [odontogramPilot, setOdontogramPilot] = useState<Odontogram | null>(null);
+  const [loadingOdontogramPilot, setLoadingOdontogramPilot] = useState(false);
   
   // Promotions state
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -119,28 +119,28 @@ function PresupuestosPageContent() {
     promotion.codigo.toLowerCase().includes(treatmentSearch.toLowerCase())
   );
 
-  // Load odontogram data
-  const loadOdontogram = async (pacienteId: string) => {
+  // Load odontogram-pilot data
+  const loadOdontogramPilot = async (pacienteId: string) => {
     if (!pacienteId) return;
     
-    setLoadingOdontogram(true);
+    setLoadingOdontogramPilot(true);
     try {
-      const response = await fetch(`/api/odontogram/active?patient_id=${pacienteId}`);
+      const response = await fetch(`/api/odontogram-pilot/active?patient_id=${pacienteId}`);
       if (response.ok) {
         const data = await response.json();
         if (data.odontogram) {
-          setOdontogram(data.odontogram);
+          setOdontogramPilot(data.odontogram);
         }
       }
     } catch (error) {
-      // Error loading odontogram
+      // Error loading odontogram-pilot
     } finally {
-      setLoadingOdontogram(false);
+      setLoadingOdontogramPilot(false);
     }
   };
 
-  // Format odontogram data for notes
-  const formatOdontogramForNotes = (odontogramData: Odontogram): string => {
+  // Format odontogram-pilot data for notes
+  const formatOdontogramForNotes = (odontogramData: any): string => {
     const { datos_odontograma } = odontogramData;
     
     // Check if odontogram data exists
@@ -151,58 +151,89 @@ function PresupuestosPageContent() {
     const teethWithIssues: string[] = [];
     const teethNotes: string[] = [];
     const statusCount: { [key: string]: number } = {};
-    
-    // Process each tooth and collect data
-    Object.entries(datos_odontograma.dientes).forEach(([toothNumber, diente]) => {
-      if (diente) {
-        // Count tooth statuses
-        const status = diente.estado;
-        statusCount[status] = (statusCount[status] || 0) + 1;
-        
-        // Collect teeth with issues (excluding healthy and absent teeth)
-        if (diente.estado !== 'sano' && diente.estado !== 'ausente') {
-          let toothInfo = `Diente ${toothNumber}: ${diente.estado}`;
-          
-          // Add observations if present
-          if (diente.observaciones) {
-            toothInfo += ` - ${diente.observaciones}`;
-          }
-          
-          // Add planned treatment if present
-          if (diente.tratamiento) {
-            toothInfo += ` - Tratamiento: ${diente.tratamiento}`;
-          }
-          
-          // Check individual faces for issues
+
+    const adultToothNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
+      48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+    const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
+      85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+
+    const teethToCount = datos_odontograma.tipo === 'nino' ? childToothNumbers : adultToothNumbers;
+
+    const getToothState = (diente: any, odontogramType: string | undefined) => {
+      if (!diente || typeof diente !== 'object') {
+        return 'sano';
+      }
+
+      if (diente.estado !== undefined) {
+        return diente.estado || 'sano';
+      }
+
+      if (diente.cuadrantes && typeof diente.cuadrantes === 'object') {
+        const quadrantValues = Object.values(diente.cuadrantes).filter((value) => typeof value === 'string') as string[];
+        const firstNonSano = quadrantValues.find((value) => value !== 'sano');
+
+        if (odontogramType === 'oleary_adulto') {
+          return firstNonSano || 'sano';
+        }
+
+        if (diente.central && typeof diente.central === 'string' && diente.central !== 'sano') {
+          return diente.central;
+        }
+
+        return firstNonSano || 'sano';
+      }
+
+      if (diente.central && typeof diente.central === 'string') {
+        return diente.central || 'sano';
+      }
+
+      return 'sano';
+    };
+
+    const allTeeth = teethToCount;
+    allTeeth.forEach((toothNumber) => {
+      const toothKey = toothNumber.toString();
+      const diente = datos_odontograma.dientes[toothKey];
+      const status = getToothState(diente, datos_odontograma.tipo);
+      statusCount[status] = (statusCount[status] || 0) + 1;
+
+      if (status !== 'sano' && status !== 'ausente') {
+        let toothInfo = `Diente ${toothKey}: ${status}`;
+
+        const observations = diente?.observaciones || diente?.nota;
+        if (observations) {
+          toothInfo += ` - ${observations}`;
+        }
+
+        if (diente?.tratamiento) {
+          toothInfo += ` - Tratamiento: ${diente.tratamiento}`;
+        }
+
+        if (diente?.caras) {
           const facesWithIssues: string[] = [];
-          if (diente.caras) {
-            Object.entries(diente.caras).forEach(([faceName, face]) => {
-              if (face && face.estado !== 'sano') {
-                let faceInfo = `${faceName}: ${face.estado}`;
-                if (face.tratamiento) {
-                  faceInfo += ` - ${face.tratamiento}`;
-                }
-                if (face.observaciones) {
-                  faceInfo += ` (${face.observaciones})`;
-                }
-                facesWithIssues.push(faceInfo);
+          Object.entries(diente.caras).forEach(([faceName, face]) => {
+            if (face && face.estado !== 'sano') {
+              let faceInfo = `${faceName}: ${face.estado}`;
+              if (face.tratamiento) {
+                faceInfo += ` - ${face.tratamiento}`;
               }
-            });
-          }
-          
+              if (face.observaciones) {
+                faceInfo += ` (${face.observaciones})`;
+              }
+              facesWithIssues.push(faceInfo);
+            }
+          });
           if (facesWithIssues.length > 0) {
             toothInfo += ` - Caras: ${facesWithIssues.join(', ')}`;
           }
-          
-          teethWithIssues.push(toothInfo);
         }
-        
-        // Collect individual tooth notes (from the notes modal)
-        // These can be stored in either 'observaciones' or 'nota' field
-        const toothNote = diente.observaciones || (diente as any).nota;
-        if (toothNote && toothNote.trim()) {
-          teethNotes.push(`Diente ${toothNumber}: ${toothNote}`);
-        }
+
+        teethWithIssues.push(toothInfo);
+      }
+
+      const toothNote = diente?.observaciones || diente?.nota;
+      if (toothNote && toothNote.trim()) {
+        teethNotes.push(`Diente ${toothKey}: ${toothNote}`);
       }
     });
     
@@ -269,8 +300,8 @@ function PresupuestosPageContent() {
 
   // Auto-load odontogram data into notes when opening create form
   const autoLoadOdontogramData = () => {
-    if (odontogram && !newQuote.notes) {
-      const formattedData = formatOdontogramForNotes(odontogram);
+    if (odontogramPilot && !newQuote.notes) {
+      const formattedData = formatOdontogramForNotes(odontogramPilot);
       if (formattedData) {
         setNewQuote(prev => ({
           ...prev,
@@ -307,7 +338,7 @@ function PresupuestosPageContent() {
 
     loadPatientData();
     loadQuotes();
-    loadOdontogram(pacienteId);
+    loadOdontogramPilot(pacienteId);
   }, [isLoaded, user, pacienteId]);
 
   const loadPatientData = async () => {
@@ -975,10 +1006,10 @@ function PresupuestosPageContent() {
                   rows={4}
                   placeholder="Notas adicionales..."
                 />
-                {loadingOdontogram && (
+                {loadingOdontogramPilot && (
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
                     <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-teal-600 mr-2"></div>
-                    Cargando datos del odontograma...
+                    Cargando datos del odontograma pilot...
                   </div>
                 )}
               </div>
