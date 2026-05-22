@@ -197,7 +197,7 @@ function PresupuestosPageContent() {
       const status = getToothState(diente, datos_odontograma.tipo);
       statusCount[status] = (statusCount[status] || 0) + 1;
 
-      if (status !== 'sano' && status !== 'ausente') {
+      if (status !== 'sano') {
         let toothInfo = `Diente ${toothKey}: ${status}`;
 
         const observations = diente?.observaciones || diente?.nota;
@@ -237,7 +237,7 @@ function PresupuestosPageContent() {
       }
     });
     
-    let result = '';
+    let result = '=== DATOS DEL ODONTOGRAMA ===\n\n';
     
     // Section 1: Status Count (moved to top)
     if (Object.keys(statusCount).length > 0) {
@@ -320,6 +320,18 @@ function PresupuestosPageContent() {
       { id: '1', description: '', quantity: 1, unit_price: 0, total_price: 0 }
     ]
   });
+
+  useEffect(() => {
+    if (showCreateForm && odontogramPilot && !newQuote.notes) {
+      const formattedData = formatOdontogramForNotes(odontogramPilot);
+      if (formattedData) {
+        setNewQuote(prev => ({
+          ...prev,
+          notes: formattedData
+        }));
+      }
+    }
+  }, [showCreateForm, odontogramPilot, newQuote.notes]);
 
   // Get patient ID from URL
   const pacienteId = searchParams.get('id');
