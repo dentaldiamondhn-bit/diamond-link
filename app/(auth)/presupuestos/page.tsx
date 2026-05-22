@@ -325,7 +325,12 @@ function PresupuestosPageContent() {
   const pacienteId = searchParams.get('id');
 
   useEffect(() => {
-    if (!isLoaded || !user) {
+    // Wait until Clerk has finished loading auth state before making redirects.
+    // If `isLoaded` is false we should not redirect, otherwise temporary unloaded
+    // state during a full page reload causes an unwanted navigation to sign-in.
+    if (!isLoaded) return;
+
+    if (!user) {
       router.push('/sign-in');
       return;
     }
