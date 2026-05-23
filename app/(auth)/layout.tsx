@@ -220,138 +220,144 @@ export default function AuthLayout({
                           </h1>
                         )}
                         
-                        {/* Existing Admin Pages */}
-                        {pathname === '/reports' && (
-                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                            <div className="w-6 h-6 mr-3 flex items-center justify-center">
-                              <AnimatedReport />
-                            </div>
-                            Reportes y Análisis
-                          </h1>
-                        )}
-                        {pathname === '/pacientes' && (
-                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-user-injured mr-2"></i>
-                            Todos los Pacientes
-                          </h1>
-                        )}
-                        {pathname === '/tratamientos' && (
-                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-tooth mr-2"></i>
-                            Tratamientos
-                          </h1>
-                        )}
-                        {pathname === '/historia-clinica-ortodoncia' && (
-                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-tooth mr-2"></i>
-                            Historia Ortodoncia
-                          </h1>
-                        )}
-                        {pathname === '/doctores' && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-user-md mr-2"></i>
-                            Gestión de Doctores
-                          </h1>
-                        )}
-                        {pathname === '/estudio-periodontal' && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-teeth mr-2 text-teal-600"></i>
-                            Estudio Periodontal
-                          </h1>
-                        )}
-                        {pathname === '/calendario' && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
-                            Calendario
-                          </h1>
-                        )}
-                        {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                            <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                              <AnimatedFolder />
-                            </div>
-                            Gestión Documental
-                          </h1>
-                        )}
-                        {pathname === '/tratamientos' && (
-                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-tooth mr-2"></i>
-                            Tratamientos
-                          </h1>
-                        )}
-                        {pathname === '/historia-clinica-ortodoncia' && (
-                          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-tooth mr-2"></i>
-                            Historia Ortodoncia
-                          </h1>
-                        )}
-                        {pathname === '/doctores' && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-user-md mr-2"></i>
-                            Gestión de Doctores
-                          </h1>
-                        )}
-                        {pathname === '/estudio-periodontal' && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-teeth mr-2 text-teal-600"></i>
-                            Estudio Periodontal
-                          </h1>
-                        )}
-                        {pathname === '/calendario' && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
-                            Calendario
-                          </h1>
-                        )}
-                        {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                            <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                              <AnimatedFolder />
-                            </div>
-                            Gestión Documental
-                          </h1>
-                        )}
-                        {pathname.startsWith('/admin/users') && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                            <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                              <AnimatedUsers />
-                            </div>
-                            User Administration
-                          </h1>
-                        )}
-                        {pathname.startsWith('/tech-support/users') && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                            <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                              <AnimatedUsers />
-                            </div>
-                            User Management
-                          </h1>
-                        )}
-                        {pathname.startsWith('/odontogram-test') && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                            <i className="fas fa-tooth mr-2 text-teal-600"></i>
-                            Odontogram Testing
-                          </h1>
-                        )}
-                        {pathname.startsWith('/odontogram-pilot') && (
-                          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                            <i className="fas fa-circle-notch mr-2 text-teal-600"></i>
-                            Odontograma Pilot
-                          </h1>
-                        )}
-                        {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (
-                          <div className="flex items-center">
-                            <i className="fas fa-x-ray text-2xl text-teal-600 mr-3"></i>
-                            <div>
-                              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                                Visor de Rayos X
-                              </h1>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                Gestiona y visualiza estudios radiográficos de pacientes
-                              </p>
-                            </div>
-                          </div>
-                        )}
+                         {/* Existing Admin Pages */}
+                         {pathname === '/reports' && (
+                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                             <div className="w-6 h-6 mr-3 flex items-center justify-center">
+                               <AnimatedReport />
+                             </div>
+                             Reportes y Análisis
+                           </h1>
+                         )}
+                         {pathname === '/pacientes' && (
+                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-user-injured mr-2"></i>
+                             Todos los Pacientes
+                           </h1>
+                         )}
+                         {pathname === '/tratamientos' && (
+                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-tooth mr-2"></i>
+                             Tratamientos
+                           </h1>
+                         )}
+                         {pathname === '/historia-clinica-ortodoncia' && (
+                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-tooth mr-2"></i>
+                             Historia Ortodoncia
+                           </h1>
+                         )}
+                         {pathname === '/doctores' && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-user-md mr-2"></i>
+                             Gestión de Doctores
+                           </h1>
+                         )}
+                         {pathname === '/estudio-periodontal' && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-teeth mr-2 text-teal-600"></i>
+                             Estudio Periodontal
+                           </h1>
+                         )}
+                         {pathname === '/calendario' && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
+                             Calendario
+                           </h1>
+                         )}
+                         {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                             <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                               <AnimatedFolder />
+                             </div>
+                             Gestión Documental
+                           </h1>
+                         )}
+                         {pathname === '/tratamientos' && (
+                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-tooth mr-2"></i>
+                             Tratamientos
+                           </h1>
+                         )}
+                         {pathname === '/historia-clinica-ortodoncia' && (
+                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-tooth mr-2"></i>
+                             Historia Ortodoncia
+                           </h1>
+                         )}
+                         {pathname === '/doctores' && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-user-md mr-2"></i>
+                             Gestión de Doctores
+                           </h1>
+                         )}
+                         {pathname === '/estudio-periodontal' && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-teeth mr-2 text-teal-600"></i>
+                             Estudio Periodontal
+                           </h1>
+                         )}
+                         {pathname === '/calendario' && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                             <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
+                             Calendario
+                           </h1>
+                         )}
+                         {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                             <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                               <AnimatedFolder />
+                             </div>
+                             Gestión Documental
+                           </h1>
+                         )}
+                         {pathname.startsWith('/admin/users') && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                             <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                               <AnimatedUsers />
+                             </div>
+                             User Administration
+                           </h1>
+                         )}
+                         {pathname.startsWith('/tech-support/users') && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                             <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                               <AnimatedUsers />
+                             </div>
+                             User Management
+                           </h1>
+                         )}
+                         {pathname.startsWith('/odontogram-test') && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                             <i className="fas fa-tooth mr-2 text-teal-600"></i>
+                             Odontogram Testing
+                           </h1>
+                         )}
+                         {pathname.startsWith('/odontogram-pilot') && (
+                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                             <i className="fas fa-circle-notch mr-2 text-teal-600"></i>
+                             Odontograma Pilot
+                           </h1>
+                         )}
+                         {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (
+                           <div className="flex items-center">
+                             <i className="fas fa-x-ray text-2xl text-teal-600 mr-3"></i>
+                             <div>
+                               <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                                 Visor de Rayos X
+                               </h1>
+                               <p className="text-xs text-gray-600 dark:text-gray-400">
+                                 Gestiona y visualiza estudios radiográficos de pacientes
+                               </p>
+                             </div>
+                           </div>
+                         )}
+                         {pathname === '/notas-linea-de-tiempo' && (
+                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                             <i className="fas fa-stream mr-2 text-teal-600"></i>
+                             Notas - Línea de Tiempo
+                           </h1>
+                         )}
                       </div>
                       
                       {/* Right side - User Info and Actions */}
