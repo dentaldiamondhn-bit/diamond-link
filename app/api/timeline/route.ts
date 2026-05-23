@@ -9,14 +9,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [patientResult, appointmentsResult, treatmentsResult, odontogramsResult, consentimientosResult, presupuestosResult, paymentsResult] = await Promise.all([
+    const [patientResult, appointmentsResult, treatmentsResult, odontogramsResult, consentimientosResult, presupuestosResult] = await Promise.all([
       supabase.from('patients').select('paciente_id, nombre_completo, fecha_inicio, edad, sexo').eq('paciente_id', pacienteId).single(),
       supabase.from('calendar_events').select('id, title, description, start_date, end_date, event_type, status, notes, location').eq('patient_id', pacienteId).order('start_date', { ascending: false }),
       supabase.from('tratamientos_completados').select('id, fecha_cita, total_final, monto_pagado, estado, notas_doctor, especialidad').eq('paciente_id', pacienteId).order('fecha_cita', { ascending: false }),
       supabase.from('odontograms').select('id, version, datos_odontograma, notas, fecha_creacion').eq('paciente_id', pacienteId).order('fecha_creacion', { ascending: false }),
       supabase.from('consentimientos').select('id, nombre_consentimiento, tipo_consentimiento, fecha_consentimiento, estado').eq('paciente_id', pacienteId).order('fecha_consentimiento', { ascending: false }),
-      supabase.from('presupuestos').select('id, treatment_description, total_amount, status, quote_date, doctor_name').eq('patient_id', pacienteId).order('quote_date', { ascending: false }),
-      supabase.from('payments').select('id, tratamiento_completado_id, monto_pago, moneda, fecha_pago, metodo_pago, notas_pago').in('tratamiento_completado_id', [] as string[]).order('fecha_pago', { ascending: false })
+      supabase.from('presupuestos').select('id, treatment_description, total_amount, status, quote_date, doctor_name').eq('patient_id', pacienteId).order('quote_date', { ascending: false })
     ]);
 
     // Fetch payments for this patient's treatments
