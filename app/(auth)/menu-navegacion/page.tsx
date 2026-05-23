@@ -705,6 +705,41 @@ function MenuNavegacionContent() {
 
   const menuItems = [
     {
+      id: 'consentimientos',
+      icon: 'fas fa-file-signature',
+      title: 'Consentimientos',
+      description: getConsentimientoDescription(),
+      href: `/consentimientos?id=${validPacienteId}`
+    },
+    {
+      id: 'odontograma-pilot',
+      icon: 'fas fa-tooth',
+      title: 'Odontograma',
+      description: getOdontogramPilotDescription(),
+      href: `/odontogram-pilot?id=${validPacienteId}`
+    },
+    {
+      id: 'preformas',
+      icon: <AnimatedTratamientosCompletados className="w-8 h-8" />,
+      title: 'Tratamientos Completados',
+      description: getTreatmentStatsDescription(),
+      href: `/tratamientos-completados?paciente_id=${validPacienteId}`
+    },
+    {
+      id: 'presupuesto',
+      icon: <AnimatedWallet className="w-4 h-4" />,
+      title: 'Presupuestos',
+      description: getPresupuestoDescription(),
+      href: `/presupuestos?id=${validPacienteId}`
+    },
+    {
+      id: 'historia-clinica-ortodoncia',
+      icon: 'fas fa-teeth',
+      title: 'Historia Clínica Ortodóncica',
+      description: 'Registre y gestione la historia clínica ortodóncica completa del paciente, incluyendo diagnóstico, plan de tratamiento y seguimiento.',
+      href: `/historia-clinica-ortodoncia?id=${validPacienteId}`
+    },
+    {
       id: 'editar-datos-btn',
       icon: 'fas fa-user-edit',
       title: 'Datos Generales',
@@ -726,39 +761,11 @@ function MenuNavegacionContent() {
       href: `/patient-form?id=${validPacienteId}`
     },
     {
-      id: 'odontograma-pilot',
-      icon: 'fas fa-tooth',
-      title: 'Odontograma',
-      description: getOdontogramPilotDescription(),
-      href: `/odontogram-pilot?id=${validPacienteId}`
-    },
-    {
-      id: 'historia-clinica-ortodoncia',
-      icon: 'fas fa-teeth',
-      title: 'Historia Clínica Ortodóncica',
-      description: 'Registre y gestione la historia clínica ortodóncica completa del paciente, incluyendo diagnóstico, plan de tratamiento y seguimiento.',
-      href: `/historia-clinica-ortodoncia?id=${validPacienteId}`
-    },
-    {
-      id: 'estudios-periodontales',
-      icon: 'fas fa-teeth-open',
-      title: 'Estudios Periodontales',
-      description: 'Registre y gestione los estudios periodontales, incluyendo índices de placa, sangrado y profundidad de bolsas.',
-      href: `/estudio-periodontal?id=${validPacienteId}`
-    },
-    {
-      id: 'consentimientos',
-      icon: 'fas fa-file-signature',
-      title: 'Consentimientos',
-      description: getConsentimientoDescription(),
-      href: `/consentimientos?id=${validPacienteId}`
-    },
-    {
-      id: 'presupuesto',
-      icon: <AnimatedWallet className="w-4 h-4" />,
-      title: 'Presupuestos',
-      description: getPresupuestoDescription(),
-      href: `/presupuestos?id=${validPacienteId}`
+      id: 'gestion-documental',
+      icon: <AnimatedFolder className="w-7 h-7" />,
+      title: 'Gestión Documental',
+      description: 'Administre todos los documentos del paciente, incluyendo informes, radiografías y archivos adjuntos.',
+      href: `/dashboard/documents?id=${validPacienteId}`
     },
     {
       id: 'reportes',
@@ -768,18 +775,11 @@ function MenuNavegacionContent() {
       href: `/reports`
     },
     {
-      id: 'preformas',
-      icon: <AnimatedTratamientosCompletados className="w-8 h-8" />,
-      title: 'Tratamientos Completados',
-      description: getTreatmentStatsDescription(),
-      href: `/tratamientos-completados?paciente_id=${validPacienteId}`
-    },
-    {
-      id: 'gestion-documental',
-      icon: <AnimatedFolder className="w-7 h-7" />,
-      title: 'Gestión Documental',
-      description: 'Administre todos los documentos del paciente, incluyendo informes, radiografías y archivos adjuntos.',
-      href: `/dashboard/documents?id=${validPacienteId}`
+      id: 'estudios-periodontales',
+      icon: 'fas fa-teeth-open',
+      title: 'Estudios Periodontales',
+      description: 'Registre y gestione los estudios periodontales, incluyendo índices de placa, sangrado y profundidad de bolsas.',
+      href: `/estudio-periodontal?id=${validPacienteId}`
     }
   ];
 
