@@ -185,168 +185,175 @@ function NotasLineaDeTiempoContent() {
     fetchData();
   }, [pacienteId]);
 
-  function buildEvents(timelineData: TimelineData, pilots: any[]) {
-    const allEvents: TimelineEvent[] = [];
-    const { patient, appointments, treatments, consentimientos, presupuestos } = timelineData;
+   function buildEvents(timelineData: TimelineData, pilots: any[]) {
+     const allEvents: TimelineEvent[] = [];
+     const { patient, appointments, treatments, consentimientos, presupuestos } = timelineData;
 
-    // Milestone: Patient start date
-    if (patient.fecha_inicio) {
-      allEvents.push({
-        id: 'milestone-inicio',
-        type: 'milestone',
-        date: patient.fecha_inicio,
-        title: 'Inicio del Paciente',
-        subtitle: patient.nombre_completo,
-        description: 'Fecha en que el paciente inició su historial en la clínica',
-        icon: 'fas fa-flag',
-        color: 'text-amber-600',
-        details: { edad: patient.edad, sexo: patient.sexo }
-      });
-    }
-
-    // Appointments
-    appointments.forEach((apt) => {
-      allEvents.push({
-        id: `apt-${apt.id}`,
-        type: 'appointment',
-        date: apt.start_date,
-        title: apt.title || 'Cita',
-        subtitle: getEventTypeLabel(apt.event_type),
-        description: apt.notes || apt.description || undefined,
-        icon: 'fas fa-calendar-check',
-        color: 'text-blue-600',
-        details: {
-          status: apt.status,
-          location: apt.location,
-          end_date: apt.end_date
-        }
-      });
-    });
-
-    // Treatments
-    treatments.forEach((t) => {
-      const itemNames = (t.items || []).slice(0, 3).map((i: any) => i.nombre_tratamiento).join(', ');
-      const moreCount = (t.items || []).length > 3 ? ` +${(t.items || []).length - 3} más` : '';
-      allEvents.push({
-        id: `treatment-${t.id}`,
-        type: 'treatment',
-        date: t.fecha_cita,
-        title: itemNames ? `${itemNames}${moreCount}` : 'Tratamiento',
-        subtitle: t.especialidad || undefined,
-        description: t.notas_doctor || undefined,
-        icon: 'fas fa-tooth',
-        color: 'text-teal-600',
-        details: {
-          status: t.estado,
-          total: t.total_final,
-          paid: t.monto_pagado,
-          remaining: (t.total_final || 0) - (t.monto_pagado || 0),
-          item_count: (t.items || []).length
-        }
-      });
-
-      // Payment events for this treatment
-      (t.payments || []).forEach((p: any) => {
-        allEvents.push({
-          id: `payment-${p.id}`,
-          type: 'payment',
-          date: p.fecha_pago,
-          title: `Pago: ${formatCurrency(p.monto_pago)}`,
-          subtitle: p.metodo_pago || undefined,
-          description: p.notas_pago || undefined,
-          icon: 'fas fa-money-bill-wave',
-          color: 'text-emerald-600',
-          details: { moneda: p.moneda }
-        });
-      });
-    });
-
-     // Odontograms from odontogram-pilot history API
-     pilots.forEach((o) => {
-       const datosOdontograma = o.datos_odontograma || {};
-       const dientes = datosOdontograma.dientes || {};
-       const odontogramType = datosOdontograma.tipo;
-       const adultToothNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28, 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
-       const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65, 85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
-       const toothKeys = odontogramType === 'nino' ? childToothNumbers : adultToothNumbers;
- 
-       const getToothState = (diente: any) => {
-         if (!diente || typeof diente !== 'object') return 'sano';
-         if (diente.estado !== undefined) return diente.estado || 'sano';
-         if (diente.cuadrantes && typeof diente.cuadrantes === 'object') {
-           const vals = Object.values(diente.cuadrantes).filter((v) => typeof v === 'string') as string[];
-           const first = vals.find((v) => v !== 'sano');
-           if (odontogramType === 'oleary_adulto') return first || 'sano';
-           if (diente.central && typeof diente.central === 'string' && diente.central !== 'sano') return diente.central;
-           return first || 'sano';
-         }
-         if (diente.central && typeof diente.central === 'string') return diente.central || 'sano';
-         return 'sano';
+     // Milestone: Patient start date (will be added at the end)
+     let milestoneEvent: TimelineEvent | null = null;
+     if (patient.fecha_inicio) {
+       milestoneEvent = {
+         id: 'milestone-inicio',
+         type: 'milestone',
+         date: patient.fecha_inicio,
+         title: 'Inicio del Paciente',
+         subtitle: patient.nombre_completo,
+         description: 'Fecha en que el paciente inició su historial en la clínica',
+         icon: 'fas fa-flag',
+         color: 'text-amber-600',
+         details: { edad: patient.edad, sexo: patient.sexo }
        };
- 
-       const counts: Record<string, number> = {};
-       toothKeys.forEach((n) => {
-         const state = getToothState(dientes[n.toString()]);
-         counts[state] = (counts[state] || 0) + 1;
-       });
- 
-       const significant = Object.entries(counts)
-         .filter(([k]) => k !== 'sano')
-         .sort((a, b) => (b[1] as number) - (a[1] as number))
-         .slice(0, 3)
-         .map(([k, v]) => `${k}: ${v}`);
- 
+     }
+
+     // Appointments
+     appointments.forEach((apt) => {
        allEvents.push({
-         id: `odontogram-${o.id}`,
-         type: 'odontogram',
-         date: datosOdontograma.fecha || o.fecha_creacion,
-         title: `Odontograma v${o.version}`,
-         subtitle: significant.length > 0 ? significant.join(' • ') : `${toothKeys.length} dientes registrados`,
-         description: o.notas || undefined,
-         icon: 'fas fa-teeth',
-         color: 'text-purple-600',
+         id: `apt-${apt.id}`,
+         type: 'appointment',
+         date: apt.start_date,
+         title: apt.title || 'Cita',
+         subtitle: getEventTypeLabel(apt.event_type),
+         description: apt.notes || apt.description || undefined,
+         icon: 'fas fa-calendar-check',
+         color: 'text-blue-600',
          details: {
-           version: o.version,
-           total_teeth: toothKeys.length,
-           findings: counts
+           status: apt.status,
+           location: apt.location,
+           end_date: apt.end_date
          }
        });
      });
 
-    // Consentimientos
-    consentimientos.forEach((c) => {
-      allEvents.push({
-        id: `consent-${c.id}`,
-        type: 'consentimiento',
-        date: c.fecha_consentimiento,
-        title: c.nombre_consentimiento || 'Consentimiento',
-        subtitle: c.tipo_consentimiento || undefined,
-        description: undefined,
-        icon: 'fas fa-file-signature',
-        color: 'text-green-600',
-        details: { status: c.estado }
-      });
-    });
+     // Treatments
+     treatments.forEach((t) => {
+       const itemNames = (t.items || []).slice(0, 3).map((i: any) => i.nombre_tratamiento).join(', ');
+       const moreCount = (t.items || []).length > 3 ? ` +${(t.items || []).length - 3} más` : '';
+       allEvents.push({
+         id: `treatment-${t.id}`,
+         type: 'treatment',
+         date: t.fecha_cita,
+         title: itemNames ? `${itemNames}${moreCount}` : 'Tratamiento',
+         subtitle: t.especialidad || undefined,
+         description: t.notas_doctor || undefined,
+         icon: 'fas fa-tooth',
+         color: 'text-teal-600',
+         details: {
+           status: t.estado,
+           total: t.total_final,
+           paid: t.monto_pagado,
+           remaining: (t.total_final || 0) - (t.monto_pagado || 0),
+           item_count: (t.items || []).length
+         }
+       });
 
-    // Presupuestos
-    presupuestos.forEach((p) => {
-      allEvents.push({
-        id: `presupuesto-${p.id}`,
-        type: 'presupuesto',
-        date: p.quote_date,
-        title: p.treatment_description || 'Presupuesto',
-        subtitle: formatCurrency(p.total_amount),
-        description: p.doctor_name ? `Doctor: ${p.doctor_name}` : undefined,
-        icon: 'fas fa-file-invoice-dollar',
-        color: 'text-orange-600',
-        details: { status: p.status, amount: p.total_amount }
-      });
-    });
+       // Payment events for this treatment
+       (t.payments || []).forEach((p: any) => {
+         allEvents.push({
+           id: `payment-${p.id}`,
+           type: 'payment',
+           date: p.fecha_pago,
+           title: `Pago: ${formatCurrency(p.monto_pago)}`,
+           subtitle: p.metodo_pago || undefined,
+           description: p.notas_pago || undefined,
+           icon: 'fas fa-money-bill-wave',
+           color: 'text-emerald-600',
+           details: { moneda: p.moneda }
+         });
+       });
+     });
 
-    // Sort by date descending
-    allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setEvents(allEvents);
-  }
+      // Odontograms from odontogram-pilot history API
+      pilots.forEach((o) => {
+        const datosOdontograma = o.datos_odontograma || {};
+        const dientes = datosOdontograma.dientes || {};
+        const odontogramType = datosOdontograma.tipo;
+        const adultToothNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28, 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+        const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65, 85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+        const toothKeys = odontogramType === 'nino' ? childToothNumbers : adultToothNumbers;
+  
+        const getToothState = (diente: any) => {
+          if (!diente || typeof diente !== 'object') return 'sano';
+          if (diente.estado !== undefined) return diente.estado || 'sano';
+          if (diente.cuadrantes && typeof diente.cuadrantes === 'object') {
+            const vals = Object.values(diente.cuadrantes).filter((v) => typeof v === 'string') as string[];
+            const first = vals.find((v) => v !== 'sano');
+            if (odontogramType === 'oleary_adulto') return first || 'sano';
+            if (diente.central && typeof diente.central === 'string' && diente.central !== 'sano') return diente.central;
+            return first || 'sano';
+          }
+          if (diente.central && typeof diente.central === 'string') return diente.central || 'sano';
+          return 'sano';
+        };
+
+        const counts: Record<string, number> = {};
+        toothKeys.forEach((n) => {
+          const state = getToothState(dientes[n.toString()]);
+          counts[state] = (counts[state] || 0) + 1;
+        });
+
+        const significant = Object.entries(counts)
+          .filter(([k]) => k !== 'sano')
+          .sort((a, b) => (b[1] as number) - (a[1] as number))
+          .slice(0, 3)
+          .map(([k, v]) => `${k}: ${v}`);
+
+        allEvents.push({
+          id: `odontogram-${o.id}`,
+          type: 'odontogram',
+          date: datosOdontograma.fecha || o.fecha_creacion,
+          title: `Odontograma v${o.version}`,
+          subtitle: significant.length > 0 ? significant.join(' • ') : `${toothKeys.length} dientes registrados`,
+          description: o.notas || undefined,
+          icon: 'fas fa-teeth',
+          color: 'text-purple-600',
+          details: {
+            version: o.version,
+            total_teeth: toothKeys.length,
+            findings: counts
+          }
+        });
+      });
+
+     // Consentimientos
+     consentimientos.forEach((c) => {
+       allEvents.push({
+         id: `consent-${c.id}`,
+         type: 'consentimiento',
+         date: c.fecha_consentimiento,
+         title: c.nombre_consentimiento || 'Consentimiento',
+         subtitle: c.tipo_consentimiento || undefined,
+         description: undefined,
+         icon: 'fas fa-file-signature',
+         color: 'text-green-600',
+         details: { status: c.estado }
+       });
+     });
+
+     // Presupuestos
+     presupuestos.forEach((p) => {
+       allEvents.push({
+         id: `presupuesto-${p.id}`,
+         type: 'presupuesto',
+         date: p.quote_date,
+         title: p.treatment_description || 'Presupuesto',
+         subtitle: formatCurrency(p.total_amount),
+         description: p.doctor_name ? `Doctor: ${p.doctor_name}` : undefined,
+         icon: 'fas fa-file-invoice-dollar',
+         color: 'text-orange-600',
+         details: { status: p.status, amount: p.total_amount }
+       });
+     });
+
+     // Sort by date descending (newest first)
+     allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+     
+     // Add milestone event at the end (bottom) regardless of date
+     if (milestoneEvent) {
+       allEvents.push(milestoneEvent);
+     }
+     
+     setEvents(allEvents);
+   }
 
   const filteredEvents = activeFilter === 'all'
     ? events
