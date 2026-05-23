@@ -384,19 +384,15 @@ function NotasLineaDeTiempoContent() {
   const { patient, summary } = data;
   const odontogramCount = odontogramPilots.length;
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            <i className="fas fa-stream mr-3 text-teal-600"></i>
-            Notas - Línea de Tiempo
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {patient.nombre_completo}
-          </p>
-        </div>
+   return (
+     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+         {/* Header */}
+         <div className="mb-8">
+           <p className="text-gray-600 dark:text-gray-400">
+             {patient.nombre_completo}
+           </p>
+         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
