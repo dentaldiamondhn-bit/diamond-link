@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       supabase.from('patients').select('paciente_id, nombre_completo, fecha_inicio, edad, sexo').eq('paciente_id', pacienteId).single(),
       supabase.from('calendar_events').select('id, title, description, start_date, end_date, event_type, status, notes, location').eq('patient_id', pacienteId).order('start_date', { ascending: false }),
       supabase.from('tratamientos_completados').select('id, fecha_cita, total_final, monto_pagado, estado, notas_doctor, especialidad').eq('paciente_id', pacienteId).order('fecha_cita', { ascending: false }),
-      supabase.from('odontograms').select('id, version, datos_odontograma, notas, fecha_creacion').eq('paciente_id', pacienteId).order('fecha_creacion', { ascending: false }),
+      supabase.from('odontogram_pilots').select('id, version, datos_odontograma, notas, fecha_creacion').eq('paciente_id', pacienteId).order('fecha_creacion', { ascending: false }),
       supabase.from('consentimientos').select('id, nombre_consentimiento, tipo_consentimiento, fecha_consentimiento, estado').eq('paciente_id', pacienteId).order('fecha_consentimiento', { ascending: false }),
       supabase.from('presupuestos').select('id, treatment_description, total_amount, status, quote_date, doctor_name').eq('patient_id', pacienteId).order('quote_date', { ascending: false })
     ]);
@@ -51,27 +51,74 @@ export async function GET(request: NextRequest) {
     );
 
     // Compute odontogram summaries
+    const adultToothNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28,
+      48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+    const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
+      85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+
+    const getToothState = (diente: any, odontogramType?: string) => {
+      if (!diente || typeof diente !== 'object') return 'sano';
+      if (diente.estado !== undefined) return diente.estado || 'sano';
+      const cuadrantes = diente.cuadrantes;
+      const central = diente.central;
+      if (cuadrantes && typeof cuadrantes === 'object') {
+        const quadrantValues = Object.values(cuadrantes).filter((v) => typeof v === 'string') as string[];
+        const firstNonSano = quadrantValues.find((v) => v !== 'sano');
+        if (odontogramType === 'oleary_adulto') return firstNonSano || 'sano';
+        if (central && typeof central === 'string' && central !== 'sano') return central;
+        return firstNonSano || 'sano';
+      }
+      if (central && typeof central === 'string') return central || 'sano';
+      return 'sano';
+    };
+
     const odontogramSummaries = odontograms.map(o => {
-      const dientes = o.datos_odontograma?.dientes || {};
+      // Handle JSONB that may be returned as string
+      let datosOdontograma = o.datos_odontograma;
+      if (typeof datosOdontograma === 'string') {
+        try {
+          datosOdontograma = JSON.parse(datosOdontograma);
+        } catch {
+          datosOdontograma = {};
+        }
+      }
+      datosOdontograma = datosOdontograma || {};
+
+      // Handle nested structure (datos_odontograma.datos_odontograma)
+      if (datosOdontograma.datos_odontograma && typeof datosOdontograma.datos_odontograma === 'object') {
+        datosOdontograma = datosOdontograma.datos_odontograma;
+      }
+
+      const dientes = datosOdontograma.dientes || {};
+      const odontogramType = datosOdontograma.tipo;
+      const toothKeys = odontogramType === 'nino' ? childToothNumbers : adultToothNumbers;
       const counts: Record<string, number> = {};
-      Object.values(dientes).forEach((d: any) => {
-        const estado = d?.estado || 'sano';
-        counts[estado] = (counts[estado] || 0) + 1;
+
+      toothKeys.forEach((toothNumber) => {
+        const key = toothNumber.toString();
+        const diente = dientes[key];
+        const toothState = getToothState(diente, odontogramType);
+        counts[toothState] = (counts[toothState] || 0) + 1;
       });
+
       const significant = Object.entries(counts)
         .filter(([k]) => k !== 'sano')
         .sort((a, b) => (b[1] as number) - (a[1] as number))
         .slice(0, 3)
         .map(([k, v]) => `${k}: ${v}`);
 
+      // notas may be inside datos_odontograma or at top level
+      const notas = datosOdontograma.notas || o.notas || null;
+
       return {
         id: o.id,
         version: o.version,
         fecha_creacion: o.fecha_creacion,
-        notas: o.notas,
+        notas,
         tooth_counts: counts,
         significant_findings: significant,
-        total_teeth: Object.keys(dientes).length
+        total_teeth: toothKeys.length,
+        odontogram_type: odontogramType
       };
     });
 
