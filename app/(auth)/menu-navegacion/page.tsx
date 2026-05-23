@@ -768,11 +768,11 @@ function MenuNavegacionContent() {
       href: `/dashboard/documents?id=${validPacienteId}`
     },
     {
-      id: 'reportes',
-      icon: <AnimatedReport className="w-4 h-4" />,
-      title: 'Reportes',
-      description: 'Vea estadísticas y análisis de rendimiento de tratamientos y pacientes.',
-      href: `/reports`
+      id: 'linea-de-tiempo',
+      icon: 'fas fa-stream',
+      title: 'Notas - Línea de Tiempo',
+      description: 'Vista cronológica infográfica con citas, tratamientos, odontogramas, consentimientos y presupuestos del paciente.',
+      href: `/notas-linea-de-tiempo?id=${validPacienteId}`
     },
     {
       id: 'estudios-periodontales',
@@ -974,7 +974,7 @@ function MenuNavegacionContent() {
                      item.id === 'consentimientos' ? 'Consentimientos' :
                      item.id === 'presupuesto' ? 'Ir a Presupuestos' :
                      item.id === 'preformas' ? 'Ver Tratamientos' :
-                     item.id === 'reportes' ? 'Ver Reportes' :
+                     item.id === 'linea-de-tiempo' ? 'Ver Línea de Tiempo' :
                      item.id === 'gestion-documental' ? 'Ir a Documentos' :
                      item.id === 'historia-clinica-ortodoncia' ? 'Ir' :
                      'Ir'}
