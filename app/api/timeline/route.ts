@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   const pacienteId = request.nextUrl.searchParams.get('paciente_id');
@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const supabase = createServiceClient();
     const [patientResult, appointmentsResult, treatmentsResult, odontogramsResult, consentimientosResult, presupuestosResult] = await Promise.all([
       supabase.from('patients').select('paciente_id, nombre_completo, fecha_inicio, edad, sexo').eq('paciente_id', pacienteId).single(),
       supabase.from('calendar_events').select('id, title, description, start_date, end_date, event_type, status, notes, location').eq('patient_id', pacienteId).order('start_date', { ascending: false }),
@@ -27,7 +28,14 @@ export async function GET(request: NextRequest) {
     const patient = patientResult.data;
     const appointments = appointmentsResult.data || [];
     const treatments = treatmentsResult.data || [];
-    const odontograms = odontogramsResult.data || [];
+    const odontogramsRaw = odontogramsResult.data || [];
+    console.log('[TIMELINE API] odontogram_pilots raw count:', odontogramsRaw.length);
+    if (odontogramsRaw.length > 0) {
+      const sample = odontogramsRaw[0];
+      console.log('[TIMELINE API] sample keys:', Object.keys(sample));
+      console.log('[TIMELINE API] datos_odontograma type:', typeof sample.datos_odontograma);
+      console.log('[TIMELINE API] datos_odontograma preview:', JSON.stringify(sample.datos_odontograma).substring(0, 300));
+    }
     const consentimientos = consentimientosResult.data || [];
     const presupuestos = presupuestosResult.data || [];
     const payments = paymentsResult.data || [];
@@ -121,6 +129,8 @@ export async function GET(request: NextRequest) {
         odontogram_type: odontogramType
       };
     });
+
+    console.log('[TIMELINE API] odontogram summaries:', JSON.stringify(odontogramSummaries).substring(0, 500));
 
     return NextResponse.json({
       patient,
