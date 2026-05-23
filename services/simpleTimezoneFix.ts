@@ -42,13 +42,13 @@ export class SimpleTimezoneFix {
    */
   static formatDisplayDate(dateString: string | Date): string {
     if (!dateString) return 'No especificada';
-    
+
     try {
       // Check if it's a date-only string (YYYY-MM-DD format)
       const isDateOnly = typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString);
-      
+
       let day: number, month: number, year: number;
-      
+
       if (isDateOnly) {
         // For date-only strings, parse directly without timezone conversion
         const parts = dateString.split('-');
@@ -56,19 +56,29 @@ export class SimpleTimezoneFix {
         month = parseInt(parts[1]) - 1;
         day = parseInt(parts[2]);
       } else {
-        // For timestamps, convert from UTC to clinic timezone (UTC-6)
+        // For timestamps, check if it's a date-only timestamp (midnight UTC)
         const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-        const utcTime = date.getTime();
-        const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
-        const clinicDate = new Date(utcTime - clinicOffset);
-        
-        day = clinicDate.getUTCDate();
-        month = clinicDate.getUTCMonth();
-        year = clinicDate.getUTCFullYear();
+        const isMidnightUTC = date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0;
+
+        if (isMidnightUTC) {
+          // Treat as date-only to avoid timezone shifting the date
+          day = date.getUTCDate();
+          month = date.getUTCMonth();
+          year = date.getUTCFullYear();
+        } else {
+          // For actual timestamps with time, convert from UTC to clinic timezone (UTC-6)
+          const utcTime = date.getTime();
+          const clinicOffset = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+          const clinicDate = new Date(utcTime - clinicOffset);
+
+          day = clinicDate.getUTCDate();
+          month = clinicDate.getUTCMonth();
+          year = clinicDate.getUTCFullYear();
+        }
       }
-      
+
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      
+
       return `${day} de ${monthNames[month]} ${year}`;
     } catch (error) {
       return 'No especificada';

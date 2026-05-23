@@ -7,7 +7,6 @@ import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { PatientService } from '@/services/patientService';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
-import { OdontogramService } from '@/services/odontogramService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { consentimientoService } from '@/services/consentimientoService';
 import { presupuestoService } from '@/services/presupuestoService';
@@ -41,8 +40,6 @@ function MenuNavegacionContent() {
   const [patientLoading, setPatientLoading] = useState(true);
   const [treatmentStats, setTreatmentStats] = useState<any>(null);
   const [treatmentStatsLoading, setTreatmentStatsLoading] = useState(true);
-  const [odontogramStats, setOdontogramStats] = useState<any>(null);
-  const [odontogramStatsLoading, setOdontogramStatsLoading] = useState(true);
   const [odontogramPilotStats, setOdontogramPilotStats] = useState<any>(null);
   const [odontogramPilotStatsLoading, setOdontogramPilotStatsLoading] = useState(true);
   const [consentimientoStats, setConsentimientoStats] = useState<any>(null);
@@ -140,25 +137,6 @@ function MenuNavegacionContent() {
     };
 
     loadTreatmentStats();
-  }, [patient]);
-
-  useEffect(() => {
-    const loadOdontogramStats = async () => {
-      if (!patient) return;
-      
-      try {
-        setOdontogramStatsLoading(true);
-        const stats = await OdontogramService.getPatientOdontogramStatistics(patient.paciente_id);
-        setOdontogramStats(stats);
-      } catch (error) {
-        console.error('Error loading odontogram statistics:', error);
-        setOdontogramStats(null);
-      } finally {
-        setOdontogramStatsLoading(false);
-      }
-    };
-
-    loadOdontogramStats();
   }, [patient]);
 
   useEffect(() => {
@@ -332,81 +310,6 @@ function MenuNavegacionContent() {
           <div className="flex items-center space-x-2">
             <span className="text-purple-600 dark:text-purple-400 font-medium">
               Último: {formatDate(latest_treatment_date)}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const getOdontogramDescription = (): JSX.Element => {
-    if (odontogramStatsLoading) {
-      return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
-    }
-    
-    if (!odontogramStats) {
-      return <span className="text-gray-500 dark:text-gray-400">No hay odontogramas registrados</span>;
-    }
-
-    const { total_versions, latest_version, status_counts } = odontogramStats;
-
-    // Get all tooth states for display
-    const allStates = Object.entries(status_counts)
-      .filter(([_, count]: [string, number]) => count > 0)
-      .sort(([stateA, countA]: [string, number], [stateB, countB]: [string, number]) => {
-        // Sort by status type order: Sanos first, then others in the desired business order.
-        const sortOrder = ['sano', 'ausente', 'caries', 'obturado', 'resina', 'extraccion', 'corona', 'puente', 'implante', 'endodoncia', 'fracturado', 'sellante'];
-        const aIndex = sortOrder.indexOf(stateA);
-        const bIndex = sortOrder.indexOf(stateB);
-        if (aIndex === -1 && bIndex === -1) return stateA.localeCompare(stateB);
-        if (aIndex === -1) return 1;
-        if (bIndex === -1) return -1;
-        return aIndex - bIndex;
-      });
-
-    const getStateLabel = (state: string) => {
-      const labels: Record<string, string> = {
-        sano: 'Sano',
-        caries: 'Cariado',
-        obturado: 'Obturado',
-        resina: 'Restauración Resina',
-        extraccion: 'Extracción indicada',
-        ausente: 'Ausente',
-        corona: 'Corona',
-        puente: 'Puente',
-        implante: 'Implante',
-        endodoncia: 'Endodoncia',
-        fracturado: 'Fracturado',
-        sellante: 'Sellante'
-      };
-      return labels[state] || state.charAt(0).toUpperCase() + state.slice(1);
-    };
-
-    return (
-      <div className="text-sm space-y-1">
-        <div className="flex items-center space-x-2">
-          <span className="text-gray-700 dark:text-gray-300">
-            {total_versions} versión{total_versions !== 1 ? 'es' : ''}
-          </span>
-        </div>
-        {latest_version && (
-          <div className="flex items-center space-x-2">
-            <span className="text-blue-600 dark:text-blue-400 font-medium">
-              Última: v{latest_version.version}
-            </span>
-          </div>
-        )}
-        {latest_version && (
-          <div className="flex items-center space-x-2">
-            <span className="text-purple-600 dark:text-purple-400 font-medium">
-              {SimpleTimezoneFix.formatDisplayDate(latest_version.fecha_creacion)}
-            </span>
-          </div>
-        )}
-        {allStates.length > 0 && (
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-600 dark:text-gray-400">
-              {allStates.map(([state, count]) => `${getStateLabel(state)}: ${count}`).join(' • ')}
             </span>
           </div>
         )}
@@ -823,16 +726,9 @@ function MenuNavegacionContent() {
       href: `/patient-form?id=${validPacienteId}`
     },
     {
-      id: 'odontograma',
-      icon: 'fas fa-tooth',
-      title: 'Odontograma',
-      description: getOdontogramDescription(),
-      href: `/odontogram?id=${validPacienteId}`
-    },
-    {
       id: 'odontograma-pilot',
       icon: 'fas fa-tooth',
-      title: 'Odontograma Pilot (Nuevo)',
+      title: 'Odontograma',
       description: getOdontogramPilotDescription(),
       href: `/odontogram-pilot?id=${validPacienteId}`
     },
@@ -1072,8 +968,7 @@ function MenuNavegacionContent() {
                     <i className="fas fa-arrow-right mr-2"></i>
                     {item.id === 'editar-datos-btn' ? 'Editar Datos' :
                      item.id === 'registros-paciente' ? 'Ver Registros' :
-                     item.id === 'odontograma' ? 'Ir al Odontograma' :
-                     item.id === 'odontograma-pilot' ? 'Ir al Pilot' :
+                     item.id === 'odontograma-pilot' ? 'Ir al Odontograma' :
                      item.id === 'estudios-ortodonticos' ? 'Ir a Estudios Ortodónticos' :
                      item.id === 'estudios-periodontales' ? 'Ir a Estudios Periodontales' :
                      item.id === 'consentimientos' ? 'Consentimientos' :

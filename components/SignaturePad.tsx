@@ -88,7 +88,7 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
 
       // Load existing signature if provided
       if (value) {
-        if (value.startsWith('data:image/')) {
+        if (typeof value === 'string' && value.startsWith('data:image/')) {
           signaturePad.fromDataURL(value);
           setIsEmpty(false);
         }
