@@ -261,57 +261,57 @@ function NotasLineaDeTiempoContent() {
       });
     });
 
-    // Odontograms from odontogram-pilot history API
-    pilots.forEach((o) => {
-      const datosOdontograma = o.datos_odontograma || {};
-      const dientes = datosOdontograma.dientes || {};
-      const odontogramType = datosOdontograma.tipo;
-      const adultToothNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28, 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
-      const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65, 85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
-      const toothKeys = odontogramType === 'nino' ? childToothNumbers : adultToothNumbers;
-
-      const getToothState = (diente: any) => {
-        if (!diente || typeof diente !== 'object') return 'sano';
-        if (diente.estado !== undefined) return diente.estado || 'sano';
-        if (diente.cuadrantes && typeof diente.cuadrantes === 'object') {
-          const vals = Object.values(diente.cuadrantes).filter((v) => typeof v === 'string') as string[];
-          const first = vals.find((v) => v !== 'sano');
-          if (odontogramType === 'oleary_adulto') return first || 'sano';
-          if (diente.central && typeof diente.central === 'string' && diente.central !== 'sano') return diente.central;
-          return first || 'sano';
-        }
-        if (diente.central && typeof diente.central === 'string') return diente.central || 'sano';
-        return 'sano';
-      };
-
-      const counts: Record<string, number> = {};
-      toothKeys.forEach((n) => {
-        const state = getToothState(dientes[n.toString()]);
-        counts[state] = (counts[state] || 0) + 1;
-      });
-
-      const significant = Object.entries(counts)
-        .filter(([k]) => k !== 'sano')
-        .sort((a, b) => (b[1] as number) - (a[1] as number))
-        .slice(0, 3)
-        .map(([k, v]) => `${k}: ${v}`);
-
-      allEvents.push({
-        id: `odontogram-${o.id}`,
-        type: 'odontogram',
-        date: o.fecha_creacion,
-        title: `Odontograma v${o.version}`,
-        subtitle: significant.length > 0 ? significant.join(' • ') : `${toothKeys.length} dientes registrados`,
-        description: o.notas || undefined,
-        icon: 'fas fa-teeth',
-        color: 'text-purple-600',
-        details: {
-          version: o.version,
-          total_teeth: toothKeys.length,
-          findings: counts
-        }
-      });
-    });
+     // Odontograms from odontogram-pilot history API
+     pilots.forEach((o) => {
+       const datosOdontograma = o.datos_odontograma || {};
+       const dientes = datosOdontograma.dientes || {};
+       const odontogramType = datosOdontograma.tipo;
+       const adultToothNumbers = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28, 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+       const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65, 85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+       const toothKeys = odontogramType === 'nino' ? childToothNumbers : adultToothNumbers;
+ 
+       const getToothState = (diente: any) => {
+         if (!diente || typeof diente !== 'object') return 'sano';
+         if (diente.estado !== undefined) return diente.estado || 'sano';
+         if (diente.cuadrantes && typeof diente.cuadrantes === 'object') {
+           const vals = Object.values(diente.cuadrantes).filter((v) => typeof v === 'string') as string[];
+           const first = vals.find((v) => v !== 'sano');
+           if (odontogramType === 'oleary_adulto') return first || 'sano';
+           if (diente.central && typeof diente.central === 'string' && diente.central !== 'sano') return diente.central;
+           return first || 'sano';
+         }
+         if (diente.central && typeof diente.central === 'string') return diente.central || 'sano';
+         return 'sano';
+       };
+ 
+       const counts: Record<string, number> = {};
+       toothKeys.forEach((n) => {
+         const state = getToothState(dientes[n.toString()]);
+         counts[state] = (counts[state] || 0) + 1;
+       });
+ 
+       const significant = Object.entries(counts)
+         .filter(([k]) => k !== 'sano')
+         .sort((a, b) => (b[1] as number) - (a[1] as number))
+         .slice(0, 3)
+         .map(([k, v]) => `${k}: ${v}`);
+ 
+       allEvents.push({
+         id: `odontogram-${o.id}`,
+         type: 'odontogram',
+         date: datosOdontograma.fecha || o.fecha_creacion,
+         title: `Odontograma v${o.version}`,
+         subtitle: significant.length > 0 ? significant.join(' • ') : `${toothKeys.length} dientes registrados`,
+         description: o.notas || undefined,
+         icon: 'fas fa-teeth',
+         color: 'text-purple-600',
+         details: {
+           version: o.version,
+           total_teeth: toothKeys.length,
+           findings: counts
+         }
+       });
+     });
 
     // Consentimientos
     consentimientos.forEach((c) => {
