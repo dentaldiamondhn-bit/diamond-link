@@ -29,12 +29,12 @@ export async function GET(request: NextRequest) {
     const appointments = appointmentsResult.data || [];
     const treatments = treatmentsResult.data || [];
     const odontogramsRaw = odontogramsResult.data || [];
-    console.log('[TIMELINE API] odontogram_pilots raw count:', odontogramsRaw.length);
+    console.log('[TIMELINE] odontogram_pilots query error:', odontogramsResult.error);
+    console.log('[TIMELINE] odontogram_pilots count:', odontogramsRaw.length);
     if (odontogramsRaw.length > 0) {
-      const sample = odontogramsRaw[0];
-      console.log('[TIMELINE API] sample keys:', Object.keys(sample));
-      console.log('[TIMELINE API] datos_odontograma type:', typeof sample.datos_odontograma);
-      console.log('[TIMELINE API] datos_odontograma preview:', JSON.stringify(sample.datos_odontograma).substring(0, 300));
+      console.log('[TIMELINE] first odontogram keys:', Object.keys(odontogramsRaw[0]));
+      console.log('[TIMELINE] datos_odontograma type:', typeof odontogramsRaw[0].datos_odontograma);
+      console.log('[TIMELINE] datos_odontograma:', JSON.stringify(odontogramsRaw[0].datos_odontograma).substring(0, 400));
     }
     const consentimientos = consentimientosResult.data || [];
     const presupuestos = presupuestosResult.data || [];

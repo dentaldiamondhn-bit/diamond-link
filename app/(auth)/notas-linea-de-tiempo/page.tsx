@@ -156,6 +156,11 @@ function NotasLineaDeTiempoContent() {
         const response = await fetch(`/api/timeline?paciente_id=${pacienteId}`);
         if (!response.ok) throw new Error('Error al cargar datos');
         const result: TimelineData = await response.json();
+        console.log('[TIMELINE] API response:', JSON.stringify(result.summary));
+        console.log('[TIMELINE] odontograms count:', result.odontograms?.length);
+        if (result.odontograms?.length > 0) {
+          console.log('[TIMELINE] first odontogram:', JSON.stringify(result.odontograms[0]));
+        }
         setData(result);
         buildEvents(result);
       } catch (err) {
