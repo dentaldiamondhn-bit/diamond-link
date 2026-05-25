@@ -352,7 +352,7 @@ export default function AuthLayout({
                              </div>
                            </div>
                          )}
-                         {pathname === '/notas-linea-de-tiempo' && (
+                         {pathname.startsWith('/notas-linea-de-tiempo') && (
                            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                              <i className="fas fa-stream mr-2 text-teal-600"></i>
                              Notas - Línea de Tiempo
