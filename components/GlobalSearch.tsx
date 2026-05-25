@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { PatientService } from '../services/patientService';
 import { OdontogramService } from '../services/odontogramService';
-import { consentimientoService } from '../services/consentimientoService';
 import { CompletedTreatmentService } from '../services/completedTreatmentService';
 import { TreatmentService } from '../services/treatmentService';
 import { Patient } from '../types/patient';
@@ -16,16 +15,16 @@ export default function GlobalSearch() {
   const [patients, setPatients] = useState<any[]>([]);
   const [treatments, setTreatments] = useState<any[]>([]);
   const [completedTreatments, setCompletedTreatments] = useState<any[]>([]);
-  const [odontograms, setOdontograms] = useState<any[]>([]);
-  const [consents, setConsents] = useState<any[]>([]);
-  const [promotions, setPromotions] = useState<any[]>([]);
+  const [odontogramPilots, setOdontogramPilots] = useState<any[]>([]);
+  const [presupuestos, setPresupuestos] = useState<any[]>([]);
+  const [notasTimeline, setNotasTimeline] = useState<any[]>([]);
   const [searchResults, setSearchResults] = useState<{
     patients: any[];
     treatments: any[];
     completedTreatments: any[];
-    odontograms: any[];
-    consents: any[];
-    promotions: any[];
+    odontogramPilots: any[];
+    presupuestos: any[];
+    notasTimeline: any[];
     pages: Array<{
       title: string;
       description: string;
@@ -36,8 +35,9 @@ export default function GlobalSearch() {
     patientCentric: Array<{
       patient: any;
       completedTreatments: any[];
-      odontograms: any[];
-      consents: any[];
+      odontogramPilots: any[];
+      presupuestos: any[];
+      notasTimeline: any[];
       matchedFields: string[];
       score: number;
     }>;
@@ -45,9 +45,9 @@ export default function GlobalSearch() {
     patients: [],
     treatments: [],
     completedTreatments: [],
-    odontograms: [],
-    consents: [],
-    promotions: [],
+    odontogramPilots: [],
+    presupuestos: [],
+    notasTimeline: [],
     pages: [],
     patientCentric: []
   });
@@ -56,100 +56,113 @@ export default function GlobalSearch() {
   const searchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Load data for search
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        
-        // Try to load data with error handling for each service
-        let patientsData: any[] = [];
-        let treatmentsData: any[] = [];
-        let completedTreatmentsData: any[] = [];
-        let odontogramsData: any[] = [];
-        let consentsData: any[] = [];
-        
-        // Load patients with error handling
-        try {
-          patientsData = await PatientService.getPatients();
-        } catch (error) {
-          console.error('Error loading patients:', error);
-          patientsData = [];
-        }
-        
-        // Load treatments with error handling
-        try {
-          treatmentsData = await TreatmentService.getTreatments();
-        } catch (error) {
-          console.error('Error loading treatments:', error);
-          treatmentsData = [];
-        }
-        
-        // Load completed treatments with error handling
-        try {
-          completedTreatmentsData = await CompletedTreatmentService.getAllCompletedTreatments();
-        } catch (error) {
-          console.error('Error loading completed treatments:', error);
-          completedTreatmentsData = [];
-        }
-        
-        // Load odontograms with error handling
-        try {
-          odontogramsData = await OdontogramService.getAllOdontograms();
-        } catch (error) {
-          console.error('Error loading odontograms:', error);
-          odontogramsData = [];
-        }
-        
-        // Load consents with error handling
-        try {
-          consentsData = await consentimientoService.getAllConsentimientos();
-        } catch (error) {
-          console.error('Error loading consents:', error);
-          consentsData = [];
-        }
-        
-        setPatients(patientsData);
-        setTreatments(treatmentsData);
-        setCompletedTreatments(completedTreatmentsData);
-        setOdontograms(odontogramsData);
-        setConsents(consentsData);
-        
-        // Load promotions from API with error handling
-        try {
-          const promotionsResponse = await fetch('/api/promociones');
-          if (promotionsResponse.ok) {
-            const promotionsData = await promotionsResponse.json();
-            setPromotions(promotionsData);
-          } else {
-            console.error('Promotions API response not ok:', promotionsResponse.status);
-            setPromotions([]);
-          }
-        } catch (error) {
-          console.error('Error loading promotions:', error);
-          // Handle JSON parsing errors gracefully
-          if (error instanceof SyntaxError && error.message.includes('JSON')) {
-            console.error('API returned HTML instead of JSON - likely missing promociones table');
-          }
-          setPromotions([]);
-        }
-        
-      } catch (error) {
-        console.error('Error loading search data:', error);
-        // Set empty arrays on error to prevent crashes
-        setPatients([]);
-        setTreatments([]);
-        setCompletedTreatments([]);
-        setOdontograms([]);
-        setConsents([]);
-        setPromotions([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
+     // Load data for search
+   useEffect(() => {
+     const loadData = async () => {
+       try {
+         setLoading(true);
+         
+         // Try to load data with error handling for each service
+         let patientsData: any[] = [];
+         let treatmentsData: any[] = [];
+         let completedTreatmentsData: any[] = [];
+         let odontogramPilotsData: any[] = [];
+         let presupuestosData: any[] = [];
+         let notasTimelineData: any[] = [];
+         
+         // Load patients with error handling
+         try {
+           patientsData = await PatientService.getPatients();
+         } catch (error) {
+           console.error('Error loading patients:', error);
+           patientsData = [];
+         }
+         
+         // Load treatments with error handling
+         try {
+           treatmentsData = await TreatmentService.getTreatments();
+         } catch (error) {
+           console.error('Error loading treatments:', error);
+           treatmentsData = [];
+         }
+         
+         // Load completed treatments with error handling
+         try {
+           completedTreatmentsData = await CompletedTreatmentService.getAllCompletedTreatments();
+         } catch (error) {
+           console.error('Error loading completed treatments:', error);
+           completedTreatmentsData = [];
+         }
+         
+         // Load odontogram-pilot history with error handling
+         try {
+           // Using the odontogram-pilot/history endpoint to get all odontogram pilots
+           const odontogramResponse = await fetch('/api/odontogram-pilot/history');
+           if (odontogramResponse.ok) {
+             const odontogramData = await odontogramResponse.json();
+             odontogramPilotsData = odontogramData.history || [];
+           } else {
+             console.error('Odontogram-pilot API response not ok:', odontogramResponse.status);
+             odontogramPilotsData = [];
+           }
+         } catch (error) {
+           console.error('Error loading odontogram-pilot history:', error);
+           odontogramPilotsData = [];
+         }
+         
+         // Load presupuestos with error handling
+         try {
+           const presupuestosResponse = await fetch('/api/presupuestos');
+           if (presupuestosResponse.ok) {
+             presupuestosData = await presupuestosResponse.json();
+           } else {
+             console.error('Presupuestos API response not ok:', presupuestosResponse.status);
+             presupuestosData = [];
+           }
+         } catch (error) {
+           console.error('Error loading presupuestos:', error);
+           presupuestosData = [];
+         }
+         
+         // Load notas timeline with error handling
+         try {
+           const notasTimelineResponse = await fetch('/api/timeline');
+           if (notasTimelineResponse.ok) {
+             const notasTimelineDataResponse = await notasTimelineResponse.json();
+             // Extract timeline events that are not patient-centric (general timeline data)
+             notasTimelineData = notasTimelineDataResponse || [];
+           } else {
+             console.error('Notas timeline API response not ok:', notasTimelineResponse.status);
+             notasTimelineData = [];
+           }
+         } catch (error) {
+           console.error('Error loading notas timeline:', error);
+           notasTimelineData = [];
+         }
+         
+         setPatients(patientsData);
+         setTreatments(treatmentsData);
+         setCompletedTreatments(completedTreatmentsData);
+         setOdontogramPilots(odontogramPilotsData);
+         setPresupuestos(presupuestosData);
+         setNotasTimeline(notasTimelineData);
+         
+       } catch (error) {
+         console.error('Error loading search data:', error);
+         // Set empty arrays on error to prevent crashes
+         setPatients([]);
+         setTreatments([]);
+         setCompletedTreatments([]);
+         setOdontogramPilots([]);
+         setPresupuestos([]);
+         setNotasTimeline([]);
+       } finally {
+         setLoading(false);
+       }
+     };
+ 
+     loadData();
+   }, []);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -160,245 +173,258 @@ export default function GlobalSearch() {
 
     const query = searchQuery.toLowerCase().trim();
     
-    // Define all app pages
-    const allPages = [
-      { title: 'Dashboard', description: 'Panel principal', href: '/dashboard', category: 'Navegación' },
-      { title: 'Pacientes', description: 'Gestión de pacientes', href: '/pacientes', category: 'Navegación' },
-      { title: 'Tratamientos', description: 'Catálogo de tratamientos', href: '/tratamientos', category: 'Navegación' },
-      { title: 'Tratamientos Completados', description: 'Historial de tratamientos', href: '/tratamientos-completados', category: 'Navegación' },
-      { title: 'Odontograma', description: 'Diagrama dental', href: '/odontogram', category: 'Herramientas' },
-      { title: 'Nueva Historia Clínica', description: 'Formulario de paciente', href: '/patient-form', category: 'Formularios' },
-      { title: 'Historial de Pacientes', description: 'Registros médicos', href: '/patient-records', category: 'Registros' },
-      { title: 'Menú de Navegación', description: 'Navegación rápida', href: '/menu-navegacion', category: 'Navegación' },
-      { title: 'Promociones', description: 'Ofertas y promociones', href: '/promociones', category: 'Promociones' },
-      { title: 'Consentimientos', description: 'Formularios de consentimiento', href: '/consentimientos', category: 'Formularios' },
-      { title: 'Mi Cuenta', description: 'Configuración de perfil', href: '/account', category: 'Configuración' },
-    ];
+     // Define all app pages
+     const allPages = [
+       { title: 'Dashboard', description: 'Panel principal', href: '/dashboard', category: 'Navegación' },
+       { title: 'Pacientes', description: 'Gestión de pacientes', href: '/pacientes', category: 'Navegación' },
+       { title: 'Tratamientos', description: 'Catálogo de tratamientos', href: '/tratamientos', category: 'Navegación' },
+       { title: 'Tratamientos Completados', description: 'Historial de tratamientos', href: '/tratamientos-completados', category: 'Navegación' },
+       { title: 'Odontograma', description: 'Diagrama dental', href: '/odontogram', category: 'Herramientas' },
+       { title: 'Nueva Historia Clínica', description: 'Formulario de paciente', href: '/patient-form', category: 'Formularios' },
+       { title: 'Historial de Pacientes', description: 'Registros médicos', href: '/patient-records', category: 'Registros' },
+       { title: 'Menú de Navegación', description: 'Navegación rápida', href: '/menu-navegacion', category: 'Navegación' },
+       { title: 'Promociones', description: 'Ofertas y promociones', href: '/promociones', category: 'Promociones' },
+       { title: 'Consentimientos', description: 'Formularios de consentimiento', href: '/consentimientos', category: 'Formularios' },
+       { title: 'Presupuestos', description: 'Presupuestos de tratamientos', href: '/presupuestos', category: 'Herramientas' },
+       { title: 'Notas - Línea de Tiempo', description: 'Línea de tiempo del paciente', href: '/notas-linea-de-tiempo', category: 'Herramientas' },
+       { title: 'Mi Cuenta', description: 'Configuración de perfil', href: '/account', category: 'Configuración' },
+     ];
     
-    // Search patients
-    const filteredPatients = patients.filter(patient => {
-      const searchFields = [
-        patient.nombre_completo || '',
-        patient.numero_identidad || '',
-        patient.codigo_interno || '',
-        patient.telefono || '',
-        patient.codigopais + (patient.telefono || '') || '',
-        patient.email || '',
-        // Remove paciente_id from search to avoid UUID matches
-        patient.contacto_emergencia || '',
-        patient.contacto_telefono || '',
-        patient.codigopaisemergencia + (patient.contacto_telefono || '') || '',
-        patient.rep_celular || '',
-        patient.codigopaisrepresentante + (patient.rep_celular || '') || '',
-      ].join(' ').toLowerCase();
-      
-      return searchFields.includes(query);
-    });
+     // Search patients
+     const filteredPatients = patients.filter(patient => {
+       const searchFields = [
+         patient.nombre_completo || '',
+         patient.numero_identidad || '',
+         patient.codigo_interno || '',
+         patient.telefono || '',
+         patient.codigopais + (patient.telefono || '') || '',
+         patient.email || '',
+         // Remove paciente_id from search to avoid UUID matches
+         patient.contacto_emergencia || '',
+         patient.contacto_telefono || '',
+         patient.codigopaisemergencia + (patient.contacto_telefono || '') || '',
+         patient.rep_celular || '',
+         patient.codigopaisrepresentante + (patient.rep_celular || '') || '',
+       ].join(' ').toLowerCase();
+       
+       return searchFields.includes(query);
+     });
 
-    // Search treatments
-    const filteredTreatments = treatments.filter(treatment =>
-      treatment.nombre?.toLowerCase().includes(query) ||
-      treatment.codigo?.toLowerCase().includes(query) ||
-      treatment.especialidad?.toLowerCase().includes(query)
-    );
+     // Search treatments
+     const filteredTreatments = treatments.filter(treatment =>
+       treatment.nombre?.toLowerCase().includes(query) ||
+       treatment.codigo?.toLowerCase().includes(query) ||
+       treatment.especialidad?.toLowerCase().includes(query)
+     );
 
-    // Search completed treatments
-    const filteredCompletedTreatments = completedTreatments.filter(treatment => {
-      const searchFields = [
-        treatment.paciente?.nombre_completo || '',
-        treatment.tratamiento?.nombre || '',
-        treatment.promocion?.nombre || '',
-        treatment.paciente?.numero_identidad || '',
-        treatment.paciente?.telefono || '',
-        treatment.paciente?.email || '',
-        treatment.notas || '',
-        treatment.fecha_completado || ''
-      ].join(' ').toLowerCase();
-      
-      return searchFields.includes(query);
-    });
+     // Search completed treatments
+     const filteredCompletedTreatments = completedTreatments.filter(treatment => {
+       const searchFields = [
+         treatment.paciente?.nombre_completo || '',
+         treatment.tratamiento?.nombre || '',
+         treatment.promocion?.nombre || '',
+         treatment.paciente?.numero_identidad || '',
+         treatment.paciente?.telefono || '',
+         treatment.paciente?.email || '',
+         treatment.notas || '',
+         treatment.fecha_completado || ''
+       ].join(' ').toLowerCase();
+       
+       return searchFields.includes(query);
+     });
 
-    // Search odontograms
-    const filteredOdontograms = odontograms.filter(odontogram => {
-      // Find patient data for this odontogram
-      const patient = patients.find(p => p.paciente_id === odontogram.paciente_id);
-      
-      const searchFields = [
-        odontogram.paciente_id || '',
-        patient?.nombre_completo || '', // Add patient name
-        patient?.numero_identidad || '', // Add patient ID
-        odontogram.notas || '',
-        odontogram.fecha_actualizacion || '',
-        odontogram.creado_por || ''
-      ].join(' ').toLowerCase();
-      
-      return searchFields.includes(query);
-    });
+     // Search odontogram-pilot history
+     const filteredOdontogramPilots = odontogramPilots.filter(odontogram => {
+       // Find patient data for this odontogram pilot
+       const patient = patients.find(p => p.paciente_id === odontogram.paciente_id);
+       
+       const searchFields = [
+         odontogram.paciente_id || '',
+         patient?.nombre_completo || '', // Add patient name
+         patient?.numero_identidad || '', // Add patient ID
+         odontogram.notas || '',
+         odontogram.fecha_actualizacion || '',
+         odontogram.creado_por || ''
+       ].join(' ').toLowerCase();
+       
+       return searchFields.includes(query);
+     });
 
-    // Search consents
-    const filteredConsents = consents.filter(consent => {
-      // Find patient data for this consent
-      const patient = patients.find(p => p.paciente_id === consent.paciente_id);
-      
-      const searchFields = [
-        consent.paciente_id || '',
-        patient?.nombre_completo || '', // Add patient name
-        patient?.numero_identidad || '', // Add patient ID
-        consent.tipo_consentimiento || '',
-        consent.nombre_consentimiento || '',
-        consent.descripcion || '',
-        consent.estado || '',
-        consent.fecha_consentimiento || ''
-      ].join(' ').toLowerCase();
-      
-      return searchFields.includes(query);
-    });
+     // Search presupuestos
+     const filteredPresupuestos = presupuestos.filter(presupuesto => {
+       // Find patient data for this presupuesto
+       const patient = patients.find(p => p.paciente_id === presupuesto.paciente_id);
+       
+       const searchFields = [
+         presupuesto.paciente_id || '',
+         patient?.nombre_completo || '', // Add patient name
+         patient?.numero_identidad || '', // Add patient ID
+         presupuesto.treatment_description || '',
+         presupuesto.doctor_name || '',
+         presupuesto.quote_date || ''
+       ].join(' ').toLowerCase();
+       
+       return searchFields.includes(query);
+     });
 
-    // Search promotions
-    const filteredPromotions = promotions.filter(promotion => {
-      const searchFields = [
-        promotion.titulo || '',
-        promotion.descripcion || '',
-        promotion.descuento || '',
-        promotion.tipo || '',
-        promotion.codigo || '',
-        promotion.fecha_inicio || '',
-        promotion.fecha_fin || ''
-      ].join(' ').toLowerCase();
-      
-      return searchFields.includes(query);
-    });
+     // Search notas timeline
+     const filteredNotasTimeline = notasTimeline.filter(nota => {
+       // Find patient data for this timeline note
+       const patient = patients.find(p => p.paciente_id === nota.paciente_id);
+       
+       const searchFields = [
+         nota.paciente_id || '',
+         patient?.nombre_completo || '', // Add patient name
+         patient?.numero_identidad || '', // Add patient ID
+         nota.notes || '',
+         nota.description || ''
+       ].join(' ').toLowerCase();
+       
+       return searchFields.includes(query);
+     });
 
-    // Search pages
-    const filteredPages = allPages.filter(page =>
-      page.title.toLowerCase().includes(query) ||
-      page.description.toLowerCase().includes(query) ||
-      page.category.toLowerCase().includes(query)
-    );
+     // Search pages
+     const filteredPages = allPages.filter(page =>
+       page.title.toLowerCase().includes(query) ||
+       page.description.toLowerCase().includes(query) ||
+       page.category.toLowerCase().includes(query)
+     );
 
-    // Patient-centric search - group all patient data
-    const patientCentricResults: Array<{
-      patient: any;
-      completedTreatments: any[];
-      odontograms: any[];
-      consents: any[];
-      matchedFields: string[];
-      score: number;
-    }> = [];
+     // Patient-centric search - group all patient data
+     const patientCentricResults: Array<{
+       patient: any;
+       completedTreatments: any[];
+       odontogramPilots: any[];
+       presupuestos: any[];
+       notasTimeline: any[];
+       matchedFields: string[];
+       score: number;
+     }> = [];
 
-    // Find matching patients first with better scoring algorithm
-    const matchingPatients = filteredPatients.map(patient => {
-      const queryLower = query.toLowerCase();
-      
-      // Calculate relevance score and track which fields matched
-      let score = 0;
-      const matchedFields: string[] = [];
-      
-      // Exact name match gets highest score
-      if (patient.nombre_completo?.toLowerCase().includes(queryLower)) {
-        score += 100;
-        matchedFields.push('nombre_completo');
-      }
-      
-      // ID match gets high score
-      if (patient.numero_identidad?.toLowerCase().includes(queryLower)) {
-        score += 80;
-        matchedFields.push('numero_identidad');
-      }
-      
-      // Other field matches get lower scores
-      if (patient.codigo_interno?.toLowerCase().includes(queryLower)) {
-        score += 60;
-        matchedFields.push('codigo_interno');
-      }
-      if (patient.telefono?.toLowerCase().includes(queryLower)) {
-        score += 40;
-        matchedFields.push('telefono');
-      }
-      if (patient.email?.toLowerCase().includes(queryLower)) {
-        score += 30;
-        matchedFields.push('email');
-      }
-      if (patient.paciente_id?.toLowerCase().includes(queryLower)) {
-        score += 50;
-        matchedFields.push('paciente_id');
-      }
-      
-      // Emergency/contact fields get very low scores
-      if (patient.contacto_emergencia?.toLowerCase().includes(queryLower)) {
-        score += 10;
-        matchedFields.push('contacto_emergencia');
-      }
-      if (patient.contacto_telefono?.toLowerCase().includes(queryLower)) {
-        score += 10;
-        matchedFields.push('contacto_telefono');
-      }
-      if (patient.rep_celular?.toLowerCase().includes(queryLower)) {
-        score += 10;
-        matchedFields.push('rep_celular');
-      }
-      
-      const matches = score > 0;
-      
-      return { patient, score, matches, matchedFields };
-    })
-    .filter(result => result.matches)
-    .sort((a, b) => b.score - a.score) // Sort by score (highest first)
-    .map(result => ({ ...result.patient, matchedFields: result.matchedFields, score: result.score }));
+     // Find matching patients first with better scoring algorithm
+     const matchingPatients = filteredPatients.map(patient => {
+       const queryLower = query.toLowerCase();
+       
+       // Calculate relevance score and track which fields matched
+       let score = 0;
+       const matchedFields: string[] = [];
+       
+       // Exact name match gets highest score
+       if (patient.nombre_completo?.toLowerCase().includes(queryLower)) {
+         score += 100;
+         matchedFields.push('nombre_completo');
+       }
+       
+       // ID match gets high score
+       if (patient.numero_identidad?.toLowerCase().includes(queryLower)) {
+         score += 80;
+         matchedFields.push('numero_identidad');
+       }
+       
+       // Other field matches get lower scores
+       if (patient.codigo_interno?.toLowerCase().includes(queryLower)) {
+         score += 60;
+         matchedFields.push('codigo_interno');
+       }
+       if (patient.telefono?.toLowerCase().includes(queryLower)) {
+         score += 40;
+         matchedFields.push('telefono');
+       }
+       if (patient.email?.toLowerCase().includes(queryLower)) {
+         score += 30;
+         matchedFields.push('email');
+       }
+       if (patient.paciente_id?.toLowerCase().includes(queryLower)) {
+         score += 50;
+         matchedFields.push('paciente_id');
+       }
+       
+       // Emergency/contact fields get very low scores
+       if (patient.contacto_emergencia?.toLowerCase().includes(queryLower)) {
+         score += 10;
+         matchedFields.push('contacto_emergencia');
+       }
+       if (patient.contacto_telefono?.toLowerCase().includes(queryLower)) {
+         score += 10;
+         matchedFields.push('contacto_telefono');
+       }
+       if (patient.rep_celular?.toLowerCase().includes(queryLower)) {
+         score += 10;
+         matchedFields.push('rep_celular');
+       }
+       
+       const matches = score > 0;
+       
+       return { patient, score, matches, matchedFields };
+     })
+     .filter(result => result.matches)
+     .sort((a, b) => b.score - a.score) // Sort by score (highest first)
+     .map(result => ({ ...result.patient, matchedFields: result.matchedFields, score: result.score }));
 
-    // For each matching patient, gather all their related data
-    matchingPatients.forEach(patient => {
-      const patientId = patient.paciente_id || patient.numero_identidad;
-      const patientName = patient.nombre_completo?.toLowerCase() || '';
-      
-      // Find all completed treatments for this patient
-      const patientCompletedTreatments = completedTreatments.filter(treatment => {
-        const treatmentPatientName = treatment.paciente?.nombre_completo?.toLowerCase() || '';
-        const treatmentPatientId = treatment.paciente?.numero_identidad || '';
-        return treatmentPatientName === patientName || treatmentPatientId === patientId;
-      });
+     // For each matching patient, gather all their related data
+     matchingPatients.forEach(patient => {
+       const patientId = patient.paciente_id || patient.numero_identidad;
+       const patientName = patient.nombre_completo?.toLowerCase() || '';
+       
+       // Find all completed treatments for this patient
+       const patientCompletedTreatments = completedTreatments.filter(treatment => {
+         const treatmentPatientName = treatment.paciente?.nombre_completo?.toLowerCase() || '';
+         const treatmentPatientId = treatment.paciente?.numero_identidad || '';
+         return treatmentPatientName === patientName || treatmentPatientId === patientId;
+       });
+       
+       // Find all odontogram-pilot history for this patient
+       const patientOdontogramPilots = odontogramPilots.filter(odontogram => {
+         const odontogramPacienteId = odontogram.paciente_id || '';
+         
+         // Match by paciente_id first (most reliable)
+         if (odontogramPacienteId === patientId) return true;
+         
+         return false;
+       });
+       
+       // Find all presupuestos for this patient
+       const patientPresupuestos = presupuestos.filter(presupuesto => {
+         const presupuestoPacienteId = presupuesto.paciente_id || '';
+         
+         // Match by paciente_id first (most reliable)
+         if (presupuestoPacienteId === patientId) return true;
+         
+         return false;
+       });
+       
+       // Find all notas timeline for this patient
+       const patientNotasTimeline = notasTimeline.filter(nota => {
+         const notaPacienteId = nota.paciente_id || '';
+         
+         // Match by paciente_id first (most reliable)
+         if (notaPacienteId === patientId) return true;
+         
+         return false;
+       });
+       
+       // Always add matching patients to show their related data (even if empty)
+       patientCentricResults.push({
+         patient,
+         completedTreatments: patientCompletedTreatments,
+         odontogramPilots: patientOdontogramPilots,
+         presupuestos: patientPresupuestos,
+         notasTimeline: patientNotasTimeline,
+         matchedFields: patient.matchedFields || [],
+         score: patient.score || 0
+       });
+     });
 
-      // Find all odontograms for this patient
-      const patientOdontograms = odontograms.filter(odontogram => {
-        const odontogramPacienteId = odontogram.paciente_id || '';
-        
-        // Match by paciente_id first (most reliable)
-        if (odontogramPacienteId === patientId) return true;
-        
-        return false;
-      });
-
-      // Find all consents for this patient
-      const patientConsents = consents.filter(consent => {
-        const consentPacienteId = consent.paciente_id || '';
-        
-        // Match by paciente_id first (most reliable)
-        if (consentPacienteId === patientId) return true;
-        
-        return false;
-      });
-
-      // Always add matching patients to show their related data (even if empty)
-      patientCentricResults.push({
-        patient,
-        completedTreatments: patientCompletedTreatments,
-        odontograms: patientOdontograms,
-        consents: patientConsents,
-        matchedFields: patient.matchedFields || [],
-        score: patient.score || 0
-      });
-    });
-
-    setSearchResults({
-      patients: filteredPatients,
-      treatments: filteredTreatments,
-      completedTreatments: filteredCompletedTreatments,
-      odontograms: filteredOdontograms,
-      consents: filteredConsents,
-      promotions: filteredPromotions,
-      pages: filteredPages,
-      patientCentric: patientCentricResults
-    });
+     setSearchResults({
+       patients: filteredPatients,
+       treatments: filteredTreatments,
+       completedTreatments: filteredCompletedTreatments,
+       odontogramPilots: filteredOdontogramPilots,
+       presupuestos: filteredPresupuestos,
+       notasTimeline: filteredNotasTimeline,
+       pages: filteredPages,
+       patientCentric: patientCentricResults
+     });
     
     setShowSearchResults(true);
   }, [searchQuery, patients, treatments, completedTreatments, odontograms, consents, promotions]);
@@ -464,48 +490,153 @@ export default function GlobalSearch() {
             left: searchRef.current?.getBoundingClientRect().left + window.scrollX + 'px'
           }}>
           
-          {/* Patient-Centric Results - Highest Priority */}
-          {searchResults.patientCentric.length > 0 && (
-            <div className="p-2">
-              <div className="px-3 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                Datos del Paciente
-              </div>
-              {searchResults.patientCentric.slice(0, 3).map((patientData, index) => (
-                <div key={index} className={`mb-3 p-2 rounded-lg border ${
-                  (patientData.matchedFields.includes('nombre_completo') || 
-                   patientData.matchedFields.includes('numero_identidad') || 
-                   patientData.matchedFields.includes('telefono') ||
-                   patientData.matchedFields.includes('email')) && index === 0
-                    ? 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-600' 
-                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className={`font-medium ${
-                      (patientData.matchedFields.includes('nombre_completo') || 
-                       patientData.matchedFields.includes('numero_identidad') || 
-                       patientData.matchedFields.includes('telefono') ||
-                       patientData.matchedFields.includes('email')) && index === 0
-                        ? 'text-green-900 dark:text-green-100 font-bold' 
-                        : 'text-blue-900 dark:text-blue-100'
-                    }`}>
-                      {patientData.patient.nombre_completo || 'Sin nombre'}
-                    </div>
-                  </div>
-                  <div className="text-xs text-blue-700 dark:text-blue-300 mb-2">
-                    {patientData.patient.numero_identidad && `ID: ${patientData.patient.numero_identidad}`}
-                    {patientData.patient.telefono && ` • Tel: ${patientData.patient.codigopais || ''}${patientData.patient.telefono}`}
-                  </div>
-                  
-                  {patientData.matchedFields.includes('telefono') && !isDirectMatch(patientData, index) && (
-                    <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
-                      <div className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                        Teléfono:
-                      </div>
-                      <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
-                        {patientData.patient.codigopais || ''}{patientData.patient.telefono || ''}
-                      </div>
-                    </div>
-                  )}
+           {/* Patient-Centric Results - Highest Priority */}
+           {searchResults.patientCentric.length > 0 && (
+             <div className="p-2">
+               <div className="px-3 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                 Datos del Paciente
+               </div>
+               {searchResults.patientCentric.slice(0, 3).map((patientData, index) => (
+                 <div key={index} className={`mb-3 p-2 rounded-lg border ${
+                   (patientData.matchedFields.includes('nombre_completo') || 
+                    patientData.matchedFields.includes('numero_identidad') || 
+                    patientData.matchedFields.includes('telefono') ||
+                    patientData.matchedFields.includes('email')) && index === 0
+                     ? 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-600' 
+                     : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                 }`}>
+                   <div className="flex items-center justify-between">
+                     <div className={`font-medium ${
+                       (patientData.matchedFields.includes('nombre_completo') || 
+                        patientData.matchedFields.includes('numero_identidad') || 
+                        patientData.matchedFields.includes('telefono') ||
+                        patientData.matchedFields.includes('email')) && index === 0
+                         ? 'text-green-900 dark:text-green-100 font-bold' 
+                         : 'text-blue-900 dark:text-blue-100'
+                     }`}>
+                       {patientData.patient.nombre_completo || 'Sin nombre'}
+                     </div>
+                   </div>
+                   <div className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+                     {patientData.patient.numero_identidad && `ID: ${patientData.patient.numero_identidad}`}
+                     {patientData.patient.telefono && ` • Tel: ${patientData.patient.codigopais || ''}${patientData.patient.telefono}`}
+                   </div>
+                   
+                   {patientData.matchedFields.includes('telefono') && !isDirectMatch(patientData, index) && (
+                     <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+                       <div className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                         Teléfono:
+                       </div>
+                       <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                         {patientData.patient.codigopais || ''}{patientData.patient.telefono || ''}
+                       </div>
+                     </div>
+                   )}
+                   
+                   {patientData.matchedFields.includes('email') && !isDirectMatch(patientData, index) && (
+                     <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+                       <div className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                         Email:
+                       </div>
+                       <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                         {patientData.patient.email || ''}
+                       </div>
+                     </div>
+                   )}
+                   
+                   {patientData.matchedFields.includes('contacto_emergencia') && !isDirectMatch(patientData, index) && (
+                     <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+                       <div className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                         Contacto de Emergencia:
+                       </div>
+                       <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                         {patientData.patient.contacto_emergencia || ''}
+                       </div>
+                     </div>
+                   )}
+                   
+                   {patientData.matchedFields.includes('contacto_telefono') && !isDirectMatch(patientData, index) && (
+                     <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+                       <div className="text-xs font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                         Teléfono de Contacto:
+                       </div>
+                       <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                         {patientData.patient.codigopaisemergencia || ''}{patientData.patient.contacto_telefono || ''}
+                       </div>
+                     </div>
+                   )}
+                   
+                   <div className="space-y-1">
+                     {patientData.odontogramPilots && patientData.odontogramPilots.length > 0 && (
+                       <div 
+                         className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleResultClick(`/odontogram?id=${patientData.patient.paciente_id}&version=${patientData.odontogramPilots[0].version}`);
+                         }}
+                       >
+                         🦷 {patientData.odontogramPilots.length} odontograma(s)
+                       </div>
+                     )}
+                     {patientData.presupuestos && patientData.presupuestos.length > 0 && (
+                       <div 
+                         className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleResultClick(`/presupuestos?paciente_id=${patientData.patient.paciente_id}`);
+                         }}
+                       >
+                         💰 {patientData.presupuestos.length} presupuesto(s)
+                       </div>
+                     )}
+                     {patientData.notasTimeline && patientData.notasTimeline.length > 0 && (
+                       <div 
+                         className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleResultClick(`/notas-linea-de-tiempo?id=${patientData.patient.paciente_id}`);
+                         }}
+                       >
+                         📝 {patientData.notasTimeline.length} nota(s) de timeline
+                       </div>
+                     )}
+                     {/* Always show tratamientos-completados link */}
+                     <div 
+                       className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         handleResultClick(`/tratamientos-completados?paciente_id=${patientData.patient.paciente_id}`);
+                       }}
+                     >
+                       📋 Ver Tratamientos Completados
+                     </div>
+                     
+                     <div className="flex items-center space-x-2">
+                       <div 
+                         className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleResultClick(`/patient-preview/${patientData.patient.paciente_id}`);
+                         }}
+                       >
+                         👁️ Ver ficha completa
+                       </div>
+                       
+                       <div 
+                         className="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleResultClick(`/menu-navegacion?id=${patientData.patient.paciente_id}`);
+                         }}
+                       >
+                         📋 Menú
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               ))}
+             </div>
+           )}
                   
                   {patientData.matchedFields.includes('email') && !isDirectMatch(patientData, index) && (
                     <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
