@@ -141,12 +141,17 @@ function PatientFollowUpPageContent() {
 Solo queríamos recordarte que ya toca tu limpieza dental 😉
 Hacerla cada 6 meses ayuda a mantener tu sonrisa sana y brillante 😁✨
 
+💎 Tambien aprovecha tu 14vo con las siguientes promociones 💎😁✨:
+*Limpieza mas 3 tapones en molares a 1,599lps*
+*Limpieza al 2x1 a 900lps* 
+*3 tapones en molares a 999lps*
+
 Agenda tu cita con nosotros:
-📞 94985346
+📞 9498-5346 o en nuestra pagina *dentaldiamondhn.com*
 📍 Barrio Guamilito 6ta calle entre 9y10 avenida, Plaza Insolh  local A3
 
 ¡Nos encantará verte pronto y cuidar tu sonrisa! 💙
-Clínica Dental Diamond – Tu sonrisa, nuestra prioridad 😍`;
+Clínica Dental Diamond – Tu sonrisa, nuestra prioridad 😍 `;
       
       // Clean phone number - remove spaces, dashes, parentheses
       let cleanPhone = patient.paciente_telefono.replace(/[\s\-\(\)]/g, '');
