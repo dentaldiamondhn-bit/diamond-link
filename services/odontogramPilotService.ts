@@ -285,6 +285,25 @@ export class OdontogramPilotService {
     }
   }
 
+  static async getAllOdontograms(): Promise<Odontogram[]> {
+    try {
+      const { data, error } = await supabase
+        .from('odontogram_pilots')
+        .select('*')
+        .order('fecha_creacion', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching all pilot odontograms:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error fetching all pilot odontograms:', error);
+      throw error;
+    }
+  }
+
   static async deleteOdontogram(odontogramId: string): Promise<boolean> {
     try {
       const { error } = await supabase
