@@ -14,9 +14,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [patientResult, appointmentsResult, treatmentsResult, consentimientosResult, presupuestosResult] = await Promise.all([
+    const [patientResult, treatmentsResult, consentimientosResult, presupuestosResult] = await Promise.all([
       supabase.from('patients').select('paciente_id, nombre_completo, fecha_inicio, edad, sexo').eq('paciente_id', pacienteId).single(),
-      supabase.from('calendar_events').select('id, title, description, start_date, end_date, event_type, status, notes, location').eq('patient_id', pacienteId).order('start_date', { ascending: false }),
       supabase.from('tratamientos_completados').select('id, fecha_cita, total_final, monto_pagado, estado, notas_doctor, especialidad').eq('paciente_id', pacienteId).order('fecha_cita', { ascending: false }),
       supabase.from('consentimientos').select('id, nombre_consentimiento, tipo_consentimiento, fecha_consentimiento, estado').eq('paciente_id', pacienteId).order('fecha_consentimiento', { ascending: false }),
       supabase.from('presupuestos').select('id, treatment_description, total_amount, status, quote_date, doctor_name').eq('patient_id', pacienteId).order('quote_date', { ascending: false })
@@ -29,11 +28,23 @@ export async function GET(request: NextRequest) {
       : { data: [], error: null };
 
     const patient = patientResult.data;
-    const appointments = appointmentsResult.data || [];
     const treatments = treatmentsResult.data || [];
     const consentimientos = consentimientosResult.data || [];
     const presupuestos = presupuestosResult.data || [];
     const payments = paymentsResult.data || [];
+
+    // Map completed treatments as appointments using their fecha_cita
+    const appointments = treatments.map(t => ({
+      id: t.id,
+      title: 'Cita Realizada',
+      description: t.notas_doctor || 'Tratamiento completado',
+      start_date: t.fecha_cita,
+      end_date: t.fecha_cita,
+      event_type: 'treatment',
+      status: 'completed',
+      notes: t.notas_doctor,
+      location: null
+    }));
 
     // Build treatment items for each treatment
     const treatmentsWithItems = await Promise.all(
