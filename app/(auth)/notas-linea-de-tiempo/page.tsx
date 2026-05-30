@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 
-type FilterType = 'all' | 'appointment' | 'treatment' | 'odontogram' | 'consentimiento' | 'presupuesto' | 'payment' | 'milestone';
+type FilterType = 'all' | 'appointment' | 'treatment' | 'odontogram' | 'consentimiento' | 'presupuesto' | 'payment' | 'milestone' | 'note';
 
 interface TimelineEvent {
   id: string;
@@ -16,6 +16,52 @@ interface TimelineEvent {
   icon: string;
   color: string;
   details?: Record<string, any>;
+}
+
+interface NoteBlock {
+  type: 'text' | 'heading' | 'checklist';
+  text: string;
+  level?: number;
+  formats?: Record<string, boolean>;
+  items?: ChecklistItem[];
+  checked?: boolean;
+}
+
+interface ChecklistItem {
+  id: string;
+  text: string;
+  checked: boolean;
+}
+
+interface NoteContent {
+  blocks: NoteBlock[];
+}
+
+interface NoteComment {
+  id: string;
+  note_id: string;
+  user_id: string | null;
+  user_name: string | null;
+  user_image: string | null;
+  user_role: string | null;
+  message: NoteContent;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TimelineNote {
+  id: string;
+  paciente_id: string;
+  user_id: string | null;
+  title: string;
+  content: NoteContent | string | null;
+  note_date: string;
+  created_at: string;
+  updated_at: string;
+  created_by_name: string | null;
+  created_by_image: string | null;
+  updated_by: string | null;
+  updated_by_name: string | null;
 }
 
 interface TimelineData {
@@ -51,6 +97,7 @@ const EVENT_TYPE_CONFIG: Record<string, { icon: string; color: string; bgColor: 
   consentimiento: { icon: 'fas fa-file-signature', color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30', label: 'Consentimiento' },
   presupuesto: { icon: 'fas fa-file-invoice-dollar', color: 'text-orange-600', bgColor: 'bg-orange-100 dark:bg-orange-900/30', label: 'Presupuesto' },
   payment: { icon: 'fas fa-money-bill-wave', color: 'text-emerald-600', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30', label: 'Pago' },
+  note: { icon: 'fas fa-sticky-note', color: 'text-cyan-600', bgColor: 'bg-cyan-100 dark:bg-cyan-900/30', label: 'Nota' },
 };
 
 const FILTER_OPTIONS: { value: FilterType; label: string; icon: string }[] = [
@@ -61,6 +108,7 @@ const FILTER_OPTIONS: { value: FilterType; label: string; icon: string }[] = [
   { value: 'odontogram', label: 'Odontogramas', icon: 'fas fa-teeth' },
   { value: 'consentimiento', label: 'Consentimientos', icon: 'fas fa-file-signature' },
   { value: 'presupuesto', label: 'Presupuestos', icon: 'fas fa-file-invoice-dollar' },
+  { value: 'note', label: 'Notas', icon: 'fas fa-sticky-notes' },
   { value: 'payment', label: 'Pagos', icon: 'fas fa-money-bill-wave' },
 ];
 
@@ -120,6 +168,152 @@ function getEventTypeLabel(type: string) {
   return labels[type] || type;
 }
 
+function renderNoteBlock(block: NoteBlock, idx: number) {
+  if (block.type === 'heading') {
+    const Tag = `h${Math.min(block.level || 2, 4)}` as keyof JSX.IntrinsicElements;
+    return (
+      <Tag key={idx} className="font-bold text-gray-900 dark:text-white mt-2 mb-1" style={{ fontSize: `${1.15 - (block.level || 2) * 0.1}rem` }}>
+        {block.text}
+      </Tag>
+    );
+  }
+  if (block.type === 'checklist') {
+    return (
+      <ul key={idx} className="space-y-1 my-1">
+        {(block.items || []).map((item) => (
+          <li key={item.id} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <i className={`fas ${item.checked ? 'fa-check-square text-cyan-600' : 'fa-square text-gray-400'} flex-shrink-0`}></i>
+            <span className={item.checked ? 'line-through opacity-60' : ''}>{item.text}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  const fmt = block.formats || {};
+  const className = [
+    fmt.bold ? 'font-bold' : '',
+    fmt.italic ? 'italic' : '',
+    fmt.underline ? 'underline' : '',
+    fmt.strikethrough ? 'line-through' : '',
+    'text-gray-600 dark:text-gray-300',
+  ].filter(Boolean).join(' ');
+  return <p key={idx} className={`${className} whitespace-pre-wrap text-sm`}>{block.text}</p>;
+}
+
+function renderNoteContent(content: NoteContent | string | null) {
+  if (!content) return null;
+  if (typeof content === 'string') {
+    return <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap text-sm">{content}</p>;
+  }
+  const blocks = content.blocks || [];
+  if (blocks.length === 0) return null;
+  return <div className="space-y-1">{blocks.map((block, i) => renderNoteBlock(block, i))}</div>;
+}
+
+function parseContent(content: NoteContent | string | null): NoteContent {
+  if (!content || typeof content === 'string') {
+    const text = typeof content === 'string' ? content : '';
+    return text ? { blocks: [{ type: 'text', text, formats: {} }] } : { blocks: [] };
+  }
+  return content;
+}
+
+function NoteComments({ noteId }: { noteId: string }) {
+  const [comments, setComments] = useState<NoteComment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [showInput, setShowInput] = useState(false);
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      setLoading(true);
+      const res = await fetch(`/api/timeline-notes/${noteId}/comments`);
+      if (res.ok) {
+        const data = await res.json();
+        setComments(data.comments || []);
+      }
+      setLoading(false);
+    };
+    fetchComments();
+  }, [noteId]);
+
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    const res = await fetch(`/api/timeline-notes/${noteId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: newComment })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setComments(prev => [...prev, data.comment]);
+      setNewComment('');
+    }
+  };
+
+  if (loading) return <p className="text-xs text-gray-400">Cargando comentarios...</p>;
+
+  return (
+    <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2">
+      {comments.length > 0 && (
+        <div className="space-y-2 mb-3">
+          {comments.map((c) => (
+            <div key={c.id} className="flex gap-2">
+              <div className="w-6 h-6 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+                {c.user_image ? (
+                  <img 
+                    src={c.user_image} 
+                    alt={c.user_name || 'Usuario'} 
+                    className="w-full h-full rounded-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.parentElement?.querySelector('span');
+                      if (fallback) fallback.style.display = 'block';
+                    }}
+                  />
+                ) : null}
+                <span className={c.user_image ? 'hidden' : 'text-[10px] font-bold text-cyan-600'}>
+                  {(c.user_name || '?').charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{c.user_name || 'Usuario'}</span>
+                  <span className="text-[10px] text-gray-400">{new Date(c.created_at).toLocaleString('es-HN')}</span>
+                </div>
+                {renderNoteContent(c.message)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {showInput ? (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') addComment(); if (e.key === 'Escape') setShowInput(false); }}
+            placeholder="Escribe un comentario..."
+            className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+            autoFocus
+          />
+          <button onClick={(e) => { e.stopPropagation(); addComment(); }} className="px-2 py-1 rounded-lg bg-cyan-600 text-white text-xs hover:bg-cyan-700">
+            <i className="fas fa-paper-plane"></i>
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); setShowInput(false); }} className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs hover:bg-gray-200 dark:hover:bg-gray-600">
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+      ) : (
+        <button onClick={(e) => { e.stopPropagation(); setShowInput(true); }} className="text-xs text-cyan-600 hover:text-cyan-700 flex items-center gap-1">
+          <i className="fas fa-comment-dots"></i> Agregar comentario
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function NotasLineaDeTiempoPage() {
   return (
     <Suspense fallback={
@@ -143,6 +337,14 @@ function NotasLineaDeTiempoContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [notes, setNotes] = useState<TimelineNote[]>([]);
+   const [notesModalOpen, setNotesModalOpen] = useState(false);
+   const [editingNote, setEditingNote] = useState<TimelineNote | null>(null);
+   const [noteTitle, setNoteTitle] = useState('');
+   const [noteBlocks, setNoteBlocks] = useState<NoteBlock[]>([{ type: 'text', text: '', formats: {} }]);
+   const [activeBlockIdx, setActiveBlockIdx] = useState(0);
+   const [noteDate, setNoteDate] = useState('');
+   const [noteSaving, setNoteSaving] = useState(false);
 
   useEffect(() => {
     if (!pacienteId) {
@@ -155,10 +357,11 @@ function NotasLineaDeTiempoContent() {
       try {
         setLoading(true);
 
-        // Fetch timeline data and odontogram-pilot history in parallel
-        const [timelineResponse, odontogramResponse] = await Promise.all([
+        // Fetch all data in parallel
+        const [timelineResponse, odontogramResponse, notesResponse] = await Promise.all([
           fetch(`/api/timeline?paciente_id=${pacienteId}`),
-          fetch(`/api/odontogram-pilot/history?patient_id=${pacienteId}`)
+          fetch(`/api/odontogram-pilot/history?patient_id=${pacienteId}`),
+          fetch(`/api/timeline-notes?paciente_id=${pacienteId}&_t=${Date.now()}`)
         ]);
 
         if (!timelineResponse.ok) throw new Error('Error al cargar datos');
@@ -171,9 +374,16 @@ function NotasLineaDeTiempoContent() {
           pilots = odData.history || [];
         }
 
+        let fetchedNotes: TimelineNote[] = [];
+        if (notesResponse.ok) {
+          const notesData = await notesResponse.json();
+          fetchedNotes = notesData.notes || [];
+        }
+
         setOdontogramPilots(pilots);
         setData(result);
-        buildEvents(result, pilots);
+        setNotes(fetchedNotes);
+        buildEvents(result, pilots, fetchedNotes);
       } catch (err) {
         setError('Error al cargar la línea de tiempo');
         console.error(err);
@@ -185,9 +395,24 @@ function NotasLineaDeTiempoContent() {
     fetchData();
   }, [pacienteId]);
 
-   function buildEvents(timelineData: TimelineData, pilots: any[]) {
-     const allEvents: TimelineEvent[] = [];
-     const { patient, appointments, treatments, consentimientos, presupuestos } = timelineData;
+   function buildEvents(timelineData: TimelineData, pilots: any[], timelineNotes: TimelineNote[]) {
+      const allEvents: TimelineEvent[] = [];
+      const { patient, appointments, treatments, consentimientos, presupuestos } = timelineData;
+
+      // Add note events
+      timelineNotes.forEach((n) => {
+        allEvents.push({
+          id: `note-${n.id}`,
+          type: 'note',
+          date: n.note_date,
+          title: n.title,
+          subtitle: undefined,
+          description: undefined,
+          icon: 'fas fa-sticky-note',
+          color: 'text-cyan-600',
+          details: { note_id: n.id }
+        });
+      });
 
      // Milestone: Patient start date (will be added at the end)
      let milestoneEvent: TimelineEvent | null = null;
@@ -344,16 +569,83 @@ function NotasLineaDeTiempoContent() {
        });
      });
 
-     // Sort by date descending (newest first)
-     allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-     
-     // Add milestone event at the end (bottom) regardless of date
-     if (milestoneEvent) {
-       allEvents.push(milestoneEvent);
+      // Sort by date descending (newest first)
+      allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      // Add milestone event at the end (bottom) regardless of date
+      if (milestoneEvent) {
+        allEvents.push(milestoneEvent);
+      }
+
+       setEvents(allEvents);
+    }
+
+   async function openNotesModal(note?: TimelineNote) {
+    if (note) {
+       setEditingNote(note);
+       setNoteTitle(note.title);
+       setNoteBlocks(parseContent(note.content).blocks);
+       setNoteDate(note.note_date);
+     } else {
+       setEditingNote(null);
+       setNoteTitle('Nota');
+       setNoteBlocks([{ type: 'text', text: '', formats: {} }]);
+       setNoteDate(new Date().toISOString().split('T')[0]);
      }
-     
-     setEvents(allEvents);
+     setNotesModalOpen(true);
    }
+
+   async function saveNote() {
+     if (!pacienteId || !noteTitle.trim()) return;
+     setNoteSaving(true);
+     try {
+      const contentPayload: NoteContent = { blocks: noteBlocks.filter(b => b.text.trim() !== '' || (b.type === 'checklist' && (b.items || []).length > 0)) };
+      const body: Record<string, any> = {
+        title: noteTitle,
+        content: contentPayload.blocks.length > 0 ? contentPayload : null,
+        note_date: noteDate
+      };
+       if (editingNote) {
+         const res = await fetch('/api/timeline-notes', {
+           method: 'PUT',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ ...body, id: editingNote.id })
+         });
+         if (!res.ok) throw new Error('Error al actualizar nota');
+       } else {
+         const res = await fetch('/api/timeline-notes', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ ...body, paciente_id: pacienteId })
+         });
+         if (!res.ok) throw new Error('Error al guardar nota');
+       }
+       setNotesModalOpen(false);
+       const notesRes = await fetch(`/api/timeline-notes?paciente_id=${pacienteId}`);
+       if (notesRes.ok) {
+         const notesData = await notesRes.json();
+         const fetchedNotes = notesData.notes || [];
+         setNotes(fetchedNotes);
+         if (data) buildEvents(data, odontogramPilots, fetchedNotes);
+       }
+     } catch (err) {
+       console.error(err);
+     } finally {
+       setNoteSaving(false);
+     }
+   }
+  async function deleteNote(noteId: string) {
+    if (!confirm('¿Eliminar esta nota?')) return;
+    try {
+      const res = await fetch(`/api/timeline-notes?id=${noteId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Error al eliminar nota');
+      const updatedNotes = notes.filter(n => n.id !== noteId);
+      setNotes(updatedNotes);
+      if (data) buildEvents(data, odontogramPilots, updatedNotes);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   const filteredEvents = activeFilter === 'all'
     ? events
@@ -387,12 +679,19 @@ function NotasLineaDeTiempoContent() {
    return (
      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-         {/* Header */}
-         <div className="mb-8">
-           <p className="text-gray-600 dark:text-gray-400">
-             {patient.nombre_completo}
-           </p>
-         </div>
+          {/* Header */}
+          <div className="mb-8 flex items-center justify-between">
+            <p className="text-gray-600 dark:text-gray-400">
+              {patient.nombre_completo}
+            </p>
+            <button
+              onClick={() => openNotesModal()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 transition-all shadow-md"
+            >
+              <i className="fas fa-sticky-note"></i>
+              Nueva Nota
+            </button>
+          </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -475,7 +774,6 @@ function NotasLineaDeTiempoContent() {
               filteredEvents.map((event, index) => {
                 const config = EVENT_TYPE_CONFIG[event.type];
                 const isExpanded = expandedEvent === event.id;
-                const isLeft = index % 2 === 0;
 
                 return (
                   <div key={event.id} className="relative pl-16">
@@ -526,7 +824,7 @@ function NotasLineaDeTiempoContent() {
                         {/* Expanded details */}
                         {isExpanded && (
                           <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                            {event.description && (
+                            {event.description && typeof event.description === 'string' && (
                               <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{event.description}</p>
                             )}
 
@@ -600,6 +898,56 @@ function NotasLineaDeTiempoContent() {
                               </div>
                             )}
 
+                             {/* Note details */}
+                             {event.type === 'note' && event.details?.note_id && (() => {
+                               const note = notes.find(n => n.id === event.details.note_id);
+                               if (!note) return null;
+                               return (
+                                 <div className="space-y-3">
+                                   <div className="flex items-start justify-between gap-3">
+                                     <div className="flex-1 min-w-0">
+                                       {renderNoteContent(note.content)}
+                                     </div>
+                                     <div className="flex items-center gap-1 flex-shrink-0">
+                                       <button
+                                         onClick={(e) => { e.stopPropagation(); openNotesModal(note); }}
+                                         className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-cyan-600 transition-colors"
+                                       >
+                                         <i className="fas fa-pen text-xs"></i>
+                                       </button>
+                                       <button
+                                         onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
+                                         className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-600 transition-colors"
+                                       >
+                                         <i className="fas fa-trash text-xs"></i>
+                                       </button>
+</div>
+                                    </div>
+{note.created_by_name && (
+                                       <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                         <div className="w-5 h-5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center overflow-hidden">
+                                           {note.created_by_image ? (
+                                             <img 
+                                               src={note.created_by_image} 
+                                               alt={note.created_by_name}
+                                               className="w-full h-full rounded-full object-cover"
+                                               onError={(e) => {
+                                                 e.currentTarget.style.display = 'none';
+                                               }}
+                                             />
+                                           ) : null}
+                                           <span className={note.created_by_image ? 'hidden' : 'text-[10px] font-bold text-cyan-600'}>
+                                             {(note.created_by_name || '?').charAt(0).toUpperCase()}
+                                           </span>
+                                         </div>
+                                         <span><i className="fas fa-user mr-1"></i> {note.created_by_name}</span>
+                                       </div>
+                                     )}
+                                    <NoteComments noteId={note.id} />
+                                 </div>
+                               );
+                             })()}
+
                             {/* Milestone details */}
                             {event.type === 'milestone' && event.details && (
                               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -628,6 +976,134 @@ function NotasLineaDeTiempoContent() {
           </div>
         </div>
       </div>
+
+      {/* Notes Modal */}
+      {notesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNotesModalOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {editingNote ? 'Editar Nota' : 'Nueva Nota'}
+              </h3>
+              <button onClick={() => setNotesModalOpen(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
+                <input
+                  type="text"
+                  value={noteTitle}
+                  onChange={(e) => setNoteTitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                  placeholder="Título de la nota"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={noteDate}
+                  onChange={(e) => setNoteDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contenido</label>
+                <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                  {/* Formatting toolbar */}
+                  <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-300 dark:border-gray-600 flex-wrap">
+                    <button type="button" onClick={() => setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx && b.type === 'text' ? { ...b, formats: { ...b.formats, bold: !b.formats?.bold } } : b))} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.formats?.bold ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Bold">
+                      <i className="fas fa-bold"></i>
+                    </button>
+                    <button type="button" onClick={() => setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx && b.type === 'text' ? { ...b, formats: { ...b.formats, italic: !b.formats?.italic } } : b))} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.formats?.italic ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Italic">
+                      <i className="fas fa-italic"></i>
+                    </button>
+                    <button type="button" onClick={() => setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx && b.type === 'text' ? { ...b, formats: { ...b.formats, underline: !b.formats?.underline } } : b))} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.formats?.underline ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Underline">
+                      <i className="fas fa-underline"></i>
+                    </button>
+                    <button type="button" onClick={() => setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx && b.type === 'text' ? { ...b, formats: { ...b.formats, strikethrough: !b.formats?.strikethrough } } : b))} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.formats?.strikethrough ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Strikethrough">
+                      <i className="fas fa-strikethrough"></i>
+                    </button>
+                    <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    <button type="button" onClick={() => setNoteBlocks(prev => { const nb = [...prev]; if (nb[activeBlockIdx]?.type === 'text') nb[activeBlockIdx] = { ...nb[activeBlockIdx], type: 'heading', level: 2 }; return nb; })} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.type === 'heading' ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Heading">
+                      <i className="fas fa-heading"></i>
+                    </button>
+                    <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    <button type="button" onClick={() => setNoteBlocks(prev => { const nb = [...prev]; const items: ChecklistItem[] = noteBlocks[activeBlockIdx]?.type === 'checklist' ? (noteBlocks[activeBlockIdx].items || []) : [{ id: crypto.randomUUID(), text: '', checked: false }]; nb[activeBlockIdx] = { type: 'checklist', text: '', items }; return nb; })} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.type === 'checklist' ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Checklist">
+                      <i className="fas fa-tasks"></i>
+                    </button>
+                    <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    <button type="button" onClick={() => { if (noteBlocks.length <= 1) return; const nb = noteBlocks.filter((_, i) => i !== activeBlockIdx); setNoteBlocks(nb.length > 0 ? nb : [{ type: 'text', text: '', formats: {} }]); setActiveBlockIdx(Math.max(0, activeBlockIdx - 1)); }} className="p-1.5 rounded text-xs text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-500" title="Delete block">
+                      <i className="fas fa-trash-alt"></i>
+                    </button>
+                  </div>
+                  {/* Block editor */}
+                  <div className="p-3 space-y-2 min-h-[180px] bg-white dark:bg-gray-900">
+                    {noteBlocks.map((block, idx) => (
+                      <div key={idx} onClick={() => setActiveBlockIdx(idx)} className={`rounded-lg p-2 cursor-text ${idx === activeBlockIdx ? 'ring-1 ring-cyan-500/30 bg-cyan-50/30 dark:bg-cyan-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
+                        {block.type === 'checklist' ? (
+                          <div className="space-y-1">
+                            {(block.items || []).map((item, itemIdx) => (
+                              <div key={item.id} className="flex items-center gap-2">
+                                <button type="button" onClick={() => { setNoteBlocks(prev => { const nb = [...prev]; if (nb[idx].type !== 'checklist') return nb; const items = [...(nb[idx].items || [])]; items[itemIdx] = { ...items[itemIdx], checked: !items[itemIdx].checked }; nb[idx] = { ...nb[idx], items }; return nb; }); }} className="flex-shrink-0">
+                                  <i className={`fas ${item.checked ? 'fa-check-square text-cyan-600' : 'fa-square text-gray-400'}`}></i>
+                                </button>
+                                <input
+                                  type="text"
+                                  value={item.text}
+                                  onChange={(e) => { setNoteBlocks(prev => { const nb = [...prev]; if (nb[idx].type !== 'checklist') return nb; const items = [...(nb[idx].items || [])]; items[itemIdx] = { ...items[itemIdx], text: e.target.value }; nb[idx] = { ...nb[idx], items }; return nb; }); }}
+                                  onFocus={() => setActiveBlockIdx(idx)}
+                                  placeholder="Item..."
+                                  className={`flex-1 bg-transparent text-sm outline-none ${item.checked ? 'line-through opacity-60 text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}
+                                />
+                                <button type="button" onClick={() => { setNoteBlocks(prev => { const nb = [...prev]; if (nb[idx].type !== 'checklist') return nb; const items = (nb[idx].items || []).filter((_, i) => i !== itemIdx); nb[idx] = { ...nb[idx], items }; return nb; }); }} className="text-gray-400 hover:text-red-500 flex-shrink-0">
+                                  <i className="fas fa-times text-xs"></i>
+                                </button>
+                              </div>
+                            ))}
+                            <button type="button" onClick={() => { setNoteBlocks(prev => { const nb = [...prev]; if (nb[idx].type !== 'checklist') return nb; const items = [...(nb[idx].items || []), { id: crypto.randomUUID(), text: '', checked: false }]; nb[idx] = { ...nb[idx], items }; return nb; }); }} className="text-xs text-cyan-600 hover:text-cyan-700 flex items-center gap-1 mt-1">
+                              <i className="fas fa-plus"></i> Agregar item
+                            </button>
+                          </div>
+                        ) : (
+                          <textarea
+                            value={block.text}
+                            onChange={(e) => { setNoteBlocks(prev => prev.map((b, i) => i === idx ? { ...b, text: e.target.value } : b)); }}
+                            onFocus={() => setActiveBlockIdx(idx)}
+                            rows={block.type === 'heading' ? 1 : 2}
+                            placeholder={block.type === 'heading' ? 'Encabezado...' : 'Escribe aquí...'}
+                            className={`w-full bg-transparent outline-none resize-none text-sm ${block.type === 'heading' ? 'font-bold text-gray-900 dark:text-white' : ''} ${(block.formats?.bold && block.type === 'text') ? 'font-bold' : ''} ${(block.formats?.italic && block.type === 'text') ? 'italic' : ''} ${(block.formats?.underline && block.type === 'text') ? 'underline' : ''} ${(block.formats?.strikethrough && block.type === 'text') ? 'line-through' : ''} ${block.type === 'text' ? 'text-gray-700 dark:text-gray-300' : ''}`}
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => { setNoteBlocks(prev => [...prev, { type: 'text', text: '', formats: {} }]); setActiveBlockIdx(noteBlocks.length); }} className="text-xs text-gray-400 hover:text-cyan-600 flex items-center gap-1 mt-2">
+                      <i className="fas fa-plus-circle"></i> Agregar bloque
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setNotesModalOpen(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveNote}
+                  disabled={noteSaving || !noteTitle.trim()}
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {noteSaving ? 'Guardando...' : (editingNote ? 'Actualizar' : 'Guardar')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
