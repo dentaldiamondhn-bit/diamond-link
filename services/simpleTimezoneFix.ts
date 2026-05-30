@@ -182,6 +182,16 @@ export class SimpleTimezoneFix {
     try {
       const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
       
+      // Check if it's a date-only string (YYYY-MM-DD format) - no time component
+      if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return '';
+      }
+      
+      // Check if it's a midnight UTC timestamp (likely a date-only stored as timestamp)
+      if (date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0 && date.getUTCMilliseconds() === 0) {
+        return '';
+      }
+      
       // Get UTC time and subtract 6 hours to convert to America/Tegucigalpa (UTC-6)
       const utcHours = date.getUTCHours();
       const utcMinutes = date.getUTCMinutes();
