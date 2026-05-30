@@ -898,6 +898,14 @@ function NotasLineaDeTiempoContent() {
                               </div>
                             )}
 
+                            {/* Date/time for all timeline items */}
+                            <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                                <i className="fas fa-clock mr-1"></i>
+                                {SimpleTimezoneFix.formatDisplayDate(event.date)}
+                              </p>
+                            </div>
+
                              {/* Note details */}
                              {event.type === 'note' && event.details?.note_id && (() => {
                                const note = notes.find(n => n.id === event.details.note_id);
