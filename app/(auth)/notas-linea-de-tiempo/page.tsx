@@ -10,6 +10,7 @@ interface TimelineEvent {
   id: string;
   type: FilterType;
   date: string;
+  created_at?: string;
   title: string;
   subtitle?: string;
   description?: string;
@@ -405,6 +406,7 @@ function NotasLineaDeTiempoContent() {
           id: `note-${n.id}`,
           type: 'note',
           date: n.note_date,
+          created_at: n.created_at,
           title: n.title,
           subtitle: undefined,
           description: undefined,
@@ -414,29 +416,31 @@ function NotasLineaDeTiempoContent() {
         });
       });
 
-     // Milestone: Patient start date (will be added at the end)
-     let milestoneEvent: TimelineEvent | null = null;
-     if (patient.fecha_inicio) {
-       milestoneEvent = {
-         id: 'milestone-inicio',
-         type: 'milestone',
-         date: patient.fecha_inicio,
-         title: 'Inicio del Paciente',
-         subtitle: patient.nombre_completo,
-         description: 'Fecha en que el paciente inició su historial en la clínica',
-         icon: 'fas fa-flag',
-         color: 'text-amber-600',
-         details: { edad: patient.edad, sexo: patient.sexo }
-       };
-     }
+// Milestone: Patient start date (will be added at the end)
+      let milestoneEvent: TimelineEvent | null = null;
+      if (patient.fecha_inicio) {
+        milestoneEvent = {
+          id: 'milestone-inicio',
+          type: 'milestone',
+          date: patient.fecha_inicio,
+          created_at: patient.fecha_inicio,
+          title: 'Inicio del Paciente',
+          subtitle: patient.nombre_completo,
+          description: 'Fecha en que el paciente inició su historial en la clínica',
+          icon: 'fas fa-flag',
+          color: 'text-amber-600',
+          details: { edad: patient.edad, sexo: patient.sexo }
+        };
+      }
 
-     // Appointments
-     appointments.forEach((apt) => {
-       allEvents.push({
-         id: `apt-${apt.id}`,
-         type: 'appointment',
-         date: apt.start_date,
-         title: apt.title || 'Cita',
+      // Appointments
+      appointments.forEach((apt) => {
+        allEvents.push({
+          id: `apt-${apt.id}`,
+          type: 'appointment',
+          date: apt.start_date,
+          created_at: apt.created_at,
+          title: apt.title || 'Cita',
          subtitle: getEventTypeLabel(apt.event_type),
          description: apt.notes || apt.description || undefined,
          icon: 'fas fa-calendar-check',
@@ -449,43 +453,45 @@ function NotasLineaDeTiempoContent() {
        });
      });
 
-     // Treatments
-     treatments.forEach((t) => {
-       const itemNames = (t.items || []).slice(0, 3).map((i: any) => i.nombre_tratamiento).join(', ');
-       const moreCount = (t.items || []).length > 3 ? ` +${(t.items || []).length - 3} más` : '';
-       allEvents.push({
-         id: `treatment-${t.id}`,
-         type: 'treatment',
-         date: t.fecha_cita,
-         title: itemNames ? `${itemNames}${moreCount}` : 'Tratamiento',
-         subtitle: t.especialidad || undefined,
-         description: t.notas_doctor || undefined,
-         icon: 'fas fa-tooth',
-         color: 'text-teal-600',
-         details: {
-           status: t.estado,
-           total: t.total_final,
-           paid: t.monto_pagado,
-           remaining: (t.total_final || 0) - (t.monto_pagado || 0),
-           item_count: (t.items || []).length
-         }
-       });
+// Treatments
+      treatments.forEach((t) => {
+        const itemNames = (t.items || []).slice(0, 3).map((i: any) => i.nombre_tratamiento).join(', ');
+        const moreCount = (t.items || []).length > 3 ? ` +${(t.items || []).length - 3} más` : '';
+        allEvents.push({
+          id: `treatment-${t.id}`,
+          type: 'treatment',
+          date: t.fecha_cita,
+          created_at: t.created_at,
+          title: itemNames ? `${itemNames}${moreCount}` : 'Tratamiento',
+          subtitle: t.especialidad || undefined,
+          description: t.notas_doctor || undefined,
+          icon: 'fas fa-tooth',
+          color: 'text-teal-600',
+          details: {
+            status: t.estado,
+            total: t.total_final,
+            paid: t.monto_pagado,
+            remaining: (t.total_final || 0) - (t.monto_pagado || 0),
+            item_count: (t.items || []).length
+          }
+        });
 
-       // Payment events for this treatment
-       (t.payments || []).forEach((p: any) => {
-         allEvents.push({
-           id: `payment-${p.id}`,
-           type: 'payment',
-           date: p.fecha_pago,
-           title: `Pago: ${formatCurrency(p.monto_pago)}`,
-           subtitle: p.metodo_pago || undefined,
-           description: p.notas_pago || undefined,
-           icon: 'fas fa-money-bill-wave',
-           color: 'text-emerald-600',
-           details: { moneda: p.moneda }
-         });
-       });
-     });
+        // Payment events for this treatment
+        (t.payments || []).forEach((p: any) => {
+          allEvents.push({
+            id: `payment-${p.id}`,
+            type: 'payment',
+            date: p.fecha_pago,
+            created_at: p.created_at,
+            title: `Pago: ${formatCurrency(p.monto_pago)}`,
+            subtitle: p.metodo_pago || undefined,
+            description: p.notas_pago || undefined,
+            icon: 'fas fa-money-bill-wave',
+            color: 'text-emerald-600',
+            details: { moneda: p.moneda }
+          });
+        });
+      });
 
       // Odontograms from odontogram-pilot history API
       pilots.forEach((o) => {
@@ -526,6 +532,7 @@ function NotasLineaDeTiempoContent() {
           id: `odontogram-${o.id}`,
           type: 'odontogram',
           date: datosOdontograma.fecha || o.fecha_creacion,
+          created_at: o.created_at,
           title: `Odontograma v${o.version}`,
           subtitle: significant.length > 0 ? significant.join(' • ') : `${toothKeys.length} dientes registrados`,
           description: o.notas || undefined,
@@ -539,35 +546,37 @@ function NotasLineaDeTiempoContent() {
         });
       });
 
-     // Consentimientos
-     consentimientos.forEach((c) => {
-       allEvents.push({
-         id: `consent-${c.id}`,
-         type: 'consentimiento',
-         date: c.fecha_consentimiento,
-         title: c.nombre_consentimiento || 'Consentimiento',
-         subtitle: c.tipo_consentimiento || undefined,
-         description: undefined,
-         icon: 'fas fa-file-signature',
-         color: 'text-green-600',
-         details: { status: c.estado }
-       });
-     });
+      // Consentimientos
+      consentimientos.forEach((c) => {
+        allEvents.push({
+          id: `consent-${c.id}`,
+          type: 'consentimiento',
+          date: c.fecha_consentimiento,
+          created_at: c.created_at,
+          title: c.nombre_consentimiento || 'Consentimiento',
+          subtitle: c.tipo_consentimiento || undefined,
+          description: undefined,
+          icon: 'fas fa-file-signature',
+          color: 'text-green-600',
+          details: { status: c.estado }
+        });
+      });
 
-     // Presupuestos
-     presupuestos.forEach((p) => {
-       allEvents.push({
-         id: `presupuesto-${p.id}`,
-         type: 'presupuesto',
-         date: p.quote_date,
-         title: p.treatment_description || 'Presupuesto',
-         subtitle: formatCurrency(p.total_amount),
-         description: p.doctor_name ? `Doctor: ${p.doctor_name}` : undefined,
-         icon: 'fas fa-file-invoice-dollar',
-         color: 'text-orange-600',
-         details: { status: p.status, amount: p.total_amount }
-       });
-     });
+      // Presupuestos
+      presupuestos.forEach((p) => {
+        allEvents.push({
+          id: `presupuesto-${p.id}`,
+          type: 'presupuesto',
+          date: p.quote_date,
+          created_at: p.created_at,
+          title: p.treatment_description || 'Presupuesto',
+          subtitle: formatCurrency(p.total_amount),
+          description: p.doctor_name ? `Doctor: ${p.doctor_name}` : undefined,
+          icon: 'fas fa-file-invoice-dollar',
+          color: 'text-orange-600',
+          details: { status: p.status, amount: p.total_amount }
+        });
+      });
 
       // Sort by date descending (newest first)
       allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -785,13 +794,15 @@ function NotasLineaDeTiempoContent() {
                     {/* Date label */}
                     <div className="mb-1">
                       <span className="text-xs font-medium text-gray-400 dark:text-gray-500">
-                        {SimpleTimezoneFix.formatDisplayDate(event.date)}
+                        {event.created_at
+                          ? SimpleTimezoneFix.formatDisplayDate(event.created_at)
+                          : SimpleTimezoneFix.formatDisplayDate(event.date)}
                       </span>
-                      {event.date && !/^\d{4}-\d{2}-\d{2}$/.test(event.date) && (
-                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
-                          {SimpleTimezoneFix.formatTime(event.date)}
-                        </span>
-                      )}
+                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+                        {event.created_at
+                          ? SimpleTimezoneFix.formatTime(event.created_at)
+                          : SimpleTimezoneFix.formatTime(event.date)}
+                      </span>
                     </div>
 
                     {/* Card */}
