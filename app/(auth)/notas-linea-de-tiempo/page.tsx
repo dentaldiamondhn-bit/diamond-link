@@ -787,6 +787,11 @@ function NotasLineaDeTiempoContent() {
                       <span className="text-xs font-medium text-gray-400 dark:text-gray-500">
                         {SimpleTimezoneFix.formatDisplayDate(event.date)}
                       </span>
+                      {event.date && !/^\d{4}-\d{2}-\d{2}$/.test(event.date) && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+                          {SimpleTimezoneFix.formatTime(event.date)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Card */}
@@ -897,14 +902,6 @@ function NotasLineaDeTiempoContent() {
                                 <p>Moneda: {event.details.moneda || 'HNL'}</p>
                               </div>
                             )}
-
-                            {/* Date/time for all timeline items */}
-                            <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-                              <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                                <i className="fas fa-clock mr-1"></i>
-                                {SimpleTimezoneFix.formatDisplayDate(event.date)}
-                              </p>
-                            </div>
 
                              {/* Note details */}
                              {event.type === 'note' && event.details?.note_id && (() => {
