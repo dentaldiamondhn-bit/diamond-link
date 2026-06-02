@@ -815,7 +815,7 @@ setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx ? { ...b, formats:
             </p>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => router.push('/menu-navegacion')}
+                onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-600 text-white hover:bg-gray-700 transition-all shadow-md"
               >
                 <i className="fas fa-home"></i>
