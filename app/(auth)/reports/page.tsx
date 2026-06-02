@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useUserPreferences, usePagePreferences } from '@/hooks/useUserPreferences';
+import { usePagePreferences } from '@/hooks/useUserPreferences';
 import { formatCurrency, formatNumber } from '@/utils/currencyUtils';
 import { ReportsService } from '@/services/reportsService';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -213,20 +213,7 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  if (isLoaded && (userRole === 'staff' || userRole === 'assistant')) {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permiso para acceder a Reportes."
-        explanation="Esta área es exclusiva para administradores y doctores."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-      />
-    );
-  }
-  
-  const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('reports');
-  
+  const { preferences: pagePrefs, loading: prefsLoading } = usePagePreferences('reports');
   const [tabDateRanges, setTabDateRanges] = useState<Record<string, { startDate: string; endDate: string }>>({});
   const [currentStartDate, setCurrentStartDate] = useState('');
   const [currentEndDate, setCurrentEndDate] = useState('');
@@ -241,7 +228,6 @@ export default function ReportsPage() {
   const [patientStats, setPatientStats] = useState<any>({});
   const [patientDemographics, setPatientDemographics] = useState<any>({});
   const [revenueStats, setRevenueStats] = useState<any>({});
-  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -257,37 +243,6 @@ export default function ReportsPage() {
       setCurrentEndDate(currentTabRange.endDate);
     }
   }, [prefsLoading, pagePrefs, activeTab]);
-
-  useEffect(() => {
-    if (!prefsLoading) {
-      const timeoutId = setTimeout(() => {
-        updatePagePrefs({ timeRange });
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [timeRange, prefsLoading, updatePagePrefs]);
-
-  useEffect(() => {
-    if (!prefsLoading && user) {
-      const timeoutId = setTimeout(async () => {
-        const updatedRanges = {
-          ...tabDateRanges,
-          [activeTab]: { startDate: currentStartDate, endDate: currentEndDate }
-        };
-        setTabDateRanges(updatedRanges);
-        try {
-          await UserPreferencesService.updatePagePreferences(
-            user.id,
-            'reports',
-            { tabDateRanges: updatedRanges }
-          );
-        } catch (error) {
-          console.error('Error saving date range preferences:', error);
-        }
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [currentStartDate, currentEndDate, activeTab, prefsLoading, user]);
 
   useEffect(() => {
     const currentTabRange = getCurrentDateRange();
@@ -633,13 +588,13 @@ export default function ReportsPage() {
                               Tendencia de Ingresos
                             </h3>
                             <ResponsiveContainer width="100%" height={320}>
-                              <defs>
-                                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor={COLORS.teal} stopOpacity={0.4}/>
-                                  <stop offset="95%" stopColor={COLORS.teal} stopOpacity={0}/>
-                                </linearGradient>
-                              </defs>
                               <AreaChart data={reportData}>
+                                <defs>
+                                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={COLORS.teal} stopOpacity={0.4}/>
+                                    <stop offset="95%" stopColor={COLORS.teal} stopOpacity={0}/>
+                                  </linearGradient>
+                                </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                 <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
                                 <YAxis stroke="#9ca3af" fontSize={12} />

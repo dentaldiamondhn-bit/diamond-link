@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 
 type FilterType = 'all' | 'appointment' | 'treatment' | 'odontogram' | 'consentimiento' | 'presupuesto' | 'payment' | 'milestone' | 'note';
@@ -19,13 +19,30 @@ interface TimelineEvent {
   details?: Record<string, any>;
 }
 
+interface TextFormatRange {
+  start: number;
+  end: number;
+  formats: { bold?: boolean; italic?: boolean; underline?: boolean; strikethrough?: boolean; code?: boolean; color?: string };
+}
+
 interface NoteBlock {
   type: 'text' | 'heading' | 'checklist';
   text: string;
   level?: number;
-  formats?: Record<string, boolean>;
+  formats?: TextFormatRange[];
   items?: ChecklistItem[];
   checked?: boolean;
+}
+
+type TextFormatType = 'bold' | 'italic' | 'underline' | 'strikethrough' | 'code' | 'color';
+
+interface TextFormat {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  code?: boolean;
+  color?: string;
 }
 
 interface ChecklistItem {
@@ -190,15 +207,65 @@ function renderNoteBlock(block: NoteBlock, idx: number) {
       </ul>
     );
   }
-  const fmt = block.formats || {};
-  const className = [
-    fmt.bold ? 'font-bold' : '',
-    fmt.italic ? 'italic' : '',
-    fmt.underline ? 'underline' : '',
-    fmt.strikethrough ? 'line-through' : '',
-    'text-gray-600 dark:text-gray-300',
-  ].filter(Boolean).join(' ');
-  return <p key={idx} className={`${className} whitespace-pre-wrap text-sm`}>{block.text}</p>;
+  return <p key={idx} className="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">{renderFormattedText(block.text, block.formats || [])}</p>;
+}
+
+function renderFormattedText(text: string, formats: any): React.ReactNode {
+  if (!text) return null;
+  if (!formats || !Array.isArray(formats) || formats.length === 0) {
+    return <>{text}</>;
+  }
+
+  const parts: { text: string; formats: TextFormatRange['formats'] }[] = [];
+  let lastEnd = 0;
+
+  const sortedFormats = [...formats].sort((a, b) => a.start - b.start);
+  const merged: TextFormatRange[] = [];
+
+  for (const f of sortedFormats) {
+    if (merged.length === 0) {
+      merged.push(f);
+    } else {
+      const last = merged[merged.length - 1];
+      if (f.start <= last.end) {
+        merged[merged.length - 1] = {
+          start: Math.min(last.start, f.start),
+          end: Math.max(last.end, f.end),
+          formats: { ...last.formats, ...f.formats }
+        };
+      } else {
+        merged.push(f);
+      }
+    }
+  }
+
+  for (const fmt of merged) {
+    if (fmt.start > lastEnd) {
+      parts.push({ text: text.slice(lastEnd, fmt.start), formats: {} });
+    }
+    parts.push({ text: text.slice(fmt.start, fmt.end), formats: fmt.formats });
+    lastEnd = fmt.end;
+  }
+  if (lastEnd < text.length) {
+    parts.push({ text: text.slice(lastEnd), formats: {} });
+  }
+
+  return parts.map((part, i) => {
+    const { formats } = part;
+    const className = [
+      formats?.bold ? 'font-bold' : '',
+      formats?.italic ? 'italic' : '',
+      formats?.underline ? 'underline' : '',
+      formats?.strikethrough ? 'line-through' : '',
+      formats?.code ? 'bg-gray-100 dark:bg-gray-800 px-1 rounded font-mono text-sm' : '',
+    ].filter(Boolean).join(' ');
+
+    return (
+      <span key={i} className={className} style={formats?.color ? { color: formats.color } : undefined}>
+        {part.text}
+      </span>
+    );
+  });
 }
 
 function renderNoteContent(content: NoteContent | string | null) {
@@ -214,7 +281,7 @@ function renderNoteContent(content: NoteContent | string | null) {
 function parseContent(content: NoteContent | string | null): NoteContent {
   if (!content || typeof content === 'string') {
     const text = typeof content === 'string' ? content : '';
-    return text ? { blocks: [{ type: 'text', text, formats: {} }] } : { blocks: [] };
+    return text ? { blocks: [{ type: 'text', text, formats: [] }] } : { blocks: [] };
   }
   return content;
 }
@@ -280,7 +347,12 @@ function NoteComments({ noteId }: { noteId: string }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2">
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{c.user_name || 'Usuario'}</span>
-                  <span className="text-[10px] text-gray-400">{new Date(c.created_at).toLocaleString('es-HN')}</span>
+                  <span className="text-[10px] text-gray-400">
+                    {SimpleTimezoneFix.formatDisplayDate(c.created_at)}
+                    {SimpleTimezoneFix.formatTime(c.created_at) && (
+                      <span className="ml-1">{SimpleTimezoneFix.formatTime(c.created_at)}</span>
+                    )}
+                  </span>
                 </div>
                 {renderNoteContent(c.message)}
               </div>
@@ -342,12 +414,60 @@ function NotasLineaDeTiempoContent() {
    const [notesModalOpen, setNotesModalOpen] = useState(false);
    const [editingNote, setEditingNote] = useState<TimelineNote | null>(null);
    const [noteTitle, setNoteTitle] = useState('');
-   const [noteBlocks, setNoteBlocks] = useState<NoteBlock[]>([{ type: 'text', text: '', formats: {} }]);
+   const [noteBlocks, setNoteBlocks] = useState<NoteBlock[]>([{ type: 'text', text: '', formats: [] }]);
    const [activeBlockIdx, setActiveBlockIdx] = useState(0);
    const [noteDate, setNoteDate] = useState('');
-   const [noteSaving, setNoteSaving] = useState(false);
+const [noteSaving, setNoteSaving] = useState(false);
+  
+  const router = useRouter();
 
-  useEffect(() => {
+  const applyFormat = (format: TextFormatType) => {
+      const start = (window as any).selectionStart;
+      const end = (window as any).selectionEnd;
+      const block = noteBlocks[activeBlockIdx];
+      if (block.type !== 'text' || start === null || end === null) return;
+
+      const formats = block.formats || [];
+      const newFormats: TextFormatRange[] = [...formats];
+
+      const overlappingIndex = newFormats.findIndex(f => start >= f.start && start <= f.end);
+      const newFormat: TextFormatRange = {
+        start,
+        end,
+        formats: { [format]: true }
+      };
+
+      if (overlappingIndex >= 0) {
+        newFormats[overlappingIndex] = {
+          ...newFormats[overlappingIndex],
+          start: Math.min(newFormats[overlappingIndex].start, start),
+          end: Math.max(newFormats[overlappingIndex].end, end),
+          formats: { ...newFormats[overlappingIndex].formats, [format]: !newFormats[overlappingIndex].formats[format] }
+        };
+      } else {
+        newFormats.push(newFormat);
+      }
+
+      setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx ? { ...b, formats: newFormats } : b));
+    };
+
+    const applyColorFormat = () => {
+      const color = prompt('Ingrese el color (ej: #ff0000 o nombre como red):', '#ff0000');
+      if (!color) return;
+      const start = (window as any).selectionStart;
+      const end = (window as any).selectionEnd;
+      const block = noteBlocks[activeBlockIdx];
+      if (block.type !== 'text' || start === null || end === null) return;
+
+      const formats = block.formats || [];
+      const newFormats: TextFormatRange[] = [...formats];
+      const newFormat: TextFormatRange = { start, end, formats: { color } };
+      newFormats.push(newFormat);
+
+setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx ? { ...b, formats: newFormats } : b));
+    };
+
+    useEffect(() => {
     if (!pacienteId) {
       setError('ID de paciente no proporcionado');
       setLoading(false);
@@ -598,7 +718,7 @@ function NotasLineaDeTiempoContent() {
      } else {
        setEditingNote(null);
        setNoteTitle('Nota');
-       setNoteBlocks([{ type: 'text', text: '', formats: {} }]);
+       setNoteBlocks([{ type: 'text', text: '', formats: [] }]);
        setNoteDate(new Date().toISOString().split('T')[0]);
      }
      setNotesModalOpen(true);
@@ -693,13 +813,22 @@ function NotasLineaDeTiempoContent() {
             <p className="text-gray-600 dark:text-gray-400">
               {patient.nombre_completo}
             </p>
-            <button
-              onClick={() => openNotesModal()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 transition-all shadow-md"
-            >
-              <i className="fas fa-sticky-note"></i>
-              Nueva Nota
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push('/menu-navegacion')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-600 text-white hover:bg-gray-700 transition-all shadow-md"
+              >
+                <i className="fas fa-home"></i>
+                Menú
+              </button>
+              <button
+                onClick={() => openNotesModal()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 transition-all shadow-md"
+              >
+                <i className="fas fa-sticky-note"></i>
+                Nueva Nota
+              </button>
+            </div>
           </div>
 
         {/* Summary Cards */}
@@ -780,7 +909,7 @@ function NotasLineaDeTiempoContent() {
                 <p className="text-gray-500 dark:text-gray-400">No hay eventos para mostrar</p>
               </div>
             ) : (
-              filteredEvents.map((event, index) => {
+              filteredEvents.map((event) => {
                 const config = EVENT_TYPE_CONFIG[event.type];
                 const isExpanded = expandedEvent === event.id;
 
@@ -794,15 +923,13 @@ function NotasLineaDeTiempoContent() {
                     {/* Date label */}
                     <div className="mb-1">
                       <span className="text-xs font-medium text-gray-400 dark:text-gray-500">
-                        {event.created_at
-                          ? SimpleTimezoneFix.formatDisplayDate(event.created_at)
-                          : SimpleTimezoneFix.formatDisplayDate(event.date)}
+                        {SimpleTimezoneFix.formatDisplayDate(event.date)}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
-                        {event.created_at
-                          ? SimpleTimezoneFix.formatTime(event.created_at)
-                          : SimpleTimezoneFix.formatTime(event.date)}
-                      </span>
+                      {event.created_at && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+                          {SimpleTimezoneFix.formatTime(event.created_at)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Card */}
@@ -1030,28 +1157,40 @@ function NotasLineaDeTiempoContent() {
                 <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
                   {/* Formatting toolbar */}
                   <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-300 dark:border-gray-600 flex-wrap">
-                    <button type="button" onClick={() => setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx && b.type === 'text' ? { ...b, formats: { ...b.formats, bold: !b.formats?.bold } } : b))} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.formats?.bold ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Bold">
+                    <button type="button" onClick={() => applyFormat('bold')} className="p-1.5 rounded text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600" title="Negrita (B)">
                       <i className="fas fa-bold"></i>
                     </button>
-                    <button type="button" onClick={() => setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx && b.type === 'text' ? { ...b, formats: { ...b.formats, italic: !b.formats?.italic } } : b))} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.formats?.italic ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Italic">
+                    <button type="button" onClick={() => applyFormat('italic')} className="p-1.5 rounded text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600" title="Cursiva (I)">
                       <i className="fas fa-italic"></i>
                     </button>
-                    <button type="button" onClick={() => setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx && b.type === 'text' ? { ...b, formats: { ...b.formats, underline: !b.formats?.underline } } : b))} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.formats?.underline ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Underline">
+                    <button type="button" onClick={() => applyFormat('underline')} className="p-1.5 rounded text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600" title="Subrayado (U)">
                       <i className="fas fa-underline"></i>
                     </button>
-                    <button type="button" onClick={() => setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx && b.type === 'text' ? { ...b, formats: { ...b.formats, strikethrough: !b.formats?.strikethrough } } : b))} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.formats?.strikethrough ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Strikethrough">
+                    <button type="button" onClick={() => applyFormat('strikethrough')} className="p-1.5 rounded text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600" title="Tachado">
                       <i className="fas fa-strikethrough"></i>
                     </button>
-                    <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-                    <button type="button" onClick={() => setNoteBlocks(prev => { const nb = [...prev]; if (nb[activeBlockIdx]?.type === 'text') nb[activeBlockIdx] = { ...nb[activeBlockIdx], type: 'heading', level: 2 }; return nb; })} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.type === 'heading' ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Heading">
-                      <i className="fas fa-heading"></i>
+                    <button type="button" onClick={() => applyFormat('code')} className="p-1.5 rounded text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600" title="Código (Code)">
+                      {"</>"}
+                    </button>
+                    <button type="button" onClick={() => applyColorFormat()} className="p-1.5 rounded text-xs text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600" title="Color">
+                      <i className="fas fa-palette"></i>
                     </button>
                     <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-                    <button type="button" onClick={() => setNoteBlocks(prev => { const nb = [...prev]; const items: ChecklistItem[] = noteBlocks[activeBlockIdx]?.type === 'checklist' ? (noteBlocks[activeBlockIdx].items || []) : [{ id: crypto.randomUUID(), text: '', checked: false }]; nb[activeBlockIdx] = { type: 'checklist', text: '', items }; return nb; })} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.type === 'checklist' ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Checklist">
+                    <button type="button" onClick={() => setNoteBlocks(prev => { const nb = [...prev]; if (nb[activeBlockIdx]?.type === 'text') nb[activeBlockIdx] = { ...nb[activeBlockIdx], type: 'heading', level: 1 }; return nb; })} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.type === 'heading' && noteBlocks[activeBlockIdx]?.level === 1 ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Título H1">
+                      <span className="font-bold text-sm">H1</span>
+                    </button>
+                    <button type="button" onClick={() => setNoteBlocks(prev => { const nb = [...prev]; if (nb[activeBlockIdx]?.type === 'text') nb[activeBlockIdx] = { ...nb[activeBlockIdx], type: 'heading', level: 2 }; return nb; })} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.type === 'heading' && noteBlocks[activeBlockIdx]?.level === 2 ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Título H2">
+                      <span className="font-bold">H2</span>
+                    </button>
+                    <button type="button" onClick={() => setNoteBlocks(prev => { const nb = [...prev]; if (nb[activeBlockIdx]?.type === 'text') nb[activeBlockIdx] = { ...nb[activeBlockIdx], type: 'heading', level: 3 }; return nb; })} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.type === 'heading' && noteBlocks[activeBlockIdx]?.level === 3 ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Título H3">
+                      <span className="font-bold text-xs">H3</span>
+                    </button>
+                    <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                    <button type="button" onClick={() => setNoteBlocks(prev => { const nb = [...prev]; const items: ChecklistItem[] = noteBlocks[activeBlockIdx]?.type === 'checklist' ? (noteBlocks[activeBlockIdx].items || []) : [{ id: crypto.randomUUID(), text: '', checked: false }]; nb[activeBlockIdx] = { type: 'checklist', text: '', items }; return nb; })} className={`p-1.5 rounded text-xs ${noteBlocks[activeBlockIdx]?.type === 'checklist' ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`} title="Lista de verificación">
                       <i className="fas fa-tasks"></i>
                     </button>
                     <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-                    <button type="button" onClick={() => { if (noteBlocks.length <= 1) return; const nb = noteBlocks.filter((_, i) => i !== activeBlockIdx); setNoteBlocks(nb.length > 0 ? nb : [{ type: 'text', text: '', formats: {} }]); setActiveBlockIdx(Math.max(0, activeBlockIdx - 1)); }} className="p-1.5 rounded text-xs text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-500" title="Delete block">
+                    <button type="button" onClick={() => { if (noteBlocks.length <= 1) return; const nb = noteBlocks.filter((_, i) => i !== activeBlockIdx); setNoteBlocks(nb.length > 0 ? nb : [{ type: 'text', text: '', formats: [] }]); setActiveBlockIdx(Math.max(0, activeBlockIdx - 1)); }} className="p-1.5 rounded text-xs text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-500" title="Eliminar bloque">
                       <i className="fas fa-trash-alt"></i>
                     </button>
                   </div>
@@ -1083,19 +1222,41 @@ function NotasLineaDeTiempoContent() {
                               <i className="fas fa-plus"></i> Agregar item
                             </button>
                           </div>
-                        ) : (
-                          <textarea
-                            value={block.text}
-                            onChange={(e) => { setNoteBlocks(prev => prev.map((b, i) => i === idx ? { ...b, text: e.target.value } : b)); }}
-                            onFocus={() => setActiveBlockIdx(idx)}
-                            rows={block.type === 'heading' ? 1 : 2}
-                            placeholder={block.type === 'heading' ? 'Encabezado...' : 'Escribe aquí...'}
-                            className={`w-full bg-transparent outline-none resize-none text-sm ${block.type === 'heading' ? 'font-bold text-gray-900 dark:text-white' : ''} ${(block.formats?.bold && block.type === 'text') ? 'font-bold' : ''} ${(block.formats?.italic && block.type === 'text') ? 'italic' : ''} ${(block.formats?.underline && block.type === 'text') ? 'underline' : ''} ${(block.formats?.strikethrough && block.type === 'text') ? 'line-through' : ''} ${block.type === 'text' ? 'text-gray-700 dark:text-gray-300' : ''}`}
-                          />
+) : (
+                          <div className="border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <textarea
+                              ref={el => {
+                                if (el && idx === activeBlockIdx) {
+                                  (window as any).noteEditorRefs = (window as any).noteEditorRefs || {};
+                                  (window as any).noteEditorRefs[idx] = el;
+                                }
+                              }}
+                              value={block.text}
+                              onChange={(e) => { setNoteBlocks(prev => prev.map((b, i) => i === idx ? { ...b, text: e.target.value } : b)); }}
+                              onFocus={() => setActiveBlockIdx(idx)}
+                              onSelect={() => {
+                                const editor = (window as any).noteEditorRefs?.[idx];
+                                if (editor) {
+                                  (window as any).selectionStart = editor.selectionStart;
+                                  (window as any).selectionEnd = editor.selectionEnd;
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if ((e.key === 'B' || e.key === 'I' || e.key === 'U') && (e.metaKey || e.ctrlKey)) {
+                                  e.preventDefault();
+                                  const format = e.key === 'B' ? 'bold' : e.key === 'I' ? 'italic' : 'underline';
+                                  applyFormat(format);
+                                }
+                              }}
+                              placeholder={block.type === 'heading' ? 'Encabezado...' : 'Escribe aquí...'}
+                              rows={block.type === 'heading' ? 1 : 4}
+                              className={`w-full bg-transparent outline-none resize-none text-sm text-gray-700 dark:text-gray-300 ${block.type === 'heading' ? 'font-bold' : ''}`}
+                            />
+                          </div>
                         )}
                       </div>
                     ))}
-                    <button type="button" onClick={() => { setNoteBlocks(prev => [...prev, { type: 'text', text: '', formats: {} }]); setActiveBlockIdx(noteBlocks.length); }} className="text-xs text-gray-400 hover:text-cyan-600 flex items-center gap-1 mt-2">
+                    <button type="button" onClick={() => { setNoteBlocks(prev => [...prev, { type: 'text', text: '', formats: [] }]); setActiveBlockIdx(noteBlocks.length); }} className="text-xs text-gray-400 hover:text-cyan-600 flex items-center gap-1 mt-2">
                       <i className="fas fa-plus-circle"></i> Agregar bloque
                     </button>
                   </div>

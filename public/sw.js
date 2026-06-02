@@ -42,8 +42,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - serve from cache when offline, skip API calls
 self.addEventListener('fetch', (event) => {
+  // Skip API requests — always fetch from network
+  if (event.request.url.includes('/api/')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
