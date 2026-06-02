@@ -27,6 +27,7 @@ import AnimatedReport from '@/components/AnimatedReport';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
 import AnimatedFolder from '@/components/AnimatedFolder';
+import { dentalStudyService } from '@/services/dentalStudyService';
 
 function MenuNavegacionContent() {
   const { user } = useUser();
@@ -46,6 +47,8 @@ function MenuNavegacionContent() {
   const [consentimientoStatsLoading, setConsentimientoStatsLoading] = useState(true);
   const [presupuestoStats, setPresupuestoStats] = useState<any>(null);
   const [presupuestoStatsLoading, setPresupuestoStatsLoading] = useState(true);
+  const [documentStats, setDocumentStats] = useState<any>(null);
+  const [documentStatsLoading, setDocumentStatsLoading] = useState(true);
   const [hasOrthodonticHistory, setHasOrthodonticHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -228,6 +231,107 @@ function MenuNavegacionContent() {
     };
 
     loadPresupuestoStats();
+  }, [patient]);
+
+  useEffect(() => {
+    const loadDocumentStats = async () => {
+      if (!patient) return;
+      
+      try {
+        setDocumentStatsLoading(true);
+        
+        // Load patient documents
+        let totalDocuments = 0;
+        const documentTypes: Record<string, number> = {
+          'PDF': 0,
+          'Imagen': 0,
+          'Word': 0,
+          'Excel': 0,
+          'PowerPoint': 0,
+          'Texto': 0,
+          'Comprimido': 0,
+          'Archivo': 0
+        };
+        let latestUploadDate: string | null = null;
+
+        // Helper functions from documents page
+        const getFileType = (url: string) => {
+          const extension = url.split('.').pop()?.toLowerCase();
+          if (['pdf'].includes(extension || '')) return 'PDF';
+          if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension || '')) return 'Imagen';
+          if (['doc', 'docx'].includes(extension || '')) return 'Word';
+          if (['xls', 'xlsx', 'csv'].includes(extension || '')) return 'Excel';
+          if (['ppt', 'pptx'].includes(extension || '')) return 'PowerPoint';
+          if (['txt', 'rtf'].includes(extension || '')) return 'Texto';
+          if (['zip', 'rar', '7z'].includes(extension || '')) return 'Comprimido';
+          return 'Archivo';
+        };
+
+        // Count patient documents
+        if (patient.documentos && patient.documentos.length > 0) {
+          patient.documentos.forEach((docUrl: string) => {
+            totalDocuments++;
+            const fileType = getFileType(docUrl);
+            if (documentTypes[fileType] !== undefined) {
+              documentTypes[fileType]++;
+            }
+          });
+        }
+
+        // Count orthodontic documents
+        try {
+          const orthodonticData = await OrthodonticHistoryServiceClient.getOrthodonticHistory(patient.paciente_id);
+          if (orthodonticData?.documentos_ortodoncia && orthodonticData.documentos_ortodoncia.length > 0) {
+            orthodonticData.documentos_ortodoncia.forEach((docUrl: string) => {
+              totalDocuments++;
+              const fileType = getFileType(docUrl);
+              if (documentTypes[fileType] !== undefined) {
+                documentTypes[fileType]++;
+              }
+            });
+          }
+          
+          // Count signatures
+          if (orthodonticData?.firma_digital_ortodoncia) {
+            totalDocuments++;
+            documentTypes['Imagen']++;
+          }
+        } catch (error) {
+          // No orthodontic data, that's ok
+        }
+
+        // Count patient signature
+        if (patient.firma_digital) {
+          totalDocuments++;
+          documentTypes['Imagen']++;
+        }
+
+        // Get latest document upload date from patient's update date if documents exist
+        if (totalDocuments > 0 && patient.fecha_inicio) {
+          latestUploadDate = patient.fecha_inicio;
+        }
+
+        // Get most common document types
+        const topDocumentTypes = Object.entries(documentTypes)
+          .filter(([_, count]: [string, number]) => count > 0)
+          .sort(([, a]: [string, number], [, b]: [string, number]) => b - a)
+          .slice(0, 3);
+
+        setDocumentStats({
+          total_documents: totalDocuments,
+          document_types: documentTypes,
+          top_types: topDocumentTypes,
+          latest_upload_date: latestUploadDate
+        });
+      } catch (error) {
+        console.error('Error loading document statistics:', error);
+        setDocumentStats(null);
+      } finally {
+        setDocumentStatsLoading(false);
+      }
+    };
+
+    loadDocumentStats();
   }, [patient]);
 
   const calculateAge = (fechaNacimiento: string): string => {
@@ -630,6 +734,48 @@ function MenuNavegacionContent() {
     );
   };
 
+  const getDocumentStatsDescription = (): JSX.Element => {
+    if (documentStatsLoading) {
+      return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
+    }
+
+    if (!documentStats) {
+      return <span className="text-gray-500 dark:text-gray-400">No hay documentos registrados</span>;
+    }
+
+    const { total_documents, top_types, latest_upload_date } = documentStats;
+
+    // Format latest upload date
+    const formatDate = (dateString: string) => {
+      if (!dateString) return null;
+      return SimpleTimezoneFix.formatDisplayDate(dateString);
+    };
+
+    return (
+      <div className="text-sm space-y-1">
+        <div className="flex items-center space-x-2">
+          <span className="text-gray-700 dark:text-gray-300">
+            {total_documents} documento{total_documents !== 1 ? 's' : ''}
+          </span>
+        </div>
+        {top_types.length > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-blue-600 dark:text-blue-400 font-medium text-xs">
+              {top_types.map(([type, count]) => `${type}: ${count}`).join(' • ')}
+            </span>
+          </div>
+        )}
+        {latest_upload_date && (
+          <div className="flex items-center space-x-2">
+            <span className="text-purple-600 dark:text-purple-400 font-medium">
+              Último: {formatDate(latest_upload_date)}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Patient type utility (same as pacientes page)
   const getPatientType = (patient: any) => {
     const calculateAge = (birthDate: string) => {
@@ -764,7 +910,7 @@ function MenuNavegacionContent() {
       id: 'gestion-documental',
       icon: <AnimatedFolder className="w-7 h-7" />,
       title: 'Gestión Documental',
-      description: 'Administre todos los documentos del paciente, incluyendo informes, radiografías y archivos adjuntos.',
+      description: getDocumentStatsDescription(),
       href: `/dashboard/documents?id=${validPacienteId}`
     },
     {
