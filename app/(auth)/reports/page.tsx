@@ -7,6 +7,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
 import { formatCurrency, formatNumber } from '@/utils/currencyUtils';
 import { ReportsService } from '@/services/reportsService';
+import { PaymentService } from '@/services/paymentService';
 import { useTheme } from '@/contexts/ThemeContext';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { 
@@ -228,6 +229,10 @@ export default function ReportsPage() {
   const [patientStats, setPatientStats] = useState<any>({});
   const [patientDemographics, setPatientDemographics] = useState<any>({});
   const [revenueStats, setRevenueStats] = useState<any>({});
+  const [patientAnalytics, setPatientAnalytics] = useState<any[]>([]);
+  const [financialTransactions, setFinancialTransactions] = useState<any[]>([]);
+  const [sortBy, setSortBy] = useState<'totalSpent' | 'outstandingBalance' | 'lastVisit' | 'treatments'>('totalSpent');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'Con Saldo' | 'Al Día' | 'Sin Tratamientos'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -283,20 +288,23 @@ export default function ReportsPage() {
         end = now.toISOString();
       }
 
-      const [
-        reportDataResult,
+      const [reportDataResult,
         doctorPerformanceResult,
         treatmentTypesResult,
         patientStatsResult,
         patientDemographicsResult,
-        revenueStatsResult
+        revenueStatsResult,
+        patientAnalyticsResult,
+        financialTransactionsResult
       ] = await Promise.all([
         ReportsService.getReportData(timeRange, start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
         ReportsService.getDoctorPerformance(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
         ReportsService.getTreatmentTypes(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
         ReportsService.getPatientStats(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
         ReportsService.getPatientDemographics(userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-        ReportsService.getRevenueStats(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined)
+        ReportsService.getRevenueStats(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+        ReportsService.getDetailedPatientAnalytics(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+        ReportsService.getFinancialTransactions(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined)
       ]);
 
       setReportData(reportDataResult);
@@ -305,6 +313,8 @@ export default function ReportsPage() {
       setPatientStats(patientStatsResult);
       setPatientDemographics(patientDemographicsResult);
       setRevenueStats(revenueStatsResult);
+      setPatientAnalytics(patientAnalyticsResult);
+      setFinancialTransactions(financialTransactionsResult);
       
     } catch (err) {
       console.error('Error loading report data:', err);
@@ -325,7 +335,9 @@ export default function ReportsPage() {
     { id: 'overview', label: 'Resumen', icon: FiPieChart },
     ...(userRole === 'admin' ? [{ id: 'doctors', label: 'Doctores', icon: FiUserCheck }] : []),
     { id: 'patients', label: 'Pacientes', icon: FiUsers },
+    { id: 'patient-data', label: 'Datos Pacientes', icon: FiBarChart2 },
     { id: 'treatments', label: 'Tratamientos', icon: FiActivity },
+    { id: 'financial', label: 'Financiero', icon: FiDollarSign },
     { id: 'promotions', label: 'Promociones', icon: FiGift }
   ];
 
@@ -1038,6 +1050,294 @@ export default function ReportsPage() {
                             </div>
                           </div>
                         </AnimatedChart>
+                      </div>
+                    )}
+
+                    {activeTab === 'patient-data' && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
+                            <FiBarChart2 className="w-5 h-5 text-white" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Análisis de Pacientes</h2>
+                        </div>
+
+                        {/* Filtering and Sorting Controls */}
+                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+                            <div className="flex gap-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por:</span>
+                                <select
+                                  value={sortBy}
+                                  onChange={(e) => setSortBy(e.target.value as any)}
+                                  className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
+                                >
+                                  <option value="totalSpent">Gasto Total</option>
+                                  <option value="outstandingBalance">Saldo Pendiente</option>
+                                  <option value="lastVisit">Última Visita</option>
+                                  <option value="treatments"># Tratamientos</option>
+                                </select>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filtrar:</span>
+                                <select
+                                  value={filterStatus}
+                                  onChange={(e) => setFilterStatus(e.target.value as any)}
+                                  className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
+                                >
+                                  <option value="all">Todos</option>
+                                  <option value="Con Saldo">Con Saldo</option>
+                                  <option value="Al Día">Al Día</option>
+                                  <option value="Sin Tratamientos">Sin Tratamientos</option>
+                                </select>
+                              </div>
+                            </div>
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={async () => {
+                                const csv = await ReportsService.exportPatientAnalyticsToCSV(patientAnalytics);
+                                const blob = new Blob([csv], { type: 'text/csv' });
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `patient-analytics-${new Date().toISOString().split('T')[0]}.csv`;
+                                a.click();
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all"
+                            >
+                              <FiDownload className="w-4 h-4" />
+                              Exportar CSV
+                            </motion.button>
+                          </div>
+                        </div>
+
+                        {/* Patient Data Table */}
+                        <AnimatedChart>
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full">
+                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 sticky top-0">
+                                  <tr>
+                                    {['Paciente', 'Identidad', 'Teléfono', 'Tratamientos', 'Gasto Total', 'Pagado', 'Pendiente', '% Pago', 'Última Visita', 'Estado'].map((header) => (
+                                      <th key={header} className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                                        {header}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                  {patientAnalytics
+                                    .filter(p => filterStatus === 'all' || p.status === filterStatus)
+                                    .sort((a: any, b: any) => {
+                                      switch (sortBy) {
+                                        case 'totalSpent':
+                                          return b.totalSpent - a.totalSpent;
+                                        case 'outstandingBalance':
+                                          return b.outstandingBalance - a.outstandingBalance;
+                                        case 'treatments':
+                                          return b.totalTreatments - a.totalTreatments;
+                                        case 'lastVisit':
+                                          return new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime();
+                                        default:
+                                          return 0;
+                                      }
+                                    })
+                                    .map((patient: any, index: number) => (
+                                      <motion.tr 
+                                        key={index}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: index * 0.02 }}
+                                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                      >
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                              {patient.nombre?.charAt(0) || 'P'}
+                                            </div>
+                                            <span className="font-medium text-gray-900 dark:text-white text-sm">{patient.nombre}</span>
+                                          </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{patient.identidad}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{patient.telefono || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{patient.totalTreatments}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">{formatCurrency(patient.totalSpent)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">{formatCurrency(patient.totalPaid)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 dark:text-orange-400">{formatCurrency(patient.outstandingBalance)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{patient.paymentPercentage.toFixed(1)}%</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{patient.lastVisit}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                          <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                            patient.status === 'Al Día' 
+                                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                                              : patient.status === 'Con Saldo'
+                                              ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                          }`}>
+                                            {patient.status}
+                                          </span>
+                                        </td>
+                                      </motion.tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </AnimatedChart>
+
+                        {/* Summary Metrics */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                          <MetricCard
+                            title="Ingresos Totales de Pacientes"
+                            value={formatCurrency(patientAnalytics.reduce((sum: number, p: any) => sum + p.totalSpent, 0))}
+                            subtitle={`${patientAnalytics.length} pacientes`}
+                            icon={FiDollarSign}
+                            gradient="from-teal-500 to-cyan-500"
+                            delay={0}
+                          />
+                          <MetricCard
+                            title="Saldo Pendiente"
+                            value={formatCurrency(patientAnalytics.reduce((sum: number, p: any) => sum + p.outstandingBalance, 0))}
+                            subtitle={`${patientAnalytics.filter((p: any) => p.outstandingBalance > 0).length} con deuda`}
+                            icon={FiAlertCircle}
+                            gradient="from-orange-500 to-red-500"
+                            delay={1}
+                          />
+                          <MetricCard
+                            title="Cobrado"
+                            value={formatCurrency(patientAnalytics.reduce((sum: number, p: any) => sum + p.totalPaid, 0))}
+                            subtitle={`${((patientAnalytics.reduce((sum: number, p: any) => sum + p.totalPaid, 0) / (patientAnalytics.reduce((sum: number, p: any) => sum + p.totalSpent, 0) || 1)) * 100).toFixed(1)}% de ingresos`}
+                            icon={FiCheckCircle}
+                            gradient="from-green-500 to-emerald-500"
+                            delay={2}
+                          />
+                          <MetricCard
+                            title="Gasto Promedio"
+                            value={formatCurrency(patientAnalytics.length > 0 ? patientAnalytics.reduce((sum: number, p: any) => sum + p.totalSpent, 0) / patientAnalytics.length : 0)}
+                            subtitle="Por paciente"
+                            icon={FiUsers}
+                            gradient="from-blue-500 to-indigo-500"
+                            delay={3}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+{activeTab === 'financial' && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
+                            <FiDollarSign className="w-5 h-5 text-white" />
+                          </div>
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Transacciones Financieras</h2>
+                        </div>
+
+                        <AnimatedChart>
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full">
+                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 sticky top-0">
+                                  <tr>
+                                    {['Fecha', 'Paciente', 'Total Pagado', 'Método de Pago', 'Tratamiento'].map((header) => (
+                                      <th key={header} className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                                        {header}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                  {financialTransactions.length > 0 ? (
+                                    financialTransactions.map((transaction: any, index: number) => (
+                                      <motion.tr 
+                                        key={index}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: index * 0.02 }}
+                                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                      >
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                          {transaction.fecha ? new Date(transaction.fecha).toLocaleDateString('es-HN') : 'N/A'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                              {transaction.paciente?.charAt(0) || 'P'}
+                                            </div>
+                                            <span className="font-medium text-gray-900 dark:text-white text-sm">{transaction.paciente}</span>
+                                          </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">
+                                          {formatCurrency(typeof transaction.totalPagado === 'number' ? transaction.totalPagado : Number(transaction.totalPagado) || 0)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                          <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                            transaction.metodoPago === 'Efectivo' || transaction.metodoPago === 'efectivo'
+                                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                                              : transaction.metodoPago === 'Tarjeta' || transaction.metodoPago === 'tarjeta_credito' || transaction.metodoPago === 'tarjeta_debito'
+                                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                              : transaction.metodoPago === 'Transferencia' || transaction.metodoPago === 'transferencia'
+                                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                              : transaction.metodoPago === 'Depósito Bancario' || transaction.metodoPago === 'deposito_bancario' || transaction.metodoPago === 'Extra BAC 6meses' || transaction.metodoPago === 'extra_bac_6meses'
+                                              ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400'
+                                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                          }`}>
+                                            {PaymentService.formatPaymentMethod(transaction.metodoPago)}
+                                          </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                          {transaction.tratamiento}
+                                        </td>
+                                      </motion.tr>
+                                    ))
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                        No hay transacciones en este período
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </AnimatedChart>
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                          <MetricCard
+                            title="Ingresos Totales"
+                            value={formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + t.totalPagado, 0))}
+                            subtitle="Este período"
+                            icon={FiDollarSign}
+                            gradient="from-teal-500 to-cyan-500"
+                            delay={0}
+                          />
+                          <MetricCard
+                            title="Transacciones"
+                            value={String(financialTransactions.length)}
+                            subtitle="Total de pagos"
+                            icon={FiCheckCircle}
+                            gradient="from-green-500 to-emerald-500"
+                            delay={1}
+                          />
+                          <MetricCard
+                            title="Promedio por Pago"
+                            value={formatCurrency(financialTransactions.length > 0 ? financialTransactions.reduce((sum: number, t: any) => sum + t.totalPagado, 0) / financialTransactions.length : 0)}
+                            subtitle="Por transacción"
+                            icon={FiTrendingUp}
+                            gradient="from-blue-500 to-cyan-500"
+                            delay={2}
+                          />
+                          <MetricCard
+                            title="Pacientes Únicos"
+                            value={String(new Set(financialTransactions.map((t: any) => t.paciente)).size)}
+                            subtitle="Con pagos en período"
+                            icon={FiUsers}
+                            gradient="from-purple-500 to-pink-500"
+                            delay={3}
+                          />
+                        </div>
                       </div>
                     )}
 

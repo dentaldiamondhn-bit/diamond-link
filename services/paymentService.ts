@@ -186,23 +186,40 @@ export class PaymentService {
       'cheque',
       'deposito_bancario',
       'paypal',
-      'otro'
+      'otro',
+      'extra_bac_6meses'
     ];
   }
 
-  // Format payment method for display
   static formatPaymentMethod(method: string): string {
+    if (!method) return 'Otro';
+    
+    const normalizedMethod = method.toLowerCase();
+    
     const methodMap: { [key: string]: string } = {
       'efectivo': 'Efectivo',
       'tarjeta_credito': 'Tarjeta de Crédito',
       'tarjeta_debito': 'Tarjeta de Débito',
       'transferencia': 'Transferencia Bancaria',
       'cheque': 'Cheque',
-      'deposito_bancario': 'Depósito Bancario',
+      'deposito_bancario': 'Extra BAC 6meses',
       'paypal': 'PayPal',
-      'otro': 'Otro'
+      'otro': 'Otro',
+      'extra_bac_6meses': 'Extra BAC 6meses'
     };
-    return methodMap[method] || method;
+    
+    if (methodMap[normalizedMethod]) {
+      return methodMap[normalizedMethod];
+    }
+    
+    if (normalizedMethod.includes('extra') && normalizedMethod.includes('bac')) {
+      return 'Extra BAC 6meses';
+    }
+    if (normalizedMethod.includes('deposito') || normalizedMethod.includes('depósito')) {
+      return 'Extra BAC 6meses';
+    }
+    
+    return method;
   }
 
   // Get payment status badge styling
