@@ -184,10 +184,11 @@ export class PaymentService {
       'tarjeta_debito',
       'transferencia',
       'cheque',
-      'deposito_bancario',
       'paypal',
-      'otro',
-      'extra_bac_6meses'
+      'extra_bac_6meses',
+      'extra_bac_3meses',
+      'extra_bac_9meses',
+      'otro'
     ];
   }
 
@@ -202,10 +203,11 @@ export class PaymentService {
       'tarjeta_debito': 'Tarjeta de Débito',
       'transferencia': 'Transferencia Bancaria',
       'cheque': 'Cheque',
-      'deposito_bancario': 'Extra BAC 6meses',
       'paypal': 'PayPal',
       'otro': 'Otro',
-      'extra_bac_6meses': 'Extra BAC 6meses'
+      'extra_bac_6meses': 'Extra BAC 6meses',
+      'extra_bac_3meses': 'Extra BAC 3meses',
+      'extra_bac_9meses': 'Extra BAC 9meses'
     };
     
     if (methodMap[normalizedMethod]) {
@@ -213,6 +215,12 @@ export class PaymentService {
     }
     
     if (normalizedMethod.includes('extra') && normalizedMethod.includes('bac')) {
+      if (normalizedMethod.includes('3meses')) {
+        return 'Extra BAC 3meses';
+      }
+      if (normalizedMethod.includes('9meses')) {
+        return 'Extra BAC 9meses';
+      }
       return 'Extra BAC 6meses';
     }
     if (normalizedMethod.includes('deposito') || normalizedMethod.includes('depósito')) {
