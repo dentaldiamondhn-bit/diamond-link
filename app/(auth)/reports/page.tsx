@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -218,6 +218,9 @@ export default function ReportsPage() {
   const [tabDateRanges, setTabDateRanges] = useState<Record<string, { startDate: string; endDate: string }>>({});
   const [currentStartDate, setCurrentStartDate] = useState('');
   const [currentEndDate, setCurrentEndDate] = useState('');
+  const dateChangeRef = useRef<{ start: string; end: string } | null>(null);
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
 
   const getCurrentDateRange = () => {
     return tabDateRanges[activeTab] || { startDate: '', endDate: '' };
@@ -246,14 +249,10 @@ export default function ReportsPage() {
       const currentTabRange = getCurrentDateRange();
       setCurrentStartDate(currentTabRange.startDate);
       setCurrentEndDate(currentTabRange.endDate);
+      setAppliedStartDate(currentTabRange.startDate);
+      setAppliedEndDate(currentTabRange.endDate);
     }
   }, [prefsLoading, pagePrefs, activeTab]);
-
-  useEffect(() => {
-    const currentTabRange = getCurrentDateRange();
-    setCurrentStartDate(currentTabRange.startDate);
-    setCurrentEndDate(currentTabRange.endDate);
-  }, [activeTab, tabDateRanges]);
 
   const loadReportData = async () => {
     setLoading(true);
@@ -262,8 +261,8 @@ export default function ReportsPage() {
     
     try {
       const now = new Date();
-      let start = currentStartDate;
-      let end = currentEndDate;
+      let start = appliedStartDate;
+      let end = appliedEndDate;
       
       if (!start) {
         const startDateObj = new Date(now);
@@ -329,7 +328,7 @@ export default function ReportsPage() {
     if (user && (userRole === 'admin' || userRole === 'doctor' || userRole === 'tech_support')) {
       loadReportData();
     }
-  }, [user, userRole, timeRange, currentStartDate, currentEndDate]);
+  }, [user, userRole, timeRange, appliedStartDate, appliedEndDate]);
 
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: FiPieChart },
@@ -532,7 +531,18 @@ export default function ReportsPage() {
                     <input
                       type="date"
                       value={currentStartDate}
-                      onChange={(e) => setCurrentStartDate(e.target.value)}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        setCurrentStartDate(newStart);
+                        dateChangeRef.current = { start: newStart, end: currentEndDate };
+                      }}
+                      onBlur={() => {
+                        if (dateChangeRef.current) {
+                          setAppliedStartDate(dateChangeRef.current.start);
+                          setAppliedEndDate(dateChangeRef.current.end);
+                          dateChangeRef.current = null;
+                        }
+                      }}
                       className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
                       style={{ colorScheme: resolvedTheme }}
                     />
@@ -542,7 +552,18 @@ export default function ReportsPage() {
                     <input
                       type="date"
                       value={currentEndDate}
-                      onChange={(e) => setCurrentEndDate(e.target.value)}
+                      onChange={(e) => {
+                        const newEnd = e.target.value;
+                        setCurrentEndDate(newEnd);
+                        dateChangeRef.current = { start: currentStartDate, end: newEnd };
+                      }}
+                      onBlur={() => {
+                        if (dateChangeRef.current) {
+                          setAppliedStartDate(dateChangeRef.current.start);
+                          setAppliedEndDate(dateChangeRef.current.end);
+                          dateChangeRef.current = null;
+                        }
+                      }}
                       className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
                       style={{ colorScheme: resolvedTheme }}
                     />
