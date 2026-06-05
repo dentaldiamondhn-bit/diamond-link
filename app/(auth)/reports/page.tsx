@@ -1240,7 +1240,7 @@ export default function ReportsPage() {
                               <table className="min-w-full">
                                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 sticky top-0">
                                   <tr>
-                                    {['Fecha', 'Paciente', 'Total Pagado', 'Método de Pago', 'Tratamiento'].map((header) => (
+                                    {['Fecha', 'Paciente', 'Total Pagado', 'Método de Pago', 'Total Neto', 'Tratamiento'].map((header) => (
                                       <th key={header} className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
                                         {header}
                                       </th>
@@ -1286,6 +1286,12 @@ export default function ReportsPage() {
                                             {PaymentService.formatPaymentMethod(transaction.metodoPago)}
                                           </span>
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                                          {formatCurrency(transaction.totalNeto)}
+                                          {transaction.monedaOriginal && transaction.monedaOriginal !== transaction.moneda && (
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">({transaction.monedaOriginal})</span>
+                                          )}
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                           {transaction.tratamiento}
                                         </td>
@@ -1293,7 +1299,7 @@ export default function ReportsPage() {
                                     ))
                                   ) : (
                                     <tr>
-                                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                                         No hay transacciones en este período
                                       </td>
                                     </tr>

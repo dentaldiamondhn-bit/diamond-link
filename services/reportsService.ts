@@ -758,11 +758,30 @@ export class ReportsService {
         const tc = treatmentsMap.get(p.tratamiento_completado_id) as any;
         const pacienteId = tc?.paciente_id;
         const tratamiento = treatmentItemsMap.get(p.tratamiento_completado_id) || 'Tratamiento';
+        const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
         const amount = Number(p.monto_pago) || 0;
+        
+        let deductionPercent = 0;
+        if (metodoPago === 'tarjeta_credito' || metodoPago === 'tarjeta_debito') {
+          deductionPercent = 2.95;
+        } else if (metodoPago === 'extra_bac_3meses') {
+          deductionPercent = 6;
+        } else if (metodoPago === 'extra_bac_6meses') {
+          deductionPercent = 8;
+        } else if (metodoPago === 'extra_bac_9meses') {
+          deductionPercent = 10;
+        }
+        
+        const totalNeto = amount * (1 - deductionPercent / 100);
+        const monedaOriginal = p.moneda_original || p.moneda || 'HNL';
+        const moneda = p.moneda || 'HNL';
         return {
           fecha: p.fecha_pago,
           paciente: patientsMap.get(pacienteId) || pacienteId || 'N/A',
           totalPagado: amount,
+          totalNeto,
+          monedaOriginal,
+          moneda,
           metodoPago: p.metodo_pago || 'Efectivo',
           tratamiento
         };
