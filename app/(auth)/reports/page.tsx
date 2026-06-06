@@ -501,8 +501,8 @@ export default function ReportsPage() {
               />
               <MetricCard
                 title="Pacientes Totales"
-                value={formatNumber(Math.floor(patientStats.totalPatients || 0), 0)}
-                subtitle={`${patientStats.newPatients || 0} nuevos, ${patientStats.returningPatients || 0} recurrentes`}
+                value={formatNumber(Math.floor(new Set(financialTransactions.map((t: any) => t.paciente)).size), 0)}
+                subtitle="Con transacciones en el período"
                 icon={FiUsers}
                 gradient="from-blue-500 to-indigo-500"
                 trend={{ value: 8.2, positive: true }}
