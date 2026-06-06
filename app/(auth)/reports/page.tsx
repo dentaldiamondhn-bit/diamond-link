@@ -216,10 +216,10 @@ export default function ReportsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { preferences: pagePrefs, loading: prefsLoading } = usePagePreferences('reports');
   const [tabDateRanges, setTabDateRanges] = useState<Record<string, { startDate: string; endDate: string }>>({});
-  const dateChangeRef = useRef<{ start: string; end: string } | null>(null);
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const currentDatesRef = useRef<{ start: string; end: string }>({ start: '', end: '' });
 
   const getCurrentDateRange = () => {
     const range = tabDateRanges[activeTab];
@@ -258,34 +258,45 @@ export default function ReportsPage() {
       }
       const savedDateRanges = pagePrefs.tabDateRanges || {};
       setTabDateRanges(savedDateRanges);
-      const currentTabRange = getCurrentDateRange();
+      const currentTabRange = pagePrefs.tabDateRanges?.[activeTab] || {
+        startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10),
+        endDate: new Date().toISOString().slice(0, 10)
+      };
       setCurrentStartDate(currentTabRange.startDate);
       setCurrentEndDate(currentTabRange.endDate);
+      currentDatesRef.current = { start: currentTabRange.startDate, end: currentTabRange.endDate };
+      setAppliedStartDate(currentTabRange.startDate);
+      setAppliedEndDate(currentTabRange.endDate);
     }
-  }, [prefsLoading, pagePrefs]);
+  }, [prefsLoading, pagePrefs, activeTab]);
 
   useEffect(() => {
-    const currentTabRange = getCurrentDateRange();
-    setCurrentStartDate(currentTabRange.startDate);
-    setCurrentEndDate(currentTabRange.endDate);
-    if (!tabDateRanges[activeTab]) {
-      setTabDateRanges(prev => {
-        const updated = {
-          ...prev,
-          [activeTab]: currentTabRange
+    if (user?.id) {
+      const savedRange = tabDateRanges[activeTab];
+      if (!savedRange) {
+        const defaultRange = {
+          startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10),
+          endDate: new Date().toISOString().slice(0, 10)
         };
-        if (user?.id) {
+        setTabDateRanges(prev => {
+          const updated = {
+            ...prev,
+            [activeTab]: defaultRange
+          };
           UserPreferencesService.updatePagePreferences(
             user.id,
             'reports',
             { tabDateRanges: updated }
           );
-        }
-        return updated;
-      });
+          return updated;
+        });
+        setCurrentStartDate(defaultRange.startDate);
+        setCurrentEndDate(defaultRange.endDate);
+      } else {
+        setCurrentStartDate(savedRange.startDate);
+        setCurrentEndDate(savedRange.endDate);
+      }
     }
-    setAppliedStartDate(currentTabRange.startDate);
-    setAppliedEndDate(currentTabRange.endDate);
     setReloadTrigger(t => t + 1);
   }, [activeTab]);
 
@@ -573,12 +584,12 @@ export default function ReportsPage() {
                       onChange={(e) => {
                         const newStart = e.target.value;
                         setCurrentStartDate(newStart);
-                        dateChangeRef.current = { start: newStart, end: currentEndDate };
+                        currentDatesRef.current.start = newStart;
                         if (user?.id) {
                           setTabDateRanges(prev => {
                             const updated = {
                               ...prev,
-                              [activeTab]: { startDate: newStart, endDate: currentEndDate }
+                              [activeTab]: { startDate: newStart, endDate: currentDatesRef.current.end || currentEndDate }
                             };
                             UserPreferencesService.updatePagePreferences(
                               user.id,
@@ -590,24 +601,10 @@ export default function ReportsPage() {
                         }
                       }}
                       onBlur={async () => {
-                        if (dateChangeRef.current && user?.id) {
-                          const refData = { ...dateChangeRef.current };
-                          setAppliedStartDate(refData.start);
-                          setAppliedEndDate(refData.end);
-                          setTabDateRanges(prev => {
-                            const updated = {
-                              ...prev,
-                              [activeTab]: { startDate: refData.start, endDate: refData.end }
-                            };
-                            UserPreferencesService.updatePagePreferences(
-                              user.id,
-                              'reports',
-                              { tabDateRanges: updated }
-                            );
-                            return updated;
-                          });
+                        if (user?.id) {
+                          setAppliedStartDate(currentDatesRef.current.start || currentStartDate);
+                          setAppliedEndDate(currentDatesRef.current.end || currentEndDate);
                           setReloadTrigger(t => t + 1);
-                          dateChangeRef.current = null;
                         }
                       }}
                       className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
@@ -622,12 +619,12 @@ export default function ReportsPage() {
                       onChange={(e) => {
                         const newEnd = e.target.value;
                         setCurrentEndDate(newEnd);
-                        dateChangeRef.current = { start: currentStartDate, end: newEnd };
+                        currentDatesRef.current.end = newEnd;
                         if (user?.id) {
                           setTabDateRanges(prev => {
                             const updated = {
                               ...prev,
-                              [activeTab]: { startDate: currentStartDate, endDate: newEnd }
+                              [activeTab]: { startDate: currentDatesRef.current.start || currentStartDate, endDate: newEnd }
                             };
                             UserPreferencesService.updatePagePreferences(
                               user.id,
@@ -639,24 +636,10 @@ export default function ReportsPage() {
                         }
                       }}
                       onBlur={async () => {
-                        if (dateChangeRef.current && user?.id) {
-                          const refData = { ...dateChangeRef.current };
-                          setAppliedStartDate(refData.start);
-                          setAppliedEndDate(refData.end);
-                          setTabDateRanges(prev => {
-                            const updated = {
-                              ...prev,
-                              [activeTab]: { startDate: refData.start, endDate: refData.end }
-                            };
-                            UserPreferencesService.updatePagePreferences(
-                              user.id,
-                              'reports',
-                              { tabDateRanges: updated }
-                            );
-                            return updated;
-                          });
+                        if (user?.id) {
+                          setAppliedStartDate(currentDatesRef.current.start || currentStartDate);
+                          setAppliedEndDate(currentDatesRef.current.end || currentEndDate);
                           setReloadTrigger(t => t + 1);
-                          dateChangeRef.current = null;
                         }
                       }}
                       className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
