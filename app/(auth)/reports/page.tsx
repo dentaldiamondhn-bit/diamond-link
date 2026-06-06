@@ -279,82 +279,89 @@ export default function ReportsPage() {
     setReloadTrigger(t => t + 1);
   }, [activeTab]);
 
-  const loadReportData = async () => {
-    setLoading(true);
-    setError(null);
-    setIsRefreshing(true);
-    
-    try {
-      const now = new Date();
-      let start = appliedStartDate;
-      let end = appliedEndDate;
-      
-      if (!start) {
-        const startDateObj = new Date(now);
-        switch (timeRange) {
-          case 'daily':
-            startDateObj.setHours(startDateObj.getHours() - 24);
-            break;
-          case 'weekly':
-            startDateObj.setDate(startDateObj.getDate() - 7);
-            break;
-          case 'monthly':
-            startDateObj.setDate(startDateObj.getDate() - 30);
-            break;
-          case 'yearly':
-            startDateObj.setFullYear(startDateObj.getFullYear() - 1);
-            break;
-        }
-        start = startDateObj.toISOString();
-      }
-      
-      if (!end) {
-        end = now.toISOString();
-      }
-
-      const [reportDataResult,
-        doctorPerformanceResult,
-        treatmentTypesResult,
-        patientStatsResult,
-        patientDemographicsResult,
-        revenueStatsResult,
-        patientAnalyticsResult,
-        financialTransactionsResult
-      ] = await Promise.all([
-        ReportsService.getReportData(timeRange, start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-        ReportsService.getDoctorPerformance(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-        ReportsService.getTreatmentTypes(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-        ReportsService.getPatientStats(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-        ReportsService.getPatientDemographics(userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-        ReportsService.getRevenueStats(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-        ReportsService.getDetailedPatientAnalytics(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-        ReportsService.getFinancialTransactions(start, end, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined)
-      ]);
-
-      setReportData(reportDataResult);
-      setDoctorPerformance(doctorPerformanceResult);
-      setTreatmentTypes(treatmentTypesResult);
-      setPatientStats(patientStatsResult);
-      setPatientDemographics(patientDemographicsResult);
-      setRevenueStats(revenueStatsResult);
-      setPatientAnalytics(patientAnalyticsResult);
-      setFinancialTransactions(financialTransactionsResult);
-      
-    } catch (err) {
-      console.error('Error loading report data:', err);
-      setError('Failed to load report data');
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
   useEffect(() => {
     if (user && (userRole === 'admin' || userRole === 'doctor' || userRole === 'tech_support')) {
-      loadReportData();
+      const start = currentStartDate || appliedStartDate;
+      const end = currentEndDate || appliedEndDate;
+      
+      const loadWithDates = async () => {
+        setLoading(true);
+        setError(null);
+        setIsRefreshing(true);
+        
+        try {
+          const now = new Date();
+          let startDate = start;
+          let endDate = end;
+          
+          if (!startDate) {
+            const startDateObj = new Date(now);
+            switch (timeRange) {
+              case 'daily':
+                startDateObj.setHours(startDateObj.getHours() - 24);
+                break;
+              case 'weekly':
+                startDateObj.setDate(startDateObj.getDate() - 7);
+                break;
+              case 'monthly':
+                startDateObj.setDate(startDateObj.getDate() - 30);
+                break;
+              case 'yearly':
+                startDateObj.setFullYear(startDateObj.getFullYear() - 1);
+                break;
+            }
+            startDate = startDateObj.toISOString();
+          }
+          
+          if (!endDate) {
+            endDate = now.toISOString();
+          }
+
+          const [reportDataResult,
+            doctorPerformanceResult,
+            treatmentTypesResult,
+            patientStatsResult,
+            patientDemographicsResult,
+            revenueStatsResult,
+            patientAnalyticsResult,
+            financialTransactionsResult
+          ] = await Promise.all([
+            ReportsService.getReportData(timeRange, startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+            ReportsService.getDoctorPerformance(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+            ReportsService.getTreatmentTypes(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+            ReportsService.getPatientStats(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+            ReportsService.getPatientDemographics(userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+            ReportsService.getRevenueStats(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+            ReportsService.getDetailedPatientAnalytics(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+            ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined)
+          ]);
+
+          setReportData(reportDataResult);
+          setDoctorPerformance(doctorPerformanceResult);
+          setTreatmentTypes(treatmentTypesResult);
+          setPatientStats(patientStatsResult);
+          setPatientDemographics(patientDemographicsResult);
+          setRevenueStats(revenueStatsResult);
+          setPatientAnalytics(patientAnalyticsResult);
+          setFinancialTransactions(financialTransactionsResult);
+          
+        } catch (err) {
+          console.error('Error loading report data:', err);
+          setError('Failed to load report data');
+        } finally {
+          setLoading(false);
+          setIsRefreshing(false);
+        }
+      };
+      
+      loadWithDates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userRole, timeRange, reloadTrigger]);
+  }, [user, userRole, timeRange, reloadTrigger, currentStartDate, currentEndDate]);
+
+  const handleRefresh = () => {
+    setReloadTrigger(t => t + 1);
+  };
 
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: FiPieChart },
@@ -465,7 +472,7 @@ export default function ReportsPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={loadReportData}
+                onClick={handleRefresh}
                 disabled={isRefreshing}
                 className="p-3 rounded-xl bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all text-gray-600 dark:text-gray-300 disabled:opacity-50"
               >
@@ -485,7 +492,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
                 title="Ingresos Totales"
-                value={formatCurrency(revenueStats.totalRevenue || 0)}
+                value={formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + (typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0), 0))}
                 subtitle="Basado en datos reales"
                 icon={FiDollarSign}
                 gradient="from-teal-500 to-cyan-500"
@@ -512,9 +519,9 @@ export default function ReportsPage() {
               <MetricCard
                 title="Promedio por Paciente"
                 value={formatCurrency(
-                  patientStats.totalPatients > 0 ? 
-                    (revenueStats.totalRevenue || 0) / patientStats.totalPatients : 
-                    0
+                  patientStats.totalPatients > 0 
+                    ? financialTransactions.reduce((sum: number, t: any) => sum + (typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0), 0) / patientStats.totalPatients
+                    : 0
                 )}
                 icon={FiTrendingUp}
                 gradient="from-amber-500 to-orange-500"
