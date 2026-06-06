@@ -261,8 +261,6 @@ export default function ReportsPage() {
       const currentTabRange = getCurrentDateRange();
       setCurrentStartDate(currentTabRange.startDate);
       setCurrentEndDate(currentTabRange.endDate);
-      setAppliedStartDate(currentTabRange.startDate);
-      setAppliedEndDate(currentTabRange.endDate);
     }
   }, [prefsLoading, pagePrefs]);
 
@@ -276,6 +274,9 @@ export default function ReportsPage() {
         [activeTab]: currentTabRange
       }));
     }
+    setAppliedStartDate(currentTabRange.startDate);
+    setAppliedEndDate(currentTabRange.endDate);
+    setReloadTrigger(t => t + 1);
   }, [activeTab]);
 
   const loadReportData = async () => {
