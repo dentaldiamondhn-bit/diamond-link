@@ -210,7 +210,7 @@ export default function ReportsPage() {
   const router = useRouter();
   const { user } = useUser();
   const { userRole, isLoaded } = useUserRole();
-  const { updatePreferences: updatePagePrefs } = useUserPreferences();
+  const { updatePagePreferences } = useUserPreferences();
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -283,7 +283,7 @@ export default function ReportsPage() {
             ...prev,
             [activeTab]: defaultRange
           };
-          updatePagePrefs('reports', { tabDateRanges: updated });
+          updatePagePreferences('reports', { tabDateRanges: updated });
           return updated;
         });
         setCurrentStartDate(defaultRange.startDate);
@@ -589,7 +589,7 @@ export default function ReportsPage() {
                               ...prev,
                               [activeTab]: { startDate: newStart, endDate: currentDatesRef.current.end || currentEndDate }
                             };
-                            updatePagePrefs('reports', { tabDateRanges: updated });
+                            updatePagePreferences('reports', { tabDateRanges: updated });
                             return updated;
                           });
                         }
@@ -620,7 +620,7 @@ export default function ReportsPage() {
                               ...prev,
                               [activeTab]: { startDate: currentDatesRef.current.start || currentStartDate, endDate: newEnd }
                             };
-                            updatePagePrefs('reports', { tabDateRanges: updated });
+                            updatePagePreferences('reports', { tabDateRanges: updated });
                             return updated;
                           });
                         }
