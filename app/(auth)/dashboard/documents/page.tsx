@@ -1,7 +1,7 @@
 'use client';
 // Force dynamic rendering for this page
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
@@ -54,6 +54,9 @@ function DocumentsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [filter, setFilter] = useState<'all' | 'patient' | 'orthodontic' | 'signature' | 'dental-study'>('all');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get and validate patient ID
   const pacienteId = searchParams.get('id');
@@ -269,6 +272,86 @@ function DocumentsPageContent() {
     setPreviewIndex(null);
   };
 
+  const handleQuickUpload = async () => {
+    const fileInput = fileInputRef.current;
+    const files = fileInput?.files;
+
+    if (!files || files.length === 0) {
+      setUploadMessage({
+        type: 'warning',
+        text: 'Por favor selecciona al menos un archivo para subir'
+      });
+      return;
+    }
+
+    if (!patient?.paciente_id) {
+      setUploadMessage({
+        type: 'warning',
+        text: 'Error: No se puede identificar al paciente'
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('patientId', patient.paciente_id);
+      
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      const response = await fetch('/api/upload-documents', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al subir documentos');
+      }
+
+      if (result.allDocuments) {
+        setAllDocuments(prev => {
+          const newDocs = result.allDocuments.map((url: string, index: number) => ({
+            id: `patient_${prev.length + index}`,
+            url,
+            fileName: getFileName(url),
+            fileType: getFileType(url),
+            source: 'patient',
+            patientName: patient.nombre_completo
+          }));
+          return [...prev, ...newDocs];
+        });
+      }
+
+      setUploadMessage({
+        type: 'success',
+        text: `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`
+      });
+
+      if (fileInput) {
+        fileInput.value = '';
+      }
+
+      setTimeout(() => {
+        setUploadMessage(null);
+      }, 5000);
+
+    } catch (error: any) {
+      console.error('Quick upload error:', error);
+      setUploadMessage({
+        type: 'warning',
+        text: 'Error al subir documentos: ' + error.message
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -381,6 +464,53 @@ function DocumentsPageContent() {
             </nav>
           </div>
         </div>
+
+        {/* Upload Section */}
+        {patient && (
+          <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Subir Documentos</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              <input
+                type="file"
+                ref={fileInputRef}
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={handleQuickUpload}
+                disabled={isUploading || !patient?.paciente_id}
+                className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isUploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Subiendo...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Subir
+                  </>
+                )}
+              </button>
+            </div>
+            {uploadMessage && (
+              <div className={`mt-3 p-3 rounded-md text-sm ${
+                uploadMessage.type === 'success' 
+                  ? 'bg-green-50 text-green-800 border border-green-200' 
+                  : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+              }`}>
+                {uploadMessage.text}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Documents Grid */}
         {filteredDocuments.length === 0 ? (

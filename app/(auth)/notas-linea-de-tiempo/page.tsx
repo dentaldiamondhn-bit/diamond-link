@@ -283,7 +283,13 @@ function parseContent(content: NoteContent | string | null): NoteContent {
     const text = typeof content === 'string' ? content : '';
     return text ? { blocks: [{ type: 'text', text, formats: [] }] } : { blocks: [] };
   }
-  return content;
+  return {
+    blocks: content.blocks.map(block => ({
+      ...block,
+      text: block.text || '',
+      formats: block.formats || []
+    }))
+  };
 }
 
 function NoteComments({ noteId }: { noteId: string }) {
@@ -1207,7 +1213,7 @@ setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx ? { ...b, formats:
                                 </button>
                                 <input
                                   type="text"
-                                  value={item.text}
+                                  value={item.text || ''}
                                   onChange={(e) => { setNoteBlocks(prev => { const nb = [...prev]; if (nb[idx].type !== 'checklist') return nb; const items = [...(nb[idx].items || [])]; items[itemIdx] = { ...items[itemIdx], text: e.target.value }; nb[idx] = { ...nb[idx], items }; return nb; }); }}
                                   onFocus={() => setActiveBlockIdx(idx)}
                                   placeholder="Item..."
@@ -1231,7 +1237,7 @@ setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx ? { ...b, formats:
                                   (window as any).noteEditorRefs[idx] = el;
                                 }
                               }}
-                              value={block.text}
+                              value={block.text || ''}
                               onChange={(e) => { setNoteBlocks(prev => prev.map((b, i) => i === idx ? { ...b, text: e.target.value } : b)); }}
                               onFocus={() => setActiveBlockIdx(idx)}
                               onSelect={() => {

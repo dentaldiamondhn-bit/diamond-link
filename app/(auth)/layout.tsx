@@ -259,21 +259,13 @@ export default function AuthLayout({
                              Estudio Periodontal
                            </h1>
                          )}
-                         {pathname === '/calendario' && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
-                             Calendario
-                           </h1>
-                         )}
-                         {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                             <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                               <AnimatedFolder />
-                             </div>
-                             Gestión Documental
-                           </h1>
-                         )}
-                         {pathname === '/tratamientos' && (
+{pathname === '/calendario' && (
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                              <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
+                              Calendario
+                            </h1>
+                          )}
+                          {pathname === '/tratamientos' && (
                            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                              <i className="fas fa-tooth mr-2"></i>
                              Tratamientos
@@ -297,21 +289,13 @@ export default function AuthLayout({
                              Estudio Periodontal
                            </h1>
                          )}
-                         {pathname === '/calendario' && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
-                             Calendario
-                           </h1>
-                         )}
-                         {(pathname === '/dashboard/documents' || pathname.startsWith('/dashboard/documents')) && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                             <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                               <AnimatedFolder />
-                             </div>
-                             Gestión Documental
-                           </h1>
-                         )}
-                         {pathname.startsWith('/admin/users') && (
+{pathname === '/calendario' && (
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                              <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
+                              Calendario
+                            </h1>
+                          )}
+                          {pathname.startsWith('/admin/users') && (
                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                              <div className="w-6 h-6 mr-2 flex items-center justify-center">
                                <AnimatedUsers />

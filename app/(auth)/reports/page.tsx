@@ -216,16 +216,20 @@ export default function ReportsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { preferences: pagePrefs, loading: prefsLoading } = usePagePreferences('reports');
   const [tabDateRanges, setTabDateRanges] = useState<Record<string, { startDate: string; endDate: string }>>({});
-  const [currentStartDate, setCurrentStartDate] = useState('');
-  const [currentEndDate, setCurrentEndDate] = useState('');
   const dateChangeRef = useRef<{ start: string; end: string } | null>(null);
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   const getCurrentDateRange = () => {
-    return tabDateRanges[activeTab] || { startDate: '', endDate: '' };
+    const range = tabDateRanges[activeTab];
+    return {
+      startDate: range?.startDate || '',
+      endDate: range?.endDate || ''
+    };
   };
 
+  const initialDateRange = getCurrentDateRange();
   const [reportData, setReportData] = useState<any[]>([]);
   const [doctorPerformance, setDoctorPerformance] = useState<any[]>([]);
   const [treatmentTypes, setTreatmentTypes] = useState<any[]>([]);
@@ -239,6 +243,9 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [currentStartDate, setCurrentStartDate] = useState(initialDateRange.startDate);
+  const [currentEndDate, setCurrentEndDate] = useState(initialDateRange.endDate);
+
   useEffect(() => {
     if (!prefsLoading && pagePrefs) {
       if (pagePrefs.timeRange) {
@@ -247,12 +254,18 @@ export default function ReportsPage() {
       const savedDateRanges = pagePrefs.tabDateRanges || {};
       setTabDateRanges(savedDateRanges);
       const currentTabRange = getCurrentDateRange();
-      setCurrentStartDate(currentTabRange.startDate);
-      setCurrentEndDate(currentTabRange.endDate);
-      setAppliedStartDate(currentTabRange.startDate);
-      setAppliedEndDate(currentTabRange.endDate);
+      setCurrentStartDate(currentTabRange.startDate || '');
+      setCurrentEndDate(currentTabRange.endDate || '');
+      setAppliedStartDate(currentTabRange.startDate || '');
+      setAppliedEndDate(currentTabRange.endDate || '');
     }
-  }, [prefsLoading, pagePrefs, activeTab]);
+  }, [prefsLoading, pagePrefs]);
+
+  useEffect(() => {
+    const currentTabRange = getCurrentDateRange();
+    setCurrentStartDate(currentTabRange.startDate || '');
+    setCurrentEndDate(currentTabRange.endDate || '');
+  }, [activeTab, tabDateRanges]);
 
   const loadReportData = async () => {
     setLoading(true);
@@ -328,7 +341,8 @@ export default function ReportsPage() {
     if (user && (userRole === 'admin' || userRole === 'doctor' || userRole === 'tech_support')) {
       loadReportData();
     }
-  }, [user, userRole, timeRange, appliedStartDate, appliedEndDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userRole, timeRange, reloadTrigger]);
 
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: FiPieChart },
@@ -544,7 +558,7 @@ export default function ReportsPage() {
                           setTabDateRanges(prev => {
                             const updated = {
                               ...prev,
-                              [activeTab]: refData
+                              [activeTab]: { startDate: refData.start, endDate: refData.end }
                             };
                             UserPreferencesService.updatePagePreferences(
                               user.id,
@@ -553,6 +567,7 @@ export default function ReportsPage() {
                             );
                             return updated;
                           });
+                          setReloadTrigger(t => t + 1);
                           dateChangeRef.current = null;
                         }
                       }}
@@ -578,7 +593,7 @@ export default function ReportsPage() {
                           setTabDateRanges(prev => {
                             const updated = {
                               ...prev,
-                              [activeTab]: refData
+                              [activeTab]: { startDate: refData.start, endDate: refData.end }
                             };
                             UserPreferencesService.updatePagePreferences(
                               user.id,
@@ -587,6 +602,7 @@ export default function ReportsPage() {
                             );
                             return updated;
                           });
+                          setReloadTrigger(t => t + 1);
                           dateChangeRef.current = null;
                         }
                       }}
