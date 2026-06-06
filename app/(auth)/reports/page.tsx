@@ -517,15 +517,11 @@ export default function ReportsPage() {
                 delay={2}
               />
               <MetricCard
-                title="Promedio por Paciente"
-                value={formatCurrency(
-                  patientStats.totalPatients > 0 
-                    ? financialTransactions.reduce((sum: number, t: any) => sum + (typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0), 0) / patientStats.totalPatients
-                    : 0
-                )}
-                icon={FiTrendingUp}
-                gradient="from-amber-500 to-orange-500"
-                trend={{ value: 5.3, positive: true }}
+                title="Total Neto"
+                value={formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + t.totalNeto, 0))}
+                subtitle="Suma de totales netos"
+                icon={FiDollarSign}
+                gradient="from-indigo-500 to-purple-500"
                 delay={3}
               />
             </div>
