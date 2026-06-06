@@ -223,13 +223,18 @@ export default function ReportsPage() {
 
   const getCurrentDateRange = () => {
     const range = tabDateRanges[activeTab];
+    if (range?.startDate && range?.endDate) {
+      return { startDate: range.startDate, endDate: range.endDate };
+    }
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 30);
     return {
-      startDate: range?.startDate || '',
-      endDate: range?.endDate || ''
+      startDate: startDate.toISOString().slice(0, 10),
+      endDate: now.toISOString().slice(0, 10)
     };
   };
 
-  const initialDateRange = getCurrentDateRange();
   const [reportData, setReportData] = useState<any[]>([]);
   const [doctorPerformance, setDoctorPerformance] = useState<any[]>([]);
   const [treatmentTypes, setTreatmentTypes] = useState<any[]>([]);
@@ -243,8 +248,8 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [currentStartDate, setCurrentStartDate] = useState(initialDateRange.startDate);
-  const [currentEndDate, setCurrentEndDate] = useState(initialDateRange.endDate);
+  const [currentStartDate, setCurrentStartDate] = useState('');
+  const [currentEndDate, setCurrentEndDate] = useState('');
 
   useEffect(() => {
     if (!prefsLoading && pagePrefs) {
@@ -254,18 +259,24 @@ export default function ReportsPage() {
       const savedDateRanges = pagePrefs.tabDateRanges || {};
       setTabDateRanges(savedDateRanges);
       const currentTabRange = getCurrentDateRange();
-      setCurrentStartDate(currentTabRange.startDate || '');
-      setCurrentEndDate(currentTabRange.endDate || '');
-      setAppliedStartDate(currentTabRange.startDate || '');
-      setAppliedEndDate(currentTabRange.endDate || '');
+      setCurrentStartDate(currentTabRange.startDate);
+      setCurrentEndDate(currentTabRange.endDate);
+      setAppliedStartDate(currentTabRange.startDate);
+      setAppliedEndDate(currentTabRange.endDate);
     }
   }, [prefsLoading, pagePrefs]);
 
   useEffect(() => {
     const currentTabRange = getCurrentDateRange();
-    setCurrentStartDate(currentTabRange.startDate || '');
-    setCurrentEndDate(currentTabRange.endDate || '');
-  }, [activeTab, tabDateRanges]);
+    setCurrentStartDate(currentTabRange.startDate);
+    setCurrentEndDate(currentTabRange.endDate);
+    if (!tabDateRanges[activeTab]) {
+      setTabDateRanges(prev => ({
+        ...prev,
+        [activeTab]: currentTabRange
+      }));
+    }
+  }, [activeTab]);
 
   const loadReportData = async () => {
     setLoading(true);
