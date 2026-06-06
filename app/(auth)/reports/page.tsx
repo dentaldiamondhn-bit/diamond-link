@@ -269,10 +269,20 @@ export default function ReportsPage() {
     setCurrentStartDate(currentTabRange.startDate);
     setCurrentEndDate(currentTabRange.endDate);
     if (!tabDateRanges[activeTab]) {
-      setTabDateRanges(prev => ({
-        ...prev,
-        [activeTab]: currentTabRange
-      }));
+      setTabDateRanges(prev => {
+        const updated = {
+          ...prev,
+          [activeTab]: currentTabRange
+        };
+        if (user?.id) {
+          UserPreferencesService.updatePagePreferences(
+            user.id,
+            'reports',
+            { tabDateRanges: updated }
+          );
+        }
+        return updated;
+      });
     }
     setAppliedStartDate(currentTabRange.startDate);
     setAppliedEndDate(currentTabRange.endDate);
@@ -564,6 +574,20 @@ export default function ReportsPage() {
                         const newStart = e.target.value;
                         setCurrentStartDate(newStart);
                         dateChangeRef.current = { start: newStart, end: currentEndDate };
+                        if (user?.id) {
+                          setTabDateRanges(prev => {
+                            const updated = {
+                              ...prev,
+                              [activeTab]: { startDate: newStart, endDate: currentEndDate }
+                            };
+                            UserPreferencesService.updatePagePreferences(
+                              user.id,
+                              'reports',
+                              { tabDateRanges: updated }
+                            );
+                            return updated;
+                          });
+                        }
                       }}
                       onBlur={async () => {
                         if (dateChangeRef.current && user?.id) {
@@ -599,6 +623,20 @@ export default function ReportsPage() {
                         const newEnd = e.target.value;
                         setCurrentEndDate(newEnd);
                         dateChangeRef.current = { start: currentStartDate, end: newEnd };
+                        if (user?.id) {
+                          setTabDateRanges(prev => {
+                            const updated = {
+                              ...prev,
+                              [activeTab]: { startDate: currentStartDate, endDate: newEnd }
+                            };
+                            UserPreferencesService.updatePagePreferences(
+                              user.id,
+                              'reports',
+                              { tabDateRanges: updated }
+                            );
+                            return updated;
+                          });
+                        }
                       }}
                       onBlur={async () => {
                         if (dateChangeRef.current && user?.id) {
