@@ -4,12 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useUserRole } from '@/hooks/useUserRole';
-import { usePagePreferences } from '@/hooks/useUserPreferences';
+import { usePagePreferences, useUserPreferences } from '@/hooks/useUserPreferences';
 import { formatCurrency, formatNumber } from '@/utils/currencyUtils';
 import { ReportsService } from '@/services/reportsService';
 import { PaymentService } from '@/services/paymentService';
 import { useTheme } from '@/contexts/ThemeContext';
-import { UserPreferencesService } from '@/services/userPreferencesService';
 import { 
   LineChart, 
   Line, 
@@ -211,6 +210,7 @@ export default function ReportsPage() {
   const router = useRouter();
   const { user } = useUser();
   const { userRole, isLoaded } = useUserRole();
+  const { updatePreferences: updatePagePrefs } = useUserPreferences();
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -283,18 +283,16 @@ export default function ReportsPage() {
             ...prev,
             [activeTab]: defaultRange
           };
-          UserPreferencesService.updatePagePreferences(
-            user.id,
-            'reports',
-            { tabDateRanges: updated }
-          );
+          updatePagePrefs('reports', { tabDateRanges: updated });
           return updated;
         });
         setCurrentStartDate(defaultRange.startDate);
         setCurrentEndDate(defaultRange.endDate);
+        currentDatesRef.current = { start: defaultRange.startDate, end: defaultRange.endDate };
       } else {
         setCurrentStartDate(savedRange.startDate);
         setCurrentEndDate(savedRange.endDate);
+        currentDatesRef.current = { start: savedRange.startDate, end: savedRange.endDate };
       }
     }
     setReloadTrigger(t => t + 1);
@@ -591,11 +589,7 @@ export default function ReportsPage() {
                               ...prev,
                               [activeTab]: { startDate: newStart, endDate: currentDatesRef.current.end || currentEndDate }
                             };
-                            UserPreferencesService.updatePagePreferences(
-                              user.id,
-                              'reports',
-                              { tabDateRanges: updated }
-                            );
+                            updatePagePrefs('reports', { tabDateRanges: updated });
                             return updated;
                           });
                         }
@@ -626,11 +620,7 @@ export default function ReportsPage() {
                               ...prev,
                               [activeTab]: { startDate: currentDatesRef.current.start || currentStartDate, endDate: newEnd }
                             };
-                            UserPreferencesService.updatePagePreferences(
-                              user.id,
-                              'reports',
-                              { tabDateRanges: updated }
-                            );
+                            updatePagePrefs('reports', { tabDateRanges: updated });
                             return updated;
                           });
                         }
