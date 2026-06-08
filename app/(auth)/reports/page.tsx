@@ -280,7 +280,7 @@ export default function ReportsPage() {
     const spanishMonths = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
     transactions.forEach((t: any) => {
-      const transactionDate = new Date(t.fecha);
+      const transactionDate = new Date(t.fecha_pago || t.fecha);
       
       const month = transactionDate.toISOString().slice(0, 7);
       const amount = typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0;
@@ -440,14 +440,13 @@ useEffect(() => {
           setPatientAnalytics(patientAnalyticsResult);
           setFinancialTransactions(financialTransactionsResult);
           
-          const yearStart = `${selectedYear}-01-01`;
-          const yearEnd = `${selectedYear}-12-31`;
-          const monthlyData = aggregateMonthlyIncome(
-            allFinancialTransactionsResult.filter((t: any) => {
-              const tDate = new Date(t.fecha);
-              return tDate >= new Date(yearStart) && tDate <= new Date(yearEnd);
-            })
-          );
+          const yearStart = `${selectedYear}-01-01T00:00:00Z`;
+          const yearEnd = `${selectedYear}-12-31T23:59:59Z`;
+          const filteredTransactions = allFinancialTransactionsResult.filter((t: any) => {
+            const tDate = new Date(t.fecha_pago || t.fecha);
+            return tDate >= new Date(yearStart) && tDate <= new Date(yearEnd);
+          });
+          const monthlyData = aggregateMonthlyIncome(filteredTransactions);
           setMonthlyIncome(monthlyData);
           
         } catch (err) {
