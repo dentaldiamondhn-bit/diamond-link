@@ -214,8 +214,7 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { preferences: pagePrefs, loading: prefsLoading } = usePagePreferences('reports');
-  const [tabDateRanges, setTabDateRanges] = useState<Record<string, { startDate: string; endDate: string }>>({});
+  const { preferences: pagePrefs, loading: prefsLoading, updatePreferences: updatePagePrefs } = usePagePreferences('reports');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [reloadTrigger, setReloadTrigger] = useState(0);
@@ -248,17 +247,31 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [currentStartDate, setCurrentStartDate] = useState('');
+const [currentStartDate, setCurrentStartDate] = useState('');
   const [currentEndDate, setCurrentEndDate] = useState('');
+
+  const tabDateRanges = pagePrefs?.tabDateRanges || {};
+
+  const getCurrentTabRange = () => {
+    const range = tabDateRanges[activeTab];
+    if (range?.startDate && range?.endDate) {
+      return { startDate: range.startDate, endDate: range.endDate };
+    }
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 30);
+    return {
+      startDate: startDate.toISOString().slice(0, 10),
+      endDate: now.toISOString().slice(0, 10)
+    };
+  };
 
   useEffect(() => {
     if (!prefsLoading && pagePrefs) {
       if (pagePrefs.timeRange) {
         setTimeRange(pagePrefs.timeRange);
       }
-      const savedDateRanges = pagePrefs.tabDateRanges || {};
-      setTabDateRanges(savedDateRanges);
-      const currentTabRange = pagePrefs.tabDateRanges?.[activeTab] || {
+      const currentTabRange = tabDateRanges[activeTab] || {
         startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10),
         endDate: new Date().toISOString().slice(0, 10)
       };
@@ -268,34 +281,47 @@ export default function ReportsPage() {
       setAppliedStartDate(currentTabRange.startDate);
       setAppliedEndDate(currentTabRange.endDate);
     }
-  }, [prefsLoading, pagePrefs, activeTab]);
+  }, [prefsLoading, pagePrefs, activeTab, tabDateRanges]);
+
+useEffect(() => {
+    if (!prefsLoading && pagePrefs) {
+      if (pagePrefs.timeRange) {
+        setTimeRange(pagePrefs.timeRange);
+      }
+      const currentTabRange = tabDateRanges[activeTab] || {
+        startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10),
+        endDate: new Date().toISOString().slice(0, 10)
+      };
+      setCurrentStartDate(currentTabRange.startDate);
+      setCurrentEndDate(currentTabRange.endDate);
+      currentDatesRef.current = { start: currentTabRange.startDate, end: currentTabRange.endDate };
+      setAppliedStartDate(currentTabRange.startDate);
+      setAppliedEndDate(currentTabRange.endDate);
+    }
+  }, [prefsLoading, pagePrefs, activeTab, tabDateRanges]);
 
   useEffect(() => {
     if (user?.id) {
-      const savedRange = tabDateRanges[activeTab];
-      if (!savedRange) {
+      const currentTabRange = tabDateRanges[activeTab];
+      if (!currentTabRange) {
         const defaultRange = {
           startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10),
           endDate: new Date().toISOString().slice(0, 10)
         };
-        setTabDateRanges(prev => {
-          const updated = {
-            ...prev,
-            [activeTab]: defaultRange
-          };
-          updatePagePreferences('reports', { tabDateRanges: updated });
-          return updated;
-        });
+        const updated = {
+          ...tabDateRanges,
+          [activeTab]: defaultRange
+        };
+        updatePagePrefs({ tabDateRanges: updated });
         setCurrentStartDate(defaultRange.startDate);
         setCurrentEndDate(defaultRange.endDate);
         currentDatesRef.current = { start: defaultRange.startDate, end: defaultRange.endDate };
       } else {
-        setCurrentStartDate(savedRange.startDate);
-        setCurrentEndDate(savedRange.endDate);
-        currentDatesRef.current = { start: savedRange.startDate, end: savedRange.endDate };
+        setCurrentStartDate(currentTabRange.startDate);
+        setCurrentEndDate(currentTabRange.endDate);
+        currentDatesRef.current = { start: currentTabRange.startDate, end: currentTabRange.endDate };
       }
     }
-    setReloadTrigger(t => t + 1);
   }, [activeTab]);
 
   useEffect(() => {
@@ -538,7 +564,7 @@ export default function ReportsPage() {
               <MetricCard
                 title="Total Neto"
                 value={formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + t.totalNeto, 0))}
-                subtitle="Suma de totales netos"
+                subtitle={`Resta: ${formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + (t.totalPagado - t.totalNeto), 0))}`}
                 icon={FiDollarSign}
                 gradient="from-indigo-500 to-purple-500"
                 delay={3}
@@ -584,14 +610,11 @@ export default function ReportsPage() {
                         setCurrentStartDate(newStart);
                         currentDatesRef.current.start = newStart;
                         if (user?.id) {
-                          setTabDateRanges(prev => {
-                            const updated = {
-                              ...prev,
-                              [activeTab]: { startDate: newStart, endDate: currentDatesRef.current.end || currentEndDate }
-                            };
-                            updatePagePreferences('reports', { tabDateRanges: updated });
-                            return updated;
-                          });
+                          const updated = {
+                            ...tabDateRanges,
+                            [activeTab]: { startDate: newStart, endDate: currentDatesRef.current.end || currentEndDate }
+                          };
+                          updatePagePrefs({ tabDateRanges: updated });
                         }
                       }}
                       onBlur={async () => {
@@ -615,14 +638,11 @@ export default function ReportsPage() {
                         setCurrentEndDate(newEnd);
                         currentDatesRef.current.end = newEnd;
                         if (user?.id) {
-                          setTabDateRanges(prev => {
-                            const updated = {
-                              ...prev,
-                              [activeTab]: { startDate: currentDatesRef.current.start || currentStartDate, endDate: newEnd }
-                            };
-                            updatePagePreferences('reports', { tabDateRanges: updated });
-                            return updated;
-                          });
+                          const updated = {
+                            ...tabDateRanges,
+                            [activeTab]: { startDate: currentDatesRef.current.start || currentStartDate, endDate: newEnd }
+                          };
+                          updatePagePrefs({ tabDateRanges: updated });
                         }
                       }}
                       onBlur={async () => {
