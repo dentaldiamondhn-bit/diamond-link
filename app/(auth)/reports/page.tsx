@@ -277,6 +277,8 @@ export default function ReportsPage() {
       paymentMethods: Record<string, { total: number; neto: number; comision: number }>;
     }> = {};
 
+    const spanishMonths = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
     transactions.forEach((t: any) => {
       const transactionDate = new Date(t.fecha);
       if (year && transactionDate.getFullYear() !== year) return;
@@ -288,8 +290,9 @@ export default function ReportsPage() {
       const metodoPago = t.metodoPago || 'Otros';
 
       if (!monthlyData[month]) {
+        const monthNum = transactionDate.getMonth();
         monthlyData[month] = {
-          month: month,
+          month: `${spanishMonths[monthNum]} ${transactionDate.getFullYear()}`,
           totalPagado: 0,
           totalNeto: 0,
           comision: 0,
@@ -309,10 +312,7 @@ export default function ReportsPage() {
       monthlyData[month].paymentMethods[metodoPago].comision += comision;
     });
 
-    return Object.values(monthlyData).map((data) => ({
-      ...data,
-      month: new Date(data.month + '-01').toLocaleDateString('es-HN', { month: 'long', year: 'numeric' })
-    }));
+    return Object.values(monthlyData);
   };
 
   useEffect(() => {
