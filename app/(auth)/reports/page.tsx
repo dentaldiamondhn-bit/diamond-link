@@ -213,6 +213,7 @@ export default function ReportsPage() {
   const { updatePagePreferences } = useUserPreferences();
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { preferences: pagePrefs, loading: prefsLoading, updatePreferences: updatePagePrefs } = usePagePreferences('reports');
   const [appliedStartDate, setAppliedStartDate] = useState('');
@@ -267,7 +268,7 @@ export default function ReportsPage() {
     };
   };
 
-  const aggregateMonthlyIncome = (transactions: any[]) => {
+  const aggregateMonthlyIncome = (transactions: any[], year?: number) => {
     const monthlyData: Record<string, {
       month: string;
       totalPagado: number;
@@ -277,7 +278,10 @@ export default function ReportsPage() {
     }> = {};
 
     transactions.forEach((t: any) => {
-      const month = new Date(t.fecha).toISOString().slice(0, 7);
+      const transactionDate = new Date(t.fecha);
+      if (year && transactionDate.getFullYear() !== year) return;
+      
+      const month = transactionDate.toISOString().slice(0, 7);
       const amount = typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0;
       const neto = t.totalNeto || 0;
       const comision = amount - neto;
@@ -435,7 +439,7 @@ useEffect(() => {
           setPatientAnalytics(patientAnalyticsResult);
           setFinancialTransactions(financialTransactionsResult);
           
-          const monthlyData = aggregateMonthlyIncome(financialTransactionsResult);
+          const monthlyData = aggregateMonthlyIncome(financialTransactionsResult, selectedYear);
           setMonthlyIncome(monthlyData);
           
         } catch (err) {
@@ -1382,13 +1386,29 @@ useEffect(() => {
                       </div>
                     )}
 
-{activeTab === 'financial' && (
+                    {activeTab === 'financial' && (
                       <div className="space-y-6">
                         <div className="flex items-center gap-3 mb-6">
                           <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
                             <FiDollarSign className="w-5 h-5 text-white" />
                           </div>
                           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Transacciones Financieras</h2>
+                        </div>
+
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Año:</label>
+                            <select
+                              value={selectedYear}
+                              onChange={(e) => setSelectedYear(Number(e.target.value))}
+                              className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
+                            >
+                              {[...Array(11)].map((_, i) => {
+                                const year = new Date().getFullYear() - i;
+                                return <option key={year} value={year}>{year}</option>;
+                              })}
+                            </select>
+                          </div>
                         </div>
 
                         <AnimatedChart>
