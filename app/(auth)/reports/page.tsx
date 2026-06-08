@@ -242,12 +242,13 @@ export default function ReportsPage() {
   const [revenueStats, setRevenueStats] = useState<any>({});
   const [patientAnalytics, setPatientAnalytics] = useState<any[]>([]);
   const [financialTransactions, setFinancialTransactions] = useState<any[]>([]);
+  const [monthlyIncome, setMonthlyIncome] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState<'totalSpent' | 'outstandingBalance' | 'lastVisit' | 'treatments'>('totalSpent');
   const [filterStatus, setFilterStatus] = useState<'all' | 'Con Saldo' | 'Al Día' | 'Sin Tratamientos'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-const [currentStartDate, setCurrentStartDate] = useState('');
+  const [currentStartDate, setCurrentStartDate] = useState('');
   const [currentEndDate, setCurrentEndDate] = useState('');
 
   const tabDateRanges = pagePrefs?.tabDateRanges || {};
@@ -264,6 +265,50 @@ const [currentStartDate, setCurrentStartDate] = useState('');
       startDate: startDate.toISOString().slice(0, 10),
       endDate: now.toISOString().slice(0, 10)
     };
+  };
+
+  const aggregateMonthlyIncome = (transactions: any[]) => {
+    const monthlyData: Record<string, {
+      month: string;
+      totalPagado: number;
+      totalNeto: number;
+      comision: number;
+      paymentMethods: Record<string, { total: number; neto: number; comision: number }>;
+    }> = {};
+
+    transactions.forEach((t: any) => {
+      const month = new Date(t.fecha).toISOString().slice(0, 7);
+      const amount = typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0;
+      const neto = t.totalNeto || 0;
+      const comision = amount - neto;
+      const metodoPago = t.metodoPago || 'Otros';
+
+      if (!monthlyData[month]) {
+        monthlyData[month] = {
+          month: month,
+          totalPagado: 0,
+          totalNeto: 0,
+          comision: 0,
+          paymentMethods: {}
+        };
+      }
+
+      monthlyData[month].totalPagado += amount;
+      monthlyData[month].totalNeto += neto;
+      monthlyData[month].comision += comision;
+
+      if (!monthlyData[month].paymentMethods[metodoPago]) {
+        monthlyData[month].paymentMethods[metodoPago] = { total: 0, neto: 0, comision: 0 };
+      }
+      monthlyData[month].paymentMethods[metodoPago].total += amount;
+      monthlyData[month].paymentMethods[metodoPago].neto += neto;
+      monthlyData[month].paymentMethods[metodoPago].comision += comision;
+    });
+
+    return Object.values(monthlyData).map((data) => ({
+      ...data,
+      month: new Date(data.month + '-01').toLocaleDateString('es-HN', { month: 'long', year: 'numeric' })
+    }));
   };
 
   useEffect(() => {
@@ -389,6 +434,9 @@ useEffect(() => {
           setRevenueStats(revenueStatsResult);
           setPatientAnalytics(patientAnalyticsResult);
           setFinancialTransactions(financialTransactionsResult);
+          
+          const monthlyData = aggregateMonthlyIncome(financialTransactionsResult);
+          setMonthlyIncome(monthlyData);
           
         } catch (err) {
           console.error('Error loading report data:', err);
@@ -1453,6 +1501,71 @@ useEffect(() => {
                             delay={3}
                           />
                         </div>
+
+                        <AnimatedChart>
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ingresos Mensuales</h3>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full">
+                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800">
+                                  <tr>
+                                    {['Mes', 'Total Pagado', 'Método de Pago', 'Total Neto', 'Comision'].map((header) => (
+                                      <th key={header} className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">
+                                        {header}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                  {monthlyIncome.length > 0 ? (
+                                    monthlyIncome.map((month: any, index: number) => {
+                                      const primaryMethod = Object.entries(month.paymentMethods)[0];
+                                      return (
+                                        <motion.tr 
+                                          key={index}
+                                          initial={{ opacity: 0 }}
+                                          animate={{ opacity: 1 }}
+                                          transition={{ delay: index * 0.05 }}
+                                          className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                        >
+                                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                            {month.month}
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">
+                                            {formatCurrency(month.totalPagado)}
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                              (primaryMethod?.[1] as any)?.total > 0
+                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                            }`}>
+                                              {primaryMethod?.[0] || 'N/A'}
+                                            </span>
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                                            {formatCurrency(month.totalNeto)}
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">
+                                            {formatCurrency(month.comision)}
+                                          </td>
+                                        </motion.tr>
+                                      );
+                                    })
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                        No hay datos mensuales en este período
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </AnimatedChart>
                       </div>
                     )}
 
