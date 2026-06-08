@@ -456,6 +456,11 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, userRole, timeRange, reloadTrigger, currentStartDate, currentEndDate]);
 
+  useEffect(() => {
+    const monthlyData = aggregateMonthlyIncome(financialTransactions, selectedYear);
+    setMonthlyIncome(monthlyData);
+  }, [selectedYear]);
+
   const handleRefresh = () => {
     setReloadTrigger(t => t + 1);
   };
@@ -1395,22 +1400,6 @@ useEffect(() => {
                           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Transacciones Financieras</h2>
                         </div>
 
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Año:</label>
-                            <select
-                              value={selectedYear}
-                              onChange={(e) => setSelectedYear(Number(e.target.value))}
-                              className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
-                            >
-                              {[...Array(11)].map((_, i) => {
-                                const year = new Date().getFullYear() - i;
-                                return <option key={year} value={year}>{year}</option>;
-                              })}
-                            </select>
-                          </div>
-                        </div>
-
                         <AnimatedChart>
                           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
                             <div className="overflow-x-auto">
@@ -1524,8 +1513,21 @@ useEffect(() => {
 
                         <AnimatedChart>
                           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ingresos Mensuales</h3>
+                              <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Año:</label>
+                                <select
+                                  value={selectedYear}
+                                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                  className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
+                                >
+                                  {[...Array(11)].map((_, i) => {
+                                    const year = new Date().getFullYear() - i;
+                                    return <option key={year} value={year}>{year}</option>;
+                                  })}
+                                </select>
+                              </div>
                             </div>
                             <div className="overflow-x-auto">
                               <table className="min-w-full">
