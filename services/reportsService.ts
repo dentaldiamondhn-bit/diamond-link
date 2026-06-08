@@ -792,6 +792,127 @@ export class ReportsService {
     }
   }
 
+  static async getAllFinancialTransactions(doctorEmail?: string): Promise<any[]> {
+    try {
+      let treatmentIds: string[] | null = null;
+      
+      if (doctorEmail) {
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', doctorEmail)
+          .single();
+        
+        if (doctorData) {
+          const { data: treatments } = await supabase
+            .from('tratamientos_completados')
+            .select('id')
+            .eq('doctor_name', doctorData.name);
+          
+          treatmentIds = treatments?.map((t: any) => t.id) || null;
+        }
+      }
+
+      let query = supabase
+        .from('payments')
+        .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda')
+        .order('fecha_pago', { ascending: false });
+
+      if (treatmentIds && treatmentIds.length > 0) {
+        query = query.in('tratamiento_completado_id', treatmentIds);
+      }
+
+      const { data: payments, error: txError } = await query;
+
+      if (txError) {
+        console.error('Supabase error in getAllFinancialTransactions:', txError);
+        return [];
+      }
+
+      if (!payments || payments.length === 0) return [];
+
+      const allTreatmentIds = payments.map((p: any) => p.tratamiento_completado_id).filter(Boolean);
+      
+      let treatmentsMap = new Map();
+      if (allTreatmentIds.length > 0) {
+        const { data: treatments } = await supabase
+          .from('tratamientos_completados')
+          .select('id, paciente_id')
+          .in('id', allTreatmentIds);
+        
+        if (treatments) {
+          treatments.forEach((t: any) => treatmentsMap.set(t.id, t));
+        }
+      }
+
+      const patientIds = Array.from(treatmentsMap.values()).map((t: any) => t.paciente_id).filter(Boolean);
+      
+      let patientsMap = new Map();
+      if (patientIds.length > 0) {
+        const { data: patients } = await supabase
+          .from('patients')
+          .select('paciente_id, nombre_completo')
+          .in('paciente_id', patientIds);
+        
+        if (patients) {
+          patients.forEach((p: any) => patientsMap.set(p.paciente_id, p.nombre_completo));
+        }
+      }
+
+      const treatmentItemsMap = new Map<string, string>();
+      if (allTreatmentIds.length > 0) {
+        const { data: items } = await supabase
+          .from('vista_tratamientos_realizados_detalles')
+          .select('tratamiento_completado_id, nombre_tratamiento')
+          .in('tratamiento_completado_id', allTreatmentIds);
+        
+        if (items) {
+          items.forEach((i: any) => {
+            if (!treatmentItemsMap.has(i.tratamiento_completado_id)) {
+              treatmentItemsMap.set(i.tratamiento_completado_id, i.nombre_tratamiento);
+            }
+          });
+        }
+      }
+
+      return payments.map((p: any) => {
+        const tc = treatmentsMap.get(p.tratamiento_completado_id) as any;
+        const pacienteId = tc?.paciente_id;
+        const tratamiento = treatmentItemsMap.get(p.tratamiento_completado_id) || 'Tratamiento';
+        const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
+        const amount = Number(p.monto_pago) || 0;
+        
+        let deductionPercent = 0;
+        if (metodoPago === 'tarjeta_credito' || metodoPago === 'tarjeta_debito') {
+          deductionPercent = 2.95;
+        } else if (metodoPago === 'extra_bac_3meses') {
+          deductionPercent = 6;
+        } else if (metodoPago === 'extra_bac_6meses') {
+          deductionPercent = 8;
+        } else if (metodoPago === 'extra_bac_9meses') {
+          deductionPercent = 10;
+        }
+        
+        const totalNeto = amount * (1 - deductionPercent / 100);
+        const monedaOriginal = p.moneda_original || p.moneda || 'HNL';
+        const moneda = p.moneda || 'HNL';
+        return {
+          fecha: p.fecha_pago,
+          paciente: patientsMap.get(pacienteId) || pacienteId || 'N/A',
+          totalPagado: amount,
+          totalNeto,
+          monedaOriginal,
+          moneda,
+          metodoPago: p.metodo_pago || 'Efectivo',
+          tratamiento
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching all financial transactions:', error);
+      return [];
+    }
+  }
+
   static async getPaymentStatusSummary(doctorEmail?: string): Promise<any> {
     try {
       let patientIds: string[] | null = null;

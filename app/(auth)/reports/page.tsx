@@ -418,7 +418,8 @@ useEffect(() => {
             patientDemographicsResult,
             revenueStatsResult,
             patientAnalyticsResult,
-            financialTransactionsResult
+            financialTransactionsResult,
+            allFinancialTransactionsResult
           ] = await Promise.all([
             ReportsService.getReportData(timeRange, startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
             ReportsService.getDoctorPerformance(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
@@ -427,7 +428,8 @@ useEffect(() => {
             ReportsService.getPatientDemographics(userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
             ReportsService.getRevenueStats(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
             ReportsService.getDetailedPatientAnalytics(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined)
+            ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
+            ReportsService.getAllFinancialTransactions(userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined)
           ]);
 
           setReportData(reportDataResult);
@@ -439,7 +441,15 @@ useEffect(() => {
           setPatientAnalytics(patientAnalyticsResult);
           setFinancialTransactions(financialTransactionsResult);
           
-          const monthlyData = aggregateMonthlyIncome(financialTransactionsResult, selectedYear);
+          const yearStart = `${selectedYear}-01-01`;
+          const yearEnd = `${selectedYear}-12-31`;
+          const monthlyData = aggregateMonthlyIncome(
+            allFinancialTransactionsResult.filter((t: any) => {
+              const tDate = new Date(t.fecha);
+              return tDate >= new Date(yearStart) && tDate <= new Date(yearEnd);
+            }),
+            selectedYear
+          );
           setMonthlyIncome(monthlyData);
           
         } catch (err) {
@@ -454,12 +464,7 @@ useEffect(() => {
       loadWithDates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userRole, timeRange, reloadTrigger, currentStartDate, currentEndDate]);
-
-  useEffect(() => {
-    const monthlyData = aggregateMonthlyIncome(financialTransactions, selectedYear);
-    setMonthlyIncome(monthlyData);
-  }, [selectedYear]);
+  }, [user, userRole, timeRange, reloadTrigger, currentStartDate, currentEndDate, selectedYear]);
 
   const handleRefresh = () => {
     setReloadTrigger(t => t + 1);
