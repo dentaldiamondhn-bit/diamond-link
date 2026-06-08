@@ -268,7 +268,7 @@ export default function ReportsPage() {
     };
   };
 
-  const aggregateMonthlyIncome = (transactions: any[], year?: number) => {
+  const aggregateMonthlyIncome = (transactions: any[]) => {
     const monthlyData: Record<string, {
       month: string;
       totalPagado: number;
@@ -281,7 +281,6 @@ export default function ReportsPage() {
 
     transactions.forEach((t: any) => {
       const transactionDate = new Date(t.fecha);
-      if (year && transactionDate.getFullYear() !== year) return;
       
       const month = transactionDate.toISOString().slice(0, 7);
       const amount = typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0;
@@ -447,8 +446,7 @@ useEffect(() => {
             allFinancialTransactionsResult.filter((t: any) => {
               const tDate = new Date(t.fecha);
               return tDate >= new Date(yearStart) && tDate <= new Date(yearEnd);
-            }),
-            selectedYear
+            })
           );
           setMonthlyIncome(monthlyData);
           
