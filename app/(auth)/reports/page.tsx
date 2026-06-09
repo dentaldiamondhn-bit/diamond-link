@@ -440,11 +440,10 @@ useEffect(() => {
           setPatientAnalytics(patientAnalyticsResult);
           setFinancialTransactions(financialTransactionsResult);
           
-          const yearStart = `${selectedYear}-01-01T00:00:00Z`;
-          const yearEnd = `${selectedYear}-12-31T23:59:59Z`;
           const filteredTransactions = allFinancialTransactionsResult.filter((t: any) => {
             const tDate = new Date(t.fecha_pago || t.fecha);
-            return tDate >= new Date(yearStart) && tDate <= new Date(yearEnd);
+            const year = tDate.getFullYear();
+            return year === selectedYear;
           });
           const monthlyData = aggregateMonthlyIncome(filteredTransactions);
           setMonthlyIncome(monthlyData);
