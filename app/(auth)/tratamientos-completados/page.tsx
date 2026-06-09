@@ -283,11 +283,11 @@ function TratamientosCompletadosPageContent() {
     return treatment.paciente?.nombre_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
            treatment.paciente?.numero_identidad?.toLowerCase().includes(searchTerm.toLowerCase()) ||
            treatment.paciente?.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           treatment.paciente_id?.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by paciente_id
-           treatment.id?.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by treatment id
+           treatment.paciente_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           treatment.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
            treatment.tratamientos_realizados?.some(tr => 
-             tr.nombre_tratamiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             tr.codigo_tratamiento.toLowerCase().includes(searchTerm.toLowerCase())
+             tr.nombre_tratamiento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             tr.codigo_tratamiento?.toLowerCase().includes(searchTerm.toLowerCase())
            );
   }).sort((a, b) => {
     let comparison = 0;
