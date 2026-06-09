@@ -286,7 +286,8 @@ export default function ReportsPage() {
       const amount = typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0;
       const neto = t.totalNeto || 0;
       const comision = amount - neto;
-      const metodoPago = t.metodoPago || 'Otros';
+      const metodoPagoRaw = t.metodoPago || 'Otros';
+      const metodoPago = typeof metodoPagoRaw === 'string' ? metodoPagoRaw : 'Otros';
 
       if (!monthlyData[month]) {
         const monthNum = transactionDate.getMonth();
