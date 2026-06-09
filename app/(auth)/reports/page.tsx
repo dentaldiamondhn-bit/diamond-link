@@ -280,7 +280,7 @@ export default function ReportsPage() {
     const spanishMonths = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
     transactions.forEach((t: any) => {
-      const transactionDate = new Date(t.fecha_pago || t.fecha);
+      const transactionDate = new Date(t.fecha);
       
       const month = transactionDate.toISOString().slice(0, 7);
       const amount = typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0;
@@ -441,7 +441,7 @@ useEffect(() => {
           setFinancialTransactions(financialTransactionsResult);
           
           const filteredTransactions = allFinancialTransactionsResult.filter((t: any) => {
-            const tDate = new Date(t.fecha_pago || t.fecha);
+            const tDate = new Date(t.fecha);
             const year = tDate.getFullYear();
             return year === selectedYear;
           });
