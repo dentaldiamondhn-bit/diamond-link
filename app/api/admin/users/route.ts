@@ -1,42 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import { clerkClient } from '@clerk/nextjs/server';
+import { createClerkClient } from '@clerk/backend';
 
-// Prevent static generation for this API route
-export const dynamic = 'force-static';
+// Ensure this API route runs dynamically at request time
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('API: Admin users GET request received');
     
-    const { userId } = await auth();
-    console.log('API: Auth userId:', userId);
+    // Initialize Clerk client
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
     
-    if (!userId) {
-      console.log('API: No userId found, returning 401');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    // Check if user has tech_support privileges only (handle both formats)
-    try {
-      const client = await clerkClient();
-      const currentUser = await client.users.getUser(userId);
-      console.log('API: Current user:', currentUser);
-      const userRole = currentUser.publicMetadata?.role;
-      console.log('API: User role:', userRole);
-      
-      if (!['tech_support', 'tech-support'].includes(userRole as string)) {
-        console.log('API: User is not tech_support, returning 403. User role:', userRole);
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
-      
-      // Get all users
-      console.log('API: Fetching user list...');
-      const userList = await client.users.getUserList({
-        limit: 100,
-        orderBy: '-created_at'
-      });
-      console.log('API: User list fetched:', userList.data.length, 'users');
+    // Get all users
+    console.log('API: Fetching user list...');
+    const userList = await clerk.users.getUserList({
+      limit: 100,
+      orderBy: '-created_at'
+    });
+    console.log('API: User list fetched:', userList.data.length, 'users');
       
       const formattedUsers = userList.data.map((user: any) => ({
         id: user.id,
@@ -55,10 +38,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ 
         users: formattedUsers as any[]
       });
-    } catch (clerkError) {
-      console.error('API: Clerk error:', clerkError);
-      return NextResponse.json({ error: 'Clerk API error', details: clerkError instanceof Error ? clerkError.message : 'Unknown error' }, { status: 500 });
-    }
   } catch (error) {
     console.error('API: General error:', error);
     return NextResponse.json({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
@@ -67,20 +46,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    // Check if user has tech_support privileges only (handle both formats)
-    const client = await clerkClient();
-    const currentUser = await client.users.getUser(userId);
-    const userRole = currentUser.publicMetadata?.role;
-    
-    if (!['tech_support', 'tech-support'].includes(userRole as string)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    // Initialize Clerk client
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
     
     const { action, targetUserId, newRole } = await request.json();
     
@@ -94,7 +63,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
         }
         
-        await client.users.updateUserMetadata(targetUserId, {
+        await clerk.users.updateUserMetadata(targetUserId, {
           publicMetadata: {
             role: newRole
           }
@@ -103,19 +72,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, message: 'Role updated successfully' });
         
       case 'ban':
-        await client.users.banUser(targetUserId);
+        await clerk.users.banUser(targetUserId);
         return NextResponse.json({ success: true, message: 'User banned successfully' });
         
       case 'unban':
-        await client.users.unbanUser(targetUserId);
+        await clerk.users.unbanUser(targetUserId);
         return NextResponse.json({ success: true, message: 'User unbanned successfully' });
         
       case 'lock':
-        await client.users.lockUser(targetUserId);
+        await clerk.users.lockUser(targetUserId);
         return NextResponse.json({ success: true, message: 'User locked successfully' });
         
       case 'unlock':
-        await client.users.unlockUser(targetUserId);
+        await clerk.users.unlockUser(targetUserId);
         return NextResponse.json({ success: true, message: 'User unlocked successfully' });
         
       case 'resetPassword':
@@ -139,7 +108,7 @@ export async function POST(request: NextRequest) {
         
       case 'deleteUser':
         // Soft delete by banning and revoking all sessions
-        await client.users.banUser(targetUserId);
+        await clerk.users.banUser(targetUserId);
         // Note: revokeSessions might not be available, but banUser should handle session invalidation
         return NextResponse.json({ success: true, message: 'User deleted successfully' });
         

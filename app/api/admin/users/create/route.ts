@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { clerkClient } from '@clerk/nextjs/server';
+import { Clerk } from '@clerk/backend';
+
+const clerk = new Clerk({
+  secretKey: process.env.CLERK_SECRET_KEY,
+  publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+});
 
 
 export async function POST(request: NextRequest) {
@@ -12,8 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is admin or tech-support
-    const client = await clerkClient();
-    const currentUser = await client.users.getUser(userId);
+    const currentUser = await clerk.users.getUser(userId);
     const userRole = currentUser.publicMetadata?.role;
 
     if (!['admin', 'tech_support', 'tech-support'].includes(userRole as string)) {
@@ -31,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new user
-    const newUser = await client.users.createUser({
+    const newUser = await clerk.users.createUser({
       emailAddress: [email],
       firstName,
       lastName,

@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { clerkClient } from '@clerk/nextjs/server';
+import { Clerk } from '@clerk/backend';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const clerk = new Clerk({
+  secretKey: process.env.CLERK_SECRET_KEY,
+  publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+});
 
 async function getUserFromRequest(req: NextRequest): Promise<{ id: string | null; name: string | null; imageUrl: string | null }> {
   try {
@@ -16,16 +21,15 @@ async function getUserFromRequest(req: NextRequest): Promise<{ id: string | null
     const payload = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64').toString());
     let imageUrl = payload.picture || null;
     let name = payload.name || payload.first_name || payload.email || null;
-    if (payload.sub) {
-      try {
-        const client = await clerkClient();
-        const user = await client.users.getUser(payload.sub);
-        imageUrl = imageUrl || user?.imageUrl || null;
-        name = name || user?.firstName || user?.lastName || user?.primaryEmailAddress?.emailAddress || null;
-      } catch (err) {
-        console.error('Error fetching user from Clerk:', err);
+if (payload.sub) {
+        try {
+          const user = await clerk.users.getUser(payload.sub);
+          imageUrl = imageUrl || user?.imageUrl || null;
+          name = name || user?.firstName || user?.lastName || user?.primaryEmailAddress?.emailAddress || null;
+        } catch (err) {
+          console.error('Error fetching user from Clerk:', err);
+        }
       }
-    }
     return {
       id: payload.sub || null,
       name: name,
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const commentsWithUserData = await Promise.all((data || []).map(async (comment) => {
       if (comment.user_id && (!comment.user_name || !comment.user_image)) {
         try {
-          const client = await clerkClient();
+          const client = clerkClient();
           const user = await client.users.getUser(comment.user_id);
           const userName = user?.firstName || user?.lastName || user?.primaryEmailAddress?.emailAddress || null;
           const userRole = user?.publicMetadata?.role as string || null;
@@ -100,7 +104,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let userRole = null;
     if (user.id) {
       try {
-        const client = await clerkClient();
+        const client = clerkClient();
         const clerkUser = await client.users.getUser(user.id);
         userImage = userImage || clerkUser?.imageUrl || null;
         userRole = clerkUser?.publicMetadata?.role as string || null;

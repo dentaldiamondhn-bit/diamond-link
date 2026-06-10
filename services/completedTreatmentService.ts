@@ -788,4 +788,64 @@ export class CompletedTreatmentService {
       throw error;
     }
   }
+
+  static async getIndividualTreatmentsCountByDoctor(doctorName: string): Promise<number> {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const firstOfMonth = new Date(year, month, 1);
+      const firstOfNextMonth = new Date(year, month + 1, 1);
+      
+      const { data, error } = await supabase
+        .from('vista_tratamientos_realizados_detalles')
+        .select('id')
+        .eq('doctor_name', doctorName)
+        .gte('creado_en', firstOfMonth.toISOString())
+        .lt('creado_en', firstOfNextMonth.toISOString());
+
+      if (error) {
+        console.error('Error fetching individual treatments count:', error);
+        return 0;
+      }
+
+      return data?.length || 0;
+    } catch (error) {
+      console.error('Unexpected error fetching individual treatments count:', error);
+      return 0;
+    }
+  }
+
+  static async getCompletedTreatmentsCountByDoctor(doctorName: string): Promise<number> {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const firstOfMonth = new Date(year, month, 1);
+      const firstOfNextMonth = new Date(year, month + 1, 1);
+      
+      const { data, error } = await supabase
+        .from('tratamientos_completados')
+        .select(`
+          id,
+          fecha_cita,
+          vista_tratamientos_realizados_detalles!inner (
+            doctor_name
+          )
+        `)
+        .eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName)
+        .gte('fecha_cita', firstOfMonth.toISOString().split('T')[0])
+        .lt('fecha_cita', firstOfNextMonth.toISOString().split('T')[0]);
+
+      if (error) {
+        console.error('Error fetching completed treatments count:', error);
+        return 0;
+      }
+
+      return data?.length || 0;
+    } catch (error) {
+      console.error('Unexpected error fetching completed treatments count:', error);
+      return 0;
+    }
+  }
 }

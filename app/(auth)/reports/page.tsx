@@ -220,6 +220,8 @@ export default function ReportsPage() {
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const currentDatesRef = useRef<{ start: string; end: string }>({ start: '', end: '' });
+  const doctorEmail = user?.primaryEmailAddress?.emailAddress || '';
+  const doctorUserId = user?.id || '';
 
   const getCurrentDateRange = () => {
     const range = tabDateRanges[activeTab];
@@ -421,15 +423,15 @@ useEffect(() => {
             financialTransactionsResult,
             allFinancialTransactionsResult
           ] = await Promise.all([
-            ReportsService.getReportData(timeRange, startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getDoctorPerformance(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getTreatmentTypes(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getPatientStats(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getPatientDemographics(userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getRevenueStats(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getDetailedPatientAnalytics(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined),
-            ReportsService.getAllFinancialTransactions(userRole === 'doctor' ? user?.primaryEmailAddress?.emailAddress : undefined)
+            ReportsService.getReportData(timeRange, startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined, userRole === 'doctor' ? doctorUserId : undefined),
+            ReportsService.getDoctorPerformance(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getTreatmentTypes(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getPatientStats(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getPatientDemographics(userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getRevenueStats(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getDetailedPatientAnalytics(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getAllFinancialTransactions(userRole === 'doctor' ? doctorEmail : undefined)
           ]);
 
           setReportData(reportDataResult);
@@ -512,7 +514,7 @@ useEffect(() => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={loadReportData}
+              onClick={handleRefresh}
               className="px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-medium hover:shadow-lg transition-shadow flex items-center gap-2"
             >
               <FiRefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />

@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [patientCount, setPatientCount] = useState<number>(0);
   const [treatmentCount, setTreatmentCount] = useState<number>(0);
+  const [individualTreatmentCount, setIndividualTreatmentCount] = useState<number>(0);
   const [doctorRevenue, setDoctorRevenue] = useState<number>(0);
   const [averageRevenue, setAverageRevenue] = useState<number>(0);
   const [patientStats, setPatientStats] = useState<any>({ newPatients: 0, returningPatients: 0 });
@@ -149,9 +150,14 @@ export default function DashboardPage() {
           setPatientCount(doctorPatients.length);
           setPatientStats(doctorPatientStats);
 
-          // Fetch doctor's treatments
+          // Fetch doctor's treatments (completed treatment records) for current month
           const doctorTreatments = await CompletedTreatmentService.getCompletedTreatmentsByDoctor(doctorName);
-          setTreatmentCount(doctorTreatments.length);
+          const completedCount = await CompletedTreatmentService.getCompletedTreatmentsCountByDoctor(doctorName);
+          setTreatmentCount(completedCount);
+
+          // Fetch individual treatments count for current month
+          const individualCount = await CompletedTreatmentService.getIndividualTreatmentsCountByDoctor(doctorName);
+          setIndividualTreatmentCount(individualCount);
 
           // Fetch doctor's revenue and average
           const revenue = await CompletedTreatmentService.getDoctorRevenue(doctorName);
@@ -164,9 +170,32 @@ export default function DashboardPage() {
           const allPatients = await PatientService.getPatients();
           setPatientCount(allPatients.length);
 
-          // Fetch all treatments for admin
-          const allTreatments = await CompletedTreatmentService.getAllCompletedTreatments();
-          setTreatmentCount(allTreatments.length);
+          // Fetch treatments count for current month
+          const now = new Date();
+          const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const firstOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const { supabase } = await import('../../../lib/supabase');
+          
+          const { data: monthlyCompleted } = await supabase
+            .from('tratamientos_completados')
+            .select(`
+              id,
+              fecha_cita,
+              vista_tratamientos_realizados_detalles!inner (
+                doctor_name
+              )
+            `)
+            .gte('fecha_cita', firstOfMonth.toISOString().split('T')[0])
+            .lt('fecha_cita', firstOfNextMonth.toISOString().split('T')[0]);
+          setTreatmentCount(monthlyCompleted?.length || 0);
+          
+          // Fetch individual treatments count for current month
+          const { data: monthlyItems } = await supabase
+            .from('vista_tratamientos_realizados_detalles')
+            .select('id')
+            .gte('creado_en', firstOfMonth.toISOString())
+            .lt('creado_en', firstOfNextMonth.toISOString());
+          setIndividualTreatmentCount(monthlyItems?.length || 0);
 
         } else {
           // For staff and others, fetch all patients
@@ -235,6 +264,15 @@ export default function DashboardPage() {
                     }
                   </p>
                 </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Individuales</h3>
+                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
+                    {loading ? '...' : individualTreatmentCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Este mes (1 al 1)
+                  </p>
+                </div>
               </>
             ) : userRole === 'admin' ? (
               <>
@@ -273,6 +311,15 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Usuarios activos
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Individuales</h3>
+                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
+                    {loading ? '...' : individualTreatmentCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Este mes
                   </p>
                 </div>
               </>

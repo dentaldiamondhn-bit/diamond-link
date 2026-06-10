@@ -35,27 +35,55 @@ export interface BudgetData {
 }
 
 export class ReportsService {
-  static async getReportData(timeRange: 'daily' | 'weekly' | 'monthly' | 'yearly', startDate?: string, endDate?: string, doctorEmail?: string): Promise<ReportData[]> {
+  static async getReportData(timeRange: 'daily' | 'weekly' | 'monthly' | 'yearly', startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<ReportData[]> {
     try {
       // Get completed treatments grouped by date, filtered by doctor if specified
       let query = supabase
         .from('tratamientos_completados')
-        .select('fecha_cita, total_final, paciente_id, doctor_name, patients!inner(doctor)')
+        .select(`
+          fecha_cita, 
+          total_final, 
+          paciente_id,
+          doctor_name,
+          patients!inner(doctor),
+          vista_tratamientos_realizados_detalles!inner(doctor_name)
+        `)
         .gte('fecha_cita', startDate || this.getDateRangeStart(timeRange))
         .lte('fecha_cita', endDate || new Date().toISOString())
         .order('fecha_cita', { ascending: true });
 
-      // Add doctor filter if specified - filter by patients.doctor
-      if (doctorEmail) {
-        // First get the doctor name from the doctors table using user_email
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
+      // Add doctor filter if specified
+      if (doctorEmail || doctorUserId) {
+        // First try to get the doctor name from the doctors table using user_email or user_id
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          query = query.eq('patients.doctor', doctorData.name);
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) {
+            doctorName = doctorData.name;
+          }
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) {
+            doctorName = doctorData.name;
+          }
+        }
+        
+        if (doctorName) {
+          // Filter by doctor_name in the treatment details view
+          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName);
         }
       }
 
@@ -66,6 +94,10 @@ export class ReportsService {
       // Group by date and calculate metrics
       const groupedData = treatments?.reduce((acc, treatment) => {
         const date = new Date(treatment.fecha_cita).toISOString().split('T')[0];
+        
+        // Get doctor name from the nested treatment details array
+        const treatmentDetails = treatment.vista_tratamientos_realizados_detalles?.[0];
+        const doctorName = treatmentDetails?.doctor_name || treatment.doctor_name || 'Desconocido';
         
         if (!acc[date]) {
           acc[date] = {
@@ -80,7 +112,7 @@ export class ReportsService {
         acc[date].patients.add(treatment.paciente_id);
         acc[date].treatments += 1;
         acc[date].revenue += treatment.total_final || 0;
-        acc[date].doctors.add(treatment.doctor_name);
+        acc[date].doctors.add(doctorName);
         
         return acc;
       }, {} as any);
@@ -254,16 +286,19 @@ export class ReportsService {
       let query = supabase
         .from('tratamientos_completados')
         .select(`
+          fecha_cita,
+          total_final,
           vista_tratamientos_realizados_detalles!inner (
             nombre_tratamiento,
-            precio_final
+            precio_final,
+            doctor_name
           ),
           patients!inner(doctor)
         `)
         .gte('fecha_cita', startDate || this.getDateRangeStart('monthly'))
         .lte('fecha_cita', endDate || new Date().toISOString());
 
-      // Add doctor filter if specified - filter by patients.doctor
+      // Add doctor filter if specified - filter by doctor_name in treatment details
       if (doctorEmail) {
         const { data: doctorData } = await supabase
           .from('doctors')
@@ -272,7 +307,7 @@ export class ReportsService {
           .single();
         
         if (doctorData) {
-          query = query.eq('patients.doctor', doctorData.name);
+          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorData.name);
         }
       }
 
@@ -328,7 +363,7 @@ export class ReportsService {
     }
   }
 
-  static async getPatientStats(startDate?: string, endDate?: string, doctorEmail?: string): Promise<any> {
+  static async getPatientStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any> {
     try {
       // Get total patient count from patients table (like dashboard), filtered by doctor if specified
       let patientsQuery = supabase
@@ -336,15 +371,31 @@ export class ReportsService {
         .select('paciente_id');
 
       // Add doctor filter to patients if specified
-      if (doctorEmail) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          patientsQuery = patientsQuery.eq('doctor', doctorData.name);
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          patientsQuery = patientsQuery.eq('doctor', doctorName);
         }
       }
 
@@ -399,22 +450,38 @@ export class ReportsService {
     }
   }
 
-  static async getPatientDemographics(doctorEmail?: string) {
+  static async getPatientDemographics(doctorEmail?: string, doctorUserId?: string) {
     try {
       let query = supabase
         .from('patients')
         .select('edad, sexo');
 
       // Add doctor filter if specified
-      if (doctorEmail) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          query = query.eq('doctor', doctorData.name);
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          query = query.eq('doctor', doctorName);
         }
       }
 
@@ -483,7 +550,7 @@ export class ReportsService {
     }
   }
 
-  static async getRevenueStats(startDate?: string, endDate?: string, doctorEmail?: string): Promise<any> {
+  static async getRevenueStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any> {
     try {
       // If custom dates are provided, use them exactly as provided
       // Only use defaults if no dates are specified
@@ -492,20 +559,41 @@ export class ReportsService {
       
       let query = supabase
         .from('tratamientos_completados')
-        .select('total_final, fecha_cita, patients!inner(doctor)')
+        .select(`
+          total_final, 
+          fecha_cita, 
+          patients!inner(doctor),
+          vista_tratamientos_realizados_detalles!inner(doctor_name)
+        `)
         .gte('fecha_cita', queryStartDate)
         .lte('fecha_cita', queryEndDate);
 
       // Add doctor filter if specified
-      if (doctorEmail) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          query = query.eq('patients.doctor', doctorData.name);
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName);
         }
       }
 
@@ -525,7 +613,7 @@ export class ReportsService {
     }
   }
 
-  static async getDetailedPatientAnalytics(startDate?: string, endDate?: string, doctorEmail?: string): Promise<any[]> {
+  static async getDetailedPatientAnalytics(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
     try {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 365)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
@@ -534,15 +622,32 @@ export class ReportsService {
         .from('patients')
         .select('paciente_id, nombre_completo, numero_identidad, telefono, doctor, fecha_inicio');
 
-      if (doctorEmail) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
+      // Add doctor filter if specified
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          patientsQuery = patientsQuery.eq('doctor', doctorData.name);
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          patientsQuery = patientsQuery.eq('doctor', doctorName);
         }
       }
 
@@ -607,26 +712,43 @@ export class ReportsService {
     }
   }
 
-  static async getFinancialSummaryByTreatment(startDate?: string, endDate?: string, doctorEmail?: string): Promise<any[]> {
+  static async getFinancialSummaryByTreatment(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
     try {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
 
       let query = supabase
         .from('vista_tratamientos_realizados_detalles')
-        .select('nombre_tratamiento, precio_final, cantidad')
+        .select('nombre_tratamiento, precio_final, cantidad, doctor_name')
         .gte('creado_en', queryStartDate)
         .lte('creado_en', queryEndDate);
 
-      if (doctorEmail) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
+      // Add doctor filter if specified
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          query = query.eq('doctor_name', doctorData.name);
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          query = query.eq('doctor_name', doctorName);
         }
       }
 
@@ -666,25 +788,41 @@ export class ReportsService {
     }
   }
 
-  static async getFinancialTransactions(startDate?: string, endDate?: string, doctorEmail?: string): Promise<any[]> {
+  static async getFinancialTransactions(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
     try {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
 
       let treatmentIds: string[] | null = null;
       
-      if (doctorEmail) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
           const { data: treatments } = await supabase
             .from('tratamientos_completados')
             .select('id')
-            .eq('doctor_name', doctorData.name);
+            .eq('doctor_name', doctorName);
           
           treatmentIds = treatments?.map((t: any) => t.id) || null;
         }
@@ -792,22 +930,38 @@ export class ReportsService {
     }
   }
 
-  static async getAllFinancialTransactions(doctorEmail?: string): Promise<any[]> {
+  static async getAllFinancialTransactions(doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
     try {
       let treatmentIds: string[] | null = null;
       
-      if (doctorEmail) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
           const { data: treatments } = await supabase
             .from('tratamientos_completados')
             .select('id')
-            .eq('doctor_name', doctorData.name);
+            .eq('doctor_name', doctorName);
           
           treatmentIds = treatments?.map((t: any) => t.id) || null;
         }

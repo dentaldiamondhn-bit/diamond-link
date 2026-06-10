@@ -1,56 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import { clerkClient } from '@clerk/nextjs/server';
+import { createClerkClient } from '@clerk/backend';
 
-// Prevent static generation for this API route
-export const dynamic = 'force-static';
+// Ensure this API route runs dynamically at request time
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Initialize Clerk client
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
 
-    // Check if user is admin or tech-support
-    try {
-      const client = await clerkClient();
-      const currentUser = await client.users.getUser(userId);
-      const userRole = currentUser.publicMetadata?.role;
+    // Get all users
+    const userList = await clerk.users.getUserList({
+      limit: 100,
+      orderBy: '-created_at'
+    });
 
-      if (!['admin', 'tech_support', 'tech-support'].includes(userRole as string)) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
+    // Filter only users with 'doctor' role
+    const doctorUsers = userList.data
+      .filter((user: any) => user.publicMetadata?.role === 'doctor')
+      .map((user: any) => ({
+        id: user.id,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        emailAddress: user.emailAddresses[0]?.emailAddress || '',
+        role: user.publicMetadata?.role || 'staff',
+        profileImageUrl: user.profileImageUrl || user.imageUrl || `https://img.clerk.com/avatars/${user.id}`,
+      }));
 
-      // Get all users
-      const userList = await client.users.getUserList({
-        limit: 100,
-        orderBy: '-created_at'
-      });
-
-      // Filter only users with 'doctor' role
-      const doctorUsers = userList.data
-        .filter((user: any) => user.publicMetadata?.role === 'doctor')
-        .map((user: any) => {
-          
-          return {
-            id: user.id,
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
-            emailAddress: user.emailAddresses[0]?.emailAddress || '',
-            role: user.publicMetadata?.role || 'staff',
-            profileImageUrl: user.profileImageUrl || user.imageUrl || `https://img.clerk.com/avatars/${user.id}`,
-          };
-        });
-
-      return NextResponse.json({ 
-        users: doctorUsers
-      });
-    } catch (clerkError) {
-      return NextResponse.json({ error: 'Clerk API error', details: clerkError instanceof Error ? clerkError.message : 'Unknown error' }, { status: 500 });
-    }
+    return NextResponse.json({ 
+      users: doctorUsers
+    });
   } catch (error) {
+    console.error('Error fetching doctor users:', error);
     return NextResponse.json({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
 }

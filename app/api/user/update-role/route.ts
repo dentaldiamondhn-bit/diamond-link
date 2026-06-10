@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { clerkClient } from '@clerk/nextjs/server';
+import { Clerk } from '@clerk/backend';
+
+const clerk = new Clerk({
+  secretKey: process.env.CLERK_SECRET_KEY,
+  publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+});
 
 
 
@@ -18,9 +23,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    // Update user metadata in Clerk
-    const client = await clerkClient();
-    await client.users.updateUserMetadata(userId, {
+// Update user metadata in Clerk
+    await clerk.users.updateUserMetadata(userId, {
       publicMetadata: {
         role,
       },
