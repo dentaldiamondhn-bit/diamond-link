@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import { Clerk } from '@clerk/backend';
+import { createClerkClient } from '@clerk/backend';
 
-const clerk = new Clerk({
-  secretKey: process.env.CLERK_SECRET_KEY,
-  publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-});
-
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin or tech-support
-    const currentUser = await clerk.users.getUser(userId);
-    const userRole = currentUser.publicMetadata?.role;
-
-    if (!['admin', 'tech_support', 'tech-support'].includes(userRole as string)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    // Initialize Clerk client
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
 
     const { email, firstName, lastName, role, password } = await request.json();
 

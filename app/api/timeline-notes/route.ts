@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { Clerk } from '@clerk/backend';
+import { createClerkClient } from '@clerk/backend';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const clerk = new Clerk({
-  secretKey: process.env.CLERK_SECRET_KEY,
-  publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-});
+export const dynamic = 'force-dynamic';
 
 async function getUserFromRequest(req: NextRequest): Promise<{ id: string | null; name: string | null; imageUrl: string | null }> {
   try {
@@ -23,6 +20,9 @@ async function getUserFromRequest(req: NextRequest): Promise<{ id: string | null
     let name = payload.name || payload.first_name || payload.email || null;
     if (payload.sub) {
       try {
+        const clerk = createClerkClient({
+          secretKey: process.env.CLERK_SECRET_KEY,
+        });
         const user = await clerk.users.getUser(payload.sub);
         imageUrl = imageUrl || user?.imageUrl || null;
         name = name || user?.firstName || user?.lastName || user?.primaryEmailAddress?.emailAddress || null;
@@ -60,11 +60,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Enrich notes with user data from Clerk
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+
     const enrichedNotes = await Promise.all((data || []).map(async (note) => {
       if (note.user_id && (!note.created_by_name || !note.created_by_image)) {
         try {
-          const client = clerkClient();
-          const user = await client.users.getUser(note.user_id);
+          const user = await clerk.users.getUser(note.user_id);
           const userName = user?.firstName || user?.lastName || user?.primaryEmailAddress?.emailAddress || null;
           return {
             ...note,
@@ -101,8 +104,10 @@ export async function POST(request: NextRequest) {
     let userImage = user.imageUrl;
     if (user.id && (!userName || !userImage)) {
       try {
-        const client = clerkClient();
-        const clerkUser = await client.users.getUser(user.id);
+        const clerk = createClerkClient({
+          secretKey: process.env.CLERK_SECRET_KEY,
+        });
+        const clerkUser = await clerk.users.getUser(user.id);
         userName = userName || clerkUser?.firstName || clerkUser?.lastName || clerkUser?.primaryEmailAddress?.emailAddress || null;
         userImage = userImage || clerkUser?.imageUrl || null;
       } catch (err) {
@@ -151,8 +156,10 @@ export async function PUT(request: NextRequest) {
     let userImage = user.imageUrl;
     if (user.id) {
       try {
-        const client = clerkClient();
-        const clerkUser = await client.users.getUser(user.id);
+        const clerk = createClerkClient({
+          secretKey: process.env.CLERK_SECRET_KEY,
+        });
+        const clerkUser = await clerk.users.getUser(user.id);
         userName = userName || clerkUser?.firstName || clerkUser?.lastName || clerkUser?.primaryEmailAddress?.emailAddress || null;
         userImage = userImage || clerkUser?.imageUrl || null;
       } catch (err) {

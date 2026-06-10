@@ -1,29 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
-import { Clerk } from '@clerk/backend';
+import { createClerkClient } from '@clerk/backend';
 
-const clerk = new Clerk({
-  secretKey: process.env.CLERK_SECRET_KEY,
-  publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-});
-
-
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Initialize Clerk client
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+
+    const { userId, role } = await request.json();
+
+    if (!userId || !role || !['admin', 'doctor', 'staff'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
-    const { role } = await request.json();
-
-    if (!role || !['admin', 'doctor', 'staff'].includes(role)) {
-      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
-    }
-
-// Update user metadata in Clerk
+    // Update user metadata in Clerk
     await clerk.users.updateUserMetadata(userId, {
       publicMetadata: {
         role,
