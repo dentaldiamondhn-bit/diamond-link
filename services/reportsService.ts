@@ -35,7 +35,7 @@ export interface BudgetData {
 }
 
 export class ReportsService {
-  static async getReportData(timeRange: 'daily' | 'weekly' | 'monthly' | 'yearly', startDate?: string, endDate?: string, doctorUserId?: string): Promise<ReportData[]> {
+  static async getReportData(timeRange: 'daily' | 'weekly' | 'monthly' | 'yearly', startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<ReportData[]> {
     try {
       // Get completed treatments grouped by date, filtered by doctor if specified
       let query = supabase
@@ -53,20 +53,37 @@ export class ReportsService {
         .order('fecha_cita', { ascending: true });
 
       // Add doctor filter if specified
-      if (doctorUserId) {
-        // Get doctor name from doctors table using user_id
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_id', doctorUserId)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        // First try to get the doctor name from the doctors table using user_email or user_id
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorData.name);
-        } else {
-          // If doctor not found in doctors table, return empty data
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return [];
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) {
+            doctorName = doctorData.name;
+          }
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) {
+            doctorName = doctorData.name;
+          }
+        }
+        
+        if (doctorName) {
+          // Filter by doctor_name in the treatment details view
+          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName);
         }
       }
 
@@ -133,7 +150,7 @@ export class ReportsService {
     }
   }
 
-  static async getDoctorPerformance(startDate?: string, endDate?: string, doctorUserId?: string): Promise<DoctorPerformance[]> {
+  static async getDoctorPerformance(startDate?: string, endDate?: string, doctorEmail?: string): Promise<DoctorPerformance[]> {
     try {
       // Get all completed treatments details from tratamientos_realizados, filtered by doctor if specified
       let query = supabase
@@ -149,19 +166,16 @@ export class ReportsService {
           notas
         `);
 
-      // Add doctor filter if specified
-      if (doctorUserId) {
+      // Add doctor filter if specified - get doctor name from doctors table
+      if (doctorEmail) {
         const { data: doctorData } = await supabase
           .from('doctors')
           .select('name')
-          .eq('user_id', doctorUserId)
+          .eq('user_email', doctorEmail)
           .single();
         
         if (doctorData) {
           query = query.eq('doctor_name', doctorData.name);
-        } else {
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return [];
         }
       }
 
@@ -266,7 +280,7 @@ export class ReportsService {
     }
   }
 
-  static async getTreatmentTypes(startDate?: string, endDate?: string, doctorUserId?: string): Promise<TreatmentType[]> {
+  static async getTreatmentTypes(startDate?: string, endDate?: string, doctorEmail?: string): Promise<TreatmentType[]> {
     try {
       // Get treatment types from completed treatments using the view, filtered by doctor if specified
       let query = supabase
@@ -284,19 +298,16 @@ export class ReportsService {
         .gte('fecha_cita', startDate || this.getDateRangeStart('monthly'))
         .lte('fecha_cita', endDate || new Date().toISOString());
 
-      // Add doctor filter if specified
-      if (doctorUserId) {
+      // Add doctor filter if specified - filter by doctor_name in treatment details
+      if (doctorEmail) {
         const { data: doctorData } = await supabase
           .from('doctors')
           .select('name')
-          .eq('user_id', doctorUserId)
+          .eq('user_email', doctorEmail)
           .single();
         
         if (doctorData) {
           query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorData.name);
-        } else {
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return [];
         }
       }
 
@@ -352,7 +363,7 @@ export class ReportsService {
     }
   }
 
-  static async getPatientStats(startDate?: string, endDate?: string, doctorUserId?: string): Promise<any> {
+  static async getPatientStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any> {
     try {
       // Get total patient count from patients table (like dashboard), filtered by doctor if specified
       let patientsQuery = supabase
@@ -360,18 +371,31 @@ export class ReportsService {
         .select('paciente_id');
 
       // Add doctor filter to patients if specified
-      if (doctorUserId) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_id', doctorUserId)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          patientsQuery = patientsQuery.eq('doctor', doctorData.name);
-        } else {
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return { totalPatients: 0, newPatients: 0, returningPatients: 0, activePatients: 0 };
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          patientsQuery = patientsQuery.eq('doctor', doctorName);
         }
       }
 
@@ -387,17 +411,15 @@ export class ReportsService {
         .lte('fecha_cita', endDate || new Date().toISOString());
 
       // Add doctor filter to treatments if specified
-      if (doctorUserId) {
+      if (doctorEmail) {
         const { data: doctorData } = await supabase
           .from('doctors')
           .select('name')
-          .eq('user_id', doctorUserId)
+          .eq('user_email', doctorEmail)
           .single();
         
         if (doctorData) {
           treatmentsQuery = treatmentsQuery.eq('patients.doctor', doctorData.name);
-        } else {
-          return { totalPatients: allPatients?.length || 0, newPatients: 0, returningPatients: 0, activePatients: 0 };
         }
       }
 
@@ -428,37 +450,38 @@ export class ReportsService {
     }
   }
 
-  static async getPatientDemographics(doctorUserId?: string) {
+  static async getPatientDemographics(doctorEmail?: string, doctorUserId?: string) {
     try {
       let query = supabase
         .from('patients')
         .select('edad, sexo');
 
       // Add doctor filter if specified
-      if (doctorUserId) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_id', doctorUserId)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          query = query.eq('doctor', doctorData.name);
-        } else {
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return { 
-            averageAge: 0, 
-            genderDistribution: { masculino: 0, femenino: 0 },
-            ageCategories: {
-              '0-17': 0,
-              '18-25': 0,
-              '26-35': 0,
-              '36-45': 0,
-              '46-55': 0,
-              '56-65': 0,
-              '65+': 0
-            }
-          };
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          query = query.eq('doctor', doctorName);
         }
       }
 
@@ -527,9 +550,8 @@ export class ReportsService {
     }
   }
 
-  static async getRevenueStats(startDate?: string, endDate?: string, doctorUserId?: string): Promise<any> {
+  static async getRevenueStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any> {
     try {
-      console.log('🔍 getRevenueStats called with:', { doctorUserId, startDate, endDate });
       // If custom dates are provided, use them exactly as provided
       // Only use defaults if no dates are specified
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
@@ -547,46 +569,51 @@ export class ReportsService {
         .lte('fecha_cita', queryEndDate);
 
       // Add doctor filter if specified
-      if (doctorUserId) {
-        console.log('🔍 Looking up doctor in doctors table for user_id:', doctorUserId);
-        const { data: doctorData, error: doctorError } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_id', doctorUserId)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        console.log('🔍 Doctor lookup result:', { doctorData, doctorError });
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
         
-        if (doctorData) {
-          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorData.name);
-        } else {
-          console.log('❌ Doctor not found in doctors table for user_id:', doctorUserId);
-          return { totalRevenue: 0, totalTreatments: 0, averageRevenuePerTreatment: 0 };
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName);
         }
       }
 
       const { data, error } = await query;
       
-      console.log('🔍 Revenue stats query result:', { data, error, dataLength: data?.length });
-      
       const totalRevenue = data?.reduce((sum, item) => sum + (item.total_final || 0), 0) || 0;
       const totalTreatments = data?.length || 0;
 
-      const result = {
+      return {
         totalRevenue,
         totalTreatments,
         averageRevenuePerTreatment: totalTreatments > 0 ? totalRevenue / totalTreatments : 0
       };
-      
-      console.log('🔍 Revenue stats returning:', result);
-      return result;
     } catch (error) {
       console.error('Error fetching revenue stats:', error);
       throw error;
     }
   }
 
-  static async getDetailedPatientAnalytics(startDate?: string, endDate?: string, doctorUserId?: string): Promise<any[]> {
+  static async getDetailedPatientAnalytics(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
     try {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 365)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
@@ -596,18 +623,31 @@ export class ReportsService {
         .select('paciente_id, nombre_completo, numero_identidad, telefono, doctor, fecha_inicio');
 
       // Add doctor filter if specified
-      if (doctorUserId) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_id', doctorUserId)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          patientsQuery = patientsQuery.eq('doctor', doctorData.name);
-        } else {
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return [];
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          patientsQuery = patientsQuery.eq('doctor', doctorName);
         }
       }
 
@@ -672,7 +712,7 @@ export class ReportsService {
     }
   }
 
-  static async getFinancialSummaryByTreatment(startDate?: string, endDate?: string, doctorUserId?: string): Promise<any[]> {
+  static async getFinancialSummaryByTreatment(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
     try {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
@@ -684,18 +724,31 @@ export class ReportsService {
         .lte('creado_en', queryEndDate);
 
       // Add doctor filter if specified
-      if (doctorUserId) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_id', doctorUserId)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
-          query = query.eq('doctor_name', doctorData.name);
-        } else {
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return [];
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          query = query.eq('doctor_name', doctorName);
         }
       }
 
@@ -735,41 +788,43 @@ export class ReportsService {
     }
   }
 
-  static async getFinancialTransactions(startDate?: string, endDate?: string, doctorUserId?: string): Promise<any[]> {
+  static async getFinancialTransactions(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
     try {
-      console.log('🔍 getFinancialTransactions called with:', { doctorUserId, startDate, endDate });
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
 
       let treatmentIds: string[] | null = null;
       
-      if (doctorUserId) {
-        console.log('🔍 Looking up doctor in doctors table for user_id:', doctorUserId);
-        const { data: doctorData, error: doctorError } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_id', doctorUserId)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        console.log('🔍 Doctor lookup result:', { doctorData, doctorError });
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
         
-        if (doctorData) {
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
           const { data: treatments } = await supabase
             .from('tratamientos_completados')
             .select('id')
-            .eq('doctor_name', doctorData.name);
+            .eq('doctor_name', doctorName);
           
           treatmentIds = treatments?.map((t: any) => t.id) || null;
-          console.log('🔍 Treatment IDs for doctor:', treatmentIds);
-          
-          // If doctor has no treatments, return empty array
-          if (!treatmentIds || treatmentIds.length === 0) {
-            console.log('🔍 Doctor has no treatments, returning empty array');
-            return [];
-          }
-        } else {
-          console.log('❌ Doctor not found in doctors table for user_id:', doctorUserId);
-          return [];
         }
       }
 
@@ -786,17 +841,12 @@ export class ReportsService {
 
       const { data: payments, error: txError } = await query;
 
-      console.log('🔍 Financial transactions query result:', { payments, txError, paymentsLength: payments?.length });
-
       if (txError) {
         console.error('Supabase error in getFinancialTransactions:', txError);
         return [];
       }
 
-      if (!payments || payments.length === 0) {
-        console.log('🔍 No payments found, returning empty array');
-        return [];
-      }
+      if (!payments || payments.length === 0) return [];
 
       const allTreatmentIds = payments.map((p: any) => p.tratamiento_completado_id).filter(Boolean);
       
@@ -874,42 +924,46 @@ export class ReportsService {
           tratamiento
         };
       });
-      
-      console.log('🔍 Financial transactions returning:', result);
-      return result;
     } catch (error) {
       console.error('Error fetching financial transactions:', error);
       return [];
     }
   }
 
-  static async getAllFinancialTransactions(doctorUserId?: string): Promise<any[]> {
+  static async getAllFinancialTransactions(doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
     try {
       let treatmentIds: string[] | null = null;
       
-      if (doctorUserId) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_id', doctorUserId)
-          .single();
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
         
-        if (doctorData) {
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
           const { data: treatments } = await supabase
             .from('tratamientos_completados')
             .select('id')
-            .eq('doctor_name', doctorData.name);
+            .eq('doctor_name', doctorName);
           
           treatmentIds = treatments?.map((t: any) => t.id) || null;
-          
-          // If doctor has no treatments, return empty array
-          if (!treatmentIds || treatmentIds.length === 0) {
-            console.log('Doctor has no treatments, returning empty array');
-            return [];
-          }
-        } else {
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return [];
         }
       }
 
@@ -1013,15 +1067,15 @@ export class ReportsService {
     }
   }
 
-  static async getPaymentStatusSummary(doctorUserId?: string): Promise<any> {
+  static async getPaymentStatusSummary(doctorEmail?: string): Promise<any> {
     try {
       let patientIds: string[] | null = null;
       
-      if (doctorUserId) {
+      if (doctorEmail) {
         const { data: doctorData } = await supabase
           .from('doctors')
           .select('name')
-          .eq('user_id', doctorUserId)
+          .eq('user_email', doctorEmail)
           .single();
         
         if (doctorData) {
@@ -1031,15 +1085,6 @@ export class ReportsService {
             .eq('doctor', doctorData.name);
           
           patientIds = patients?.map((p: any) => p.paciente_id) || [];
-        } else {
-          console.log('Doctor not found in doctors table for user_id:', doctorUserId);
-          return {
-            paidFully: { count: 0, total: 0 },
-            partiallyPaid: { count: 0, total: 0 },
-            unpaid: { count: 0, total: 0 },
-            total: 0,
-            totalRevenue: 0
-          };
         }
       }
 

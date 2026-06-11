@@ -220,6 +220,7 @@ export default function ReportsPage() {
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const currentDatesRef = useRef<{ start: string; end: string }>({ start: '', end: '' });
+  const doctorEmail = user?.primaryEmailAddress?.emailAddress || '';
   const doctorUserId = user?.id || '';
 
   const getCurrentDateRange = () => {
@@ -412,8 +413,6 @@ useEffect(() => {
             endDate = now.toISOString();
           }
 
-          console.log('🔍 Reports Page - User Info:', { userRole, doctorUserId });
-
           const [reportDataResult,
             doctorPerformanceResult,
             treatmentTypesResult,
@@ -424,15 +423,15 @@ useEffect(() => {
             financialTransactionsResult,
             allFinancialTransactionsResult
           ] = await Promise.all([
-            ReportsService.getReportData(timeRange, startDate, endDate, userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getDoctorPerformance(startDate, endDate, userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getTreatmentTypes(startDate, endDate, userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getPatientStats(startDate, endDate, userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getPatientDemographics(userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getRevenueStats(startDate, endDate, userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getDetailedPatientAnalytics(startDate, endDate, userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getAllFinancialTransactions(userRole === 'doctor' ? doctorUserId : undefined)
+            ReportsService.getReportData(timeRange, startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined, userRole === 'doctor' ? doctorUserId : undefined),
+            ReportsService.getDoctorPerformance(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getTreatmentTypes(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getPatientStats(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getPatientDemographics(userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getRevenueStats(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getDetailedPatientAnalytics(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getAllFinancialTransactions(userRole === 'doctor' ? doctorEmail : undefined)
           ]);
 
           setReportData(reportDataResult);
