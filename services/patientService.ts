@@ -307,4 +307,33 @@ export class PatientService {
       return false;
     }
   }
+
+  static async deletePatient(pacienteId: string): Promise<void> {
+    try {
+      // Delete related records first (foreign key constraints)
+      await supabase.from('tratamientos_realizados').delete().eq('paciente_id', pacienteId);
+      await supabase.from('tratamientos_completados').delete().eq('paciente_id', pacienteId);
+      await supabase.from('presupuestos').delete().eq('patient_id', pacienteId);
+      await supabase.from('patient_follow_ups').delete().eq('paciente_id', pacienteId);
+      await supabase.from('patient_odontogram').delete().eq('paciente_id', pacienteId);
+      await supabase.from('consentimientos').delete().eq('paciente_id', pacienteId);
+      await supabase.from('calendar_events').delete().eq('paciente_id', pacienteId);
+      
+      // Finally delete the patient record
+      const { error } = await supabase
+        .from('patients')
+        .delete()
+        .eq('paciente_id', pacienteId);
+
+      if (error) {
+        console.error('Error deleting patient:', error);
+        throw error;
+      }
+      
+      console.log('Patient deleted successfully:', pacienteId);
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      throw error;
+    }
+  }
 }
