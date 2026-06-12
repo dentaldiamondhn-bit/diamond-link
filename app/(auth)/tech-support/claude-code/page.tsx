@@ -50,26 +50,6 @@ export default function ClaudeCodePage() {
   // Available AI models (free and paid options)
   const availableModels: AIModel[] = [
     {
-      id: 'gemini-pro',
-      name: 'Gemini Pro',
-      provider: 'Google',
-      apiRoute: '/api/gemini-chat',
-      isFree: true,
-      description: 'Fast and capable',
-      icon: '✨',
-      color: 'blue'
-    },
-    {
-      id: 'claude-sonnet-4',
-      name: 'Claude Sonnet 4',
-      provider: 'Anthropic',
-      apiRoute: '/api/claude-cli',
-      isFree: false,
-      description: 'Most capable model',
-      icon: '🧠',
-      color: 'orange'
-    },
-    {
       id: 'local-llama',
       name: 'Local Llama',
       provider: 'Ollama',
@@ -88,16 +68,6 @@ export default function ClaudeCodePage() {
       description: 'Ultra fast responses',
       icon: '⚡',
       color: 'purple'
-    },
-    {
-      id: 'gpt-4o',
-      name: 'GPT-4o',
-      provider: 'OpenAI',
-      apiRoute: '/api/openai-chat',
-      isFree: false,
-      description: 'Advanced reasoning',
-      icon: '🚀',
-      color: 'emerald'
     }
   ];
 
