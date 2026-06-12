@@ -42,23 +42,13 @@ export default function ClaudeCodePage() {
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('local-llama');
+  const [selectedModel, setSelectedModel] = useState<string>('groq-llama');
   const [isApiConfigured, setIsApiConfigured] = useState<boolean | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Available AI models (free and paid options)
   const availableModels: AIModel[] = [
-    {
-      id: 'local-llama',
-      name: 'Local Llama',
-      provider: 'Ollama',
-      apiRoute: '/api/local-ai',
-      isFree: true,
-      description: 'Private and offline',
-      icon: '🦙',
-      color: 'green'
-    },
     {
       id: 'groq-llama',
       name: 'Groq Llama 3.1',
@@ -68,6 +58,16 @@ export default function ClaudeCodePage() {
       description: 'Ultra fast responses',
       icon: '⚡',
       color: 'purple'
+    },
+    {
+      id: 'odysseus',
+      name: 'Odysseus AI',
+      provider: 'Self-Hosted',
+      apiRoute: '/api/odysseus-chat',
+      isFree: true,
+      description: 'Self-hosted workspace',
+      icon: '🏛️',
+      color: 'indigo'
     }
   ];
 
@@ -448,11 +448,9 @@ export default function ClaudeCodePage() {
                 <span className="text-sm font-medium text-red-700 dark:text-red-300">Configuration Required</span>
               </div>
               <p className="text-xs text-red-600 dark:text-red-400">
-                {selectedModel === 'claude-sonnet-4' ? 'Add ANTHROPIC_API_KEY to .env' :
-                 selectedModel === 'local-llama' ? 'Install Ollama: curl -fsSL https://ollama.com/install.sh | sh' :
-                 selectedModel === 'groq-llama' ? 'Add GROQ_API_KEY to .env' :
-                 selectedModel === 'gpt-4o' ? 'Add OPENAI_API_KEY to .env' :
-                 'Add GEMINI_API_KEY to .env'}
+                {selectedModel === 'groq-llama' ? 'Add GROQ_API_KEY to .env' :
+                 selectedModel === 'odysseus' ? 'Start Odysseus at localhost:7000' :
+                 'Configure API key'}
               </p>
             </div>
           )}
@@ -698,11 +696,9 @@ export default function ClaudeCodePage() {
                     <span className="text-lg font-bold text-red-700 dark:text-red-300">Configuración Requerida</span>
                   </div>
                   <p className="text-red-600 dark:text-red-400">
-                    {selectedModel === 'claude-sonnet-4' ? 'Añade ANTHROPIC_API_KEY a tu archivo .env' :
-                     selectedModel === 'local-llama' ? 'Instala Ollama: curl -fsSL https://ollama.com/install.sh | sh' :
-                     selectedModel === 'groq-llama' ? 'Añade GROQ_API_KEY a tu archivo .env' :
-                     selectedModel === 'gpt-4o' ? 'Añade OPENAI_API_KEY a tu archivo .env' :
-                     'Añade GEMINI_API_KEY a tu archivo .env'}
+                    {selectedModel === 'groq-llama' ? 'Añade GROQ_API_KEY a tu archivo .env' :
+                     selectedModel === 'odysseus' ? 'Inicia Odysseus en localhost:7000' :
+                     'Configura la API key'}
                   </p>
                 </div>
               )}
