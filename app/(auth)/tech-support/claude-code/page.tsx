@@ -1,11 +1,19 @@
 'use client';
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 import { conversationService, type IConversation, type IMessage } from '@/services/conversation.service';
 import { useAuth } from '@clerk/nextjs';
+import OdysseusAuthModal from '@/components/OdysseusAuthModal';
+
+interface OdysseusConfig {
+  baseUrl: string;
+  username: string;
+  password: string;
+  chatEndpoint?: string;
+  workspace?: string;
+}
 
 interface Message {
   id: string;
@@ -35,17 +43,46 @@ interface AIModel {
   color: string;
 }
 
+interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  is_public: boolean;
+}
+
 export default function ClaudeCodePage() {
   const { userRole } = useRoleBasedAccess();
   const { userId } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('groq-llama');
-  const [isApiConfigured, setIsApiConfigured] = useState<boolean | null>(null);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+const [input, setInput] = useState('');
+   const [isLoading, setIsLoading] = useState(false);
+   const [selectedModel, setSelectedModel] = useState<string>('groq-llama');
+   const [isApiConfigured, setIsApiConfigured] = useState<boolean | null>(null);
+   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+   const [odysseusConfig, setOdysseusConfig] = useState<OdysseusConfig | null>(null);
+   const [showOdysseusAuth, setShowOdysseusAuth] = useState(false);
+   const [agentMode, setAgentMode] = useState(false);
+   const [toolPolicies, setToolPolicies] = useState({
+    allowBash: true,
+    allowWebSearch: true,
+    allowFileOps: true,
+    allowCustomTools: true,
+  });
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
+  const [isLoadingSkills, setIsLoadingSkills] = useState(false);
+   const [agentRunStatus, setAgentRunStatus] = useState<'idle' | 'running' | 'completed' | 'error'>('idle');
+   const [agentRunHistory, setAgentRunHistory] = useState<Array<{
+    id: string;
+    timestamp: Date;
+    status: 'completed' | 'error' | 'cancelled';
+    message: string;
+  }>>([]);
+   const abortControllerRef = useRef<AbortController | null>(null);
+   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Available AI models (free and paid options)
   const availableModels: AIModel[] = [
@@ -91,23 +128,75 @@ export default function ClaudeCodePage() {
 
   // Check API configuration on mount
   useEffect(() => {
+    // Load odysseus config from localStorage on mount
+    const storedConfig = localStorage.getItem('odysseus-config');
+    if (storedConfig) {
+      try {
+        setOdysseusConfig(JSON.parse(storedConfig));
+      } catch (error) {
+        console.error('Failed to parse stored odysseus config:', error);
+      }
+    }
+    
     checkApiConfiguration();
+    loadSkills();
   }, [selectedModel]);
+
+  const loadSkills = async () => {
+    try {
+      setIsLoadingSkills(true);
+      const response = await fetch('/api/skills', {
+        headers: { 'x-internal-call': 'true' }
+      });
+      const data = await response.json();
+      setSkills(data.skills || []);
+    } catch (error) {
+      console.error('Error loading skills:', error);
+    } finally {
+      setIsLoadingSkills(false);
+    }
+  };
 
   const checkApiConfiguration = async () => {
     try {
       const currentModel = availableModels.find(m => m.id === selectedModel);
       if (!currentModel) return;
-      
+
       const response = await fetch(currentModel.apiRoute, {
         method: 'GET'
       });
-      
+
       const data = await response.json();
       setIsApiConfigured(data.configured);
-    } catch {
+      
+      // If Odysseus is not configured, show the auth modal
+      if (selectedModel === 'odysseus' && !data.configured) {
+        setShowOdysseusAuth(true);
+      }
+    } catch (error) {
+      console.error('API configuration check failed:', error);
       setIsApiConfigured(false);
+      if (selectedModel === 'odysseus') {
+        setShowOdysseusAuth(true);
+      }
     }
+  };
+
+  const handleOdysseusAuthSave = async (config: OdysseusConfig) => {
+    setOdysseusConfig(config);
+    // Store in localStorage for persistence
+    localStorage.setItem('odysseus-config', JSON.stringify(config));
+    // Re-check configuration after saving
+    await checkApiConfiguration();
+  };
+
+  const handleOdysseusAuthClose = () => {
+    // Check if we already have config stored
+    const stored = localStorage.getItem('odysseus-config');
+    if (stored) {
+      setOdysseusConfig(JSON.parse(stored));
+    }
+    setShowOdysseusAuth(false);
   };
 
   // Load conversations from database
@@ -183,6 +272,11 @@ export default function ClaudeCodePage() {
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading || !isApiConfigured) return;
+    
+    if (selectedModel === 'odysseus' && !odysseusConfig) {
+      setShowOdysseusAuth(true);
+      return;
+    }
 
     // Create new session if none exists
     let session = currentSession;
@@ -213,6 +307,14 @@ export default function ClaudeCodePage() {
     setInput('');
     setIsLoading(true);
 
+    // Set agent run status if in agent mode
+    const isAgentModel = selectedModel === 'odysseus' || selectedModel === 'groq-llama';
+    if (isAgentModel && agentMode) {
+      setAgentRunStatus('running');
+      // Create new AbortController for this request
+      abortControllerRef.current = new AbortController();
+    }
+
     try {
       const currentModel = availableModels.find(m => m.id === selectedModel);
       if (!currentModel) return;
@@ -222,14 +324,27 @@ export default function ClaudeCodePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: input,
-          context: { currentPath: '/home/dentaldiamondhn/diamond-link' }
-        })
+          context: { currentPath: '/home/dentaldiamondhn/diamond-link' },
+          odysseusConfig: selectedModel === 'odysseus' && odysseusConfig ? {
+            baseUrl: odysseusConfig.baseUrl,
+            username: odysseusConfig.username,
+            password: odysseusConfig.password,
+            chatEndpoint: odysseusConfig.chatEndpoint,
+            workspace: odysseusConfig.workspace
+          } : undefined,
+          agentMode: isAgentModel ? agentMode : undefined,
+          toolPolicies: isAgentModel && agentMode ? toolPolicies : undefined,
+          customToolsEnabled: isAgentModel && agentMode && toolPolicies.allowCustomTools,
+          skillId: isAgentModel ? selectedSkill : undefined
+        }),
+        signal: abortControllerRef.current?.signal
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to get response');
+        const errorMsg = data.details || data.error || 'Failed to get response';
+        throw new Error(errorMsg);
       }
 
       const assistantMessage: Message = {
@@ -256,16 +371,50 @@ export default function ClaudeCodePage() {
       if (session.messages.length === 0) {
         const newTitle = input.trim().substring(0, 30) + (input.trim().length > 30 ? '...' : '');
         await conversationService.updateConversation(session.id, userId!, { title: newTitle });
-        
+
         const titledSession = { ...finalSession, title: newTitle };
         setCurrentSession(titledSession);
         setSessions(prev => prev.map(s => s.id === session.id ? titledSession : s));
       }
 
+      // Track successful agent run
+      if (selectedModel === 'odysseus' && agentMode) {
+        setAgentRunHistory(prev => [...prev, {
+          id: `run-${Date.now()}`,
+          timestamp: new Date(),
+          status: 'completed',
+          message: input
+        }]);
+      }
+
     } catch (error) {
       console.error('Chat error:', error);
+      if (selectedModel === 'odysseus' && agentMode) {
+        // Check if it was an abort error
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Agent run cancelled by user');
+          setAgentRunHistory(prev => [...prev, {
+            id: `run-${Date.now()}`,
+            timestamp: new Date(),
+            status: 'cancelled',
+            message: input
+          }]);
+        } else {
+          setAgentRunStatus('error');
+          setAgentRunHistory(prev => [...prev, {
+            id: `run-${Date.now()}`,
+            timestamp: new Date(),
+            status: 'error',
+            message: input
+          }]);
+        }
+      }
     } finally {
       setIsLoading(false);
+      if (selectedModel === 'odysseus' && agentMode) {
+        setAgentRunStatus('idle');
+        abortControllerRef.current = null;
+      }
     }
   };
 
@@ -281,17 +430,25 @@ export default function ClaudeCodePage() {
     }
   };
 
-  // Load conversations on component mount
-  useEffect(() => {
-    if (userId) {
-      loadConversations();
-    }
-  }, [userId]);
+// Load conversations on component mount
+   useEffect(() => {
+     if (userId) {
+       loadConversations();
+     }
+   }, [userId]);
 
-  // Check API configuration
-  useEffect(() => {
-    checkApiConfiguration();
-  }, [selectedModel]);
+   // Load Odysseus config from localStorage on mount
+   useEffect(() => {
+     const stored = localStorage.getItem('odysseus-config');
+     if (stored) {
+       setOdysseusConfig(JSON.parse(stored));
+     }
+   }, []);
+
+   // Check API configuration
+   useEffect(() => {
+     checkApiConfiguration();
+   }, [selectedModel]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -353,6 +510,129 @@ export default function ClaudeCodePage() {
               {availableModels.find(m => m.id === selectedModel)?.description}
             </div>
           </div>
+
+          {/* Agent Mode Toggle - For Odysseus and Groq */}
+          {(selectedModel === 'odysseus' || selectedModel === 'groq-llama') && (
+            <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">Agent Mode</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Enable tool execution</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setAgentMode(!agentMode)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    agentMode ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      agentMode ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Tool Policy Controls - Only show when agent mode is enabled */}
+              {agentMode && (
+                <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-700">
+                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Tool Permissions</div>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <input
+                        type="checkbox"
+                        checked={toolPolicies.allowBash}
+                        onChange={(e) => setToolPolicies(prev => ({ ...prev, allowBash: e.target.checked }))}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Allow Bash Commands</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <input
+                        type="checkbox"
+                        checked={toolPolicies.allowWebSearch}
+                        onChange={(e) => setToolPolicies(prev => ({ ...prev, allowWebSearch: e.target.checked }))}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Allow Web Search</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <input
+                        type="checkbox"
+                        checked={toolPolicies.allowFileOps}
+                        onChange={(e) => setToolPolicies(prev => ({ ...prev, allowFileOps: e.target.checked }))}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Allow File Operations</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <input
+                        type="checkbox"
+                        checked={toolPolicies.allowCustomTools}
+                        onChange={(e) => setToolPolicies(prev => ({ ...prev, allowCustomTools: e.target.checked }))}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Allow Diamond-Link Tools</span>
+                    </label>
+                  </div>
+
+                  {/* Skill Selection */}
+                  {(selectedModel === 'odysseus' || selectedModel === 'groq-llama') && (
+                    <div className="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-700">
+                      <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Select Skill (Optional)</div>
+                      <select
+                        value={selectedSkill || ''}
+                        onChange={(e) => setSelectedSkill(e.target.value || null)}
+                        disabled={isLoadingSkills}
+                        className="w-full text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      >
+                        <option value="">No skill selected</option>
+                        {skills.map((skill) => (
+                          <option key={skill.id} value={skill.id}>
+                            {skill.name} ({skill.category})
+                          </option>
+                        ))}
+                      </select>
+                      {selectedSkill && (
+                        <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                          {skills.find(s => s.id === selectedSkill)?.description}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Agent Run History */}
+                  {agentRunHistory.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-700">
+                      <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Recent Agent Runs</div>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {agentRunHistory.slice(-5).reverse().map((run) => (
+                          <div key={run.id} className="flex items-center gap-2 text-xs">
+                            <div className={`w-2 h-2 rounded-full ${
+                              run.status === 'completed' ? 'bg-green-500' :
+                              run.status === 'error' ? 'bg-red-500' :
+                              'bg-yellow-500'
+                            }`}></div>
+                            <span className="text-gray-600 dark:text-gray-400 truncate flex-1">
+                              {run.message.substring(0, 30)}...
+                            </span>
+                            <span className="text-gray-400 dark:text-gray-500">
+                              {new Date(run.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         {/* Chat Sessions */}
@@ -439,21 +719,29 @@ export default function ClaudeCodePage() {
               </div>
             </div>
           </div>
-          {isApiConfigured === false && (
-            <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h-1a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <span className="text-sm font-medium text-red-700 dark:text-red-300">Configuration Required</span>
-              </div>
-              <p className="text-xs text-red-600 dark:text-red-400">
-                {selectedModel === 'groq-llama' ? 'Add GROQ_API_KEY to .env' :
-                 selectedModel === 'odysseus' ? 'Start Odysseus at localhost:7000' :
-                 'Configure API key'}
-              </p>
-            </div>
-          )}
+{isApiConfigured === false && (
+             <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700">
+               <div className="flex items-center gap-2 mb-2">
+                 <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h-1a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                 </svg>
+                 <span className="text-sm font-medium text-red-700 dark:text-red-300">Configuration Required</span>
+               </div>
+               <p className="text-xs text-red-600 dark:text-red-400 mb-2">
+                 {selectedModel === 'groq-llama' ? 'Add GROQ_API_KEY to .env' :
+                  selectedModel === 'odysseus' ? 'Odysseus requires authentication. Configure API credentials below.' :
+                  'Configure API key'}
+               </p>
+               {selectedModel === 'odysseus' && (
+                 <button
+                   onClick={() => setShowOdysseusAuth(true)}
+                   className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                 >
+                   Configure Odysseus
+                 </button>
+               )}
+             </div>
+           )}
         </div>
       </div>
       
@@ -469,17 +757,55 @@ export default function ClaudeCodePage() {
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {currentSession.messages.length} mensajes
+                  {selectedModel === 'odysseus' && agentMode && (
+                    <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-full text-xs">
+                      Agent Mode
+                    </span>
+                  )}
                 </p>
               </div>
-              <button
-                onClick={clearSession}
-                className="text-gray-500 hover:text-red-500 transition-colors"
-                title="Eliminar conversación"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+              <div className="flex items-center space-x-2">
+                {selectedModel === 'odysseus' && agentMode && agentRunStatus === 'running' && (
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                      <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse"></div>
+                      <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Agent Running</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (abortControllerRef.current) {
+                          abortControllerRef.current.abort();
+                          setAgentRunStatus('idle');
+                        }
+                      }}
+                      className="text-xs px-2 py-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                      title="Cancel Agent Run"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+                {selectedModel === 'odysseus' && odysseusConfig && (
+                  <button
+                    onClick={() => setShowOdysseusAuth(true)}
+                    className="text-xs px-2 py-1 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400"
+                    title="Reconfigure Odysseus"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.546 2.626-1.546 3.05 0l.25 1.068a2.996 2.996 0 013.49.698l.95 1.292c1.532.954 2.016 2.847.75 4.22a.99.99 0 01-.75.427H9.5a.99.99 0 01-.75-.427l-.95-1.292a2.996 2.996 0 01.75-4.22l.25-1.068z" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={clearSession}
+                  className="text-gray-500 hover:text-red-500 transition-colors"
+                  title="Eliminar conversación"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Messages */}
@@ -680,7 +1006,7 @@ export default function ClaudeCodePage() {
                   <span className="text-purple-700 dark:text-purple-300 font-bold">📚 Aprendizaje</span>
                 </div>
               </div>
-              <button
+<button
                 onClick={createNewSession}
                 disabled={!isApiConfigured}
                 className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-xl text-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
@@ -695,16 +1021,31 @@ export default function ClaudeCodePage() {
                     </svg>
                     <span className="text-lg font-bold text-red-700 dark:text-red-300">Configuración Requerida</span>
                   </div>
-                  <p className="text-red-600 dark:text-red-400">
+                  <p className="text-red-600 dark:text-red-400 mb-3">
                     {selectedModel === 'groq-llama' ? 'Añade GROQ_API_KEY a tu archivo .env' :
-                     selectedModel === 'odysseus' ? 'Inicia Odysseus en localhost:7000' :
+                     selectedModel === 'odysseus' ? 'Odysseus requiere autenticación. Configura las credenciales API.' :
                      'Configura la API key'}
                   </p>
+                  {selectedModel === 'odysseus' && (
+                    <button
+                      onClick={() => setShowOdysseusAuth(true)}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                      Configurar Odysseus
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           </div>
         )}
+
+        {/* Odysseus Auth Modal */}
+        <OdysseusAuthModal
+          isOpen={showOdysseusAuth}
+          onClose={handleOdysseusAuthClose}
+          onSave={handleOdysseusAuthSave}
+        />
       </div>
     </div>
   );

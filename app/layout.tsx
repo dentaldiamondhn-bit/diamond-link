@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/react'
 import VercelAnalytics from '@/components/VercelAnalytics'
 import './globals.css'
 import BannerAlert from '@/components/BannerAlert'
+import GlobalChatBubble from '@/components/GlobalChatBubble'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -107,6 +108,7 @@ export default function RootLayout({
         <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
           <BannerAlert />
           {children}
+          <GlobalChatBubble />
           <Analytics />
           <VercelAnalytics />
         </body>

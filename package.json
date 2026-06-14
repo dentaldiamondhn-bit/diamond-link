@@ -36,6 +36,7 @@
     "dotenv": "^17.2.3",
     "ecc-universal": "github:affaan-m/everything-claude-code",
     "framer-motion": "^12.23.26",
+    "groq-sdk": "^1.2.1",
     "jspdf": "^4.0.0",
     "lottie-web": "^5.13.0",
     "next": "^15.1.6",
