@@ -108,18 +108,23 @@ const [input, setInput] = useState('');
     }
   ];
 
-  // Check if user is tech support
-  if (userRole !== 'tech_support') {
+  // Check if user has access to AI assistant
+  const allowedRoles = ['tech_support', 'admin', 'doctor', 'staff'];
+  if (!allowedRoles.includes(userRole)) {
     return (
       <AccessDenied
         title="Acceso Denegado"
         message="No tienes permiso para acceder a esta página."
-        explanation="Esta área es exclusiva para el personal de soporte técnico."
+        explanation="Esta área es exclusiva para el personal autorizado."
         contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
         onGoBack={() => window.history.back()}
       />
     );
   }
+
+  // Determine if user has full tech support access
+  const isTechSupport = userRole === 'tech_support';
+  const hasLimitedAccess = ['admin', 'doctor', 'staff'].includes(userRole);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -149,7 +154,23 @@ const [input, setInput] = useState('');
         headers: { 'x-internal-call': 'true' }
       });
       const data = await response.json();
-      setSkills(data.skills || []);
+      const allSkills = data.skills || [];
+      
+      // Filter skills based on user role
+      let filteredSkills = allSkills;
+      if (hasLimitedAccess) {
+        // For admin/doctor/staff: only show code-related or app-related skills
+        filteredSkills = allSkills.filter(skill => 
+          skill.category === 'code' || 
+          skill.category === 'app' ||
+          skill.name.toLowerCase().includes('code') ||
+          skill.name.toLowerCase().includes('app') ||
+          skill.description?.toLowerCase().includes('code') ||
+          skill.description?.toLowerCase().includes('app')
+        );
+      }
+      
+      setSkills(filteredSkills);
     } catch (error) {
       console.error('Error loading skills:', error);
     } finally {
@@ -511,7 +532,7 @@ const [input, setInput] = useState('');
             </div>
           </div>
 
-          {/* Agent Mode Toggle - For Odysseus and Groq */}
+          {/* Agent Mode Toggle - For Odysseus and Groq, all allowed roles */}
           {(selectedModel === 'odysseus' || selectedModel === 'groq-llama') && (
             <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
               <div className="flex items-center justify-between mb-3">
@@ -543,24 +564,28 @@ const [input, setInput] = useState('');
                 <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-700">
                   <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Tool Permissions</div>
                   <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <input
-                        type="checkbox"
-                        checked={toolPolicies.allowBash}
-                        onChange={(e) => setToolPolicies(prev => ({ ...prev, allowBash: e.target.checked }))}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span>Allow Bash Commands</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <input
-                        type="checkbox"
-                        checked={toolPolicies.allowWebSearch}
-                        onChange={(e) => setToolPolicies(prev => ({ ...prev, allowWebSearch: e.target.checked }))}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span>Allow Web Search</span>
-                    </label>
+                    {isTechSupport && (
+                      <>
+                        <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                          <input
+                            type="checkbox"
+                            checked={toolPolicies.allowBash}
+                            onChange={(e) => setToolPolicies(prev => ({ ...prev, allowBash: e.target.checked }))}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span>Allow Bash Commands</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                          <input
+                            type="checkbox"
+                            checked={toolPolicies.allowWebSearch}
+                            onChange={(e) => setToolPolicies(prev => ({ ...prev, allowWebSearch: e.target.checked }))}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span>Allow Web Search</span>
+                        </label>
+                      </>
+                    )}
                     <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                       <input
                         type="checkbox"
@@ -579,6 +604,11 @@ const [input, setInput] = useState('');
                       />
                       <span>Allow Diamond-Link Tools</span>
                     </label>
+                    {hasLimitedAccess && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                        * Limited permissions for {userRole} role
+                      </div>
+                    )}
                   </div>
 
                   {/* Skill Selection */}
