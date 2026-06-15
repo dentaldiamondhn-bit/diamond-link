@@ -40,7 +40,7 @@ export default function GlobalChatBubble() {
 
   // Load chat history when opened
   useEffect(() => {
-    if (userId && isOpen && messages.length === 0 && !conversationId) {
+    if (userId && isOpen && !conversationId) {
       const fetchHistory = async () => {
         try {
           const res = await fetch(`/api/groq-chat?userId=${userId}`);
@@ -57,7 +57,7 @@ export default function GlobalChatBubble() {
       };
       fetchHistory();
     }
-  }, [userId, isOpen, messages.length, conversationId]);
+  }, [userId, isOpen, conversationId]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
