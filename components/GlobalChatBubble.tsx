@@ -24,12 +24,28 @@ export default function GlobalChatBubble() {
   const { userRole, userId, isLoaded } = useUserRole();
 
   useEffect(() => {
-    if (userRole === 'tech_support') {
+    if (['tech_support', 'admin', 'doctor', 'staff'].includes(userRole || '')) {
       const fetchSkills = async () => {
         try {
           const res = await fetch('/api/skills');
           const data = await res.json();
-          setSkills(data.skills || []);
+          const allSkills = data.skills || [];
+          
+          // Filter skills based on user role
+          let filteredSkills = allSkills;
+          if (userRole !== 'tech_support') {
+            // For admin/doctor/staff: only show code-related or app-related skills
+            filteredSkills = allSkills.filter(skill => 
+              skill.category === 'code' || 
+              skill.category === 'app' ||
+              skill.name.toLowerCase().includes('code') ||
+              skill.name.toLowerCase().includes('app') ||
+              skill.description?.toLowerCase().includes('code') ||
+              skill.description?.toLowerCase().includes('app')
+            );
+          }
+          
+          setSkills(filteredSkills);
         } catch (e) {
           console.error('Failed to fetch skills', e);
         }
@@ -89,8 +105,8 @@ export default function GlobalChatBubble() {
           userRole: userRole || 'guest',
           userId: userId,
           conversationId: conversationId,
-          agentMode: userRole === 'tech_support' ? agentMode : false,
-          skillId: userRole === 'tech_support' ? selectedSkill : undefined
+          agentMode: ['tech_support', 'admin', 'doctor', 'staff'].includes(userRole || '') ? agentMode : false,
+          skillId: ['tech_support', 'admin', 'doctor', 'staff'].includes(userRole || '') ? selectedSkill : undefined
         }),
       });
 
@@ -147,7 +163,7 @@ export default function GlobalChatBubble() {
               </button>
             </div>
 
-            {userRole === 'tech_support' && (
+            {(['tech_support', 'admin', 'doctor', 'staff'].includes(userRole || '')) && (
               <div className="bg-gray-100 dark:bg-gray-700/50 p-3 border-b border-gray-200 dark:border-gray-600 text-sm">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-700 dark:text-gray-300 font-medium">Agent Mode</span>
@@ -174,6 +190,11 @@ export default function GlobalChatBubble() {
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
                     </select>
+                    {userRole !== 'tech_support' && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                        * Limited skills for {userRole?.replace('_', ' ')} role
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
