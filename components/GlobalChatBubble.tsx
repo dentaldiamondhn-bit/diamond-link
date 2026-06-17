@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
+import { UserButton } from '@clerk/nextjs';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -154,13 +155,26 @@ export default function GlobalChatBubble() {
                   </p>
                 </div>
               </div>
-              <button 
-                onClick={toggleChat}
-                className="p-1 hover:bg-teal-600 dark:hover:bg-teal-700 rounded-full transition-colors"
-                aria-label="Close chat"
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Clerk User Avatar */}
+                <div className="relative flex-shrink-0">
+                  <UserButton 
+                    appearance={{
+                      elements: {
+                        avatarBox: "w-8 h-8 shadow-md",
+                        userButton: "hover:bg-teal-600 rounded-lg transition-colors"
+                      }
+                    }}
+                  />
+                </div>
+                <button 
+                  onClick={toggleChat}
+                  className="p-1 hover:bg-teal-600 dark:hover:bg-teal-700 rounded-full transition-colors"
+                  aria-label="Close chat"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {(['tech_support', 'admin', 'doctor', 'staff'].includes(userRole || '')) && (
