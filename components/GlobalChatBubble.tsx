@@ -4,11 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
-import { UserButton } from '@clerk/nextjs';
+import { UserButton, useUser } from '@clerk/nextjs';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  timestamp?: string;
 }
 
 export default function GlobalChatBubble() {
@@ -23,6 +24,7 @@ export default function GlobalChatBubble() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { userRole, userId, isLoaded } = useUserRole();
+  const { user } = useUser();
 
   useEffect(() => {
     if (['tech_support', 'admin', 'doctor', 'staff'].includes(userRole || '')) {
@@ -92,7 +94,11 @@ export default function GlobalChatBubble() {
     if (e) e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = { role: 'user', content: input.trim() };
+    const userMessage: Message = { 
+      role: 'user', 
+      content: input.trim(),
+      timestamp: new Date().toISOString()
+    };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -121,7 +127,11 @@ export default function GlobalChatBubble() {
         setConversationId(data.conversationId);
       }
 
-      const assistantMessage: Message = { role: 'assistant', content: data.message };
+      const assistantMessage: Message = { 
+        role: 'assistant', 
+        content: data.message,
+        timestamp: new Date().toISOString()
+      };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Chat error:', error);
@@ -230,19 +240,34 @@ export default function GlobalChatBubble() {
                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        msg.role === 'user' 
-                          ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
-                          : 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400'
-                      }`}>
-                        {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
-                      </div>
-                      <div className={`p-3 rounded-2xl text-sm ${
-                        msg.role === 'user'
-                          ? 'bg-blue-500 text-white rounded-tr-sm'
-                          : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm shadow-sm'
-                      }`}>
-                        {msg.content}
+                      {msg.role === 'user' && user?.imageUrl ? (
+                        <img 
+                          src={user.imageUrl} 
+                          alt="User avatar"
+                          className="w-8 h-8 rounded-full flex-shrink-0 object-cover"
+                        />
+                      ) : (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          msg.role === 'user' 
+                            ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' 
+                            : 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400'
+                        }`}>
+                          {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                        </div>
+                      )}
+                      <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className={`p-3 rounded-2xl text-sm ${
+                          msg.role === 'user'
+                            ? 'bg-blue-500 text-white rounded-tr-sm'
+                            : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm shadow-sm'
+                        }`}>
+                          {msg.content}
+                        </div>
+                        {msg.timestamp && (
+                          <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
