@@ -9,7 +9,7 @@ import { UserButton, useUser } from '@clerk/nextjs';
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
-  timestamp?: string;
+  timestamp: string;
 }
 
 export default function GlobalChatBubble() {
@@ -135,7 +135,7 @@ export default function GlobalChatBubble() {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessage: Message = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again later.' };
+      const errorMessage: Message = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again later.', timestamp: new Date().toISOString() };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -234,7 +234,8 @@ export default function GlobalChatBubble() {
                   </p>
                 </div>
               ) : (
-                messages.filter(m => m.role !== 'system').map((msg, idx) => (
+                [...messages].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                  .filter(m => m.role !== 'system').map((msg, idx) => (
                   <div 
                     key={idx} 
                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -263,11 +264,9 @@ export default function GlobalChatBubble() {
                         }`}>
                           {msg.content}
                         </div>
-                        {msg.timestamp && (
-                          <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        )}
+                        <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     </div>
                   </div>

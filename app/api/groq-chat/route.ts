@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
           const latestConv = conversations[0];
           return NextResponse.json({
             conversationId: latestConv.id,
-            messages: latestConv.messages?.map(m => ({ role: m.role, content: m.content })) || []
+            messages: latestConv.messages?.map(m => ({ role: m.role, content: m.content, timestamp: m.created_at })) || []
           });
         }
         return NextResponse.json({ conversationId: null, messages: [] });
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         if (currentConversationId) {
           // Fetch past messages
           const history = await conversationService.getMessages(currentConversationId, userId);
-          pastMessages = history.map(m => ({ role: m.role, content: m.content }));
+          pastMessages = history.map(m => ({ role: m.role, content: m.content, timestamp: m.createdAt }));
           
           // Save the new user message
           await conversationService.addMessage(currentConversationId, {
