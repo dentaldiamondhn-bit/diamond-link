@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { conversationService } from '@/services/conversation.service';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,10 +38,41 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, context, odysseusConfig } = await request.json();
+    const { message, context, odysseusConfig, userId, conversationId } = await request.json();
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    }
+
+    // Handle Conversation Memory & Save User Message
+    let currentConversationId = conversationId;
+    if (userId) {
+      try {
+        if (!currentConversationId) {
+          // Find latest conversation
+          const conversations = await conversationService.getConversations(userId);
+          if (conversations && conversations.length > 0) {
+            currentConversationId = conversations[0].id;
+          } else {
+            // Create new conversation
+            const newConv = await conversationService.createConversation(userId, {
+              title: 'Diamond Assistant',
+              model: 'odysseus'
+            });
+            currentConversationId = newConv.id;
+          }
+        }
+
+        if (currentConversationId) {
+          // Save the new user message
+          await conversationService.addMessage(currentConversationId, {
+            role: 'user',
+            content: message
+          });
+        }
+      } catch (err) {
+        console.error('Error with conversation service in Odysseus POST:', err);
+      }
     }
 
     const baseUrl = odysseusConfig?.baseUrl || ODYSSEUS_BASE_URL;
@@ -48,7 +80,7 @@ export async function POST(request: NextRequest) {
     const password = odysseusConfig?.password;
     const customChatEndpoint = odysseusConfig?.chatEndpoint;
 
-    let headers: Record<string, string> = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
@@ -98,9 +130,24 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await odysseusResponse.json();
+    const responseMessage = data.response || data.choices?.[0]?.message?.content || data.message || data.content || 'No response from Odysseus';
+
+    // Save assistant message to Supabase
+    if (currentConversationId && userId) {
+      try {
+        await conversationService.addMessage(currentConversationId, {
+          role: 'assistant',
+          content: responseMessage,
+          model: 'odysseus'
+        });
+      } catch (err) {
+        console.error('Failed to save Odysseus assistant message:', err);
+      }
+    }
 
     return NextResponse.json({
-      message: data.response || data.choices?.[0]?.message?.content || data.message || data.content || 'No response from Odysseus',
+      message: responseMessage,
+      conversationId: currentConversationId
     });
   } catch (error) {
     console.error('Error calling Odysseus:', error);

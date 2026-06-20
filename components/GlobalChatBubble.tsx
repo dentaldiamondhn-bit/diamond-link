@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -57,26 +57,32 @@ export default function GlobalChatBubble() {
     }
   }, [userRole]);
 
+  const loadHistory = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const res = await fetch(`/api/groq-chat?userId=${encodeURIComponent(userId)}`, {
+        cache: 'no-store'
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to load chat history');
+      }
+      if (Array.isArray(data.messages)) {
+        setMessages(data.messages);
+        setConversationId(data.conversationId || null);
+      }
+    } catch (e) {
+      console.error('Failed to load chat history', e);
+    }
+  }, [userId]);
+
   // Load chat history when opened
   useEffect(() => {
-    if (userId && isOpen && !conversationId) {
-      const fetchHistory = async () => {
-        try {
-          const res = await fetch(`/api/groq-chat?userId=${userId}`);
-          const data = await res.json();
-          if (data.messages && data.messages.length > 0) {
-            setMessages(data.messages);
-            if (data.conversationId) {
-              setConversationId(data.conversationId);
-            }
-          }
-        } catch (e) {
-          console.error('Failed to load chat history', e);
-        }
-      };
-      fetchHistory();
+    if (userId && isOpen) {
+      loadHistory();
     }
-  }, [userId, isOpen, conversationId]);
+  }, [userId, isOpen, loadHistory]);
 
   // Scroll to bottom when messages change
   useEffect(() => {

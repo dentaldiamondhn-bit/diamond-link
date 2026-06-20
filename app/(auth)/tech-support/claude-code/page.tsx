@@ -236,12 +236,12 @@ const [input, setInput] = useState('');
           id: msg.id,
           role: msg.role,
           content: msg.content,
-          timestamp: new Date(msg.createdAt),
+          timestamp: new Date(msg.created_at),
           model: msg.model
         })),
-        createdAt: conv.createdAt,
+        createdAt: conv.created_at,
         model: conv.model,
-        userId: conv.userId
+        userId: conv.user_id
       }));
       
       setSessions(chatSessions);
@@ -253,7 +253,7 @@ const [input, setInput] = useState('');
   };
 
   const createNewSession = async () => {
-    if (!userId) return;
+    if (!userId) return null;
     
     try {
       const newConversation = await conversationService.createConversation(userId, {
@@ -265,15 +265,17 @@ const [input, setInput] = useState('');
         id: newConversation.id,
         title: newConversation.title,
         messages: [],
-        createdAt: newConversation.createdAt,
+        createdAt: newConversation.created_at,
         model: newConversation.model,
-        userId: newConversation.userId
+        userId: newConversation.user_id
       };
       
       setSessions(prev => [newSession, ...prev]);
       setCurrentSession(newSession);
+      return newSession;
     } catch (error) {
       console.error('Failed to create conversation:', error);
+      return null;
     }
   };
 
@@ -302,15 +304,16 @@ const [input, setInput] = useState('');
     // Create new session if none exists
     let session = currentSession;
     if (!session) {
-      await createNewSession();
-      session = currentSession;
-      if (!session) return;
+      const newSession = await createNewSession();
+      if (!newSession) return;
+      session = newSession;
     }
 
+    const inputText = input.trim();
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
       role: 'user',
-      content: input.trim(),
+      content: inputText,
       timestamp: new Date()
     };
 
@@ -318,12 +321,6 @@ const [input, setInput] = useState('');
     const updatedSession = { ...session, messages: [...session.messages, userMessage] };
     setCurrentSession(updatedSession);
     setSessions(prev => prev.map(s => s.id === session.id ? updatedSession : s));
-    
-    // Save user message to database
-    await saveMessage(session.id, {
-      role: 'user',
-      content: input.trim()
-    });
 
     setInput('');
     setIsLoading(true);
@@ -344,7 +341,9 @@ const [input, setInput] = useState('');
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: input,
+          message: inputText,
+          userId: userId,
+          conversationId: session.id,
           context: { currentPath: '/home/dentaldiamondhn/diamond-link' },
           odysseusConfig: selectedModel === 'odysseus' && odysseusConfig ? {
             baseUrl: odysseusConfig.baseUrl,
@@ -381,16 +380,9 @@ const [input, setInput] = useState('');
       setCurrentSession(finalSession);
       setSessions(prev => prev.map(s => s.id === session.id ? finalSession : s));
 
-      // Save assistant message to database
-      await saveMessage(session.id, {
-        role: 'assistant',
-        content: data.message,
-        model: selectedModel
-      });
-
       // Update conversation title if it's the first exchange
       if (session.messages.length === 0) {
-        const newTitle = input.trim().substring(0, 30) + (input.trim().length > 30 ? '...' : '');
+        const newTitle = inputText.substring(0, 30) + (inputText.length > 30 ? '...' : '');
         await conversationService.updateConversation(session.id, userId!, { title: newTitle });
 
         const titledSession = { ...finalSession, title: newTitle };

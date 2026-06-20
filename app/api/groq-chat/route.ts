@@ -3,6 +3,9 @@ import Groq from 'groq-sdk';
 import { createClient } from '@supabase/supabase-js';
 import { conversationService } from '@/services/conversation.service';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Initialize Groq client
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY || '',
@@ -55,12 +58,18 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({
             conversationId: latestConv.id,
             messages: latestConv.messages?.map(m => ({ role: m.role, content: m.content, timestamp: m.created_at })) || []
+          }, {
+            headers: { 'Cache-Control': 'no-store' }
           });
         }
-        return NextResponse.json({ conversationId: null, messages: [] });
+        return NextResponse.json({ conversationId: null, messages: [] }, {
+          headers: { 'Cache-Control': 'no-store' }
+        });
       } catch (e) {
         console.error('Error fetching conversations:', e);
-        return NextResponse.json({ conversationId: null, messages: [] });
+        return NextResponse.json({ conversationId: null, messages: [] }, {
+          headers: { 'Cache-Control': 'no-store' }
+        });
       }
     }
 
@@ -69,7 +78,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ configured: false, error: 'GROQ_API_KEY is not configured' }, { status: 200 });
     }
     return NextResponse.json({ configured: true, service: 'Groq (Free)' });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ configured: false, error: 'Failed to check API configuration or history' }, { status: 200 });
   }
 }
@@ -126,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     // Handle Conversation Memory
     let currentConversationId = conversationId;
-    let pastMessages: any[] = [];
+    let pastMessages: { role: string; content: string; timestamp?: string }[] = [];
 
     if (userId) {
       try {
@@ -148,7 +157,7 @@ export async function POST(request: NextRequest) {
         if (currentConversationId) {
           // Fetch past messages
           const history = await conversationService.getMessages(currentConversationId, userId);
-          pastMessages = history.map(m => ({ role: m.role, content: m.content, timestamp: m.createdAt }));
+          pastMessages = history.map(m => ({ role: m.role, content: m.content, timestamp: m.created_at }));
           
           // Save the new user message
           await conversationService.addMessage(currentConversationId, {
@@ -184,8 +193,6 @@ export async function POST(request: NextRequest) {
     });
 
     const responseMessage = completion.choices?.[0]?.message?.content || 'No response generated';
-    
-    const newAssistantMessage = { role: 'assistant', content: responseMessage };
 
     // Save back to Supabase
     if (currentConversationId && userId) {

@@ -118,6 +118,7 @@ export class ConversationService {
         )
       `)
       .eq('user_id', userId)
+      .order('created_at', { ascending: true, foreignTable: 'messages' })
       .order('created_at', { ascending: false });
 
     if (error) {
