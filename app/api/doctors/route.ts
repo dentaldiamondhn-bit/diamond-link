@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
+import { DoctorService } from '@/services/doctorService';
 import { Doctor } from '@/config/doctors';
 
 
@@ -15,12 +15,12 @@ export async function GET(request: NextRequest) {
     let doctors: Doctor[];
 
     if (specialty) {
-      doctors = await SupabaseDoctorService.getDoctorsBySpecialty(specialty);
+      doctors = await DoctorService.getDoctorsBySpecialty(specialty);
     } else if (userId) {
-      const doctor = await SupabaseDoctorService.getDoctorByUserId(userId);
+      const doctor = await DoctorService.getDoctorByUserId(userId);
       doctors = doctor ? [doctor] : [];
     } else {
-      doctors = await SupabaseDoctorService.getDoctors();
+      doctors = await DoctorService.getDoctors();
     }
 
     return NextResponse.json({ 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const newDoctor = await SupabaseDoctorService.createDoctor(body);
+    const newDoctor = await DoctorService.createDoctor(body);
     
     return NextResponse.json({ 
       success: true, 

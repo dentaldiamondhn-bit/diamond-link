@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
-import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
+import { DoctorService } from '@/services/doctorService';
 import { Patient } from '@/types/patient';
 import { createPatient } from './actions';
 import { updatePatient } from './edit-actions';
@@ -413,7 +413,7 @@ function PatientFormContent() {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const doctorsData = await SupabaseDoctorService.getDoctors();
+        const doctorsData = await DoctorService.getDoctors();
         setDoctors(doctorsData);
       } catch (error) {
         console.error('Error fetching doctors:', error);

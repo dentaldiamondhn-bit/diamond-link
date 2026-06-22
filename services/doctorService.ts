@@ -1,195 +1,193 @@
-import { Doctor, getAvailableDoctors } from '../config/doctors';
-import { DoctorValidator } from '../utils/doctorValidator';
+import { supabase } from '../lib/supabase';
+import { Doctor } from '../config/doctors';
 
 export class DoctorService {
-  // In a real implementation, this would interact with a database
-  // For now, we'll use localStorage for persistence
-  
-  static getStorageKey(): string {
-    return 'clinica_doctores_config';
-  }
-
   static async getDoctors(): Promise<Doctor[]> {
     try {
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem(this.getStorageKey());
-        if (stored) {
-          return JSON.parse(stored);
-        }
-      }
-      // Return dynamic doctors from config
-      return getAvailableDoctors();
-    } catch (error) {
-      console.error('Error getting doctors:', error);
-      return getAvailableDoctors();
-    }
-  }
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
 
-  static async saveDoctors(doctors: Doctor[]): Promise<void> {
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(this.getStorageKey(), JSON.stringify(doctors));
+      if (error) {
+        console.error('Error fetching doctors:', error);
+        throw error;
       }
+
+      return data || [];
     } catch (error) {
-      console.error('Error saving doctors:', error);
+      console.error('Unexpected error fetching doctors:', error);
       throw error;
     }
   }
 
-  static async addDoctor(doctor: Omit<Doctor, 'id'>): Promise<Doctor> {
-    const doctors = await this.getDoctors();
-    const newDoctor: Doctor = {
-      ...doctor,
-      id: `doctor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    };
-    const updatedDoctors = [...doctors, newDoctor];
-    await this.saveDoctors(updatedDoctors);
-    return newDoctor;
+  static async getDoctorById(id: string): Promise<Doctor | null> {
+    try {
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching doctor:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error fetching doctor:', error);
+      throw error;
+    }
+  }
+
+  static async createDoctor(doctorData: Omit<Doctor, 'id' | 'created_at' | 'updated_at'>): Promise<Doctor> {
+    try {
+      // Basic validation only
+      if (!doctorData.name || doctorData.name.trim() === '') {
+        throw new Error('Doctor name is required');
+      }
+      if (doctorData.name.length < 3) {
+        throw new Error('Doctor name must be at least 3 characters');
+      }
+      if (!doctorData.specialty || doctorData.specialty.trim() === '') {
+        throw new Error('Specialty is required');
+      }
+
+      const { data, error } = await supabase
+        .from('doctors')
+        .insert([{
+          ...doctorData,
+          is_active: true
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating doctor:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error creating doctor:', error);
+      throw error;
+    }
   }
 
   static async updateDoctor(id: string, updates: Partial<Doctor>): Promise<Doctor | null> {
-    const doctors = await this.getDoctors();
-    const index = doctors.findIndex(d => d.id === id);
-    
-    if (index === -1) {
-      throw new Error('Doctor not found');
+    try {
+      if (updates.name && updates.name.trim() === '') {
+        throw new Error('Doctor name cannot be empty');
+      }
+
+      const { data, error } = await supabase
+        .from('doctors')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating doctor:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error updating doctor:', error);
+      throw error;
     }
-    
-    const updatedDoctors = [...doctors];
-    updatedDoctors[index] = { ...updatedDoctors[index], ...updates };
-    await this.saveDoctors(updatedDoctors);
-    return updatedDoctors[index];
   }
 
-  static async deleteDoctor(id: string): Promise<boolean> {
-    const doctors = await this.getDoctors();
-    const updatedDoctors = doctors.filter(d => d.id !== id);
-    
-    if (updatedDoctors.length === doctors.length) {
-      return false; // No doctor was removed
-    }
-    
-    await this.saveDoctors(updatedDoctors);
-    return true;
-  }
+  static async deleteDoctor(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('doctors')
+        .update({ is_active: false })
+        .eq('id', id);
 
-  static async getDoctorById(id: string): Promise<Doctor | null> {
-    const doctors = await this.getDoctors();
-    return doctors.find(d => d.id === id) || null;
+      if (error) {
+        console.error('Error deleting doctor:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Unexpected error deleting doctor:', error);
+      throw error;
+    }
   }
 
   static async getDoctorsBySpecialty(specialty: string): Promise<Doctor[]> {
-    const doctors = await this.getDoctors();
-    return doctors.filter(d => d.specialty === specialty);
-  }
-
-  static async searchDoctors(query: string): Promise<Doctor[]> {
-    const doctors = await this.getDoctors();
-    const lowercaseQuery = query.toLowerCase();
-    
-    return doctors.filter(doctor => 
-      doctor.name.toLowerCase().includes(lowercaseQuery) ||
-      doctor.specialty.toLowerCase().includes(lowercaseQuery)
-    );
-  }
-
-  static async validateDoctor(doctor: Partial<Doctor>): Promise<{ isValid: boolean; errors: string[] }> {
-    const errors: string[] = [];
-    
-    if (!doctor.name || doctor.name.trim() === '') {
-      errors.push('El nombre del doctor es requerido');
-    }
-    
-    if (!doctor.specialty || doctor.specialty.trim() === '') {
-      errors.push('La especialidad es requerida');
-    }
-    
-    if (doctor.name && doctor.name.length < 3) {
-      errors.push('El nombre del doctor debe tener al menos 3 caracteres');
-    }
-    
-    if (doctor.specialty && doctor.specialty.length < 2) {
-      errors.push('La especialidad debe tener al menos 2 caracteres');
-    }
-    
-    // Validate email format if provided
-    if (doctor.user_email && doctor.user_email.trim() !== '') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(doctor.user_email)) {
-        errors.push('El email del usuario no es válido');
-      }
-    }
-    
-    // Check for duplicate names (if updating, exclude current doctor)
-    if (doctor.name && doctor.id) {
-      const doctors = await this.getDoctors();
-      const duplicate = doctors.find(d => 
-        d.name.toLowerCase() === doctor.name!.toLowerCase() && d.id !== doctor.id
-      );
-      if (duplicate) {
-        errors.push('Ya existe un doctor con este nombre');
-      }
-    }
-    
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-
-  // For server-side usage (API endpoints)
-  static async getServerDoctors(): Promise<Doctor[]> {
-    // In a real implementation, this would fetch from database
-    // For now, return dynamic configuration
-    return await getAvailableDoctors();
-  }
-
-  static async exportDoctors(): Promise<string> {
-    const doctors = await this.getDoctors();
-    return JSON.stringify(doctors, null, 2);
-  }
-
-  static async importDoctors(jsonData: string): Promise<{ success: boolean; imported: number; errors: string[] }> {
     try {
-      const importedDoctors: Doctor[] = JSON.parse(jsonData);
-      const errors: string[] = [];
-      let imported = 0;
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('specialty', specialty)
+        .eq('is_active', true)
+        .order('name', { ascending: true });
 
-      // Validate each doctor
-      for (const doctor of importedDoctors) {
-        const validation = await this.validateDoctor(doctor);
-        if (!validation.isValid) {
-          errors.push(`Doctor "${doctor.name}": ${validation.errors.join(', ')}`);
-          continue;
-        }
-
-        // Check for duplicates
-        const existingDoctors = await this.getDoctors();
-        const duplicate = existingDoctors.find(d => 
-          d.name.toLowerCase() === doctor.name.toLowerCase()
-        );
-        
-        if (duplicate) {
-          errors.push(`Doctor "${doctor.name}" ya existe`);
-          continue;
-        }
-
-        // Add the doctor
-        await this.addDoctor(doctor);
-        imported++;
+      if (error) {
+        console.error('Error fetching doctors by specialty:', error);
+        throw error;
       }
 
-      return {
-        success: errors.length === 0,
-        imported,
-        errors
-      };
+      return data || [];
     } catch (error) {
-      return {
-        success: false,
-        imported: 0,
-        errors: ['Error parsing JSON data']
-      };
+      console.error('Unexpected error fetching doctors by specialty:', error);
+      throw error;
+    }
+  }
+
+  static async getDoctorByUserId(userId: string): Promise<Doctor | null> {
+    try {
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (error) {
+        // P0000 might happen if user doesn't exist in doctor table
+        if (error.code === 'PGRST116') return null;
+        console.error('Error fetching doctor by user ID:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error fetching doctor by user ID:', error);
+      throw error;
+    }
+  }
+
+  static async uploadProfileImage(file: File): Promise<string> {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `doctor-profiles/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('doctor-profiles')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Error uploading profile image:', uploadError);
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from('doctor-profiles')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Unexpected error uploading profile image:', error);
+      throw error;
     }
   }
 }

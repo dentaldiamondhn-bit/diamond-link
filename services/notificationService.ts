@@ -23,7 +23,7 @@ export class NotificationService {
     }
   }
 
-  static async getNotifications(userId?: string): Promise<BellNotification[]> {
+  static async getNotifications(): Promise<BellNotification[]> {
     try {
       const response = await fetch('/api/notifications', {
         credentials: 'include'

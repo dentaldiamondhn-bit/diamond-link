@@ -11,7 +11,7 @@ import { CompletedTreatmentService } from '@/services/completedTreatmentService'
 import { OdontogramService } from '@/services/odontogramService';
 import { consentimientoService } from '@/services/consentimientoService';
 import { presupuestoService } from '@/services/presupuestoService';
-import { OrthodonticHistoryServiceClient } from '@/services/orthodonticHistoryServiceClient';
+import { OrthodonticHistoryService as OrthodonticHistoryServiceClient } from '@/services/orthodonticHistoryService';
 import { Patient } from '@/types/patient';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';

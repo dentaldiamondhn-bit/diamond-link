@@ -372,7 +372,7 @@ export class ReportsService {
         }
       }
 
-      const { data: completedTreatments, error: completedError } = await treatmentsQuery;
+      const { data: completedTreatments, error: _completedError } = await treatmentsQuery;
 
       // Total patients from patients table (matches dashboard)
       const totalPatients = allPatients?.length || 0;
@@ -439,9 +439,9 @@ export class ReportsService {
       }
 
       // Calculate average age
-      const validAges = patients.filter(p => p.edad && !isNaN(p.edad));
+      const validAges = patients.filter(p => Number(p.edad) && !isNaN(Number(p.edad)));
       const averageAge = validAges.length > 0 
-        ? Math.round(validAges.reduce((sum, p) => sum + p.edad, 0) / validAges.length)
+        ? Math.round(validAges.reduce((sum, p) => sum + Number(p.edad), 0) / validAges.length)
         : 0;
 
       // Calculate gender distribution
@@ -509,7 +509,7 @@ export class ReportsService {
         }
       }
 
-      const { data, error } = await query;
+      const { data, error: _error } = await query;
       
       const totalRevenue = data?.reduce((sum, item) => sum + (item.total_final || 0), 0) || 0;
       const totalTreatments = data?.length || 0;

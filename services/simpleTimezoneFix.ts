@@ -31,7 +31,7 @@ export class SimpleTimezoneFix {
       const day = String(clinicDate.getUTCDate()).padStart(2, '0');
       
       return `${year}-${month}-${day}`;
-    } catch (error) {
+    } catch {
       return typeof dateString === 'string' ? dateString : '';
     }
   }
@@ -70,7 +70,7 @@ export class SimpleTimezoneFix {
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
       
       return `${day} de ${monthNames[month]} ${year}`;
-    } catch (error) {
+    } catch {
       return 'No especificada';
     }
   }
@@ -108,7 +108,7 @@ export class SimpleTimezoneFix {
       }
       
       return `${day}/${month}/${year}`;
-    } catch (error) {
+    } catch {
       return typeof dateString === 'string' ? dateString : '';
     }
   }
@@ -139,7 +139,7 @@ export class SimpleTimezoneFix {
       }
       
       return age;
-    } catch (error) {
+    } catch {
       return 0;
     }
   }
@@ -157,7 +157,7 @@ export class SimpleTimezoneFix {
       const day = String(date.getDate()).padStart(2, '0');
       
       return `${year}-${month}-${day}`;
-    } catch (error) {
+    } catch {
       return '';
     }
   }
@@ -192,7 +192,7 @@ export class SimpleTimezoneFix {
       const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
       
       return `${hours}:${formattedMinutes} ${ampm}`;
-    } catch (error) {
+    } catch {
       return '';
     }
   }
@@ -224,7 +224,7 @@ export class SimpleTimezoneFix {
       }
       
       return age;
-    } catch (error) {
+    } catch {
       return 0;
     }
   }

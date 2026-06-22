@@ -495,7 +495,7 @@ export class StorageService {
         try {
           const fileBlob = new Blob([file], { type: mimeType });
           
-          const { data, error } = await supabaseAdmin.storage
+          const { data: _, error } = await supabaseAdmin.storage
             .from('ticket-documents')
             .upload(`${ticketId}/${fileName}`, fileBlob, {
               contentType: mimeType,

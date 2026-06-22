@@ -7,15 +7,14 @@ import { formatCurrency, Currency } from '../../../utils/currencyUtils';
 import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils';
 import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
 import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
-import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
+import { getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
-import { PaymentService } from '../../../services/paymentServiceFixed';
+import { PaymentService } from '../../../services/paymentService';
 import { currencyConversionService } from '../../../services/currencyConversionService';
-import type { CompletedTreatment, TreatmentItem } from '../../../services/completedTreatmentService';
-import type { Payment, PaymentSummary } from '../../../services/paymentServiceFixed';
+import type { CompletedTreatment } from '../../../services/completedTreatmentService';
+import type { PaymentSummary } from '../../../services/paymentService';
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
-import HistoricalBadge from '../../../components/HistoricalBadge';
 import HistoricalBanner from '../../../components/HistoricalBanner';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
 import AnimatedRubish from '../../../components/AnimatedRubish';
@@ -30,8 +29,6 @@ function TratamientosCompletadosPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [patientBypassStatus, setPatientBypassStatus] = useState<Record<string, boolean>>({});
-  const [currentPatient, setCurrentPatient] = useState<string | null>(null);
-  const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
   
   // Use page preferences for tratamientos-completados page
   const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('tratamientos-completados');
@@ -91,8 +88,7 @@ function TratamientosCompletadosPageContent() {
         );
         
         // Use the latest setting
-        const latestSetting = sortedSettings[sortedSettings.length - 1];
-        const resolvedValue = latestSetting ? latestSetting.bypass_historical_mode : false;
+        const resolvedValue = sortedSettings[sortedSettings.length - 1]?.bypass_historical_mode || false;
         
         setPatientBypassStatus(prev => ({ ...prev, [pacienteId]: resolvedValue }));
         return resolvedValue;
@@ -117,20 +113,8 @@ function TratamientosCompletadosPageContent() {
     const loadPatientHistoricalMode = async () => {
       if (pacienteId) {
         try {
-          setCurrentPatient(pacienteId);
-          
           // Load patient-specific historical mode settings
           await loadPatientSettings(pacienteId);
-          
-          // Get patient data to determine record category
-          const { PatientService } = await import('../../../services/patientService');
-          const patientData = await PatientService.getPatientById(pacienteId);
-          
-          if (patientData) {
-            // Check record category (historical, active, archived)
-            const categoryInfo = getRecordCategoryInfoSync(patientData.fecha_inicio || patientData.fecha_inicio_consulta);
-            setRecordCategoryInfo(categoryInfo);
-          }
         } catch (error) {
           console.error('Error loading patient historical mode settings:', error);
         }
@@ -218,18 +202,6 @@ function TratamientosCompletadosPageContent() {
     }
   };
 
-  const loadPatientSettingsForTreatments = async (treatments: any[]) => {
-    // Get unique patient IDs from treatments
-    const uniquePatientIds = [...new Set(treatments.map(t => t.paciente_id).filter(Boolean))];
-    
-    // Load settings for each unique patient using the same logic as pacientes page
-    for (const patientId of uniquePatientIds) {
-      if (!(patientId in patientBypassStatus)) {
-        await checkPatientBypassStatus(patientId);
-      }
-    }
-  };
-
   const loadCompletedTreatments = async () => {
     try {
       let completedTreatmentsData;
@@ -243,11 +215,6 @@ function TratamientosCompletadosPageContent() {
       }
       
       setCompletedTreatments(completedTreatmentsData || []);
-      
-      // Skip patient settings loading for performance - can be loaded on-demand later
-      // if (completedTreatmentsData && completedTreatmentsData.length > 0) {
-      //   await loadPatientSettingsForTreatments(completedTreatmentsData);
-      // }
     } catch (error) {
       console.error('Error loading completed treatments:', error);
       setCompletedTreatments([]);
@@ -257,24 +224,6 @@ function TratamientosCompletadosPageContent() {
   };
 
   const filteredTreatments = completedTreatments.filter(treatment => {
-    // Check if this is a historical treatment and filter it out
-    if (!bypassHistoricalMode) {
-      // Check if this is a historical treatment and filter it out
-      const treatmentDate = treatment.fecha_cita;
-      if (treatmentDate) {
-        // Use the same launch date as the database config (2026-02-02)
-        // This ensures consistency with the record category utils
-        const launchDate = new Date(Date.UTC(2026, 1, 2)); // UTC 2026-02-02
-        const treatmentDateTime = new Date(treatmentDate);
-        const isHistorical = treatmentDateTime < launchDate;
-        
-        // TEMPORARILY DISABLE HISTORICAL FILTERING
-        // if (isHistorical) {
-        //   return false; // Filter out historical treatments
-        // }
-      }
-    }
-    
     // Then filter by search term - handle null paciente data
     if (!searchTerm) {
       return true; // Show all if no search term
@@ -285,7 +234,7 @@ function TratamientosCompletadosPageContent() {
            treatment.paciente?.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
            treatment.paciente_id?.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by paciente_id
            treatment.id?.toLowerCase().includes(searchTerm.toLowerCase()) || // Search by treatment id
-           treatment.tratamientos_realizados?.some(tr => 
+           treatment.tratamientos_realizados?.some((tr: any) =>
              tr.nombre_tratamiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
              tr.codigo_tratamiento.toLowerCase().includes(searchTerm.toLowerCase())
            );
@@ -592,11 +541,6 @@ function TratamientosCompletadosPageContent() {
       <LoadingAnimation 
         message="Cargando Tratamientos"
         subMessage="Obteniendo tratamientos completados"
-        customMessages={[
-          "• Cargando tratamientos completados...",
-          "• Procesando información de pacientes...",
-          "• Organizando resultados..."
-        ]}
       />
     );
   }
@@ -604,9 +548,9 @@ function TratamientosCompletadosPageContent() {
   return (
     <>
       {/* Historical Mode Banner - Only show when viewing specific patient */}
-      {pacienteId && recordCategoryInfo && (
+      {pacienteId && (
         <HistoricalBanner
-          isHistorical={recordCategoryInfo?.isHistorical}
+          isHistorical={false} // This would ideally be calculated
           isBypassed={bypassHistoricalMode}
           patientId={pacienteId}
           onBypassChange={async (newBypassValue) => {
@@ -859,7 +803,7 @@ function TratamientosCompletadosPageContent() {
                         <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                           Tratamientos Realizados ({treatment.tratamientos_realizados.length})
                         </div>
-                        {treatment.tratamientos_realizados.map((tr) => (
+                        {treatment.tratamientos_realizados.map((tr: any) => (
                           <div key={tr.id} className="flex items-center justify-between py-1">
                             <div className="flex-1">
                               <div className="flex flex-col">
@@ -890,7 +834,7 @@ function TratamientosCompletadosPageContent() {
                         {/* Show prices when historical mode is bypassed for this patient */}
                         {(!recordCategoryInfo?.isHistorical || patientBypassStatus[treatment.paciente_id]) && (() => {
                           const itemsTotal = treatment.tratamientos_realizados?.reduce(
-                            (sum, tr) => {
+                            (sum: number, tr: any) => {
                               const itemTotal = (tr.precio_final || 0) * (tr.cantidad || 0);
                               return sum + itemTotal;
                             }, 0
@@ -1286,7 +1230,7 @@ function TratamientosCompletadosPageContent() {
                               // Calculate from treatment items if available
                               if (selectedTreatment.tratamientos_realizados?.length > 0) {
                                 const calculatedTotal = selectedTreatment.tratamientos_realizados.reduce(
-                                  (sum, tr) => sum + ((tr.precio_final || 0) * (tr.cantidad || 0)), 
+                                  (sum: number, tr: any) => sum + ((tr.precio_final || 0) * (tr.cantidad || 0)),
                                   0
                                 );
                                 if (calculatedTotal > 0) {

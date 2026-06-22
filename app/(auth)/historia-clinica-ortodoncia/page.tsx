@@ -16,7 +16,7 @@ import DocumentDisplay from '@/components/DocumentDisplay';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@clerk/nextjs';
 import { supabase } from '@/lib/supabase';
-import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
+import { DoctorService } from '@/services/doctorService';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
 import { getRecordCategoryInfo } from '@/utils/recordCategoryUtils';
 import HistoricalBanner from '@/components/HistoricalBanner';
@@ -230,7 +230,7 @@ function HistoriaClinicaOrtodonciaContent() {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const doctorsData = await SupabaseDoctorService.getDoctors();
+        const doctorsData = await DoctorService.getDoctors();
         setDoctors(doctorsData);
       } catch (error) {
         console.error('Error fetching doctors:', error);
