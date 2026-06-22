@@ -78,9 +78,10 @@ export class PaymentService {
           paymentData.moneda_conversion = treatmentCurrency;
           paymentData.tasa_conversion = conversion.exchangeRate;
 
-          // Also update the main monto_pago/moneda if that's what the DB expects as primary
-          // In paymentServiceFixed it didn't do this, but paymentService did.
-          // Let's keep the fixed version's behavior but ensure it's robust.
+          // Update main amount/currency to match treatment currency for consistency
+          paymentData.monto_pago = conversion.convertedAmount;
+          paymentData.moneda = treatmentCurrency;
+          paymentData.notas_pago = `${payment.notas_pago || ''} (Original: ${payment.monto_pago} ${payment.moneda})`;
         } catch (conversionError) {
           console.warn('Currency conversion failed, storing original amount:', conversionError);
         }

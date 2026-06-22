@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { formatCurrency, Currency } from '../../../utils/currencyUtils';
 import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils';
 import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
-import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
+import { getPatientType } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import { PaymentService } from '../../../services/paymentService';
@@ -24,11 +24,12 @@ function TratamientosCompletadosPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { bypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
-  const [completedTreatments, setCompletedTreatments] = useState<any[]>([]);
+  const [completedTreatments, setCompletedTreatments] = useState<CompletedTreatment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [patientBypassStatus, setPatientBypassStatus] = useState<Record<string, boolean>>({});
+  const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
   
   // Use page preferences for tratamientos-completados page
   const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('tratamientos-completados');
@@ -41,7 +42,7 @@ function TratamientosCompletadosPageContent() {
   
   // Payment management state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedTreatment, setSelectedTreatment] = useState<any>(null);
+  const [selectedTreatment, setSelectedTreatment] = useState<CompletedTreatment | null>(null);
   const [paymentSummary, setPaymentSummary] = useState<PaymentSummary | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [newPayment, setNewPayment] = useState({ monto_pago: '', moneda: 'HNL' as Currency, metodo_pago: 'efectivo', notas_pago: '' });
@@ -58,7 +59,7 @@ function TratamientosCompletadosPageContent() {
   const pacienteId = searchParams.get('paciente_id');
 
   // Function to check if a specific patient has bypass activated (same as pacientes page)
-  const checkPatientBypassStatus = async (pacienteId: string) => {
+  const _checkPatientBypassStatus = async (pacienteId: string) => {
     try {
       // Load ALL settings for this patient (from all users)
       const { data: allPatientSettings, error: allSettingsError } = await supabase
@@ -115,6 +116,16 @@ function TratamientosCompletadosPageContent() {
         try {
           // Load patient-specific historical mode settings
           await loadPatientSettings(pacienteId);
+
+          // Get patient data to determine record category
+          const { PatientService } = await import('../../../services/patientService');
+          const patientData = await PatientService.getPatientById(pacienteId);
+
+          if (patientData) {
+            // Check record category (historical, active, archived)
+            const categoryInfo = getRecordCategoryInfoSync(patientData.fecha_inicio || patientData.fecha_inicio_consulta);
+            setRecordCategoryInfo(categoryInfo);
+          }
         } catch (error) {
           console.error('Error loading patient historical mode settings:', error);
         }
@@ -257,7 +268,7 @@ function TratamientosCompletadosPageContent() {
       case 'total':
         comparison = (a.total_final || 0) - (b.total_final || 0);
         break;
-      case 'estado':
+      case 'estado': {
         // Sort by payment status - pagado vs pendiente
         const statusA = (a.pagado || a.pagado_totalmente) ? 'pagado' : 'pendiente';
         const statusB = (b.pagado || b.pagado_totalmente) ? 'pagado' : 'pendiente';
@@ -277,6 +288,7 @@ function TratamientosCompletadosPageContent() {
         }
         
         return comparison; // Return early for estado since we handled order here
+      }
     }
     
     return sortOrder === 'asc' ? comparison : -comparison;
@@ -548,9 +560,9 @@ function TratamientosCompletadosPageContent() {
   return (
     <>
       {/* Historical Mode Banner - Only show when viewing specific patient */}
-      {pacienteId && (
+      {pacienteId && recordCategoryInfo && (
         <HistoricalBanner
-          isHistorical={false} // This would ideally be calculated
+          isHistorical={recordCategoryInfo?.isHistorical}
           isBypassed={bypassHistoricalMode}
           patientId={pacienteId}
           onBypassChange={async (newBypassValue) => {
@@ -803,7 +815,7 @@ function TratamientosCompletadosPageContent() {
                         <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                           Tratamientos Realizados ({treatment.tratamientos_realizados.length})
                         </div>
-                        {treatment.tratamientos_realizados.map((tr: any) => (
+                        {treatment.tratamientos_realizados?.map((tr) => (
                           <div key={tr.id} className="flex items-center justify-between py-1">
                             <div className="flex-1">
                               <div className="flex flex-col">
@@ -834,7 +846,7 @@ function TratamientosCompletadosPageContent() {
                         {/* Show prices when historical mode is bypassed for this patient */}
                         {(!recordCategoryInfo?.isHistorical || patientBypassStatus[treatment.paciente_id]) && (() => {
                           const itemsTotal = treatment.tratamientos_realizados?.reduce(
-                            (sum: number, tr: any) => {
+                            (sum, tr) => {
                               const itemTotal = (tr.precio_final || 0) * (tr.cantidad || 0);
                               return sum + itemTotal;
                             }, 0

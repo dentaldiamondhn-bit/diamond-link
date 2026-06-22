@@ -1,6 +1,6 @@
 import { Ticket, TicketActivity, CreateTicketData, UpdateTicketData, CreateActivityData, TicketFilters, TicketStatus, ActivityType, TicketPriority } from '@/types/ticket';
 import { supabase } from '@/lib/supabase';
-// import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
+import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
 import CapacitorNotificationService from './capacitorNotificationService';
 
 // Helper function to fetch user data
