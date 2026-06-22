@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
+import { DoctorService } from '@/services/doctorService';
 import { Doctor } from '@/config/doctors';
 
 
@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const doctor = await SupabaseDoctorService.getDoctorById(params.id);
+    const doctor = await DoctorService.getDoctorById(params.id);
     
     if (!doctor) {
       return NextResponse.json(
@@ -46,7 +46,7 @@ export async function PUT(
   try {
     const body = await request.json();
     
-    const updatedDoctor = await SupabaseDoctorService.updateDoctor(params.id, body);
+    const updatedDoctor = await DoctorService.updateDoctor(params.id, body);
     
     if (!updatedDoctor) {
       return NextResponse.json(
@@ -79,7 +79,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await SupabaseDoctorService.deleteDoctor(params.id);
+    await DoctorService.deleteDoctor(params.id);
     
     return NextResponse.json({ 
       success: true, 

@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { PatientService } from '@/services/patientService';
-import { OrthodonticHistoryServiceClient } from '@/services/orthodonticHistoryServiceClient';
+import { OrthodonticHistoryService as OrthodonticHistoryServiceClient } from '@/services/orthodonticHistoryService';
 import { dentalStudyService } from '@/services/dentalStudyService';
 import { DentalStudy } from '@/types/dental';
 import { Patient } from '@/types/patient';

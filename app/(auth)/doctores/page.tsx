@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Doctor, getSpecialtyOptions, DEFAULT_DOCTORS } from '../../../config/doctors';
-import { SupabaseDoctorService } from '../../../services/supabaseDoctorService';
+import { DoctorService } from '../../../services/doctorService';
 import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import { useClerkUsers, ClerkUser } from '../../../hooks/useClerkUsers';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -39,7 +39,7 @@ export default function DoctorsPage() {
   useEffect(() => {
     const loadDoctors = async () => {
       try {
-        const doctorsData = await SupabaseDoctorService.getDoctors();
+        const doctorsData = await DoctorService.getDoctors();
         setDoctors(doctorsData);
       } catch (error) {
         console.error('Error loading doctors:', error);
@@ -231,9 +231,9 @@ export default function DoctorsPage() {
   const handleDeleteDoctor = async (doctorId: string) => {
     if (window.confirm('¿Está seguro de que desea eliminar este doctor?')) {
       try {
-        await SupabaseDoctorService.deleteDoctor(doctorId);
+        await DoctorService.deleteDoctor(doctorId);
         // Force refresh by reloading from database
-        const updatedDoctors = await SupabaseDoctorService.getDoctors();
+        const updatedDoctors = await DoctorService.getDoctors();
         setDoctors(updatedDoctors);
       } catch (error) {
         console.error('Error deleting doctor:', error);
@@ -246,7 +246,7 @@ export default function DoctorsPage() {
     try {
       if (editingDoctor) {
         // Update existing doctor
-        const updatedDoctor = await SupabaseDoctorService.updateDoctor(editingDoctor.id, {
+        const updatedDoctor = await DoctorService.updateDoctor(editingDoctor.id, {
           name: formData.name,
           specialty: formData.specialty,
           user_id: formData.userId || undefined,
@@ -257,7 +257,7 @@ export default function DoctorsPage() {
         alert('Doctor actualizado exitosamente');
       } else {
         // Add new doctor
-        const newDoctor = await SupabaseDoctorService.createDoctor({
+        const newDoctor = await DoctorService.createDoctor({
           name: formData.name,
           specialty: formData.specialty,
           user_id: formData.userId || undefined,
@@ -280,7 +280,7 @@ export default function DoctorsPage() {
       try {
         // Add default doctors to Supabase
         for (const defaultDoctor of DEFAULT_DOCTORS) {
-          await SupabaseDoctorService.createDoctor({
+          await DoctorService.createDoctor({
             name: defaultDoctor.name,
             specialty: defaultDoctor.specialty
           });

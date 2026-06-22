@@ -52,8 +52,8 @@ export type Specialty = typeof AVAILABLE_SPECIALTIES[number];
 export async function getAvailableDoctors(): Promise<Doctor[]> {
   try {
     // Import dynamically to avoid circular dependencies
-    const { SupabaseDoctorService } = await import('../services/supabaseDoctorService');
-    const doctors = await SupabaseDoctorService.getDoctors();
+    const { DoctorService } = await import('../services/doctorService');
+    const doctors = await DoctorService.getDoctors();
     return doctors || DEFAULT_DOCTORS;
   } catch (error) {
     console.error('Error fetching doctors from database:', error);

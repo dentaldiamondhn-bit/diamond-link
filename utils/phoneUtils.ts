@@ -20,7 +20,7 @@ export const createWhatsAppUrl = (phoneNumber: string, countryCode?: string | nu
   if (!phoneNumber) return '#';
   
   // Clean phone number - remove spaces, dashes, parentheses
-  let cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  let cleanPhone = phoneNumber.replace(/[\s\-()]/g, '');
   
   // If we have a separate country code, combine them
   if (countryCode) {
@@ -41,7 +41,7 @@ export const formatPhoneDisplay = (phoneNumber: string, countryCode?: string | n
   if (!phoneNumber) return '';
   
   // Check if phone number already starts with a country code
-  const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  const cleanPhone = phoneNumber.replace(/[\s\-()]/g, '');
   
   if (countryCode) {
     // If we have a separate country code, use it

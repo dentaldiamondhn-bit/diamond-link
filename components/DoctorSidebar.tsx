@@ -39,8 +39,8 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
   useEffect(() => {
     const loadSupabaseDoctors = async () => {
       try {
-        const { SupabaseDoctorService } = await import('../services/supabaseDoctorService');
-        const doctors = await SupabaseDoctorService.getDoctors();
+        const { DoctorService } = await import('../services/doctorService');
+        const doctors = await DoctorService.getDoctors();
         setSupabaseDoctors(doctors);
       } catch (error) {
         console.error('DoctorSidebar - Error loading Supabase doctors:', error);

@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CompletedTreatmentService } from '../../../../services/completedTreatmentService';
 import { PatientService } from '../../../../services/patientService';
-import { SupabaseDoctorService } from '../../../../services/supabaseDoctorService';
+import { DoctorService } from '../../../../services/doctorService';
 import { Patient } from '../../../../types/patient';
 import { AVAILABLE_DOCTORS, getDoctorById, Doctor } from '../../../../config/doctors';
 import { getRecordCategoryInfoSync, generateTranscriptionMetadata } from '../../../../utils/recordCategoryUtils';
@@ -131,7 +131,7 @@ function NuevoTratamientoCompletadoPageContent() {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const doctorsList = await SupabaseDoctorService.getDoctors();
+        const doctorsList = await DoctorService.getDoctors();
         if (doctorsList && doctorsList.length > 0) {
           setAvailableDoctors(doctorsList);
         }

@@ -1,12 +1,17 @@
 import { supabase } from '../lib/supabase';
 import { Currency } from '../utils/currencyUtils';
-import { currencyConversionService, ConversionResult } from './currencyConversionService';
+import { currencyConversionService } from './currencyConversionService';
 
 export interface Payment {
   id: string;
   tratamiento_completado_id: string;
   monto_pago: number;
   moneda: Currency;
+  monto_original?: number;
+  moneda_original?: Currency;
+  monto_convertido?: number;
+  moneda_conversion?: Currency;
+  tasa_conversion?: number;
   fecha_pago: string;
   metodo_pago: string;
   notas_pago?: string;
@@ -52,13 +57,15 @@ export class PaymentService {
     treatmentCurrency?: Currency
   ): Promise<Payment> {
     try {
-      let paymentData = {
+      const paymentData: any = {
         ...payment,
+        monto_original: payment.monto_pago,
+        moneda_original: payment.moneda,
         creado_en: new Date().toISOString(),
         actualizado_en: new Date().toISOString()
       };
 
-      // If currencies differ, convert the amount before storing
+      // If currencies differ, convert the amount
       if (treatmentCurrency && payment.moneda !== treatmentCurrency) {
         try {
           const conversion = await currencyConversionService.convertAmount(
@@ -67,18 +74,16 @@ export class PaymentService {
             treatmentCurrency
           );
 
-          // Store the converted amount as the main payment amount
-          paymentData = {
-            ...paymentData,
-            monto_pago: conversion.convertedAmount,
-            moneda: treatmentCurrency,
-            notas_pago: `${payment.notas_pago || ''} (Original: ${payment.monto_pago} ${payment.moneda} ≈ ${conversion.convertedAmount} ${treatmentCurrency} at ${conversion.exchangeRate})`
-          };
+          paymentData.monto_convertido = conversion.convertedAmount;
+          paymentData.moneda_conversion = treatmentCurrency;
+          paymentData.tasa_conversion = conversion.exchangeRate;
 
-          console.log('Currency conversion applied:', conversion);
+          // Update main amount/currency to match treatment currency for consistency
+          paymentData.monto_pago = conversion.convertedAmount;
+          paymentData.moneda = treatmentCurrency;
+          paymentData.notas_pago = `${payment.notas_pago || ''} (Original: ${payment.monto_pago} ${payment.moneda})`;
         } catch (conversionError) {
           console.warn('Currency conversion failed, storing original amount:', conversionError);
-          // Continue with original amount if API fails
         }
       }
 
@@ -128,6 +133,8 @@ export class PaymentService {
   // Delete a payment
   static async deletePayment(id: string): Promise<void> {
     try {
+      console.log('Attempting to delete payment with ID:', id);
+
       const { error } = await supabase
         .from('payments')
         .delete()
@@ -137,6 +144,8 @@ export class PaymentService {
         console.error('Error deleting payment:', error);
         throw error;
       }
+
+      console.log('✅ Payment deleted successfully');
     } catch (error) {
       console.error('Unexpected error deleting payment:', error);
       throw error;
@@ -146,29 +155,26 @@ export class PaymentService {
   // Get payment summary for a treatment
   static async getPaymentSummary(tratamientoCompletadoId: string): Promise<PaymentSummary> {
     try {
-      const { data: treatment } = await supabase
+      const { data: treatment, error: treatmentError } = await supabase
         .from('tratamientos_completados')
-        .select('total_final, moneda, monto_pagado, estado_pago')
+        .select('total_final, moneda, monto_pagado, saldo_pendiente, estado_pago')
         .eq('id', tratamientoCompletadoId)
         .single();
 
+      if (treatmentError) {
+        console.error('Error fetching treatment for summary:', treatmentError);
+        throw treatmentError;
+      }
+
       const payments = await this.getPaymentsByTreatmentId(tratamientoCompletadoId);
       
-      // Use the database-calculated amounts since trigger handles conversion
-      const totalPaid = treatment.monto_pagado || 0;
-      const saldoPendiente = Math.max(0, (treatment.total_final || 0) - totalPaid);
-      
-      let estadoPago: 'pendiente' | 'parcialmente_pagado' | 'pagado' = 'pendiente';
-      if (totalPaid >= (treatment.total_final || 0)) estadoPago = 'pagado';
-      else if (totalPaid > 0) estadoPago = 'parcialmente_pagado';
-
       return {
-        monto_pagado: totalPaid,
-        saldo_pendiente: saldoPendiente,
-        estado_pago: estadoPago,
-        pagos: payments,
+        monto_pagado: treatment.monto_pagado || 0,
+        saldo_pendiente: treatment.saldo_pendiente || 0,
+        estado_pago: treatment.estado_pago,
+        pagos: payments || [],
         moneda_principal: treatment.moneda,
-        total_tratamiento: treatment.total_final
+        total_tratamiento: treatment.total_final || 0
       };
     } catch (error) {
       console.error('Error getting payment summary:', error);
@@ -198,7 +204,7 @@ export class PaymentService {
       'tarjeta_debito': 'Tarjeta de Débito',
       'transferencia': 'Transferencia Bancaria',
       'cheque': 'Cheque',
-      'deposito_bancario': 'Depósito Bancario',
+      'deposito_bancario': 'Depósito Bancario (BAC)',
       'paypal': 'PayPal',
       'otro': 'Otro'
     };
@@ -208,11 +214,11 @@ export class PaymentService {
   // Get payment status badge styling
   static getPaymentStatusBadge(status: string): string {
     const statusMap: { [key: string]: string } = {
-      'pendiente': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'parcialmente_pagado': 'bg-blue-100 text-blue-800 border-blue-200',
-      'pagado': 'bg-green-100 text-green-800 border-green-200'
+      'pendiente': 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200',
+      'parcialmente_pagado': 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200',
+      'pagado': 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-200'
     };
-    return statusMap[status] || 'bg-gray-100 text-gray-800 border-gray-200';
+    return statusMap[status] || 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900 dark:text-gray-200';
   }
 
   // Get payment status text
