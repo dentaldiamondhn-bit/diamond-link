@@ -5,7 +5,10 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 import { conversationService } from '@/services/conversation.service';
 import { useAuth, useUser, UserButton } from '@clerk/nextjs';
-import { Menu, Plus, Send, Bot, User, Loader2, MessageSquare, Settings, Zap, Brain, Code2, Sparkles } from 'lucide-react';
+import { Menu, Plus, Send, Bot, User, Loader2, MessageSquare, Settings, Zap, Brain, Code2, Sparkles, ChevronDown } from 'lucide-react';
+import { DarkModeToggle } from '@/components/DarkModeToggle';
+import { NotificationDropdown } from '@/components/NotificationDropdown';
+import Link from 'next/link';
 
 interface Message {
   id: string;
@@ -49,6 +52,7 @@ export default function AIChatPage() {
   const [agentMode, setAgentMode] = useState(false);
   const [skills, setSkills] = useState<Array<{id: string, name: string, description: string, category: string}>>([]);
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
+  const [navDropdownOpen, setNavDropdownOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const availableModels: AIModel[] = [
@@ -86,6 +90,107 @@ export default function AIChatPage() {
   }
 
   const hasLimitedAccess = ['admin', 'doctor', 'staff'].includes(userRole);
+
+  // Role badge colors and styles
+  const getRoleBadgeInfo = (role: string) => {
+    switch (role) {
+      case 'tech_support':
+        return {
+          bgColor: 'bg-yellow-100',
+          textColor: 'text-yellow-800',
+          borderColor: 'border-yellow-200',
+          icon: 'fas fa-tools',
+          label: 'Tech Support'
+        };
+      case 'admin':
+        return {
+          bgColor: 'bg-purple-100',
+          textColor: 'text-purple-800',
+          borderColor: 'border-purple-200',
+          icon: 'fas fa-crown',
+          label: 'Administrador'
+        };
+      case 'doctor':
+        return {
+          bgColor: 'bg-blue-100',
+          textColor: 'text-blue-800',
+          borderColor: 'border-blue-200',
+          icon: 'fas fa-user-md',
+          label: 'Doctor'
+        };
+      case 'staff':
+        return {
+          bgColor: 'bg-gray-100',
+          textColor: 'text-gray-800',
+          borderColor: 'border-gray-200',
+          icon: 'fas fa-user',
+          label: 'Staff'
+        };
+      default:
+        return {
+          bgColor: 'bg-gray-100',
+          textColor: 'text-gray-800',
+          borderColor: 'border-gray-200',
+          icon: 'fas fa-question',
+          label: 'Desconocido'
+        };
+    }
+  };
+
+  const roleBadgeInfo = getRoleBadgeInfo(userRole || 'staff');
+
+  // Navigation items based on role
+  const getNavItems = () => {
+    switch (userRole) {
+      case 'tech_support':
+        return [
+          { href: '/tech-support/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+          { href: '/tech-support/tickets', label: 'Tickets de Soporte', icon: 'fas fa-ticket-alt' },
+          { href: '/tech-support/system-logs', label: 'Logs del Sistema', icon: 'fas fa-file-alt' },
+          { href: '/tech-support/system-settings', label: 'Configuración del Sistema', icon: 'fas fa-cogs' },
+          { href: '/tech-support/terminal', label: 'Terminal', icon: 'fas fa-terminal' },
+          { href: '/tech-support/code-runner', label: 'Code Runner', icon: 'fas fa-code' },
+          { href: '/tech-support/access-portal', label: 'Portal de Acceso', icon: 'fas fa-th-large' },
+          { href: '/tech-support/users', label: 'Usuarios', icon: 'fas fa-users-cog' },
+        ];
+      case 'admin':
+        return [
+          { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+          { href: '/patient-form', label: 'Nueva Historia Clínica', icon: 'fas fa-file-medical' },
+          { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-users' },
+          { href: '/doctores', label: 'Doctores', icon: 'fas fa-user-md' },
+          { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
+          { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+          { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+          { href: '/reports', label: 'Reportes', icon: 'fas fa-chart-bar' },
+          { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
+        ];
+      case 'doctor':
+        return [
+          { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+          { href: '/patient-form', label: 'Nueva Historia Clínica', icon: 'fas fa-file-medical' },
+          { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-users' },
+          { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
+          { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+          { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+          { href: '/reports', label: 'Reportes', icon: 'fas fa-chart-bar' },
+          { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
+        ];
+      case 'staff':
+        return [
+          { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+          { href: '/patient-form', label: 'Nueva Historia Clínica', icon: 'fas fa-file-medical' },
+          { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-users' },
+          { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+          { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+          { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const navItems = getNavItems();
 
   const formatTime = (date: Date | string | undefined) => {
     if (!date) return '';
@@ -456,41 +561,126 @@ return (
 
       {/* Main Chat Area - Clean centered layout */}
       <div className="flex-1 flex flex-col bg-white dark:bg-gray-950">
-        {currentSession ? (
-          <>
-            {/* Header */}
-            <div className="border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {availableModels.find(m => m.id === selectedModel)?.name}
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {currentSession.messages.length} messages
-                  {agentMode && (
-                    <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs">
-                      <Zap size={10} />
-                      Agent
-                    </span>
-                  )}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Skill Selector */}
-                {agentMode && skills.length > 0 && (
-                  <select
-                    value={selectedSkill || ''}
-                    onChange={(e) => setSelectedSkill(e.target.value || null)}
-                    className="text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  >
-                    <option value="">No skill selected</option>
-                    {skills.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Left side - Page Title */}
+            <div className="flex items-center">
+              {/* Navigation Dropdown */}
+              <div className="relative mr-4">
+                <button
+                  onClick={() => setNavDropdownOpen(!navDropdownOpen)}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Menu size={18} className="text-gray-600 dark:text-gray-300" />
+                  <ChevronDown size={14} className="text-gray-600 dark:text-gray-300" />
+                </button>
+
+                {navDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                    <div className="p-2">
+                      {navItems.map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setNavDropdownOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                        >
+                          <i className={`${item.icon} w-5 text-center`}></i>
+                          <span className="text-sm font-medium">{item.label}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
+
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                {availableModels.find(m => m.id === selectedModel)?.name}
+              </h1>
+              {agentMode && (
+                <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs">
+                  <Zap size={10} />
+                  Agent
+                </span>
+              )}
+              {currentSession && (
+                <p className="ml-3 text-sm text-gray-500 dark:text-gray-400">
+                  {currentSession.messages.length} messages
+                </p>
+              )}
             </div>
 
+            {/* Right side - User Info and Actions */}
+            <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+              {/* Skill Selector */}
+              {agentMode && skills.length > 0 && (
+                <select
+                  value={selectedSkill || ''}
+                  onChange={(e) => setSelectedSkill(e.target.value || null)}
+                  className="text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">No skill selected</option>
+                  {skills.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Header Actions - Left of User Info */}
+              <div className="hidden sm:flex items-center space-x-3">
+                {/* Dark Mode Toggle */}
+                <DarkModeToggle />
+
+                {/* Notifications */}
+                <NotificationDropdown />
+              </div>
+
+              {/* Mobile Actions */}
+              <div className="flex sm:hidden items-center space-x-2">
+                <DarkModeToggle />
+                <NotificationDropdown />
+              </div>
+
+              {/* User Info */}
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                {/* User Name and Email - Hidden on mobile */}
+                <div className="hidden sm:block text-right">
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-sm lg:text-lg font-semibold text-gray-900 truncate max-w-[100px] lg:max-w-none">
+                      {user?.firstName || 'Usuario'} {user?.lastName || ''}
+                    </h2>
+                    {/* Role Badge */}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleBadgeInfo.bgColor} ${roleBadgeInfo.textColor} ${roleBadgeInfo.borderColor} border`}>
+                      <i className={`${roleBadgeInfo.icon} mr-1`}></i>
+                      {roleBadgeInfo.label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 truncate max-w-[120px] lg:max-w-none">
+                    {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
+                  </p>
+                </div>
+
+                {/* Clerk User Avatar */}
+                <div className="relative flex-shrink-0">
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        avatarBox: "w-8 h-8 lg:w-10 lg:h-10 shadow-md",
+                        userButton: "hover:bg-gray-100 rounded-lg transition-colors"
+                      }
+                    }}
+                  />
+                  {/* Online indicator */}
+                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {currentSession ? (
+          <>
             {/* Messages - Centered content like Claude */}
             <div className="flex-1 overflow-y-auto">
               <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">

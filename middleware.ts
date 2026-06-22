@@ -244,7 +244,7 @@ function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
   // Handle API routes differently for Cloudflare caching
   if (req.nextUrl.pathname.startsWith('/api/')) {
     // Exclude odysseus-chat from caching to allow real-time health checks
-    if (!req.nextUrl.pathname.includes('/api/odysseus-chat') && !req.nextUrl.pathname.includes('/api/groq-chat')) {
+    if (!req.nextUrl.pathname.includes('/api/odysseus-chat') && !req.nextUrl.pathname.includes('/api/groq-chat') && !req.nextUrl.pathname.includes('/api/ollama-chat')) {
       response.headers.set('Cache-Control', 'public, max-age=7200, s-maxage=7200');
     }
     response.headers.set('X-RateLimit-Limit', '100');
