@@ -84,52 +84,72 @@ export default function PacientesPage() {
     }
   };
 
-  // Function to check if a specific patient has bypass activated
-  const checkPatientBypassStatus = async (pacienteId: string) => {
+  // Optimized function to check bypass status for all patients in batch
+  const loadBatchBypassStatus = async (patientIds: string[]) => {
+    if (patientIds.length === 0) return;
+
     try {
-      // Load ALL settings for this patient (from all users)
-      const { data: allPatientSettings, error: allSettingsError } = await supabase
-        .from('historical_mode_settings')
-        .select('bypass_historical_mode, clerk_user_id, updated_at')
-        .eq('patient_id', pacienteId);
-      
-      // Load global setting as fallback
-      const { data: globalData, error: globalError } = await supabase
+      // 1. Load global setting once as fallback
+      const { data: globalData } = await supabase
         .from('app_configuration')
         .select('config_value')
         .eq('config_key', 'historical_records_enabled')
         .single();
       
-      // Handle global setting
-      let globalBypass = false;
-      if (globalData && !globalError) {
-        const globalEnabled = globalData.config_value === 'true';
-        globalBypass = !globalEnabled;
-      }
+      const globalEnabled = globalData?.config_value === 'true';
+      const globalBypass = !globalEnabled;
+
+      // 2. Load settings for ALL patients in this list in ONE query
+      const { data: allSettings, error } = await supabase
+        .from('historical_mode_settings')
+        .select('patient_id, bypass_historical_mode, updated_at')
+        .in('patient_id', patientIds);
+
+      if (error) throw error;
+
+      // 3. Process results: For each patient, find the latest setting
+      const statusMap: Record<string, boolean> = {};
       
-      // Handle patient-specific settings (use latest setting like other pages)
-      if (allPatientSettings && allPatientSettings.length > 0 && !allSettingsError) {
-        
-        // Sort by updated_at to get the latest setting (same strategy as other pages)
-        const sortedSettings = allPatientSettings.sort((a, b) => 
-          new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
-        );
-        
-        const latestSetting = sortedSettings[sortedSettings.length - 1];
-        const resolvedValue = latestSetting ? latestSetting.bypass_historical_mode : false;
-        
-        setPatientBypassStatus(prev => ({ ...prev, [pacienteId]: resolvedValue }));
-        return resolvedValue;
-      } else if (!allSettingsError) {
-        setPatientBypassStatus(prev => ({ ...prev, [pacienteId]: globalBypass }));
-        return globalBypass;
-      } else {
-        setPatientBypassStatus(prev => ({ ...prev, [pacienteId]: globalBypass }));
-        return globalBypass;
+      // Initialize with global default
+      patientIds.forEach(id => {
+        statusMap[id] = globalBypass;
+      });
+
+      // Update with patient-specific settings (latest takes precedence)
+      if (allSettings && allSettings.length > 0) {
+        // Group by patient_id
+        const settingsByPatient: Record<string, any[]> = {};
+        allSettings.forEach(s => {
+          if (!settingsByPatient[s.patient_id]) {
+            settingsByPatient[s.patient_id] = [];
+          }
+          settingsByPatient[s.patient_id].push(s);
+        });
+
+        // For each patient, find the latest setting
+        Object.keys(settingsByPatient).forEach(id => {
+          const patientSettings = settingsByPatient[id];
+          // Sort by updated_at descending (latest first)
+          patientSettings.sort((a, b) =>
+            new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
+          );
+
+          // The original code had a bug: it used sortedSettings[sortedSettings.length - 1]
+          // after sorting descending, which actually picked the OLDEST.
+          // We'll fix it here to use the latest (index 0).
+          statusMap[id] = patientSettings[0].bypass_historical_mode;
+        });
       }
+
+      setPatientBypassStatus(statusMap);
     } catch (error) {
-      setPatientBypassStatus(prev => ({ ...prev, [pacienteId]: false }));
-      return false;
+      console.error('Error loading batch bypass status:', error);
+      // Fallback to false for everyone on error
+      const fallbackMap: Record<string, boolean> = {};
+      patientIds.forEach(id => {
+        fallbackMap[id] = false;
+      });
+      setPatientBypassStatus(fallbackMap);
     }
   };
 
@@ -150,14 +170,10 @@ export default function PacientesPage() {
           deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop'
         });
         
-        // Load bypass status for all patients
-        if (user) {
-          const bypassPromises = patientsData.map(async (patient) => {
-            const bypassStatus = await checkPatientBypassStatus(patient.paciente_id);
-            return { patientId: patient.paciente_id, bypassStatus };
-          });
-          
-          await Promise.all(bypassPromises);
+        // Load bypass status for all patients in batch (Optimization: Fix N+1 problem)
+        if (user && patientsData.length > 0) {
+          const patientIds = patientsData.map(p => p.paciente_id);
+          await loadBatchBypassStatus(patientIds);
         }
       } catch (error) {
         // Track error
