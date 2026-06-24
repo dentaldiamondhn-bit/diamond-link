@@ -56,51 +56,20 @@ export default function DashboardPage() {
       setShowPatientsModal(true);
       setPatientsModalLoading(true);
       
-      // Fetch treatment counts and payment info for each patient
-      const patientsWithDetails = await Promise.all(
-          patients.map(async (patient: any) => {
-            try {
-              // Use paciente_id field instead of id
-              const patientId = patient.paciente_id || patient.id;
-              
-              // Validate patient has an ID
-              if (!patientId) {
-                console.error('❌ Patient missing ID:', patient);
-                return {
-                  ...patient,
-                  completedTreatmentsCount: 0,
-                  totalPaid: 0
-                };
-              }
+      // Fetch treatment counts and payment info for all patients in batch (Optimization: Fix N+1 problem)
+      const patientIds = patients.map((p: any) => p.paciente_id || p.id).filter(Boolean);
+      const treatmentSummaries = await CompletedTreatmentService.getBatchTreatmentSummaries(patientIds);
 
-              console.log('🔍 Fetching treatments for patient:', { 
-                id: patientId, 
-                name: patient.nombre_completo 
-              });
+      const patientsWithDetails = patients.map((patient: any) => {
+        const patientId = patient.paciente_id || patient.id;
+        const summary = treatmentSummaries[patientId] || { count: 0, totalPaid: 0 };
 
-              // Get completed treatments for this patient
-              const completedTreatments = await CompletedTreatmentService.getCompletedTreatmentsByPatientId(patientId);
-              
-              // Calculate total amount paid
-              const totalPaid = completedTreatments.reduce((sum: number, treatment: any) => {
-                return sum + (treatment.monto_pagado || 0);
-              }, 0);
-              
-              return {
-                ...patient,
-                completedTreatmentsCount: completedTreatments.length,
-                totalPaid
-              };
-            } catch (error) {
-              console.error(`Error fetching details for patient ${patient?.paciente_id || patient?.id || 'unknown'}:`, error);
-              return {
-                ...patient,
-                completedTreatmentsCount: 0,
-                totalPaid: 0
-              };
-            }
-          })
-        );
+        return {
+          ...patient,
+          completedTreatmentsCount: summary.count,
+          totalPaid: summary.totalPaid
+        };
+      });
         
         setDoctorPatients(patientsWithDetails);
     } catch (error) {

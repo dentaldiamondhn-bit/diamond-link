@@ -617,6 +617,47 @@ export class CompletedTreatmentService {
   // Statistics and Analytics
   // ========================================
 
+  /**
+   * Fetches treatment summaries (count and total paid) for a batch of patients.
+   * This optimizes performance by replacing N+1 queries in list views.
+   */
+  static async getBatchTreatmentSummaries(patientIds: string[]): Promise<Record<string, { count: number; totalPaid: number }>> {
+    if (!patientIds || patientIds.length === 0) return {};
+
+    try {
+      const { data, error } = await supabase
+        .from('tratamientos_completados')
+        .select('paciente_id, monto_pagado')
+        .in('paciente_id', patientIds);
+
+      if (error) {
+        console.error('Error fetching batch treatment summaries:', error);
+        throw error;
+      }
+
+      const summaries: Record<string, { count: number; totalPaid: number }> = {};
+
+      // Initialize with zeros for all requested patient IDs
+      patientIds.forEach(id => {
+        summaries[id] = { count: 0, totalPaid: 0 };
+      });
+
+      // Aggregate data
+      data?.forEach(treatment => {
+        const patientId = treatment.paciente_id;
+        if (summaries[patientId]) {
+          summaries[patientId].count += 1;
+          summaries[patientId].totalPaid += (treatment.monto_pagado || 0);
+        }
+      });
+
+      return summaries;
+    } catch (error) {
+      console.error('Unexpected error in getBatchTreatmentSummaries:', error);
+      return {};
+    }
+  }
+
   static async getCompletedTreatmentsByDoctor(doctorName: string): Promise<CompletedTreatment[]> {
     try {
       // Join with treatment items to get doctor information
