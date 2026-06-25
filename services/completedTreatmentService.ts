@@ -788,4 +788,45 @@ export class CompletedTreatmentService {
       throw error;
     }
   }
+
+  /**
+   * Fetches treatment summary for multiple patients in a single batch query.
+   * Optimized to solve N+1 query problem in list views.
+   */
+  static async getCompletedTreatmentsSummaryByPatientIds(patientIds: string[]): Promise<Record<string, { count: number; totalPaid: number }>> {
+    try {
+      if (!patientIds || patientIds.length === 0) return {};
+
+      const { data, error } = await supabase
+        .from('tratamientos_completados')
+        .select('paciente_id, monto_pagado')
+        .in('paciente_id', patientIds);
+
+      if (error) {
+        console.error('Error fetching batch treatment summaries:', error);
+        throw error;
+      }
+
+      const summaries: Record<string, { count: number; totalPaid: number }> = {};
+
+      // Initialize summaries for all requested patient IDs
+      patientIds.forEach(id => {
+        summaries[id] = { count: 0, totalPaid: 0 };
+      });
+
+      // Aggregate data
+      (data || []).forEach((treatment: any) => {
+        const id = treatment.paciente_id;
+        if (summaries[id]) {
+          summaries[id].count += 1;
+          summaries[id].totalPaid += (treatment.monto_pagado || 0);
+        }
+      });
+
+      return summaries;
+    } catch (error) {
+      console.error('Unexpected error in getCompletedTreatmentsSummaryByPatientIds:', error);
+      return {};
+    }
+  }
 }

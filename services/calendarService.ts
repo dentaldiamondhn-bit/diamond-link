@@ -631,4 +631,91 @@ export class CalendarService {
       console.error('❌ Failed to send event change notification:', error);
     }
   }
+
+  /**
+   * Fetches participants for multiple events in a single batch operation.
+   * Optimized to solve N+1 query problem on dashboard.
+   */
+  static async getMultipleEventsParticipants(eventIds: string[]): Promise<Record<string, any[]>> {
+    try {
+      if (!eventIds || eventIds.length === 0) return {};
+
+      // 1. Fetch event owners
+      const { data: eventsData, error: eventError } = await supabase
+        .from('calendar_events')
+        .select('id, created_by')
+        .in('id', eventIds);
+
+      if (eventError) {
+        console.error('Error fetching event owners batch:', eventError);
+        return {};
+      }
+
+      // 2. Fetch all invitees for these events
+      const { data: inviteeData, error: inviteeError } = await supabase
+        .from('calendar_invitees')
+        .select('item_id, user_id, status')
+        .in('item_id', eventIds)
+        .eq('item_type', 'event')
+        .in('status', ['accepted', 'pending']);
+
+      if (inviteeError) {
+        console.error('Error fetching invitees batch:', inviteeError);
+      }
+
+      // 3. Get all user data once
+      let allUsers: any[] = [];
+      try {
+        const response = await fetch('/api/users');
+        if (response.ok) {
+          allUsers = await response.json();
+        }
+      } catch (error) {
+        console.error('Error fetching users batch:', error);
+      }
+
+      const userMap = new Map(allUsers.map((user: any) => [user.id, user]));
+      const participantsData: Record<string, any[]> = {};
+
+      // Initialize records
+      eventIds.forEach(id => {
+        participantsData[id] = [];
+      });
+
+      // Add owners
+      (eventsData || []).forEach(event => {
+        if (event.created_by && participantsData[event.id]) {
+          const userData = userMap.get(event.created_by);
+          participantsData[event.id].push({
+            id: event.created_by,
+            role: 'owner',
+            first_name: userData?.first_name || 'Event',
+            last_name: userData?.last_name || 'Owner',
+            email: userData?.email || '',
+            profile_image_url: userData?.profileImageUrl || null
+          });
+        }
+      });
+
+      // Add invitees
+      (inviteeData || []).forEach(invitee => {
+        if (invitee.user_id && participantsData[invitee.item_id]) {
+          const userData = userMap.get(invitee.user_id);
+          participantsData[invitee.item_id].push({
+            id: invitee.user_id,
+            role: invitee.status === 'accepted' ? 'invitee_accepted' : 'invitee_pending',
+            first_name: userData?.first_name || 'Invited',
+            last_name: userData?.last_name || 'User',
+            email: userData?.email || '',
+            profile_image_url: userData?.profileImageUrl || null
+          });
+        }
+      });
+
+      return participantsData;
+    } catch (error) {
+      console.error('Unexpected error in getMultipleEventsParticipants:', error);
+      return {};
+    }
+  }
 }
