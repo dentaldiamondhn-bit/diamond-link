@@ -788,4 +788,43 @@ export class CompletedTreatmentService {
       throw error;
     }
   }
+
+  // Batch get completed treatment summary for multiple patients
+  // This solves the N+1 problem in list views
+  static async getCompletedTreatmentsSummaryByPatientIds(patientIds: string[]): Promise<Record<string, { completedTreatmentsCount: number; totalPaid: number }>> {
+    try {
+      if (!patientIds.length) return {};
+
+      // Initialize result object
+      const results: Record<string, { completedTreatmentsCount: number; totalPaid: number }> = {};
+      patientIds.forEach(id => {
+        results[id] = { completedTreatmentsCount: 0, totalPaid: 0 };
+      });
+
+      // Fetch all treatments for these patients in a single query
+      const { data, error } = await supabase
+        .from('tratamientos_completados')
+        .select('paciente_id, monto_pagado')
+        .in('paciente_id', patientIds);
+
+      if (error) {
+        console.error('Error fetching treatment summaries:', error);
+        return results;
+      }
+
+      // Aggregate data
+      data?.forEach(treatment => {
+        const patientId = treatment.paciente_id;
+        if (results[patientId]) {
+          results[patientId].completedTreatmentsCount++;
+          results[patientId].totalPaid += (treatment.monto_pagado || 0);
+        }
+      });
+
+      return results;
+    } catch (error) {
+      console.error('Error in getCompletedTreatmentsSummaryByPatientIds:', error);
+      return {};
+    }
+  }
 }

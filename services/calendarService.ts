@@ -275,21 +275,48 @@ export class CalendarService {
   // Get event participants (owner + invitees) for avatar display
   static async getEventParticipants(eventId: string): Promise<any[]> {
     try {
-      const participants: any[] = [];
-      
-      // Get event details to find owner
-      const { data: eventData, error: eventError } = await supabase
+      const results = await this.getMultipleEventsParticipants([eventId]);
+      return results[eventId] || [];
+    } catch (error) {
+      console.error('Error fetching event participants:', error);
+      return [];
+    }
+  }
+
+  // Batch get event participants (owner + invitees) for multiple events
+  // This solves the N+1 problem in list views
+  static async getMultipleEventsParticipants(eventIds: string[]): Promise<Record<string, any[]>> {
+    try {
+      if (!eventIds.length) return {};
+
+      // Initialize result object
+      const results: Record<string, any[]> = {};
+      eventIds.forEach(id => { results[id] = []; });
+
+      // 1. Get event details to find owners for all events
+      const { data: eventsData, error: eventsError } = await supabase
         .from('calendar_events')
-        .select('created_by')
-        .eq('id', eventId)
-        .single();
-        
-      if (eventError) {
-        console.error('Error fetching event owner:', eventError);
-        return [];
+        .select('id, created_by')
+        .in('id', eventIds);
+
+      if (eventsError) {
+        console.error('Error fetching event owners:', eventsError);
+        return results;
       }
-      
-      // Get all user data from API
+
+      // 2. Get all invitees for all events in one query
+      const { data: inviteeData, error: inviteeError } = await supabase
+        .from('calendar_invitees')
+        .select('item_id, user_id, status')
+        .in('item_id', eventIds)
+        .eq('item_type', 'event')
+        .in('status', ['accepted', 'pending']);
+
+      if (inviteeError) {
+        console.error('Error fetching invitees:', inviteeError);
+      }
+
+      // 3. Fetch all user data once
       let allUsers: any[] = [];
       try {
         const response = await fetch('/api/users');
@@ -302,46 +329,38 @@ export class CalendarService {
       
       // Create user map for quick lookup
       const userMap = new Map(allUsers.map((user: any) => [user.id, user]));
-      
-      // Add event owner to participants with real user info
-      if (eventData?.created_by) {
-        const userData = userMap.get(eventData.created_by);
-        participants.push({
-          id: eventData.created_by,
-          role: 'owner',
-          first_name: userData?.first_name || 'Event',
-          last_name: userData?.last_name || 'Owner',
-          email: userData?.email || '',
-          profile_image_url: userData?.profileImageUrl || null
-        });
-      }
-      
-      // Get invitees with real user info
-      const { data: inviteeData, error: inviteeError } = await supabase
-        .from('calendar_invitees')
-        .select('user_id, status')
-        .eq('item_id', eventId)
-        .eq('item_type', 'event')
-        .in('status', ['accepted', 'pending']);
-        
-      if (!inviteeError && inviteeData) {
-        for (const invitee of inviteeData) {
-          const userData = userMap.get(invitee.user_id);
-          participants.push({
-            id: invitee.user_id,
-            role: invitee.status === 'accepted' ? 'invitee_accepted' : 'invitee_pending',
-            first_name: userData?.first_name || 'Invited',
-            last_name: userData?.last_name || 'User',
+
+      // 4. Combine data for each event
+      eventsData?.forEach(event => {
+        if (event.created_by) {
+          const userData = userMap.get(event.created_by);
+          results[event.id].push({
+            id: event.created_by,
+            role: 'owner',
+            first_name: userData?.first_name || 'Event',
+            last_name: userData?.last_name || 'Owner',
             email: userData?.email || '',
             profile_image_url: userData?.profileImageUrl || null
           });
         }
-      }
-      
-      return participants;
+      });
+
+      inviteeData?.forEach(invitee => {
+        const userData = userMap.get(invitee.user_id);
+        results[invitee.item_id].push({
+          id: invitee.user_id,
+          role: invitee.status === 'accepted' ? 'invitee_accepted' : 'invitee_pending',
+          first_name: userData?.first_name || 'Invited',
+          last_name: userData?.last_name || 'User',
+          email: userData?.email || '',
+          profile_image_url: userData?.profileImageUrl || null
+        });
+      });
+
+      return results;
     } catch (error) {
-      console.error('Error fetching event participants:', error);
-      return [];
+      console.error('Error in getMultipleEventsParticipants:', error);
+      return {};
     }
   }
 

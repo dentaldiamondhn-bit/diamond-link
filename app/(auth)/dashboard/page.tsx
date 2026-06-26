@@ -56,53 +56,23 @@ export default function DashboardPage() {
       setShowPatientsModal(true);
       setPatientsModalLoading(true);
       
-      // Fetch treatment counts and payment info for each patient
-      const patientsWithDetails = await Promise.all(
-          patients.map(async (patient: any) => {
-            try {
-              // Use paciente_id field instead of id
-              const patientId = patient.paciente_id || patient.id;
-              
-              // Validate patient has an ID
-              if (!patientId) {
-                console.error('❌ Patient missing ID:', patient);
-                return {
-                  ...patient,
-                  completedTreatmentsCount: 0,
-                  totalPaid: 0
-                };
-              }
+      // Batch fetch treatment summaries for all patients at once
+      // This optimization replaces the O(N) queries with a single O(1) query
+      const patientIds = patients.map((p: any) => p.paciente_id || p.id).filter(Boolean);
+      const treatmentSummaries = await CompletedTreatmentService.getCompletedTreatmentsSummaryByPatientIds(patientIds);
 
-              console.log('🔍 Fetching treatments for patient:', { 
-                id: patientId, 
-                name: patient.nombre_completo 
-              });
+      const patientsWithDetails = patients.map((patient: any) => {
+        const patientId = patient.paciente_id || patient.id;
+        const summary = treatmentSummaries[patientId] || { completedTreatmentsCount: 0, totalPaid: 0 };
 
-              // Get completed treatments for this patient
-              const completedTreatments = await CompletedTreatmentService.getCompletedTreatmentsByPatientId(patientId);
-              
-              // Calculate total amount paid
-              const totalPaid = completedTreatments.reduce((sum: number, treatment: any) => {
-                return sum + (treatment.monto_pagado || 0);
-              }, 0);
-              
-              return {
-                ...patient,
-                completedTreatmentsCount: completedTreatments.length,
-                totalPaid
-              };
-            } catch (error) {
-              console.error(`Error fetching details for patient ${patient?.paciente_id || patient?.id || 'unknown'}:`, error);
-              return {
-                ...patient,
-                completedTreatmentsCount: 0,
-                totalPaid: 0
-              };
-            }
-          })
-        );
+        return {
+          ...patient,
+          completedTreatmentsCount: summary.completedTreatmentsCount,
+          totalPaid: summary.totalPaid
+        };
+      });
         
-        setDoctorPatients(patientsWithDetails);
+      setDoctorPatients(patientsWithDetails);
     } catch (error) {
       console.error('❌ Error opening patients modal:', error);
     } finally {
@@ -132,15 +102,13 @@ export default function DashboardPage() {
         const userUpcomingEvents = await CalendarService.getUpcomingEvents(user?.id);
         setUpcomingEvents(userUpcomingEvents);
         
-        // Fetch participants for each event
-        const participantsData: Record<string, any[]> = {};
-        for (const event of userUpcomingEvents) {
-          if (event.id) {
-            const participants = await CalendarService.getEventParticipants(event.id);
-            participantsData[event.id] = participants;
-          }
+        // Batch fetch participants for all upcoming events at once
+        // This optimization replaces O(N) API calls and queries with a single O(1) batch call
+        const eventIds = userUpcomingEvents.map(e => e.id).filter(Boolean);
+        if (eventIds.length > 0) {
+          const participantsData = await CalendarService.getMultipleEventsParticipants(eventIds);
+          setEventParticipants(participantsData);
         }
-        setEventParticipants(participantsData);
         
         if (userRole === 'doctor') {
           // Fetch doctor's patients and stats
