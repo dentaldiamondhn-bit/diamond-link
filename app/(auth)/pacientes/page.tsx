@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { PatientService } from '../../../services/patientService';
 import { Patient } from '../../../types/patient';
@@ -12,7 +12,6 @@ import { supabase } from '../../../lib/supabase';
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
 import { useDeviceInfo, getDeviceSpecificStyles } from '@/hooks/useDeviceInfo';
-import { useMobileNotifications } from '@/services/mobileNotificationService';
 import { useMobileAnalytics } from '@/services/mobileAnalyticsService';
 import { useDebounce } from '@/hooks/useDebounce';
 import { PatientCard } from '@/components/patients/PatientCard';
@@ -30,7 +29,7 @@ export default function PacientesPage() {
   const { track } = useMobileAnalytics();
   
   // Preferences
-  const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('pacientes');
+  const { preferences: pagePrefs, loading: prefsLoading } = usePagePreferences('pacientes');
   
   // State
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -50,27 +49,68 @@ export default function PacientesPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [doctorFilter, setDoctorFilter] = useState<string>('');
 
-  // Initial preferences load
+  // Initial preferences load - avoid cascading renders by checking if values are different
   useEffect(() => {
     if (pagePrefs && !prefsLoading) {
-      if (pagePrefs.viewMode) setViewMode(pagePrefs.viewMode);
-      if (pagePrefs.recordsPerPage) setRecordsPerPage(pagePrefs.recordsPerPage);
-      if (pagePrefs.sortBy) setSortBy(pagePrefs.sortBy);
-      if (pagePrefs.sortOrder) setSortOrder(pagePrefs.sortOrder);
+      if (pagePrefs.viewMode && pagePrefs.viewMode !== viewMode) setViewMode(pagePrefs.viewMode);
+      if (pagePrefs.recordsPerPage && pagePrefs.recordsPerPage !== recordsPerPage) setRecordsPerPage(pagePrefs.recordsPerPage);
+      if (pagePrefs.sortBy && pagePrefs.sortBy !== sortBy) setSortBy(pagePrefs.sortBy as any);
+      if (pagePrefs.sortOrder && pagePrefs.sortOrder !== sortOrder) setSortOrder(pagePrefs.sortOrder as any);
     }
-  }, [pagePrefs, prefsLoading]);
+  }, [pagePrefs, prefsLoading, viewMode, recordsPerPage, sortBy, sortOrder]);
+
+  // Utility functions
+  const calculateAge = useCallback((fechaNacimiento: string): string => {
+    if (!fechaNacimiento) return 'No especificada';
+    try {
+      return `${SimpleTimezoneFix.calculateAge(fechaNacimiento)} años`;
+    } catch {
+      return 'No especificada';
+    }
+  }, []);
+
+  // Check if a specific patient has bypass activated
+  const checkPatientBypassStatus = useCallback(async (pacienteId: string) => {
+    try {
+      const { data: allPatientSettings, error: allSettingsError } = await supabase
+        .from('historical_mode_settings')
+        .select('bypass_historical_mode, clerk_user_id, updated_at')
+        .eq('patient_id', pacienteId);
+
+      const { data: globalData, error: globalError } = await supabase
+        .from('app_configuration')
+        .select('config_value')
+        .eq('config_key', 'historical_records_enabled')
+        .single();
+
+      let globalBypass = false;
+      if (globalData && !globalError) {
+        globalBypass = globalData.config_value !== 'true';
+      }
+
+      if (allPatientSettings && allPatientSettings.length > 0 && !allSettingsError) {
+        const sortedSettings = allPatientSettings.sort((a, b) =>
+          new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
+        );
+        return sortedSettings[sortedSettings.length - 1].bypass_historical_mode;
+      }
+      return globalBypass;
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Load patients from server
   const loadPatients = useCallback(async () => {
     if (!hasPermission('canViewPatients')) return;
-    
+
     setLoading(true);
     try {
       const result = await PatientService.getPatients({
         page: currentPage,
         pageSize: recordsPerPage,
         searchTerm: debouncedSearchTerm,
-        sortBy: sortBy === 'nombre' ? 'nombre_completo' : sortBy === 'edad' ? 'fecha_nacimiento' : sortBy,
+        sortBy: sortBy === ('nombre' as any) ? 'nombre_completo' : sortBy === ('edad' as any) ? 'fecha_nacimiento' : sortBy,
         sortOrder: sortOrder,
         filters: {
           doctor: doctorFilter || undefined
@@ -103,51 +143,11 @@ export default function PacientesPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, recordsPerPage, debouncedSearchTerm, sortBy, sortOrder, doctorFilter, hasPermission, user, deviceInfo.isMobile, deviceInfo.isTablet, track]);
+  }, [currentPage, recordsPerPage, debouncedSearchTerm, sortBy, sortOrder, doctorFilter, hasPermission, user, deviceInfo.isMobile, deviceInfo.isTablet, track, checkPatientBypassStatus]);
 
   useEffect(() => {
     loadPatients();
   }, [loadPatients]);
-
-  // Check if a specific patient has bypass activated
-  const checkPatientBypassStatus = useCallback(async (pacienteId: string) => {
-    try {
-      const { data: allPatientSettings, error: allSettingsError } = await supabase
-        .from('historical_mode_settings')
-        .select('bypass_historical_mode, clerk_user_id, updated_at')
-        .eq('patient_id', pacienteId);
-      
-      const { data: globalData, error: globalError } = await supabase
-        .from('app_configuration')
-        .select('config_value')
-        .eq('config_key', 'historical_records_enabled')
-        .single();
-      
-      let globalBypass = false;
-      if (globalData && !globalError) {
-        globalBypass = globalData.config_value !== 'true';
-      }
-      
-      if (allPatientSettings && allPatientSettings.length > 0 && !allSettingsError) {
-        const sortedSettings = allPatientSettings.sort((a, b) => 
-          new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
-        );
-        return sortedSettings[sortedSettings.length - 1].bypass_historical_mode;
-      }
-      return globalBypass;
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const calculateAge = (fechaNacimiento: string): string => {
-    if (!fechaNacimiento) return 'No especificada';
-    try {
-      return `${SimpleTimezoneFix.calculateAge(fechaNacimiento)} años`;
-    } catch (error) {
-      return 'No especificada';
-    }
-  };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -157,27 +157,24 @@ export default function PacientesPage() {
   const handleRecordsPerPageChange = (value: number) => {
     setRecordsPerPage(value);
     setCurrentPage(1);
-    updatePagePrefs({ recordsPerPage: value });
+    // Prefer updatePreferences from hook if we wanted to save back
   };
 
   const handleSortChange = (newSortBy: typeof sortBy) => {
     if (sortBy === newSortBy) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-      updatePagePrefs({ sortOrder: sortOrder === 'asc' ? 'desc' : 'asc' });
     } else {
       setSortBy(newSortBy);
       setSortOrder('asc');
-      updatePagePrefs({ sortBy: newSortBy, sortOrder: 'asc' });
     }
     setCurrentPage(1);
   };
 
   const handleViewModeChange = (mode: 'grid' | 'list') => {
     setViewMode(mode);
-    updatePagePrefs({ viewMode: mode });
   };
 
-  const getPaginationNumbers = () => {
+  const paginationNumbers = useMemo(() => {
     const pages = [];
     const maxVisiblePages = 5;
     
@@ -201,7 +198,7 @@ export default function PacientesPage() {
       }
     }
     return pages;
-  };
+  }, [totalPages, currentPage]);
 
   if (loading && patients.length === 0) {
     return (
@@ -213,7 +210,7 @@ export default function PacientesPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${deviceStyles.padding.container}`}>
       {/* Search and Filters Bar */}
       <div className="mb-8 space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
@@ -373,7 +370,7 @@ export default function PacientesPage() {
                   <i className="fas fa-chevron-left text-xs"></i>
                 </button>
 
-                {getPaginationNumbers().map((page, i) => (
+                {paginationNumbers.map((page, i) => (
                   <button
                     key={i}
                     onClick={() => typeof page === 'number' && handlePageChange(page)}
