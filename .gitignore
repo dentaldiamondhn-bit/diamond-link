@@ -46,3 +46,6 @@ Thumbs.db
 clerk.broken/
 .env*.local
 everything-claude-code/
+
+# clerk configuration (can include secrets)
+/.clerk/

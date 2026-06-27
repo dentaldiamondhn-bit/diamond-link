@@ -51,31 +51,79 @@ export class PatientService {
     }
   }
 
-  static async getPatients() {
+  static async getAllPatients() {
     try {
-      // Try ordering by fecha_inicio first, if it fails try created_at, then no ordering
-      let query = supabase.from('patients').select('*');
-      
-      try {
-        query = query.order('fecha_inicio', { ascending: false });
-      } catch (orderError) {
-        console.warn('Failed to order by fecha_inicio, trying created_at:', orderError);
-        try {
-          query = query.order('created_at', { ascending: false });
-        } catch (secondOrderError) {
-          console.warn('Failed to order by created_at, using no ordering:', secondOrderError);
-          // No ordering if both fail
-        }
+      const { data, error } = await supabase
+        .from('patients')
+        .select('*')
+        .order('nombre_completo', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching all patients:', error);
+        throw error;
       }
-      
-      const { data, error } = await query;
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error fetching all patients:', error);
+      throw error;
+    }
+  }
+
+  static async getPatients(options: {
+    page?: number;
+    pageSize?: number;
+    searchTerm?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    filters?: {
+      doctor?: string;
+      patientType?: string;
+      hasConditions?: boolean;
+    };
+  } = {}) {
+    try {
+      const {
+        page = 1,
+        pageSize = 25,
+        searchTerm = '',
+        sortBy = 'fecha_inicio',
+        sortOrder = 'desc',
+        filters = {}
+      } = options;
+
+      let query = supabase.from('patients').select('*', { count: 'exact' });
+
+      // Search
+      if (searchTerm) {
+        query = query.or(`nombre_completo.ilike.%${searchTerm}%,numero_identidad.ilike.%${searchTerm}%,telefono.ilike.%${searchTerm}%`);
+      }
+
+      // Filters
+      if (filters.doctor) {
+        query = query.eq('doctor', filters.doctor);
+      }
+
+      // Sort
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+      // Pagination
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
 
       if (error) {
         console.error('Error fetching patients:', error);
         throw error;
       }
 
-      return data || [];
+      return {
+        patients: (data || []) as Patient[],
+        totalCount: count || 0,
+        totalPages: count ? Math.ceil(count / pageSize) : 0
+      };
     } catch (error) {
       console.error('Unexpected error fetching patients:', error);
       throw error;

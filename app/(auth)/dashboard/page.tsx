@@ -161,17 +161,17 @@ export default function DashboardPage() {
 
         } else if (userRole === 'admin') {
           // Fetch all patients for admin
-          const allPatients = await PatientService.getPatients();
-          setPatientCount(allPatients.length);
+          const { totalCount: allPatientsCount } = await PatientService.getPatients({ pageSize: 1 });
+          setPatientCount(allPatientsCount);
 
           // Fetch all treatments for admin
           const allTreatments = await CompletedTreatmentService.getAllCompletedTreatments();
           setTreatmentCount(allTreatments.length);
 
         } else {
-          // For staff and others, fetch all patients
-          const patients = await PatientService.getPatients();
-          setPatientCount(patients.length);
+          // For staff and others, fetch all patients count
+          const { totalCount: allPatientsCount } = await PatientService.getPatients({ pageSize: 1 });
+          setPatientCount(allPatientsCount);
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);

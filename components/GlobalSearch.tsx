@@ -71,7 +71,7 @@ export default function GlobalSearch() {
         
         // Load patients with error handling
         try {
-          patientsData = await PatientService.getPatients();
+          patientsData = await PatientService.getAllPatients();
         } catch (error) {
           console.error('Error loading patients:', error);
           patientsData = [];
