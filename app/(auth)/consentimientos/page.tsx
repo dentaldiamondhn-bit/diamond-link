@@ -7,13 +7,12 @@ import { consentimientoService } from '../../../services/consentimientoService';
 import { PatientService } from '../../../services/patientService';
 import { createWhatsAppUrl, formatPhoneDisplay } from '../../../utils/phoneUtils';
 import { getPatientType } from '../../../utils/patientTypeUtils';
-import { CONSENT_TEMPLATES, getConsentTemplate } from '../../../utils/consentTemplates';
+import { CONSENT_TEMPLATES } from '../../../utils/consentTemplates';
 import AnimatedRubish from '../../../components/AnimatedRubish';
 
 function ConsentimientosContent() {
   const [consentimientos, setConsentimientos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -21,16 +20,8 @@ function ConsentimientosContent() {
   const [recordsPerPage, setRecordsPerPage] = useState(25);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedConsentimiento, setSelectedConsentimiento] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    type: '',
-    description: '',
-    content: ''
-  });
-  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [sortBy, setSortBy] = useState<'nombre' | 'fecha' | 'tipo'>('nombre');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Change 'asc' to 'desc'
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const searchParams = useSearchParams();
   const pacienteId = searchParams.get('paciente_id') || searchParams.get('id');
@@ -48,37 +39,30 @@ function ConsentimientosContent() {
           data = await consentimientoService.getAllConsentimientos();
         }
         
+        // Optimization: Service now returns joined patient data, avoiding N+1 queries
         // Transform data to match expected format and include patient info
-        const transformedData = await Promise.all(data.map(async (consentimiento) => {
-          // Fetch patient information
-          let patientInfo = null;
+        const transformedData = data.map((consentimiento) => {
+          const patientInfo = consentimiento.patients;
           let patientType = null;
-          if (consentimiento.paciente_id) {
-            try {
-              patientInfo = await PatientService.getPatientById(consentimiento.paciente_id);
-              
-              // Calculate patient type for age-based color coding
-              if (patientInfo) {
-                const patientTypeData = getPatientType(patientInfo);
-                
-                // Special case: pregnancy override - use soft pink to blue gradient
-                let finalPatientType = patientTypeData;
-                if (patientInfo.sexo === 'femenino' && patientInfo.embarazo === 'si') {
-                  finalPatientType = {
-                    ...patientTypeData,
-                    colors: {
-                      header: 'from-pink-400 to-blue-400',
-                      badge: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
-                      badgeText: 'border-pink-200 text-pink-700 dark:text-pink-300'
-                    }
-                  };
+
+          // Calculate patient type for age-based color coding
+          if (patientInfo) {
+            const patientTypeData = getPatientType(patientInfo);
+
+            // Special case: pregnancy override - use soft pink to blue gradient
+            let finalPatientType = patientTypeData;
+            if (patientInfo.sexo === 'femenino' && patientInfo.embarazo === 'si') {
+              finalPatientType = {
+                ...patientTypeData,
+                colors: {
+                  header: 'from-pink-400 to-blue-400',
+                  badge: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
+                  badgeText: 'border-pink-200 text-pink-700 dark:text-pink-300'
                 }
-                
-                patientType = finalPatientType;
-              }
-            } catch (error) {
-              console.error('Error fetching patient info:', error);
+              };
             }
+
+            patientType = finalPatientType;
           }
           
           return {
@@ -100,12 +84,11 @@ function ConsentimientosContent() {
             },
             patientType: patientType
           };
-        }));
+        });
         
         setConsentimientos(transformedData);
       } catch (error) {
         console.error(' Error loading consentimientos:', error);
-        setError('Error loading consentimientos: ' + (error as Error).message);
         // Fallback to mock data if service fails
         setConsentimientos([
           {
@@ -167,38 +150,6 @@ function ConsentimientosContent() {
     loadConsentimientos();
   }, [pacienteId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Here you would typically save to your backend
-    alert('Consentimiento guardado exitosamente');
-    setShowForm(false);
-    setFormData({
-      name: '',
-      type: '',
-      description: '',
-      content: ''
-    });
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleTemplateSelect = (templateId: string) => {
-    setSelectedTemplate(templateId);
-    const template = getConsentTemplate(templateId);
-    if (template) {
-      setFormData({
-        name: template.name,
-        type: template.type,
-        description: template.description,
-        content: template.content
-      });
-    }
-  };
 
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
