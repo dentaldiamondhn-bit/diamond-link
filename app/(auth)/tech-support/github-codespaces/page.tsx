@@ -1,5 +1,4 @@
 'use client';
-
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
@@ -31,11 +30,6 @@ interface CodespacesResponse {
 }
 
 export default function GitHubCodespaces() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
   const [codespaces, setCodespaces] = useState<Codespace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

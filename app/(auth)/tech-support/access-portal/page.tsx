@@ -1,5 +1,4 @@
 'use client';
-
 export const dynamic = 'force-dynamic';
 
 import React from 'react';
@@ -8,22 +7,17 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 
 export default function TechSupportAccessPortal() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
   const { userRole } = useRoleBasedAccess();
 
   // Check if user is tech support
-  if (isMounted && userRole !== 'tech_support') {
+  if (userRole !== 'tech_support') {
     return (
       <AccessDenied
         title="Acceso Denegado"
         message="No tienes permiso para acceder a esta página."
         explanation="Esta área es exclusiva para el personal de soporte técnico."
         contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => typeof window !== 'undefined' ? window.history.back() : undefined}
+        onGoBack={() => window.history.back()}
       />
     );
   }

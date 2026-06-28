@@ -1,5 +1,4 @@
 'use client';
-
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
@@ -43,11 +42,6 @@ interface LogEntry {
 }
 
 export default function SystemLogs() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
   const { userRole } = useRoleBasedAccess();
   const { resolvedTheme } = useTheme();
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -66,7 +60,7 @@ export default function SystemLogs() {
         message="No tienes permiso para acceder a esta página."
         explanation="Esta área es exclusiva para el personal autorizado."
         contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => typeof window !== 'undefined' ? window.history.back() : undefined}
+        onGoBack={() => window.history.back()}
       />
     );
   }

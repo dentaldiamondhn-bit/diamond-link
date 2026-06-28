@@ -1,6 +1,5 @@
 
 'use client';
-
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
@@ -16,11 +15,6 @@ import { UserAvatar } from '@/components/calendar/UserComponents';
 import DocumentDisplay from '@/components/DocumentDisplay';
 
 export default function TicketsPage() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
   const { user } = useUser();
   const { theme } = useTheme();
   const [tickets, setTickets] = useState<Ticket[]>([]);
