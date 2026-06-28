@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -27,6 +29,11 @@ interface SystemSetting {
 }
 
 export default function SystemSettings() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const { userRole } = useRoleBasedAccess();
   const { resolvedTheme } = useTheme();
   const [settings, setSettings] = useState<SystemSetting[]>([]);
@@ -35,14 +42,14 @@ export default function SystemSettings() {
   const [activeTab, setActiveTab] = useState('general');
 
   // Check if user is tech support
-  if (userRole !== 'tech_support') {
+  if (isMounted && userRole !== 'tech_support') {
     return (
       <AccessDenied
         title="Acceso Denegado"
         message="No tienes permiso para acceder a esta página."
         explanation="Esta área es exclusiva para el personal de soporte técnico."
         contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
+        onGoBack={() => typeof window !== 'undefined' ? window.history.back() : undefined}
       />
     );
   }

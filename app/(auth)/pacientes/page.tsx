@@ -49,15 +49,15 @@ export default function PacientesPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [doctorFilter, setDoctorFilter] = useState<string>('');
 
-  // Initial preferences load - avoid cascading renders by checking if values are different
   useEffect(() => {
     if (pagePrefs && !prefsLoading) {
-      if (pagePrefs.viewMode && pagePrefs.viewMode !== viewMode) setViewMode(pagePrefs.viewMode);
-      if (pagePrefs.recordsPerPage && pagePrefs.recordsPerPage !== recordsPerPage) setRecordsPerPage(pagePrefs.recordsPerPage);
-      if (pagePrefs.sortBy && pagePrefs.sortBy !== sortBy) setSortBy(pagePrefs.sortBy as any);
-      if (pagePrefs.sortOrder && pagePrefs.sortOrder !== sortOrder) setSortOrder(pagePrefs.sortOrder as any);
+      if (pagePrefs.viewMode) setViewMode(pagePrefs.viewMode);
+      if (pagePrefs.recordsPerPage) setRecordsPerPage(pagePrefs.recordsPerPage);
+      if (pagePrefs.sortBy) setSortBy(pagePrefs.sortBy as any);
+      if (pagePrefs.sortOrder) setSortOrder(pagePrefs.sortOrder as any);
     }
-  }, [pagePrefs, prefsLoading, viewMode, recordsPerPage, sortBy, sortOrder]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagePrefs, prefsLoading]);
 
   // Utility functions
   const calculateAge = useCallback((fechaNacimiento: string): string => {

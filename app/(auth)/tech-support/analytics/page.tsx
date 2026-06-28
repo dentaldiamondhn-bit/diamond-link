@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
@@ -23,6 +25,11 @@ import AccessDenied from '@/components/AccessDenied';
 import { AnalyticsData } from '@/types/analytics';
 
 export default function TechSupportAnalyticsPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const { userRole } = useRoleBasedAccess();
   const { resolvedTheme } = useTheme();
   
@@ -39,14 +46,14 @@ export default function TechSupportAnalyticsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
 
-  if (userRole !== 'tech_support') {
+  if (isMounted && userRole !== 'tech_support') {
     return (
       <AccessDenied
         title="Acceso Denegado"
         message="No tienes permiso para acceder a las analíticas del sistema."
         explanation="Las analíticas y métricas del sistema son exclusivas para el personal de soporte técnico autorizado."
         contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
+        onGoBack={() => typeof window !== 'undefined' ? window.history.back() : undefined}
       />
     );
   }
@@ -92,7 +99,7 @@ export default function TechSupportAnalyticsPage() {
   }, [timeRange]);
 
   useEffect(() => {
-    if (userRole !== 'tech_support') return;
+    if (isMounted && userRole !== 'tech_support') return;
 
     const interval = setInterval(() => {
       setAnalyticsData(prev => ({

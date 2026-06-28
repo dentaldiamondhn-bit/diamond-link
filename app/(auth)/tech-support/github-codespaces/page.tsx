@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import { Monitor, Play, Download, ExternalLink, Terminal, CheckCircle, AlertCircle, Clock, Folder, Settings, Smartphone, Cloud, Github, Zap } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -29,6 +31,11 @@ interface CodespacesResponse {
 }
 
 export default function GitHubCodespaces() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [codespaces, setCodespaces] = useState<Codespace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

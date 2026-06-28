@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { clerkClient } from '@clerk/nextjs/server';
@@ -9,6 +11,11 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 
 export default function TechSupportUsersPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const { userRole, hasPermission } = useRoleBasedAccess();
   const router = useRouter();
   const [users, setUsers] = useState<any[]>([]);

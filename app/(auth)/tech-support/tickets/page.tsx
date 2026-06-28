@@ -1,6 +1,8 @@
 
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import { Search, X, RefreshCw, TicketIcon, Calendar, Paperclip, FileText, Wrench, Bug, Lightbulb, User, Bell, Plus, ChevronRight, AlertCircle, Activity, CheckCircle, Filter, Settings, TrendingUp, ChevronDown, MessageSquare, AlertTriangle, Send, Clock } from 'lucide-react';
 import AccessDenied from '@/components/AccessDenied';
@@ -14,6 +16,11 @@ import { UserAvatar } from '@/components/calendar/UserComponents';
 import DocumentDisplay from '@/components/DocumentDisplay';
 
 export default function TicketsPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const { user } = useUser();
   const { theme } = useTheme();
   const [tickets, setTickets] = useState<Ticket[]>([]);
