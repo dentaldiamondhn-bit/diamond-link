@@ -60,15 +60,21 @@ export async function createPatient(formData: FormData) {
     let documentUrls: string[] = [];
     const documentFiles = formData.getAll('documentos') as any[];
     
+    // Compute edad early for conditional minor logic
+    const edadForm = formData.get('edad') as string;
+    const edad = edadForm ? parseInt(edadForm) : undefined;
+    const fechaNacimiento = formData.get('fecha_nacimiento') as string;
+    const fechaInicio = formData.get('fecha_inicio') as string;
+    
     // Create patient first to get ID for file uploads
     const tempPatientData: Omit<Patient, 'paciente_id'> = {
       nombre_completo: formData.get('nombre_completo') as string,
         tipo_identificacion: formData.get('tipo_identificacion') as Patient['tipo_identificacion'],
         otro_tipo_identificacion: formData.get('otro_tipo_identificacion') as string || undefined,
         numero_identidad: formData.get('numero_identidad') as string,
-        fecha_nacimiento: formData.get('fecha_nacimiento') as string,
-        edad: formData.get('edad') ? parseInt(formData.get('edad') as string) : undefined,
-        edad_al_momento_consulta: calculateEdadAlMomentoConsulta(formData.get('fecha_nacimiento') as string, formData.get('fecha_inicio') as string),
+        fecha_nacimiento: fechaNacimiento,
+        edad: edad,
+        edad_al_momento_consulta: calculateEdadAlMomentoConsulta(fechaNacimiento, fechaInicio),
         representante_legal: formData.get('representante_legal') as string || undefined,
         parentesco: formData.get('parentesco') as Patient['parentesco'] || undefined,
         otro_parentesco: formData.get('otro_parentesco') as string || undefined,
@@ -101,16 +107,16 @@ export async function createPatient(formData: FormData) {
         codigopais: formData.get('codigopais') as string || undefined,
         direccion: formData.get('direccion') as string,
         escolaridad: formData.get('escolaridad') as string,
-        estado_civil: formData.get('estado_civil') as Patient['estado_civil'],
+        estado_civil: (edad < 18 ? 'Desconocido' : formData.get('estado_civil') as Patient['estado_civil']) || 'Desconocido',
         email: formData.get('email') as string || undefined,
-        trabajo: formData.get('trabajo') as string || undefined,
-        contacto_emergencia: formData.get('contacto_emergencia') as string,
-        contacto_telefono: formData.get('contacto_telefono') as string,
+        trabajo: edad < 18 ? undefined : (formData.get('trabajo') as string || undefined),
+        contacto_emergencia: edad < 18 ? '' : (formData.get('contacto_emergencia') as string),
+        contacto_telefono: edad < 18 ? '' : (formData.get('contacto_telefono') as string),
         codigopaisemergencia: formData.get('codigopaisemergencia') as string || undefined,
         medico_cabecera: formData.get('medico_cabecera') as string || undefined,
         doctor: formData.get('doctor') as Patient['doctor'],
         otro_doctor: formData.get('otro_doctor') as string || undefined,
-        fecha_inicio: formData.get('fecha_inicio') as string,
+        fecha_inicio: fechaInicio,
         seguro: formData.get('seguro') as Patient['seguro'],
         otro_seguro: formData.get('otro_seguro') as string || undefined,
         poliza: formData.get('poliza') as string || undefined,
@@ -120,18 +126,18 @@ export async function createPatient(formData: FormData) {
         medicamentos: formData.get('medicamentos') as string,
         hospitalizaciones: formData.get('hospitalizaciones') as string,
         cirugias: formData.get('cirugias') as string,
-        embarazo: formData.get('embarazo') as Patient['embarazo'] || undefined,
+        embarazo: edad < 18 ? undefined : (formData.get('embarazo') as Patient['embarazo'] || undefined),
         semanas_embarazo: formData.get('semanas_embarazo') ? parseInt(formData.get('semanas_embarazo') as string) : undefined,
         medicamentos_embarazo: formData.get('medicamentos_embarazo') as string || undefined,
         antecedentes_familiares: formData.get('antecedentes_familiares') as string,
         vacunas: formData.get('vacunas') as string || undefined,
         observaciones_medicas: formData.get('observaciones_medicas') as string || undefined,
-        fuma: formData.get('fuma') as Patient['fuma'],
+        fuma: edad < 18 ? 'no' : (formData.get('fuma') as Patient['fuma'] || 'no'),
         fuma_cantidad: formData.get('fuma_cantidad') ? parseInt(formData.get('fuma_cantidad') as string) : undefined,
         fuma_frecuencia: formData.get('fuma_frecuencia') as Patient['fuma_frecuencia'] || undefined,
-        alcohol: formData.get('alcohol') as Patient['alcohol'],
+        alcohol: edad < 18 ? 'no' : (formData.get('alcohol') as Patient['alcohol'] || 'no'),
         alcohol_frecuencia: formData.get('alcohol_frecuencia') as Patient['alcohol_frecuencia'] || undefined,
-        drogas: formData.get('drogas') as Patient['drogas'],
+        drogas: edad < 18 ? 'no' : (formData.get('drogas') as Patient['drogas'] || 'no'),
         tipo_droga: formData.get('tipo_droga') as string || undefined,
         drogas_frecuencia: formData.get('drogas_frecuencia') as Patient['drogas_frecuencia'] || undefined,
         cafe: formData.get('cafe') as Patient['cafe'],
@@ -168,7 +174,7 @@ export async function createPatient(formData: FormData) {
         tipo_reaccion: formData.get('tipo_reaccion') as string || undefined,
         experiencia_traumatica: formData.get('experiencia_traumatica') as Patient['experiencia_traumatica'],
         que_sucedio: formData.get('que_sucedio') as string || undefined,
-        protesis: formData.get('protesis') as Patient['protesis'],
+        protesis: edad < 18 ? 'no' : (formData.get('protesis') as Patient['protesis'] || 'no'),
         protesis_tipo: formData.get('protesis_tipo') as Patient['protesis_tipo'] || undefined,
         protesis_nocturno: formData.get('protesis_nocturno') as Patient['protesis_nocturno'] || undefined,
         sensibilidad: formData.get('sensibilidad') as Patient['sensibilidad'],

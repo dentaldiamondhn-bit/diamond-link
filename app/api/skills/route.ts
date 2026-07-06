@@ -28,12 +28,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
     const category = searchParams.get('category');
+    const agencyType = searchParams.get('agency_type');
 
     console.log('Fetching skills for user:', userId);
 
     let query = supabase
       .from('skills')
-      .select('*')
+      .select('*, metadata')
       .order('created_at', { ascending: false });
 
     if (search) {
@@ -42,6 +43,10 @@ export async function GET(request: NextRequest) {
 
     if (category) {
       query = query.eq('category', category);
+    }
+
+    if (agencyType) {
+      query = query.eq('agency_type', agencyType);
     }
 
     const { data, error } = await query;
@@ -93,6 +98,8 @@ export async function POST(request: NextRequest) {
         category: body.category,
         tags: body.tags || [],
         is_public: body.is_public || false,
+        agency_type: body.agency_type || null,
+        metadata: body.metadata || null,
         created_by: userId,
         version: 1,
         created_at: new Date().toISOString(),

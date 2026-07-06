@@ -19,7 +19,7 @@ export default function GlobalChatBubble() {
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [agentMode, setAgentMode] = useState(false);
-  const [skills, setSkills] = useState<{id: string, name: string}[]>([]);
+  const [skills, setSkills] = useState<Array<{id: string, name: string, category: string, metadata?: any}>>([]);
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -216,9 +216,25 @@ export default function GlobalChatBubble() {
                       className="w-full text-xs border border-gray-300 dark:border-gray-500 rounded px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
                     >
                       <option value="">No skill selected</option>
-                      {skills.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
+                      {(() => {
+                        // Group skills by division
+                        const grouped = skills.reduce((acc, skill) => {
+                          const division = skill.metadata?.division || skill.category || 'Other';
+                          if (!acc[division]) acc[division] = [];
+                          acc[division].push(skill);
+                          return acc;
+                        }, {} as Record<string, typeof skills>);
+                        
+                        return Object.entries(grouped).map(([division, divisionSkills]) => (
+                          <optgroup key={division} label={division.charAt(0).toUpperCase() + division.slice(1).replace('-', ' ')}>
+                            {divisionSkills.map(s => (
+                              <option key={s.id} value={s.id}>
+                                {s.metadata?.emoji ? `${s.metadata.emoji} ` : ''}{s.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ));
+                      })()}
                     </select>
                     {userRole !== 'tech_support' && (
                       <div className="text-xs text-gray-500 dark:text-gray-400 italic mt-1">

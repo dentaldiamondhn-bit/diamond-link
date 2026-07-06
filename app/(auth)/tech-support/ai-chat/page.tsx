@@ -50,7 +50,7 @@ export default function AIChatPage() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [agentMode, setAgentMode] = useState(false);
-  const [skills, setSkills] = useState<Array<{id: string, name: string, description: string, category: string}>>([]);
+  const [skills, setSkills] = useState<Array<{id: string, name: string, description: string, category: string, metadata?: any}>>([]);
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [navDropdownOpen, setNavDropdownOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -621,9 +621,25 @@ return (
                   className="text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                 >
                   <option value="">No skill selected</option>
-                  {skills.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
+                  {(() => {
+                    // Group skills by division
+                    const grouped = skills.reduce((acc, skill) => {
+                      const division = skill.metadata?.division || skill.category || 'Other';
+                      if (!acc[division]) acc[division] = [];
+                      acc[division].push(skill);
+                      return acc;
+                    }, {} as Record<string, typeof skills>);
+                    
+                    return Object.entries(grouped).map(([division, divisionSkills]) => (
+                      <optgroup key={division} label={division.charAt(0).toUpperCase() + division.slice(1).replace('-', ' ')}>
+                        {divisionSkills.map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.metadata?.emoji ? `${s.metadata.emoji} ` : ''}{s.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ));
+                  })()}
                 </select>
               )}
 
