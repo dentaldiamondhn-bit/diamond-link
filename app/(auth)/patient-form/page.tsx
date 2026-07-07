@@ -1071,6 +1071,9 @@ function PatientFormContent() {
     const contactoEmergencia = form.contacto_emergencia?.value?.trim();
     const contactoTelefono = form.contacto_telefono?.value?.trim();
     
+    // Calculate age to determine if patient is a minor (for conditional fields)
+    const edadValue = parseInt(form.edad?.value?.trim() || '0');
+    
     // Clinical Information fields
     const doctor = form.doctor?.value?.trim();
     const fechaInicio = form.fecha_inicio?.value?.trim();
@@ -1141,21 +1144,21 @@ function PatientFormContent() {
       validationStatus['escolaridad'] = 'valid';
     }
     
-    if (!estadoCivil) {
+    if (edadValue >= 18 && !estadoCivil) {
       missing.push('Estado Civil');
       validationStatus['estado_civil'] = 'invalid';
     } else {
       validationStatus['estado_civil'] = 'valid';
     }
     
-    if (!contactoEmergencia) {
+    if (edadValue >= 18 && !contactoEmergencia) {
       missing.push('Contacto de emergencia');
       validationStatus['contacto_emergencia'] = 'invalid';
     } else {
       validationStatus['contacto_emergencia'] = 'valid';
     }
     
-    if (!contactoTelefono) {
+    if (edadValue >= 18 && !contactoTelefono) {
       missing.push('Teléfono de emergencia');
       validationStatus['contacto_telefono'] = 'invalid';
     } else {
@@ -1226,7 +1229,6 @@ function PatientFormContent() {
     }
     
     // Validate representative fields if patient is a minor
-    const edadValue = parseInt(form.edad?.value?.trim() || '0');
     if (edadValue < 18) {
       const representanteLegal = form.representante_legal?.value?.trim();
       const parentesco = form.parentesco?.value?.trim();
@@ -1885,62 +1887,78 @@ function PatientFormContent() {
             updateFieldValidation('escolaridad', e.target.value);
           }} />
 
-          <label htmlFor="estado_civil" className="block mb-1 font-medium mt-4">Estado Civil:</label>
-          <select id="estado_civil" name="estado_civil" required className={`input text-gray-900 dark:text-white ${getFieldStyle('estado_civil')}`} value={estadoCivil || ''} onChange={(e) => {
-            setEstadoCivil(e.target.value);
-            updateFieldValidation('estado_civil', e.target.value);
-          }}>
-            <option value="">Seleccionar</option>
-            <option value="Soltero">Soltero(a)</option>
-            <option value="Casado">Casado(a)</option>
-            <option value="Viudo">Viudo(a)</option>
-            <option value="Divorciado">Divorciado(a)</option>
-            <option value="Union Libre">Unión Libre</option>
-            <option value="Desconocido">Desconocido</option>
-          </select>
+          {edad !== '' && edad >= 18 && (
+            <>
+              <label htmlFor="estado_civil" className="block mb-1 font-medium mt-4">Estado Civil:</label>
+              <select id="estado_civil" name="estado_civil" className={`input text-gray-900 dark:text-white ${getFieldStyle('estado_civil')}`} value={estadoCivil || ''} onChange={(e) => {
+                setEstadoCivil(e.target.value);
+                updateFieldValidation('estado_civil', e.target.value);
+              }}>
+                <option value="">Seleccionar</option>
+                <option value="Soltero">Soltero(a)</option>
+                <option value="Casado">Casado(a)</option>
+                <option value="Viudo">Viudo(a)</option>
+                <option value="Divorciado">Divorciado(a)</option>
+                <option value="Union Libre">Unión Libre</option>
+                <option value="Desconocido">Desconocido</option>
+              </select>
+            </>
+          )}
 
           <label htmlFor="email" className="block mb-1 font-medium mt-4">Correo electrónico:</label>
           <input type="email" id="email" name="email" className="input" value={email || ''} onChange={(e) => setEmail(e.target.value)} />
 
-          <label htmlFor="trabajo" className="block mb-1 font-medium mt-4">Lugar de trabajo:</label>
-          <input type="text" id="trabajo" name="trabajo" className="input" value={trabajo || ''} onChange={(e) => setTrabajo(e.target.value)} />
+          {edad !== '' && edad >= 18 && (
+            <>
+              <label htmlFor="trabajo" className="block mb-1 font-medium mt-4">Lugar de trabajo:</label>
+              <input type="text" id="trabajo" name="trabajo" className="input" value={trabajo || ''} onChange={(e) => setTrabajo(e.target.value)} />
+            </>
+          )}
 
-          <label htmlFor="contacto_emergencia" className="block mb-1 font-medium mt-4">Contacto de emergencia:</label>
-          <input type="text" id="contacto_emergencia" name="contacto_emergencia" required className={`input text-gray-900 dark:text-white ${getFieldStyle('contacto_emergencia')}`} value={contactoEmergencia || ''} onChange={(e) => {
-            setContactoEmergencia(e.target.value);
-            updateFieldValidation('contacto_emergencia', e.target.value);
-          }} />
+          {edad !== '' && edad >= 18 && (
+            <>
+              <label htmlFor="contacto_emergencia" className="block mb-1 font-medium mt-4">Contacto de emergencia:</label>
+              <input type="text" id="contacto_emergencia" name="contacto_emergencia" className={`input text-gray-900 dark:text-white ${getFieldStyle('contacto_emergencia')}`} value={contactoEmergencia || ''} onChange={(e) => {
+                setContactoEmergencia(e.target.value);
+                updateFieldValidation('contacto_emergencia', e.target.value);
+              }} />
+            </>
+          )}
 
-          <label htmlFor="contacto_telefono" className="block mb-1 font-medium mt-4">Teléfono de emergencia:</label>
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <select
-                value={selectedEmergencyCountry}
-                onChange={(e) => setSelectedEmergencyCountry(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent flex-1"
-              >
-                {countries.map(country => (
-                  <option key={country.code} value={country.code}>
-                    {country.name}
-                  </option>
-                ))}
-              </select>
-              <div className="px-3 py-2 border border-gray-300 bg-transparent text-gray-700 font-medium flex items-center rounded-lg">
-                +{selectedEmergencyCountry}
+          {edad !== '' && edad >= 18 && (
+            <>
+              <label htmlFor="contacto_telefono" className="block mb-1 font-medium mt-4">Teléfono de emergencia:</label>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <select
+                    value={selectedEmergencyCountry}
+                    onChange={(e) => setSelectedEmergencyCountry(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent flex-1"
+                  >
+                    {countries.map(country => (
+                      <option key={country.code} value={country.code}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="px-3 py-2 border border-gray-300 bg-transparent text-gray-700 font-medium flex items-center rounded-lg">
+                    +{selectedEmergencyCountry}
+                  </div>
+                </div>
+                <input 
+                  type="text" 
+                  id="contacto_telefono" 
+                  name="contacto_telefono" 
+                  placeholder={getPhonePlaceholder(selectedEmergencyCountry)} 
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900 ${getFieldStyle('contacto_telefono')}`} 
+                  onChange={(e) => {
+                    handlePhoneChange(e, selectedEmergencyCountry);
+                    updateFieldValidation('contacto_telefono', e.target.value);
+                  }}
+                />
               </div>
-            </div>
-            <input 
-              type="text" 
-              id="contacto_telefono" 
-              name="contacto_telefono" 
-              placeholder={getPhonePlaceholder(selectedEmergencyCountry)} 
-              className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900 ${getFieldStyle('contacto_telefono')}`} 
-              onChange={(e) => {
-                handlePhoneChange(e, selectedEmergencyCountry);
-                updateFieldValidation('contacto_telefono', e.target.value);
-              }}
-            />
-          </div>
+            </>
+          )}
 
           <label htmlFor="medico_cabecera" className="block mb-1 font-medium mt-4">Medico de cabecera:</label>
           <input type="text" id="medico_cabecera" name="medico_cabecera" className="input" value={medicoCabecera} onChange={(e) => setMedicoCabecera(e.target.value)} />
@@ -2145,17 +2163,21 @@ function PatientFormContent() {
             updateFieldValidation('cirugias', e.target.value);
           }} />
 
-          <label htmlFor="embarazo" className="block mb-1 font-medium mt-4">Embarazo (si aplica):</label>
-          <select id="embarazo" name="embarazo" className="input" value={embarazo || ''} onChange={(e) => setEmbarazo(e.target.value)}>
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Sí</option>
-          </select>
+          {edad !== '' && edad >= 18 && (
+            <>
+              <label htmlFor="embarazo" className="block mb-1 font-medium mt-4">Embarazo (si aplica):</label>
+              <select id="embarazo" name="embarazo" className="input" value={embarazo || ''} onChange={(e) => setEmbarazo(e.target.value)}>
+                <option value="">Seleccionar</option>
+                <option value="no">No</option>
+                <option value="si">Sí</option>
+              </select>
+            </>
+          )}
 
-          {embarazo === 'si' && (
+          {edad !== '' && edad >= 18 && embarazo === 'si' && (
             <label htmlFor="semanas_embarazo" className="block mb-1 font-medium mt-4">Semanas de embarazo:</label>
           )}
-          {embarazo === 'si' && (
+          {edad !== '' && edad >= 18 && embarazo === 'si' && (
             <div className="relative">
               <input 
                 type="number" 
@@ -2185,7 +2207,7 @@ function PatientFormContent() {
             </div>
           )}
 
-          {embarazo === 'si' && pregnancyCalculation && !pregnancyCalculation.estaActivo && (
+          {edad !== '' && edad >= 18 && embarazo === 'si' && pregnancyCalculation && !pregnancyCalculation.estaActivo && (
             <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
               <div className="flex items-center space-x-2">
                 <div className="flex-shrink-0">
@@ -2205,7 +2227,7 @@ function PatientFormContent() {
             </div>
           )}
 
-          {embarazo === 'si' && pregnancyCalculation && pregnancyCalculation.estaActivo && (
+          {edad !== '' && edad >= 18 && embarazo === 'si' && pregnancyCalculation && pregnancyCalculation.estaActivo && (
             <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
               <div className="flex items-center space-x-2">
                 <div className="flex-shrink-0">
@@ -2226,10 +2248,10 @@ function PatientFormContent() {
             </div>
           )}
 
-          {embarazo === 'si' && (
+          {edad !== '' && edad >= 18 && embarazo === 'si' && (
             <label htmlFor="medicamentos_embarazo" className="block mb-1 font-medium mt-4">Medicamentos durante el embarazo:</label>
           )}
-          {embarazo === 'si' && (
+          {edad !== '' && edad >= 18 && embarazo === 'si' && (
             <textarea id="medicamentos_embarazo" name="medicamentos_embarazo" className="textarea" value={medicamentosEmbarazo} onChange={(e) => setMedicamentosEmbarazo(e.target.value)} placeholder="Listar medicamentos tomados durante el embarazo" rows={3} />
           )}
 
@@ -2250,93 +2272,102 @@ function PatientFormContent() {
         <section>
           <h2 className="text-xl font-semibold mb-4 border-b-2 border-teal-300 pb-2">Hábitos</h2>
 
-          <label htmlFor="fumaSelect" className="block mb-1 font-medium">¿Fuma?</label>
-          <select
-            id="fumaSelect"
-            name="fuma"
-            required
-            className="input"
-            value={fuma || ''}
-            onChange={e => setFuma(e.target.value)}
-          >
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Sí</option>
-          </select>
-
-          {fuma === 'si' && (
+          {edad !== '' && edad >= 18 && (
             <>
-              <label htmlFor="fuma_cantidad" className="block mb-1 font-medium mt-2">Cantidad de cigarrillos:</label>
-              <input type="number" id="fuma_cantidad" name="fuma_cantidad" className="input" value={fumaCantidad} onChange={(e) => setFumaCantidad(e.target.value)} />
-
-              <label htmlFor="fuma_frecuencia" className="block mb-1 font-medium mt-2">Frecuencia:</label>
-              <select id="fuma_frecuencia" name="fuma_frecuencia" className="input" value={fumaFrecuencia} onChange={(e) => setFumaFrecuencia(e.target.value)}>
+              <label htmlFor="fumaSelect" className="block mb-1 font-medium">¿Fuma?</label>
+              <select
+                id="fumaSelect"
+                name="fuma"
+                className="input"
+                value={fuma || ''}
+                onChange={e => setFuma(e.target.value)}
+              >
                 <option value="">Seleccionar</option>
-                <option value="Social">Social</option>
-                <option value="Diario">Diario</option>
-                <option value="Semanal">Semanal</option>
-                <option value="Mensual">Mensual</option>
-                <option value="Ocasional">Ocasional</option>
+                <option value="no">No</option>
+                <option value="si">Sí</option>
               </select>
+
+              {fuma === 'si' && (
+                <>
+                  <label htmlFor="fuma_cantidad" className="block mb-1 font-medium mt-2">Cantidad de cigarrillos:</label>
+                  <input type="number" id="fuma_cantidad" name="fuma_cantidad" className="input" value={fumaCantidad} onChange={(e) => setFumaCantidad(e.target.value)} />
+
+                  <label htmlFor="fuma_frecuencia" className="block mb-1 font-medium mt-2">Frecuencia:</label>
+                  <select id="fuma_frecuencia" name="fuma_frecuencia" className="input" value={fumaFrecuencia} onChange={(e) => setFumaFrecuencia(e.target.value)}>
+                    <option value="">Seleccionar</option>
+                    <option value="Social">Social</option>
+                    <option value="Diario">Diario</option>
+                    <option value="Semanal">Semanal</option>
+                    <option value="Mensual">Mensual</option>
+                    <option value="Ocasional">Ocasional</option>
+                  </select>
+                </>
+              )}
             </>
           )}
 
-          <label htmlFor="alcoholSelect" className="block mb-1 font-medium mt-4">¿Consume alcohol?</label>
-          <select
-            id="alcoholSelect"
-            name="alcohol"
-            required
-            className="input"
-            value={alcohol || ''}
-            onChange={e => setAlcohol(e.target.value)}
-          >
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Sí</option>
-          </select>
-
-          {alcohol === 'si' && (
+          {edad !== '' && edad >= 18 && (
             <>
-              <label htmlFor="alcohol_frecuencia" className="block mb-1 font-medium mt-2">Frecuencia alcohol:</label>
-              <select id="alcohol_frecuencia" name="alcohol_frecuencia" className="input" value={alcoholFrecuencia} onChange={(e) => setAlcoholFrecuencia(e.target.value)}>
+              <label htmlFor="alcoholSelect" className="block mb-1 font-medium mt-4">¿Consume alcohol?</label>
+              <select
+                id="alcoholSelect"
+                name="alcohol"
+                className="input"
+                value={alcohol || ''}
+                onChange={e => setAlcohol(e.target.value)}
+              >
                 <option value="">Seleccionar</option>
-                <option value="Social">Social</option>
-                <option value="Diario">Diario</option>
-                <option value="Semanal">Semanal</option>
-                <option value="Mensual">Mensual</option>
-                <option value="Ocasional">Ocasional</option>
+                <option value="no">No</option>
+                <option value="si">Sí</option>
               </select>
+
+              {alcohol === 'si' && (
+                <>
+                  <label htmlFor="alcohol_frecuencia" className="block mb-1 font-medium mt-2">Frecuencia alcohol:</label>
+                  <select id="alcohol_frecuencia" name="alcohol_frecuencia" className="input" value={alcoholFrecuencia} onChange={(e) => setAlcoholFrecuencia(e.target.value)}>
+                    <option value="">Seleccionar</option>
+                    <option value="Social">Social</option>
+                    <option value="Diario">Diario</option>
+                    <option value="Semanal">Semanal</option>
+                    <option value="Mensual">Mensual</option>
+                    <option value="Ocasional">Ocasional</option>
+                  </select>
+                </>
+              )}
             </>
           )}
 
-          <label htmlFor="drogasSelect" className="block mb-1 font-medium mt-4">¿Consume drogas?</label>
-          <select
-            id="drogasSelect"
-            name="drogas"
-            required
-            className="input"
-            value={drogas || ''}
-            onChange={e => setDrogas(e.target.value)}
-          >
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Sí</option>
-          </select>
-
-          {drogas === 'si' && (
+          {edad !== '' && edad >= 18 && (
             <>
-              <label htmlFor="tipo_droga" className="block mb-1 font-medium mt-2">Tipo de droga:</label>
-              <input type="text" id="tipo_droga" name="tipo_droga" className="input" value={drogasTipo} onChange={(e) => setDrogasTipo(e.target.value)} />
-
-              <label htmlFor="drogas_frecuencia" className="block mb-1 font-medium mt-2">Frecuencia drogas:</label>
-              <select id="drogas_frecuencia" name="drogas_frecuencia" className="input" value={drogasFrecuencia} onChange={(e) => setDrogasFrecuencia(e.target.value)}>
+              <label htmlFor="drogasSelect" className="block mb-1 font-medium mt-4">¿Consume drogas?</label>
+              <select
+                id="drogasSelect"
+                name="drogas"
+                className="input"
+                value={drogas || ''}
+                onChange={e => setDrogas(e.target.value)}
+              >
                 <option value="">Seleccionar</option>
-                <option value="Social">Social</option>
-                <option value="Diario">Diario</option>
-                <option value="Semanal">Semanal</option>
-                <option value="Mensual">Mensual</option>
-                <option value="Ocasional">Ocasional</option>
+                <option value="no">No</option>
+                <option value="si">Sí</option>
               </select>
+
+              {drogas === 'si' && (
+                <>
+                  <label htmlFor="tipo_droga" className="block mb-1 font-medium mt-2">Tipo de droga:</label>
+                  <input type="text" id="tipo_droga" name="tipo_droga" className="input" value={drogasTipo} onChange={(e) => setDrogasTipo(e.target.value)} />
+
+                  <label htmlFor="drogas_frecuencia" className="block mb-1 font-medium mt-2">Frecuencia drogas:</label>
+                  <select id="drogas_frecuencia" name="drogas_frecuencia" className="input" value={drogasFrecuencia} onChange={(e) => setDrogasFrecuencia(e.target.value)}>
+                    <option value="">Seleccionar</option>
+                    <option value="Social">Social</option>
+                    <option value="Diario">Diario</option>
+                    <option value="Semanal">Semanal</option>
+                    <option value="Mensual">Mensual</option>
+                    <option value="Ocasional">Ocasional</option>
+                  </select>
+                </>
+              )}
             </>
           )}
 
@@ -2713,38 +2744,41 @@ function PatientFormContent() {
             </>
           )}
 
-          <label htmlFor="protesisSelect" className="block mb-1 font-medium mt-4">Uso de Prótesis:</label>
-          <select
-            id="protesisSelect"
-            name="protesis"
-            required
-            className="input"
-            value={protesis || ''}
-            onChange={e => setProtesis(e.target.value)}
-          >
-            <option value="">Seleccionar</option>
-            <option value="no">No</option>
-            <option value="si">Si</option>
-          </select>
-
-          {protesis === 'si' && (
+          {edad !== '' && edad >= 18 && (
             <>
-              <label htmlFor="protesis_tipo" className="block mb-1 font-medium mt-2">Tipo de Prótesis:</label>
-              <select id="protesis_tipo" name="protesis_tipo" className="input" value={protesisTipo || ''} onChange={(e) => setProtesisTipo(e.target.value)}>
-                <option value="">Seleccionar</option>
-                <option value="Removible">Removible</option>
-                <option value="Parcial Removible">Parcial Removible</option>
-                <option value="Total">Total</option>
-                <option value="Fija">Fija</option>
-                <option value="Implante">Implante</option>
-              </select>
-
-              <label htmlFor="protesis_nocturno" className="block mb-1 font-medium mt-2">Uso nocturno de protesis:</label>
-              <select id="protesis_nocturno" name="protesis_nocturno" className="input" value={protesisNocturno || ''} onChange={(e) => setProtesisNocturno(e.target.value)}>
+              <label htmlFor="protesisSelect" className="block mb-1 font-medium mt-4">Uso de Prótesis:</label>
+              <select
+                id="protesisSelect"
+                name="protesis"
+                className="input"
+                value={protesis || ''}
+                onChange={e => setProtesis(e.target.value)}
+              >
                 <option value="">Seleccionar</option>
                 <option value="no">No</option>
                 <option value="si">Si</option>
               </select>
+
+              {protesis === 'si' && (
+                <>
+                  <label htmlFor="protesis_tipo" className="block mb-1 font-medium mt-2">Tipo de Prótesis:</label>
+                  <select id="protesis_tipo" name="protesis_tipo" className="input" value={protesisTipo || ''} onChange={(e) => setProtesisTipo(e.target.value)}>
+                    <option value="">Seleccionar</option>
+                    <option value="Removible">Removible</option>
+                    <option value="Parcial Removible">Parcial Removible</option>
+                    <option value="Total">Total</option>
+                    <option value="Fija">Fija</option>
+                    <option value="Implante">Implante</option>
+                  </select>
+
+                  <label htmlFor="protesis_nocturno" className="block mb-1 font-medium mt-2">Uso nocturno de protesis:</label>
+                  <select id="protesis_nocturno" name="protesis_nocturno" className="input" value={protesisNocturno || ''} onChange={(e) => setProtesisNocturno(e.target.value)}>
+                    <option value="">Seleccionar</option>
+                    <option value="no">No</option>
+                    <option value="si">Si</option>
+                  </select>
+                </>
+              )}
             </>
           )}
 
