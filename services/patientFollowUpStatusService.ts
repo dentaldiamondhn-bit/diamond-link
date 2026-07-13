@@ -23,7 +23,7 @@ export class PatientFollowUpStatusService {
   /**
    * Create a new follow-up status record
    */
-  static async createFollowUpStatus(data: CreateFollowUpStatusData): Promise<FollowUpStatus> {
+  static async createFollowUpStatus(data: CreateFollowUpStatusData): Promise<FollowUpStatus | null> {
     try {
       const { data: insertData, error } = await supabase
         .from('patient_follow_up_status')
@@ -36,12 +36,17 @@ export class PatientFollowUpStatusService {
         .single();
 
       if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') {
+          console.warn('patient_follow_up_status table does not exist yet — skipping create');
+          return null;
+        }
         console.error('Error creating follow-up status:', error);
         throw error;
       }
 
       return insertData;
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') return null;
       console.error('Unexpected error creating follow-up status:', error);
       throw error;
     }
@@ -61,18 +66,18 @@ export class PatientFollowUpStatusService {
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No rows returned
-          return null;
-        }
+        if (error.code === 'PGRST116') return null;
+        // Table doesn't exist yet — treat as no status
+        if (error.message?.includes('does not exist') || error.code === '42P01') return null;
         console.error('Error fetching follow-up status:', error);
-        throw error;
+        return null;
       }
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') return null;
       console.error('Unexpected error fetching follow-up status:', error);
-      throw error;
+      return null;
     }
   }
 
@@ -90,10 +95,12 @@ export class PatientFollowUpStatusService {
         .eq('id', id);
 
       if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') return;
         console.error('Error marking WhatsApp sent:', error);
         throw error;
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') return;
       console.error('Unexpected error marking WhatsApp sent:', error);
       throw error;
     }
@@ -113,10 +120,12 @@ export class PatientFollowUpStatusService {
         .eq('id', id);
 
       if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') return;
         console.error('Error marking patient responded:', error);
         throw error;
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') return;
       console.error('Unexpected error marking patient responded:', error);
       throw error;
     }
@@ -136,11 +145,78 @@ export class PatientFollowUpStatusService {
         .eq('id', id);
 
       if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') return;
         console.error('Error marking appointment scheduled:', error);
         throw error;
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') return;
       console.error('Unexpected error marking appointment scheduled:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update follow-up notes
+   */
+  static async updateNotes(id: string, notes: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('patient_follow_up_status')
+        .update({
+          notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') return;
+        console.error('Error updating notes:', error);
+        throw error;
+      }
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') return;
+      console.error('Unexpected error updating notes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Toggle a boolean field (whatsapp_sent, patient_responded, appointment_scheduled)
+   */
+  static async toggleField(
+    id: string,
+    field: 'whatsapp_sent' | 'patient_responded' | 'appointment_scheduled'
+  ): Promise<void> {
+    try {
+      const { data: current, error: fetchError } = await supabase
+        .from('patient_follow_up_status')
+        .select(field)
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        if (fetchError.message?.includes('does not exist') || fetchError.code === '42P01') return;
+        throw fetchError;
+      }
+
+      const newValue = !(current as any)[field];
+
+      const { error } = await supabase
+        .from('patient_follow_up_status')
+        .update({
+          [field]: newValue,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error(`Error toggling ${field}:`, error);
+        throw error;
+      }
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') return;
+      console.error(`Unexpected error toggling ${field}:`, error);
       throw error;
     }
   }
@@ -157,14 +233,53 @@ export class PatientFollowUpStatusService {
         .order('created_at', { ascending: false });
 
       if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') return [];
         console.error('Error fetching patient follow-up history:', error);
-        throw error;
+        return [];
       }
 
       return historyData || [];
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error?.code === '42P01') return [];
       console.error('Unexpected error fetching patient follow-up history:', error);
-      throw error;
+      return [];
     }
+  }
+
+  /**
+   * Batch-fetch the latest follow-up status for multiple patients in one query.
+   * Returns a Map<paciente_id, FollowUpStatus>.
+   */
+  static async getFollowUpStatusesBatch(pacienteIds: string[]): Promise<Map<string, FollowUpStatus>> {
+    const map = new Map<string, FollowUpStatus>();
+    if (pacienteIds.length === 0) return map;
+
+    try {
+      const { data, error } = await supabase
+        .from('patient_follow_up_status')
+        .select('*')
+        .in('paciente_id', pacienteIds)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') return map;
+        console.error('Error batch-fetching follow-up statuses:', error);
+        return map;
+      }
+
+      if (data) {
+        // Keep only the most recent record per paciente_id
+        for (const row of data as FollowUpStatus[]) {
+          if (!map.has(row.paciente_id)) {
+            map.set(row.paciente_id, row);
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err?.message?.includes('does not exist') || err?.code === '42P01') return map;
+      console.error('Unexpected error batch-fetching follow-up statuses:', err);
+    }
+
+    return map;
   }
 }

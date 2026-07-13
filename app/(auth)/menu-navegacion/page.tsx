@@ -11,6 +11,7 @@ import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { consentimientoService } from '@/services/consentimientoService';
 import { presupuestoService } from '@/services/presupuestoService';
 import { OrthodonticHistoryServiceClient } from '@/services/orthodonticHistoryServiceClient';
+import { PatientFollowUpStatusService } from '@/services/patientFollowUpStatusService';
 import { Patient } from '@/types/patient';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
@@ -52,6 +53,13 @@ function MenuNavegacionContent() {
   const [hasOrthodonticHistory, setHasOrthodonticHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [followUpInfo, setFollowUpInfo] = useState<{
+    tipo_seguimiento: string;
+    dias_ultimo_tratamiento: number;
+    ultimo_tratamiento: string;
+    fecha_ultimo_tratamiento: string;
+    follow_up_status?: { whatsapp_sent: boolean } | null;
+  }[]>([]);
   const { isLoaded } = useUser();
 
   // Get and validate patient ID
@@ -332,6 +340,30 @@ function MenuNavegacionContent() {
     };
 
     loadDocumentStats();
+  }, [patient]);
+
+  useEffect(() => {
+    const loadFollowUpInfo = async () => {
+      if (!patient) return;
+      try {
+        const res = await fetch(`/api/patient-follow-up?type=all`, { cache: 'no-cache' });
+        const json = await res.json();
+        if (!json.data) return;
+        const patientData = (json.data as any[]).filter(
+          (p: any) => p.paciente_id === patient.paciente_id
+        );
+        const pacienteIds = patientData.map((p: any) => p.paciente_id);
+        const statusMap = await PatientFollowUpStatusService.getFollowUpStatusesBatch(pacienteIds);
+        const withStatus = patientData.map((p: any) => ({
+          ...p,
+          follow_up_status: statusMap.get(p.paciente_id) || null,
+        }));
+        setFollowUpInfo(withStatus);
+      } catch (err) {
+        console.error('Error loading follow-up info:', err);
+      }
+    };
+    loadFollowUpInfo();
   }, [patient]);
 
   const calculateAge = (fechaNacimiento: string): string => {
@@ -1039,7 +1071,17 @@ function MenuNavegacionContent() {
                     </div>
                   )}
                 </div>
-                <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3">
+                <div
+                  className={`rounded-lg px-4 py-3 backdrop-blur-sm transition-all ${
+                    followUpInfo.length > 0
+                      ? (() => {
+                          const maxDays = Math.max(...followUpInfo.map(f => f.dias_ultimo_tratamiento));
+                          if (maxDays >= 180) return 'bg-red-500/40';
+                          return 'bg-orange-400/30';
+                        })()
+                      : 'bg-white/20'
+                  }`}
+                >
                   <div className="text-xs text-teal-100 mb-1">Teléfono</div>
                   <div className="text-lg font-bold">
                     {patient?.telefono ? (
@@ -1058,6 +1100,27 @@ function MenuNavegacionContent() {
                       'No especificado'
                     )}
                   </div>
+                  {followUpInfo.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {followUpInfo.map((f) => (
+                        <div
+                          key={f.tipo_seguimiento}
+                          className="text-xs rounded px-2 py-1 bg-black/20 text-white"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>
+                              {f.tipo_seguimiento === 'limpieza' ? '🦷' : '😁'}{' '}
+                              {f.tipo_seguimiento === 'limpieza' ? 'Limpieza' : 'Ortodoncia'}:{' '}
+                              <strong>{f.dias_ultimo_tratamiento} días</strong>
+                            </span>
+                            <span className={f.follow_up_status?.whatsapp_sent ? 'text-green-300' : 'text-yellow-200'}>
+                              {f.follow_up_status?.whatsapp_sent ? '💬 Enviado' : '📨 Pendiente'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
