@@ -150,14 +150,46 @@ export default function PacientesPage() {
           deviceType: deviceInfo.isMobile ? 'mobile' : deviceInfo.isTablet ? 'tablet' : 'desktop'
         });
         
-        // Load bypass status for all patients
-        if (user) {
-          const bypassPromises = patientsData.map(async (patient) => {
-            const bypassStatus = await checkPatientBypassStatus(patient.paciente_id);
-            return { patientId: patient.paciente_id, bypassStatus };
-          });
-          
-          await Promise.all(bypassPromises);
+        // Load bypass status for all patients (batched — avoids N+1 queries)
+        if (user && patientsData.length > 0) {
+          const patientIds = patientsData.map(p => p.paciente_id);
+
+          const [{ data: allSettings }, { data: globalData }] = await Promise.all([
+            supabase
+              .from('historical_mode_settings')
+              .select('patient_id, bypass_historical_mode, updated_at')
+              .in('patient_id', patientIds),
+            supabase
+              .from('app_configuration')
+              .select('config_value')
+              .eq('config_key', 'historical_records_enabled')
+              .single(),
+          ]);
+
+          const globalBypass = globalData?.config_value !== 'true';
+
+          const settingsByPatient: Record<string, any[]> = {};
+          if (allSettings) {
+            for (const s of allSettings) {
+              if (!settingsByPatient[s.patient_id]) settingsByPatient[s.patient_id] = [];
+              settingsByPatient[s.patient_id].push(s);
+            }
+          }
+
+          const statusMap: Record<string, boolean> = {};
+          for (const pid of patientIds) {
+            const entries = settingsByPatient[pid];
+            if (entries && entries.length > 0) {
+              entries.sort((a: any, b: any) =>
+                new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
+              );
+              statusMap[pid] = entries[entries.length - 1].bypass_historical_mode;
+            } else {
+              statusMap[pid] = globalBypass;
+            }
+          }
+
+          setPatientBypassStatus(statusMap);
         }
       } catch (error) {
         // Track error

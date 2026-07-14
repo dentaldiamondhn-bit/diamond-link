@@ -5,20 +5,13 @@ import { SignIn, useUser } from '@clerk/nextjs'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import type { Variants } from 'framer-motion'
-import {
-  Shield,
-  Scan,
-  CalendarDays,
-  BarChart3,
-  Sparkles,
-} from 'lucide-react'
+import { Shield, Scan, CalendarDays, BarChart3, Sparkles } from 'lucide-react'
 import styles from './page.module.css'
 
 /* ------------------------------------------------------------------ */
 /*  Animation variants                                                 */
 /* ------------------------------------------------------------------ */
-const containerVariants: Variants = {
+const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -26,7 +19,7 @@ const containerVariants: Variants = {
   },
 }
 
-const itemVariants: Variants = {
+const itemVariants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
@@ -35,14 +28,14 @@ const itemVariants: Variants = {
   },
 }
 
-const floatingVariants: Variants = {
+const floatingVariants = {
   animate: {
     y: [0, -18, 0],
     transition: { duration: 5, ease: 'easeInOut', repeat: Infinity },
   },
 }
 
-const logoVariants: Variants = {
+const logoVariants = {
   hidden: { scale: 0.75, opacity: 0, rotate: -8 },
   visible: {
     scale: 1,
@@ -51,14 +44,6 @@ const logoVariants: Variants = {
     transition: { duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] },
   },
 }
-
-/* Premium feature list — tells the story */
-const trustItems = [
-  { Icon: Shield, label: 'HIPAA Compliant' },
-  { Icon: Scan, label: 'Datos Encriptados' },
-  { Icon: CalendarDays, label: 'Citas en Línea' },
-  { Icon: BarChart3, label: 'Analíticas Avanzadas' },
-]
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -87,7 +72,7 @@ export default function SignInPage() {
   return (
     <div className={styles.page}>
       {/* ============================================================= */
-      /*  LEFT PANEL — Brand Showcase (Premium Aurora)                  */
+      /*  LEFT PANEL — Brand Showcase                                   */
       /* ============================================================= */}
       <motion.aside
         className={styles.brandPanel}
@@ -95,10 +80,11 @@ export default function SignInPage() {
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* Gradient, noise & orbs --------------------------------------*/}
+        {/* Gradient + noise texture overlay ----------------------------*/}
         <div className={styles.brandPanelGradient} />
         <div className={styles.noiseOverlay} />
 
+        {/* Floating crystal particles ----------------------------------*/}
         <div className={styles.floatingOrbs}>
           <motion.div
             className={`${styles.orb} ${styles.orb1}`}
@@ -109,19 +95,19 @@ export default function SignInPage() {
             className={`${styles.orb} ${styles.orb2}`}
             variants={floatingVariants}
             animate="animate"
-            transition={{ delay: 2 }}
+            style={{ animationDelay: '2s' }}
           />
           <motion.div
             className={`${styles.orb} ${styles.orb3}`}
             variants={floatingVariants}
             animate="animate"
-            transition={{ delay: 4 }}
+            style={{ animationDelay: '4s' }}
           />
           <motion.div
             className={`${styles.orb} ${styles.orb4}`}
             variants={floatingVariants}
             animate="animate"
-            transition={{ delay: 1.5 }}
+            style={{ animationDelay: '1.5s' }}
           />
         </div>
 
@@ -192,7 +178,12 @@ export default function SignInPage() {
             initial="hidden"
             animate="visible"
           >
-            {trustItems.map(({ Icon, label }) => (
+            {[
+              { Icon: Shield, label: 'HIPAA Compliant' },
+              { Icon: Scan, label: 'Datos Encriptados' },
+              { Icon: CalendarDays, label: 'Citas en Línea' },
+              { Icon: BarChart3, label: 'Analíticas Avanzadas' },
+            ].map(({ Icon, label }) => (
               <motion.div
                 key={label}
                 variants={itemVariants}
@@ -221,13 +212,13 @@ export default function SignInPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 2, duration: 0.6 }}
           >
-            © {new Date().getFullYear()} Diamond Link Dental Clinic. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} Diamond Link Dental Clinic. Todos los derechos reservados.
           </motion.p>
         </div>
       </motion.aside>
 
       {/* ============================================================= */
-      /*  RIGHT PANEL — Sign-In Form (Premium Glass)                    */
+      /*  RIGHT PANEL — Sign-In Form                                    */
       /* ============================================================= */}
       <motion.main
         className={styles.formPanel}
@@ -236,15 +227,33 @@ export default function SignInPage() {
         transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
       >
         {/* Mobile-only brand header */}
-        
-        {/* Tarjeta de autenticación */}
+        <motion.div
+          className={styles.mobileBrand}
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Image
+            src="/Logo.svg"
+            alt="Diamond Link Dental"
+            width={72}
+            height={72}
+            className={styles.mobileLogo}
+            priority
+          />
+          <h2 className={styles.mobileTitle}>Diamond Link</h2>
+          <p className={styles.mobileTagline}>Excellence in Dental Care</p>
+        </motion.div>
+
+        {/* Sign-in Card */}
         <AnimatePresence mode="wait">
           {isLoaded && userLoaded && !user && (
             <motion.div
               key="signin-card"
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              initial={{ opacity: 0, y: 30, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20 }}
+              transition={{ delay: 0.4, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
               className={styles.card}
             >
               <div className={styles.cardHeader}>
@@ -259,23 +268,29 @@ export default function SignInPage() {
                   elements: {
                     rootBox: styles.clRoot,
                     card: styles.clCard,
-                    header: 'hidden',
-                    headerTitle: 'hidden',
-                    headerSubtitle: 'hidden',
+                    headerTitle: 'sr-only',
+                    headerSubtitle: 'sr-only',
                     socialButtonsBlockButton: styles.clSocialBtn,
                     formFieldLabel: styles.clLabel,
                     formFieldInput: styles.clInput,
                     formButtonPrimary: styles.clPrimaryBtn,
                     formButtonSecondary: styles.clSecondaryBtn,
                     footerActionLink: styles.clLink,
+                    identityPreviewEditButton: styles.clLink,
+                    formFieldAction: styles.clLink,
+                    otpCodeFieldInput: styles.clOtp,
                     dividerLine: styles.clDivider,
                     dividerText: styles.clDividerText,
                     form: styles.clForm,
                     footer: styles.clFooter,
+                    alertText: 'text-gray-700 dark:text-gray-300',
+                    alertError: 'text-red-500',
+                    alertWarning: 'text-amber-500',
                   },
                   layout: {
                     socialButtonsPlacement: 'top',
-                  }
+                    showOptionalFields: true,
+                  },
                 }}
                 routing="path"
                 path="/sign-in"
@@ -285,7 +300,7 @@ export default function SignInPage() {
           )}
         </AnimatePresence>
 
-        {/* Footer Links */}
+        {/* Footer links */}
         <motion.nav
           className={styles.formFooter}
           initial={{ opacity: 0 }}
@@ -310,7 +325,7 @@ export default function SignInPage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5 }}
         >
-          © {new Date().getFullYear()} Diamond Link Dental
+          &copy; {new Date().getFullYear()} Diamond Link Dental
         </motion.p>
       </motion.main>
     </div>

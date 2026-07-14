@@ -48,37 +48,38 @@ function ConsentimientosContent() {
           data = await consentimientoService.getAllConsentimientos();
         }
         
+        // Batch-fetch patient info for ALL consents at once
+        const allPacienteIds = [...new Set(data.map(c => c.paciente_id).filter(Boolean))];
+        let patientMap: Record<string, any> = {};
+        if (allPacienteIds.length > 0) {
+          const { supabase } = await import('@/lib/supabase');
+          const { data: patientsData } = await supabase
+            .from('patients')
+            .select('*')
+            .in('paciente_id', allPacienteIds);
+          if (patientsData) {
+            for (const p of patientsData) patientMap[p.paciente_id] = p;
+          }
+        }
+
         // Transform data to match expected format and include patient info
-        const transformedData = await Promise.all(data.map(async (consentimiento) => {
-          // Fetch patient information
-          let patientInfo = null;
+        const transformedData = data.map((consentimiento) => {
+          const patientInfo = consentimiento.paciente_id ? patientMap[consentimiento.paciente_id] : null;
           let patientType = null;
-          if (consentimiento.paciente_id) {
-            try {
-              patientInfo = await PatientService.getPatientById(consentimiento.paciente_id);
-              
-              // Calculate patient type for age-based color coding
-              if (patientInfo) {
-                const patientTypeData = getPatientType(patientInfo);
-                
-                // Special case: pregnancy override - use soft pink to blue gradient
-                let finalPatientType = patientTypeData;
-                if (patientInfo.sexo === 'femenino' && patientInfo.embarazo === 'si') {
-                  finalPatientType = {
-                    ...patientTypeData,
-                    colors: {
-                      header: 'from-pink-400 to-blue-400',
-                      badge: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
-                      badgeText: 'border-pink-200 text-pink-700 dark:text-pink-300'
-                    }
-                  };
+          if (patientInfo) {
+            const patientTypeData = getPatientType(patientInfo);
+            let finalPatientType = patientTypeData;
+            if (patientInfo.sexo === 'femenino' && patientInfo.embarazo === 'si') {
+              finalPatientType = {
+                ...patientTypeData,
+                colors: {
+                  header: 'from-pink-400 to-blue-400',
+                  badge: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
+                  badgeText: 'border-pink-200 text-pink-700 dark:text-pink-300'
                 }
-                
-                patientType = finalPatientType;
-              }
-            } catch (error) {
-              console.error('Error fetching patient info:', error);
+              };
             }
+            patientType = finalPatientType;
           }
           
           return {
@@ -100,7 +101,7 @@ function ConsentimientosContent() {
             },
             patientType: patientType
           };
-        }));
+        });
         
         setConsentimientos(transformedData);
       } catch (error) {

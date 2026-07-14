@@ -241,59 +241,47 @@ export class CompletedTreatmentService {
         index === self.findIndex((t) => t.id === treatment.id)
       );
 
-      // Fetch treatment items for each completed treatment
-      const treatmentsWithItems = await Promise.all(
-        uniqueTreatments.map(async (treatment: any) => {
-          const { data: items, error: itemsError } = await supabase
-            .from('vista_tratamientos_realizados_detalles')
-            .select('*')
-            .eq('tratamiento_completado_id', treatment.id)
-            .order('creado_en', { ascending: true });
+      // Batch-fetch treatment items for ALL treatments at once
+      const treatmentIds = uniqueTreatments.map((t: any) => t.id);
+      const { data: allItems } = await supabase
+        .from('vista_tratamientos_realizados_detalles')
+        .select('*')
+        .in('tratamiento_completado_id', treatmentIds)
+        .order('creado_en', { ascending: true });
 
-          // Fetch patient data directly from patients table
-          let patientData = {};
-          if (treatment.paciente_id) {
-            const { data: patient, error: patientError } = await supabase
-              .from('patients')
-              .select('*')
-              .eq('paciente_id', treatment.paciente_id)
-              .single();
-            
-            if (!patientError && patient) {
-              patientData = patient;
-            } else {
-              console.error('Error fetching patient data:', patientError);
-            }
-          }
+      const itemsByTreatment: Record<string, any[]> = {};
+      if (allItems) {
+        for (const item of allItems) {
+          if (!itemsByTreatment[item.tratamiento_completado_id]) itemsByTreatment[item.tratamiento_completado_id] = [];
+          itemsByTreatment[item.tratamiento_completado_id].push(item);
+        }
+      }
 
-          if (itemsError) {
-            console.error('Error fetching treatment items:', itemsError);
-            return { 
-              ...treatment, 
-              tratamientos_realizados: [],
-              paciente: patientData,
-              paciente_beneficiario: treatment.beneficiario_nombre_completo ? {
-                nombre_completo: treatment.beneficiario_nombre_completo,
-                numero_identidad: treatment.beneficiario_numero_identidad,
-                telefono: treatment.beneficiario_telefono,
-                email: treatment.beneficiario_email
-              } : null
-            };
-          }
+      // Batch-fetch patient data for ALL unique pacientes
+      const pacienteIds = [...new Set(uniqueTreatments.map((t: any) => t.paciente_id).filter(Boolean))];
+      const { data: allPatients } = await supabase
+        .from('patients')
+        .select('*')
+        .in('paciente_id', pacienteIds);
 
-          return {
-            ...treatment,
-            tratamientos_realizados: items || [],
-            paciente: patientData,
-            paciente_beneficiario: treatment.beneficiario_nombre_completo ? {
-              nombre_completo: treatment.beneficiario_nombre_completo,
-              numero_identidad: treatment.beneficiario_numero_identidad,
-              telefono: treatment.beneficiario_telefono,
-              email: treatment.beneficiario_email
-            } : null
-          };
-        })
-      );
+      const patientMap: Record<string, any> = {};
+      if (allPatients) {
+        for (const p of allPatients) {
+          patientMap[p.paciente_id] = p;
+        }
+      }
+
+      const treatmentsWithItems = uniqueTreatments.map((treatment: any) => ({
+        ...treatment,
+        tratamientos_realizados: itemsByTreatment[treatment.id] || [],
+        paciente: patientMap[treatment.paciente_id] || {},
+        paciente_beneficiario: treatment.beneficiario_nombre_completo ? {
+          nombre_completo: treatment.beneficiario_nombre_completo,
+          numero_identidad: treatment.beneficiario_numero_identidad,
+          telefono: treatment.beneficiario_telefono,
+          email: treatment.beneficiario_email
+        } : null
+      }));
 
       return treatmentsWithItems;
     } catch (error) {
@@ -543,26 +531,26 @@ export class CompletedTreatmentService {
         throw error;
       }
 
-      // Fetch treatment items for each treatment
-      const treatmentsWithItems = await Promise.all(
-        (data || []).map(async (treatment: any) => {
-          const { data: items, error: itemsError } = await supabase
-            .from('vista_tratamientos_realizados_detalles')
-            .select('*')
-            .eq('tratamiento_completado_id', treatment.id)
-            .order('creado_en', { ascending: true });
+      // Batch-fetch treatment items for ALL results at once
+      const treatmentIds = (data || []).map((t: any) => t.id);
+      const { data: allItems } = await supabase
+        .from('vista_tratamientos_realizados_detalles')
+        .select('*')
+        .in('tratamiento_completado_id', treatmentIds)
+        .order('creado_en', { ascending: true });
 
-          if (itemsError) {
-            console.error('Error fetching treatment items:', itemsError);
-            return { ...treatment, tratamientos_realizados: [] };
-          }
+      const itemsByTreatment: Record<string, any[]> = {};
+      if (allItems) {
+        for (const item of allItems) {
+          if (!itemsByTreatment[item.tratamiento_completado_id]) itemsByTreatment[item.tratamiento_completado_id] = [];
+          itemsByTreatment[item.tratamiento_completado_id].push(item);
+        }
+      }
 
-          return {
-            ...treatment,
-            tratamientos_realizados: items || []
-          };
-        })
-      );
+      const treatmentsWithItems = (data || []).map((treatment: any) => ({
+        ...treatment,
+        tratamientos_realizados: itemsByTreatment[treatment.id] || []
+      }));
 
       return treatmentsWithItems;
     } catch (error) {
@@ -585,26 +573,26 @@ export class CompletedTreatmentService {
         throw error;
       }
 
-      // Fetch treatment items for each treatment
-      const treatmentsWithItems = await Promise.all(
-        (data || []).map(async (treatment: any) => {
-          const { data: items, error: itemsError } = await supabase
-            .from('vista_tratamientos_realizados_detalles')
-            .select('*')
-            .eq('tratamiento_completado_id', treatment.id)
-            .order('creado_en', { ascending: true });
+      // Batch-fetch treatment items for ALL results at once
+      const treatmentIds = (data || []).map((t: any) => t.id);
+      const { data: allItems } = await supabase
+        .from('vista_tratamientos_realizados_detalles')
+        .select('*')
+        .in('tratamiento_completado_id', treatmentIds)
+        .order('creado_en', { ascending: true });
 
-          if (itemsError) {
-            console.error('Error fetching treatment items:', itemsError);
-            return { ...treatment, tratamientos_realizados: [] };
-          }
+      const itemsByTreatment: Record<string, any[]> = {};
+      if (allItems) {
+        for (const item of allItems) {
+          if (!itemsByTreatment[item.tratamiento_completado_id]) itemsByTreatment[item.tratamiento_completado_id] = [];
+          itemsByTreatment[item.tratamiento_completado_id].push(item);
+        }
+      }
 
-          return {
-            ...treatment,
-            tratamientos_realizados: items || []
-          };
-        })
-      );
+      const treatmentsWithItems = (data || []).map((treatment: any) => ({
+        ...treatment,
+        tratamientos_realizados: itemsByTreatment[treatment.id] || []
+      }));
 
       return treatmentsWithItems;
     } catch (error) {

@@ -309,28 +309,40 @@ export default function TratamientosPage() {
 
       if (error) throw error;
 
-      const treatmentUsage = await Promise.all(
-        (completedTreatments || []).map(async (item) => {
-          const { data: payments, error: paymentError } = await supabase
-            .from('payments')
-            .select('monto_pago, moneda')
-            .eq('tratamiento_completado_id', item.tratamientos_completados.id);
-
-          const totalPaid = payments?.reduce((sum, payment) => sum + payment.monto_pago, 0) || 0;
-
-          return {
-            patientName: item.tratamientos_completados.patients.nombre_completo,
-            identificacion: item.tratamientos_completados.patients.numero_identidad || 'Sin identificación',
-            phone: item.tratamientos_completados.patients.telefono,
-            countryCode: item.tratamientos_completados.patients.codigopais,
-            amountPaid: totalPaid,
-            currency: payments?.[0]?.moneda || 'HNL',
-            treatmentAmount: treatmentData?.precio || 0,
-            treatmentCurrency: treatmentData?.moneda || 'HNL',
-            date: item.tratamientos_completados.fecha_cita
-          };
-        })
+      // Batch-fetch payments for ALL completed treatments at once
+      const treatmentCompletedIds = (completedTreatments || []).map(
+        (item: any) => item.tratamientos_completados.id
       );
+      const { data: allPayments } = await supabase
+        .from('payments')
+        .select('monto_pago, moneda, tratamiento_completado_id')
+        .in('tratamiento_completado_id', treatmentCompletedIds);
+
+      const paymentsByTreatment: Record<string, any[]> = {};
+      if (allPayments) {
+        for (const pmt of allPayments) {
+          if (!paymentsByTreatment[pmt.tratamiento_completado_id]) paymentsByTreatment[pmt.tratamiento_completado_id] = [];
+          paymentsByTreatment[pmt.tratamiento_completado_id].push(pmt);
+        }
+      }
+
+      const treatmentUsage = (completedTreatments || []).map((item: any) => {
+        const tid = item.tratamientos_completados.id;
+        const payments = paymentsByTreatment[tid] || [];
+        const totalPaid = payments.reduce((sum: number, p: any) => sum + p.monto_pago, 0);
+
+        return {
+          patientName: item.tratamientos_completados.patients.nombre_completo,
+          identificacion: item.tratamientos_completados.patients.numero_identidad || 'Sin identificación',
+          phone: item.tratamientos_completados.patients.telefono,
+          countryCode: item.tratamientos_completados.patients.codigopais,
+          amountPaid: totalPaid,
+          currency: payments[0]?.moneda || 'HNL',
+          treatmentAmount: treatmentData?.precio || 0,
+          treatmentCurrency: treatmentData?.moneda || 'HNL',
+          date: item.tratamientos_completados.fecha_cita
+        };
+      });
 
       setTreatmentUsageData(treatmentUsage);
     } catch (error) {

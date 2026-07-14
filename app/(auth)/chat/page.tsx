@@ -285,8 +285,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      <div className="flex h-screen">
+    <div className="flex h-full">
         {/* Conversations Sidebar */}
         <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 flex-col bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700`}>
           {/* Header */}
@@ -296,7 +295,6 @@ export default function ChatPage() {
                 <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl">
                   <MessageSquare className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-xl font-bold text-slate-800 dark:text-white">Mensajes</h1>
               </div>
               <button
                 onClick={() => setShowNewChatModal(true)}
@@ -590,7 +588,6 @@ export default function ChatPage() {
             </div>
           </div>
         )}
-      </div>
 
       {/* New Chat Modal */}
       {showNewChatModal && (

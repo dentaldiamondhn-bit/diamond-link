@@ -3,17 +3,44 @@ import { supabase } from '@/lib/supabase';
 import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
 import CapacitorNotificationService from './capacitorNotificationService';
 
-// Helper function to fetch user data
-const fetchUserById = async (userId: string) => {
-  try {
-    const response = await fetch(`/api/users?id=${userId}`);
-    if (!response.ok) return null;
-    const user = await response.json();
-    return user || null;
-  } catch (error) {
-    console.error('Error fetching user:', error);
-    return null;
+// Helper function to batch-fetch users for multiple tickets at once
+const enrichTicketsWithUsers = async (tickets: any[]) => {
+  const userIds = new Set<string>();
+  for (const ticket of tickets) {
+    if (ticket.creator_id) userIds.add(ticket.creator_id);
+    if (ticket.assignees) {
+      for (const a of ticket.assignees) {
+        if (a.user_id) userIds.add(a.user_id);
+      }
+    }
   }
+  if (userIds.size === 0) return tickets;
+
+  const ids = [...userIds];
+  let userMap: Record<string, any> = {};
+  try {
+    const response = await fetch(`/api/users?ids=${ids.join(',')}`);
+    if (response.ok) {
+      const users = await response.json();
+      if (Array.isArray(users)) {
+        for (const u of users) userMap[u.id] = u;
+      } else if (users && typeof users === 'object') {
+        userMap = users;
+      }
+    }
+  } catch (error) {
+    console.error('Error batch-fetching users:', error);
+  }
+
+  for (const ticket of tickets) {
+    if (ticket.creator_id) ticket.creator = userMap[ticket.creator_id] || null;
+    if (ticket.assignees) {
+      for (const a of ticket.assignees) {
+        if (a.user_id) a.user = userMap[a.user_id] || null;
+      }
+    }
+  }
+  return tickets;
 };
 
 // Helper function to generate ticket number
@@ -67,23 +94,10 @@ const generateTicketNumber = async (): Promise<string> => {
   }
 };
 
-// Helper function to enrich tickets with user data
+// Re-export for callers expecting the singular function name
 const enrichTicketWithUsers = async (ticket: any) => {
-  // Fetch creator data
-  if (ticket.creator_id) {
-    ticket.creator = await fetchUserById(ticket.creator_id);
-  }
-  
-  // Fetch assignee data
-  if (ticket.assignees && ticket.assignees.length > 0) {
-    for (const assignee of ticket.assignees) {
-      if (assignee.user_id) {
-        assignee.user = await fetchUserById(assignee.user_id);
-      }
-    }
-  }
-  
-  return ticket;
+  const result = await enrichTicketsWithUsers([ticket]);
+  return result[0];
 };
 
 export class TicketService {
@@ -144,10 +158,8 @@ export class TicketService {
 
       // Sort activities by created_at for each ticket
       if (data) {
-        // Enrich tickets with user data
-        const enrichedTickets = await Promise.all(
-          data.map(ticket => enrichTicketWithUsers(ticket))
-        );
+        // Enrich tickets with user data (batched — single API call)
+        const enrichedTickets = await enrichTicketsWithUsers(data);
         
         enrichedTickets.forEach(ticket => {
           if (ticket.activities) {

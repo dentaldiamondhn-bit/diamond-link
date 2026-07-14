@@ -111,45 +111,25 @@ class ConsentimientoService {
   }
 
   async getAllConsentimientos(): Promise<ConsentimientoWithPatient[]> {
-    // First try without patient join, then fetch patient data separately
-    const { data: consentimientosData, error: consentimientosError } = await supabase
+    const { data, error } = await supabase
       .from('consentimientos')
-      .select('*')
+      .select(`
+        *,
+        patients (
+          nombre_completo,
+          numero_identidad,
+          direccion,
+          doctor
+        )
+      `)
       .order('creado_en', { ascending: false });
 
-    if (consentimientosError) {
-      console.error('Error fetching consentimientos:', consentimientosError);
-      throw consentimientosError;
+    if (error) {
+      console.error('Error fetching consentimientos:', error);
+      throw error;
     }
 
-    // If we have consentimientos, try to fetch patient data for each one
-    const consentimientosWithPatients = await Promise.all(
-      consentimientosData.map(async (consentimiento) => {
-        let patientInfo = null;
-        if (consentimiento.paciente_id) {
-          try {
-            const { data: patientData, error: patientError } = await supabase
-              .from('patients')
-              .select('nombre_completo, numero_identidad, direccion, doctor')
-              .eq('paciente_id', consentimiento.paciente_id)
-              .single();
-            
-            if (!patientError && patientData) {
-              patientInfo = patientData;
-            }
-          } catch (error) {
-            console.error('Error fetching patient for consentimiento:', error);
-          }
-        }
-        
-        return {
-          ...consentimiento,
-          patients: patientInfo
-        };
-      })
-    );
-
-    return consentimientosWithPatients;
+    return data || [];
   }
 
   async deleteConsentimiento(id: string): Promise<void> {

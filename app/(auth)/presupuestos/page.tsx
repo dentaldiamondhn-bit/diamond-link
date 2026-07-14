@@ -706,16 +706,11 @@ function PresupuestosPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                <i className="fas fa-file-invoice-dollar mr-3 text-teal-600"></i>
-                Presupuestos
-              </h1>
               <div className="space-y-1">
                 <p className="text-gray-600 dark:text-gray-400">
                   {currentPatient ? `Presupuestos para ${currentPatient.nombre_completo}` : 'Cargando...'}
@@ -1283,6 +1278,5 @@ function PresupuestosPageContent() {
           </div>
         )}
       </div>
-    </div>
   );
 }

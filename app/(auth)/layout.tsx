@@ -242,66 +242,62 @@ export default function AuthLayout({
                              Todos los Pacientes
                            </h1>
                          )}
-                         {pathname === '/tratamientos' && (
-                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-tooth mr-2"></i>
-                             Tratamientos
-                           </h1>
-                         )}
-                         {pathname === '/historia-clinica-ortodoncia' && (
-                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-tooth mr-2"></i>
-                             Historia Ortodoncia
-                           </h1>
-                         )}
-                         {pathname === '/doctores' && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-user-md mr-2"></i>
-                             Gestión de Doctores
-                           </h1>
-                         )}
-                         {pathname === '/estudio-periodontal' && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-teeth mr-2 text-teal-600"></i>
-                             Estudio Periodontal
-                           </h1>
-                         )}
-{pathname === '/calendario' && (
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                              <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
-                              Calendario
-                            </h1>
-                          )}
-                          {pathname === '/tratamientos' && (
-                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-tooth mr-2"></i>
-                             Tratamientos
-                           </h1>
-                         )}
-                         {pathname === '/historia-clinica-ortodoncia' && (
-                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-tooth mr-2"></i>
-                             Historia Ortodoncia
-                           </h1>
-                         )}
-                         {pathname === '/doctores' && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-user-md mr-2"></i>
-                             Gestión de Doctores
-                           </h1>
-                         )}
-                         {pathname === '/estudio-periodontal' && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                             <i className="fas fa-teeth mr-2 text-teal-600"></i>
-                             Estudio Periodontal
-                           </h1>
-                         )}
-{pathname === '/calendario' && (
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                              <i className="fas fa-calendar-alt mr-2 text-blue-600"></i>
-                              Calendario
-                            </h1>
-                          )}
+                           {pathname === '/dashboard' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-tachometer-alt mr-2"></i>
+                               Dashboard
+                             </h1>
+                           )}
+                           {pathname === '/tratamientos-completados' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                               <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                                 <AnimatedTratamientosCompletados />
+                               </div>
+                               Tratamientos Completados
+                             </h1>
+                           )}
+                           {pathname === '/consentimientos' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-file-contract mr-2"></i>
+                               Consentimientos
+                             </h1>
+                           )}
+                           {pathname === '/odontogram' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-tooth mr-2 text-teal-600"></i>
+                               Odontograma
+                             </h1>
+                           )}
+                           {pathname === '/patient-form' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-file-medical mr-2"></i>
+                               Historia Clínica
+                             </h1>
+                           )}
+                           {pathname === '/patient-preview' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-user mr-2"></i>
+                               Vista Previa del Paciente
+                             </h1>
+                           )}
+                           {pathname === '/presupuestos' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-file-invoice-dollar mr-2"></i>
+                               Presupuestos
+                             </h1>
+                           )}
+                           {pathname === '/chat' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-comments mr-2"></i>
+                               Mensajes
+                             </h1>
+                           )}
+                           {pathname === '/menu-navegacion' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-bars mr-2"></i>
+                               Menú de Navegación
+                             </h1>
+                           )}
                           {pathname.startsWith('/admin/users') && (
                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                              <div className="w-6 h-6 mr-2 flex items-center justify-center">
@@ -344,11 +340,17 @@ export default function AuthLayout({
                            </div>
                          )}
                          {pathname === '/notas-linea-de-tiempo' && (
-                           <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                             <i className="fas fa-stream mr-2 text-teal-600"></i>
-                             Notas - Línea de Tiempo
-                           </h1>
-                         )}
+                            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                              <i className="fas fa-stream mr-2 text-teal-600"></i>
+                              Notas - Línea de Tiempo
+                            </h1>
+                          )}
+                          {pathname === '/patient-follow-up' && (
+                            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                              <span className="mr-2">📋</span>
+                              Seguimiento de Pacientes
+                            </h1>
+                          )}
                       </div>
                       
                       {/* Right side - User Info and Actions */}

@@ -332,54 +332,64 @@ export default function ReportsPage() {
       setAppliedStartDate(currentTabRange.startDate);
       setAppliedEndDate(currentTabRange.endDate);
     }
-  }, [prefsLoading, pagePrefs, activeTab, tabDateRanges]);
+  }, [prefsLoading, pagePrefs, activeTab]);
 
-useEffect(() => {
-    if (!prefsLoading && pagePrefs) {
-      if (pagePrefs.timeRange) {
-        setTimeRange(pagePrefs.timeRange);
-      }
-      const currentTabRange = tabDateRanges[activeTab] || {
+  const prevDatesKeyRef = useRef('');
+
+  useEffect(() => {
+    if (!user?.id || !pagePrefs) return;
+
+    const ranges = pagePrefs?.tabDateRanges || {};
+    const currentTabRange = ranges[activeTab];
+    if (!currentTabRange) {
+      const defaultRange = {
         startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10),
         endDate: new Date().toISOString().slice(0, 10)
       };
-      setCurrentStartDate(currentTabRange.startDate);
-      setCurrentEndDate(currentTabRange.endDate);
+      const updated = {
+        ...ranges,
+        [activeTab]: defaultRange
+      };
+      updatePagePrefs({ tabDateRanges: updated });
+      currentDatesRef.current = { start: defaultRange.startDate, end: defaultRange.endDate };
+    } else {
       currentDatesRef.current = { start: currentTabRange.startDate, end: currentTabRange.endDate };
-      setAppliedStartDate(currentTabRange.startDate);
-      setAppliedEndDate(currentTabRange.endDate);
     }
-  }, [prefsLoading, pagePrefs, activeTab, tabDateRanges]);
+    setCurrentStartDate(currentDatesRef.current.start);
+    setCurrentEndDate(currentDatesRef.current.end);
+    setAppliedStartDate(currentDatesRef.current.start);
+    setAppliedEndDate(currentDatesRef.current.end);
 
-  useEffect(() => {
-    if (user?.id) {
-      const currentTabRange = tabDateRanges[activeTab];
-      if (!currentTabRange) {
-        const defaultRange = {
-          startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10),
-          endDate: new Date().toISOString().slice(0, 10)
-        };
-        const updated = {
-          ...tabDateRanges,
-          [activeTab]: defaultRange
-        };
-        updatePagePrefs({ tabDateRanges: updated });
-        setCurrentStartDate(defaultRange.startDate);
-        setCurrentEndDate(defaultRange.endDate);
-        currentDatesRef.current = { start: defaultRange.startDate, end: defaultRange.endDate };
-      } else {
-        setCurrentStartDate(currentTabRange.startDate);
-        setCurrentEndDate(currentTabRange.endDate);
-        currentDatesRef.current = { start: currentTabRange.startDate, end: currentTabRange.endDate };
-      }
+    const datesKey = `${currentDatesRef.current.start}_${currentDatesRef.current.end}`;
+    if (datesKey !== prevDatesKeyRef.current) {
+      setReloadTrigger(t => t + 1);
+      prevDatesKeyRef.current = datesKey;
     }
-  }, [activeTab]);
+  }, [activeTab, pagePrefs]);
+
+  // In-memory cache keyed by `${timeRange}_${appliedStartDate}_${appliedEndDate}`
+  const dataCache = useRef<Record<string, any>>({});
 
   useEffect(() => {
     if (user && (userRole === 'admin' || userRole === 'doctor' || userRole === 'tech_support')) {
-      const start = currentStartDate || appliedStartDate;
-      const end = currentEndDate || appliedEndDate;
+      const start = appliedStartDate || currentStartDate;
+      const end = appliedEndDate || currentEndDate;
       
+      const cacheKey = `${timeRange}_${start}_${end}`;
+      if (dataCache.current[cacheKey]) {
+        const cached = dataCache.current[cacheKey];
+        setReportData(cached.reportData);
+        setDoctorPerformance(cached.doctorPerformance);
+        setTreatmentTypes(cached.treatmentTypes);
+        setPatientStats(cached.patientStats);
+        setPatientDemographics(cached.patientDemographics);
+        setRevenueStats(cached.revenueStats);
+        setPatientAnalytics(cached.patientAnalytics);
+        setFinancialTransactions(cached.financialTransactions);
+        setMonthlyIncome(cached.monthlyIncome);
+        return;
+      }
+
       const loadWithDates = async () => {
         setLoading(true);
         setError(null);
@@ -450,6 +460,18 @@ useEffect(() => {
           });
           const monthlyData = aggregateMonthlyIncome(filteredTransactions);
           setMonthlyIncome(monthlyData);
+
+          dataCache.current[cacheKey] = {
+            reportData: reportDataResult,
+            doctorPerformance: doctorPerformanceResult,
+            treatmentTypes: treatmentTypesResult,
+            patientStats: patientStatsResult,
+            patientDemographics: patientDemographicsResult,
+            revenueStats: revenueStatsResult,
+            patientAnalytics: patientAnalyticsResult,
+            financialTransactions: financialTransactionsResult,
+            monthlyIncome: monthlyData,
+          };
           
         } catch (err) {
           console.error('Error loading report data:', err);
@@ -463,7 +485,7 @@ useEffect(() => {
       loadWithDates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userRole, timeRange, reloadTrigger, currentStartDate, currentEndDate, selectedYear]);
+  }, [user, userRole, timeRange, reloadTrigger, appliedStartDate, appliedEndDate, selectedYear]);
 
   const handleRefresh = () => {
     setReloadTrigger(t => t + 1);
@@ -547,7 +569,6 @@ useEffect(() => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -567,9 +588,6 @@ useEffect(() => {
                 </svg>
               </motion.button>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                  Reportes
-                </h1>
                 <p className="text-gray-500 dark:text-gray-400">Análisis completo de tu clínica dental</p>
               </div>
             </div>
@@ -647,7 +665,10 @@ useEffect(() => {
                         key={range}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setTimeRange(range)}
+                        onClick={() => {
+                          setTimeRange(range);
+                          updatePagePrefs({ timeRange: range });
+                        }}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                           timeRange === range
                             ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
@@ -668,21 +689,19 @@ useEffect(() => {
                       value={currentStartDate}
                       onChange={(e) => {
                         const newStart = e.target.value;
-                        setCurrentStartDate(newStart);
                         currentDatesRef.current.start = newStart;
-                        if (user?.id) {
-                          const updated = {
-                            ...tabDateRanges,
-                            [activeTab]: { startDate: newStart, endDate: currentDatesRef.current.end || currentEndDate }
-                          };
-                          updatePagePrefs({ tabDateRanges: updated });
-                        }
+                        setCurrentStartDate(newStart);
                       }}
                       onBlur={async () => {
                         if (user?.id) {
-                          setAppliedStartDate(currentDatesRef.current.start || currentStartDate);
-                          setAppliedEndDate(currentDatesRef.current.end || currentEndDate);
+                          setAppliedStartDate(currentDatesRef.current.start);
                           setReloadTrigger(t => t + 1);
+                          const ranges = pagePrefs?.tabDateRanges || {};
+                          const updated = {
+                            ...ranges,
+                            [activeTab]: { startDate: currentDatesRef.current.start, endDate: currentDatesRef.current.end }
+                          };
+                          await updatePagePrefs({ tabDateRanges: updated });
                         }
                       }}
                       className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
@@ -696,21 +715,19 @@ useEffect(() => {
                       value={currentEndDate}
                       onChange={(e) => {
                         const newEnd = e.target.value;
-                        setCurrentEndDate(newEnd);
                         currentDatesRef.current.end = newEnd;
-                        if (user?.id) {
-                          const updated = {
-                            ...tabDateRanges,
-                            [activeTab]: { startDate: currentDatesRef.current.start || currentStartDate, endDate: newEnd }
-                          };
-                          updatePagePrefs({ tabDateRanges: updated });
-                        }
+                        setCurrentEndDate(newEnd);
                       }}
                       onBlur={async () => {
                         if (user?.id) {
-                          setAppliedStartDate(currentDatesRef.current.start || currentStartDate);
-                          setAppliedEndDate(currentDatesRef.current.end || currentEndDate);
+                          setAppliedEndDate(currentDatesRef.current.end);
                           setReloadTrigger(t => t + 1);
+                          const ranges = pagePrefs?.tabDateRanges || {};
+                          const updated = {
+                            ...ranges,
+                            [activeTab]: { startDate: currentDatesRef.current.start, endDate: currentDatesRef.current.end }
+                          };
+                          await updatePagePrefs({ tabDateRanges: updated });
                         }
                       }}
                       className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 dark:text-white text-sm"
@@ -1723,6 +1740,5 @@ useEffect(() => {
           </motion.div>
         </motion.div>
       </div>
-    </div>
   );
 }

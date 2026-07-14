@@ -58,53 +58,31 @@ export default function DashboardPage() {
       setShowPatientsModal(true);
       setPatientsModalLoading(true);
       
-      // Fetch treatment counts and payment info for each patient
-      const patientsWithDetails = await Promise.all(
-          patients.map(async (patient: any) => {
-            try {
-              // Use paciente_id field instead of id
-              const patientId = patient.paciente_id || patient.id;
-              
-              // Validate patient has an ID
-              if (!patientId) {
-                console.error('❌ Patient missing ID:', patient);
-                return {
-                  ...patient,
-                  completedTreatmentsCount: 0,
-                  totalPaid: 0
-                };
-              }
+      // Batch-fetch treatment data for ALL patients in one query
+      const { supabase } = await import('@/lib/supabase');
+      const patientIds = patients.map((p: any) => p.paciente_id || p.id).filter(Boolean);
 
-              console.log('🔍 Fetching treatments for patient:', { 
-                id: patientId, 
-                name: patient.nombre_completo 
-              });
+      const { data: allTreatments } = await supabase
+        .from('tratamientos_completados')
+        .select('paciente_id, monto_pagado')
+        .in('paciente_id', patientIds);
 
-              // Get completed treatments for this patient
-              const completedTreatments = await CompletedTreatmentService.getCompletedTreatmentsByPatientId(patientId);
-              
-              // Calculate total amount paid
-              const totalPaid = completedTreatments.reduce((sum: number, treatment: any) => {
-                return sum + (treatment.monto_pagado || 0);
-              }, 0);
-              
-              return {
-                ...patient,
-                completedTreatmentsCount: completedTreatments.length,
-                totalPaid
-              };
-            } catch (error) {
-              console.error(`Error fetching details for patient ${patient?.paciente_id || patient?.id || 'unknown'}:`, error);
-              return {
-                ...patient,
-                completedTreatmentsCount: 0,
-                totalPaid: 0
-              };
-            }
-          })
-        );
-        
-        setDoctorPatients(patientsWithDetails);
+      const perPatient: Record<string, { count: number; total: number }> = {};
+      if (allTreatments) {
+        for (const t of allTreatments) {
+          if (!perPatient[t.paciente_id]) perPatient[t.paciente_id] = { count: 0, total: 0 };
+          perPatient[t.paciente_id].count++;
+          perPatient[t.paciente_id].total += t.monto_pagado || 0;
+        }
+      }
+
+      const patientsWithDetails = patients.map((patient: any) => {
+        const pid = patient.paciente_id || patient.id;
+        const agg = perPatient[pid] || { count: 0, total: 0 };
+        return { ...patient, completedTreatmentsCount: agg.count, totalPaid: agg.total };
+      });
+
+      setDoctorPatients(patientsWithDetails);
     } catch (error) {
       console.error('❌ Error opening patients modal:', error);
     } finally {

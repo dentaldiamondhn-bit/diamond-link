@@ -338,19 +338,8 @@ export default function PatientFollowUpPage() {
 
   /* ---- render ---------------------------------------------------- */
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <span className="text-2xl">📋</span>
-            Seguimiento de Pacientes
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Gestiona el seguimiento post-tratamiento de tus pacientes
-          </p>
-        </div>
-
+    <div className="py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
           <StatCard label="Total" value={stats.total} color="text-gray-900 dark:text-white" bg="bg-white dark:bg-gray-800" />
@@ -676,11 +665,11 @@ function Checkbox({
           checked ? 'bg-green-500 border-green-500' : 'border-gray-300 dark:border-gray-600 group-hover:border-gray-400'
         }`}
       >
-        {checked && (
-          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293 7.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
-          </svg>
-        )}
+         {checked && (
+           <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+             <path d="M4 11l4 4L16 5" />
+           </svg>
+         )}
       </div>
       <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
     </button>
