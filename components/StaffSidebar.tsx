@@ -17,6 +17,7 @@ const staffNavItems = [
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados /> },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
+  { href: '/facebook-ads', label: 'Facebook Ads', icon: 'fab fa-facebook' },
 ];
 
 interface StaffSidebarProps {

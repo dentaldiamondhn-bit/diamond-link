@@ -22,6 +22,7 @@ const adminNavItems = [
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/reports', label: 'Reportes', icon: <AnimatedReport /> },
   { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
+  { href: '/facebook-ads', label: 'Facebook Ads', icon: 'fab fa-facebook' },
 ];
 
 interface AdminSidebarProps {

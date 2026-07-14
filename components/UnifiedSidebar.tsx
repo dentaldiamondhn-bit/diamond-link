@@ -47,6 +47,14 @@ export const NAVIGATION_GROUPS = [
     ]
   },
   {
+    id: 'marketing',
+    label: 'Marketing',
+    icon: 'fa-bullhorn',
+    items: [
+      { href: '/facebook-ads', icon: 'fa-facebook', label: 'Facebook Ads' },
+    ]
+  },
+  {
     id: 'admin-settings',
     label: 'Administración',
     icon: 'fa-cog',
