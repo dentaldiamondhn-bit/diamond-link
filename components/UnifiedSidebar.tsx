@@ -34,7 +34,6 @@ export const NAVIGATION_GROUPS = [
     items: [
       { href: '/tratamientos', icon: 'fa-plus', label: 'Crear Tratamientos' },
       { href: '/tratamientos-completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" />, label: 'Tratamientos Completados' },
-      { href: '/consentimientos', icon: 'fa-file-signature', label: 'Consentimientos' },
     ]
   },
   {
