@@ -7,14 +7,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const LIMPIEZA_KEYWORDS = ['limpieza', 'limpieza promocion', 'profilaxis', 'profilaxia'];
+const ORTODONCIA_KEYWORDS = [
+  'ortodoncia', 'bracket', 'brackets', 'aparato',
+  'frenillos', 'alineador', 'invisalign', 'retenedor',
+  'consultas de ortodoncia', 'control de ortodoncia',
+];
+
+const stripAccents = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+function classifyTreatment(name: string): 'limpieza' | 'ortodoncia' | 'otro' {
+  const lower = stripAccents(name.toLowerCase());
+  if (LIMPIEZA_KEYWORDS.some(k => lower.includes(k))) return 'limpieza';
+  if (ORTODONCIA_KEYWORDS.some(k => lower.includes(k))) return 'ortodoncia';
+  return 'otro';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all';
     const minDays = parseInt(searchParams.get('minDays') || '150', 10);
 
-    // Fetch ALL treatments — no date cutoff.
-    // The minDays filter at the end handles excluding recently treated patients.
+    // Fetch ALL treatments with their details and patient info in a single join.
     const { data, error } = await supabase
       .from('tratamientos_completados')
       .select(`
@@ -37,23 +53,6 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const LIMPIEZA_KEYWORDS = ['limpieza', 'limpieza promocion', 'profilaxis', 'profilaxia'];
-    const ORTODONCIA_KEYWORDS = [
-      'ortodoncia', 'bracket', 'brackets', 'aparato',
-      'frenillos', 'alineador', 'invisalign', 'retenedor',
-      'consultas de ortodoncia', 'control de ortodoncia',
-    ];
-
-    const stripAccents = (s: string) =>
-      s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-    const classifyTreatment = (name: string): 'limpieza' | 'ortodoncia' | 'otro' => {
-      const lower = stripAccents(name.toLowerCase());
-      if (LIMPIEZA_KEYWORDS.some(k => lower.includes(k))) return 'limpieza';
-      if (ORTODONCIA_KEYWORDS.some(k => lower.includes(k))) return 'ortodoncia';
-      return 'otro';
-    };
-
     // Flatten: one row per individual treatment, not per appointment
     const individualRows: Array<{
       paciente_id: string;
@@ -71,7 +70,6 @@ export async function GET(request: NextRequest) {
         const treatmentName = detail.nombre_tratamiento || '';
         const tipo = classifyTreatment(treatmentName);
 
-        // Apply type filter — never include 'otro'
         if (tipo === 'otro') continue;
         if (type !== 'all' && type !== tipo) continue;
 
@@ -117,9 +115,32 @@ export async function GET(request: NextRequest) {
     // Only include patients whose last treatment (of this type) is >= minDays ago
     const withMinDays = grouped.filter((p: any) => p.dias_ultimo_tratamiento >= minDays);
 
+    // Batch-fetch follow-up statuses — single query inline
+    let statusMap = new Map<string, any>();
+    if (withMinDays.length > 0) {
+      const pids = [...new Set(withMinDays.map((p: any) => p.paciente_id))];
+      const { data: statusData } = await supabase
+        .from('patient_follow_up_status')
+        .select('*')
+        .in('paciente_id', pids)
+        .order('created_at', { ascending: false });
+      if (statusData) {
+        for (const row of statusData) {
+          if (!statusMap.has(row.paciente_id)) {
+            statusMap.set(row.paciente_id, row);
+          }
+        }
+      }
+    }
+
+    const withStatus = withMinDays.map((p: any) => ({
+      ...p,
+      follow_up_status: statusMap.get(p.paciente_id) || null,
+    }));
+
     return NextResponse.json({
       message: 'Follow-up patients retrieved successfully',
-      data: withMinDays,
+      data: withStatus,
     });
   } catch (error) {
     console.error('Error in GET /api/patient-follow-up:', error);

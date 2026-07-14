@@ -21,6 +21,7 @@ const doctorNavItems = [
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados /> },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
+  { href: '/patient-follow-up', label: 'Seguimiento', icon: 'fas fa-clipboard-check' },
   { href: '/reports', label: 'Reportes', icon: <AnimatedReport /> },
   { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
 ];

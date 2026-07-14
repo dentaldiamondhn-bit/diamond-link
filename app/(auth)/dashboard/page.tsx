@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [averageRevenue, setAverageRevenue] = useState<number>(0);
   const [patientStats, setPatientStats] = useState<any>({ newPatients: 0, returningPatients: 0 });
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [followUpCount, setFollowUpCount] = useState<number>(0);
   const [eventParticipants, setEventParticipants] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
   
@@ -165,6 +166,11 @@ export default function DashboardPage() {
           setDoctorRevenue(revenue);
           setAverageRevenue(avgRevenue);
 
+          // Fetch follow-up count
+          const followUpRes = await fetch('/api/patient-follow-up?type=all');
+          const followUpJson = await followUpRes.json();
+          setFollowUpCount(followUpJson.data?.length || 0);
+
         } else if (userRole === 'admin') {
           // Fetch all patients for admin
           const allPatients = await PatientService.getPatients();
@@ -196,6 +202,11 @@ export default function DashboardPage() {
             .gte('creado_en', firstOfMonth.toISOString())
             .lt('creado_en', firstOfNextMonth.toISOString());
           setIndividualTreatmentCount(monthlyItems?.length || 0);
+
+          // Fetch follow-up count
+          const followUpRes = await fetch('/api/patient-follow-up?type=all');
+          const followUpJson = await followUpRes.json();
+          setFollowUpCount(followUpJson.data?.length || 0);
 
         } else {
           // For staff and others, fetch all patients
@@ -273,6 +284,18 @@ export default function DashboardPage() {
                     Este mes (1 al 1)
                   </p>
                 </div>
+                <button
+                  onClick={() => router.push('/patient-follow-up')}
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-600 transition-all text-left cursor-pointer"
+                >
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Seguimiento Pacientes</h3>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    {loading ? '...' : followUpCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Pacientes con &gt;5 meses sin tratamiento
+                  </p>
+                </button>
               </>
             ) : userRole === 'admin' ? (
               <>
@@ -322,6 +345,18 @@ export default function DashboardPage() {
                     Este mes
                   </p>
                 </div>
+                <button
+                  onClick={() => router.push('/patient-follow-up')}
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-600 transition-all text-left cursor-pointer"
+                >
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Seguimiento Pacientes</h3>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    {loading ? '...' : followUpCount}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Pacientes con &gt;5 meses sin tratamiento
+                  </p>
+                </button>
               </>
             ) : userRole === 'staff' ? (
               <>

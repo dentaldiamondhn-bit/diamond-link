@@ -228,6 +228,8 @@ export function canAccessRoute(userRole: string, pathname: string): boolean {
     '/consentimientos': 'canViewConsentimientos',
     '/menu-navegacion': 'canViewMenuNavegacion',
     '/doctores': 'canManageDoctores',
+    '/patient-follow-up': 'canViewCompletedTreatments',
+    '/patient-follow-up-status': 'canViewCompletedTreatments',
     '/reports': 'canViewDashboard', // Reports use dashboard permission
     '/reportes': 'canViewDashboard', // Spanish reports route also uses dashboard permission
     '/admin': 'canManageUsers',

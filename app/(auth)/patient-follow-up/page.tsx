@@ -181,15 +181,7 @@ export default function PatientFollowUpPage() {
       const res = await fetch(`/api/patient-follow-up?type=${filter}`, { cache: 'no-cache' });
       const json = await res.json();
       if (!json.data) return;
-
-      const pacienteIds = json.data.map((p: any) => p.paciente_id);
-      const statusMap = await PatientFollowUpStatusService.getFollowUpStatusesBatch(pacienteIds);
-
-      const withStatus = json.data.map((p: any) => ({
-        ...p,
-        follow_up_status: statusMap.get(p.paciente_id) || null,
-      }));
-      setPatients(withStatus);
+      setPatients(json.data);
     } catch (err) {
       console.error('Error loading follow-up patients:', err);
     } finally {
