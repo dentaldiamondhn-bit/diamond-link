@@ -9,7 +9,7 @@ interface MaintenanceAlert {
   description: string;
   maintenance_start: string;
   maintenance_end: string;
-  priority: string;
+  severity: string;
   created_at: string;
 }
 
@@ -41,48 +41,48 @@ export default function BannerAlert({ className = '' }: BannerAlertProps) {
     setDismissedAlerts(prev => new Set(prev).add(alertId));
   };
 
-  const getPriorityColors = (priority: string) => {
-    switch (priority) {
+  const getSeverityColors = (severity: string) => {
+    switch (severity) {
       case 'LOW':
         return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-900 dark:text-green-100';
       case 'MEDIUM':
         return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-900 dark:text-yellow-100';
       case 'HIGH':
         return 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 text-orange-900 dark:text-orange-100';
-      case 'URGENT':
+      case 'CRITICAL':
         return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100';
       default:
         return 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100';
     }
   };
 
-  const getPriorityBadgeColors = (priority: string) => {
-    switch (priority) {
+  const getSeverityBadgeColors = (severity: string) => {
+    switch (severity) {
       case 'LOW':
         return 'bg-green-100 text-green-800';
       case 'MEDIUM':
         return 'bg-yellow-100 text-yellow-800';
       case 'HIGH':
         return 'bg-orange-100 text-orange-800';
-      case 'URGENT':
+      case 'CRITICAL':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getPriorityLabel = (priority: string) => {
-    switch (priority) {
+  const getSeverityLabel = (severity: string) => {
+    switch (severity) {
       case 'LOW':
         return 'Bajo';
       case 'MEDIUM':
         return 'Medio';
       case 'HIGH':
         return 'Alto';
-      case 'URGENT':
-        return 'Urgente';
+      case 'CRITICAL':
+        return 'Crítico';
       default:
-        return priority;
+        return severity;
     }
   };
 
@@ -110,7 +110,7 @@ export default function BannerAlert({ className = '' }: BannerAlertProps) {
   }
 
   return (
-    <div className={`flex items-center justify-between px-4 py-2 border-b ${getPriorityColors(activeAlerts[0]?.priority || 'MEDIUM')}`}>
+    <div className={`flex items-center justify-between px-4 py-2 border-b ${getSeverityColors(activeAlerts[0]?.severity || 'MEDIUM')}`}>
       <div className="flex items-center space-x-3">
         <AlertTriangle className="w-4 h-4 flex-shrink-0" />
         <span className="text-sm font-medium">
@@ -118,8 +118,8 @@ export default function BannerAlert({ className = '' }: BannerAlertProps) {
         </span>
         {activeAlerts.map(alert => (
           <span key={alert.id} className="flex items-center space-x-1 text-xs">
-            <span className={`px-2 py-1 rounded ${getPriorityBadgeColors(alert.priority)}`}>
-              {getPriorityLabel(alert.priority)}
+            <span className={`px-2 py-1 rounded ${getSeverityBadgeColors(alert.severity)}`}>
+              {getSeverityLabel(alert.severity)}
             </span>
             <span>
               {alert.title}

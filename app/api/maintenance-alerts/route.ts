@@ -17,21 +17,19 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeAll = searchParams.get('includeAll') === 'true';
 
-    // Get active maintenance tickets (these are the alerts)
+    // Query the maintenance_alerts table
     let query = supabase
-      .from('tickets')
-      .select('id, title, description, maintenance_start, maintenance_end, priority, created_at')
-      .eq('type', 'MAINTENANCE');
+      .from('maintenance_alerts')
+      .select('*');
 
     if (includeAll) {
-      // Get all maintenance tickets for admin view
       query = query.order('created_at', { ascending: false });
     } else {
-      // Get only active maintenance tickets for banner
       const now = new Date().toISOString();
       query = query
-        .eq('status', 'OPEN')
-        .or(`maintenance_start.lte.${now},maintenance_end.gte.${now}`)
+        .in('status', ['SCHEDULED', 'ACTIVE'])
+        .lte('maintenance_start', now)
+        .gte('maintenance_end', now)
         .order('maintenance_start', { ascending: true });
     }
 
