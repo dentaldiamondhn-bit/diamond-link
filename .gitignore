@@ -46,3 +46,4 @@ Thumbs.db
 clerk.broken/
 .env*.local
 everything-claude-code/
+.venv/

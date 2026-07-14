@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
+    },
+    "fb-ads-mcp-server": {
+      "command": "/home/dentaldiamondhn/diamond-link-original/.venv/bin/meta-ads-mcp",
+      "env": {
+        "META_ACCESS_TOKEN": "YOUR_META_ACCESS_TOKEN",
+        "META_DEFAULT_AD_ACCOUNT_ID": "act_YOUR_ACCOUNT_ID"
+      }
+    }
+  }
+}
