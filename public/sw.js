@@ -156,23 +156,20 @@ self.addEventListener('notificationclick', (event) => {
 
   event.notification.close();
 
-  // Handle different actions (simplified for now)
-  if (event.action === 'dismiss') {
-    return;
-  }
+  if (event.action === 'dismiss') return;
 
-  // Default action - open the app
+  const data = event.notification.data;
+  const targetUrl = data?.conversationId ? `/chat?conv=${data.conversationId}` : data?.url || '/chat';
+
   event.waitUntil(
     clients.matchAll().then(clientList => {
-      // Check if app is already open
       for (const client of clientList) {
-        if (client.url === '/' || client.url.includes('/calendario')) {
-          // Focus the existing tab
+        if (client.url.includes('/chat') || client.url === '/' || client.url.includes('/calendario')) {
+          client.postMessage({ type: 'NAVIGATE_CHAT', conversationId: data?.conversationId });
           return client.focus();
         }
       }
-      // Open new tab
-      return clients.openWindow('/calendario');
+      return clients.openWindow(targetUrl);
     })
   );
 });

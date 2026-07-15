@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useNotification } from '@/contexts/NotificationContext';
 import { supabase } from '@/lib/supabase';
 import { ChatService } from '@/services/chatService';
+import MobileNotificationService from '@/services/mobileNotificationService';
 import {
   ChatConversation,
   ChatMessage,
@@ -56,6 +58,7 @@ import {
 export default function ChatPage() {
   const { user } = useUser();
   const { theme } = useTheme();
+  const { addNotification } = useNotification();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -81,6 +84,7 @@ export default function ChatPage() {
   const [callActive, setCallActive] = useState(false);
   const [callMuted, setCallMuted] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
+  const [permission, setPermission] = useState<NotificationPermission>('default');
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const dropdownMenuRef = useRef<HTMLDivElement>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -168,23 +172,72 @@ export default function ChatPage() {
   }, [conversations, dbUserId]);
 
   useEffect(() => {
-    if (selectedConversation && dbUserId) {
-      const channel = supabase
-        .channel(`chat-${selectedConversation.id}`)
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${selectedConversation.id}` },
-          (payload) => {
-            loadMessages(selectedConversation.id);
-          }
-        )
-        .subscribe();
+    requestNotificationPermission();
+  }, []);
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
+  // Realtime: messages in the currently selected conversation
+  useEffect(() => {
+    if (!selectedConversation || !dbUserId) return;
+    const channel = supabase
+      .channel(`chat-msg-${selectedConversation.id}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${selectedConversation.id}` },
+        () => loadMessages(selectedConversation.id)
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [selectedConversation?.id, dbUserId]);
+
+  // Realtime: all new messages anywhere (notifications + sidebar update)
+  useEffect(() => {
+    if (!dbUserId) return;
+    const channel = supabase
+      .channel('chat-global')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload) => {
+          const msg = payload.new as any;
+          if (!msg || msg.sender_id === dbUserId) return;
+          const isSelected = selectedConversation?.id === msg.conversation_id;
+          if (!isSelected) {
+            loadConversations();
+            const senderName = getUserName(msg.sender_id);
+            const conv = conversations.find(c => c.id === msg.conversation_id);
+            const convName = conv ? getConversationDisplayName(conv) : 'Chat';
+            showChatNotification(senderName, msg.content?.substring(0, 120) || 'Nuevo mensaje', msg.conversation_id);
+            addNotification({ type: 'info', message: `${senderName}: ${msg.content?.substring(0, 80) || 'Nuevo mensaje'}` });
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [dbUserId, selectedConversation?.id, conversations]);
+
+  // Realtime: conversation changes (new, update, delete)
+  useEffect(() => {
+    if (!dbUserId) return;
+    const channel = supabase
+      .channel('chat-convs')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_conversations' },
+        () => loadConversations()
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [dbUserId]);
+
+  // Realtime: new participant added (user added to a conversation)
+  useEffect(() => {
+    if (!dbUserId) return;
+    const channel = supabase
+      .channel('chat-parts')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_participants', filter: `user_id=eq.${dbUserId}` },
+        () => loadConversations()
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [dbUserId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -265,6 +318,41 @@ export default function ChatPage() {
       console.error('Error loading users:', error);
       setAllUsers([]);
     }
+  };
+
+  const notifService = useRef<MobileNotificationService | null>(null);
+
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) return;
+    if (permission === 'default') {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+    }
+    if (!notifService.current) {
+      notifService.current = MobileNotificationService.getInstance();
+      await notifService.current.initialize();
+    }
+  };
+
+  const showChatNotification = (title: string, body: string, convId?: string) => {
+    if (permission !== 'granted') return;
+    notifService.current?.showLocalNotification({
+      id: `chat-${convId || Date.now()}`,
+      title,
+      body,
+      icon: '/favicon-192.png',
+      badge: '/favicon-192.png',
+      tag: convId || 'chat',
+      data: { url: '/chat', conversationId: convId },
+      requireInteraction: false,
+      silent: false,
+    }).catch(() => {});
+  };
+
+  const getUserName = (userId: string) => {
+    const user = allUsers.find(u => u.id === userId);
+    if (user) return `${user.first_name} ${user.last_name}`.trim() || 'Usuario';
+    return userId.slice(-8);
   };
 
   const loadMessages = async (conversationId: string) => {

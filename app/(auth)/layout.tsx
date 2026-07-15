@@ -15,6 +15,7 @@ import AnimatedBurger from '@/components/AnimatedBurger';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { HistoricalModeProvider } from '@/contexts/HistoricalModeContext';
 import { BellNotificationProvider } from '@/contexts/BellNotificationContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { TutorialProvider } from '@/contexts/TutorialContext';
 import { TutorialModal } from '@/components/TutorialModal';
 import { TutorialButton } from '@/components/TutorialButton';
@@ -42,11 +43,13 @@ export default function AuthLayout({
       <TutorialProvider>
         <ThemeProvider>
           <HistoricalModeProvider>
-            <BellNotificationProvider>
-              <NotificationListenerWrapper>
-                {children}
-              </NotificationListenerWrapper>
-            </BellNotificationProvider>
+            <NotificationProvider>
+              <BellNotificationProvider>
+                <NotificationListenerWrapper>
+                  {children}
+                </NotificationListenerWrapper>
+              </BellNotificationProvider>
+            </NotificationProvider>
           </HistoricalModeProvider>
         </ThemeProvider>
       </TutorialProvider>
@@ -108,6 +111,7 @@ export default function AuthLayout({
     <TutorialProvider>
       <ThemeProvider>
         <HistoricalModeProvider>
+          <NotificationProvider>
           <BellNotificationProvider>
             <NotificationListenerWrapper>
               {isAIChatPage ? (
@@ -419,6 +423,7 @@ export default function AuthLayout({
               )}
             </NotificationListenerWrapper>
           </BellNotificationProvider>
+          </NotificationProvider>
         </HistoricalModeProvider>
       </ThemeProvider>
     </TutorialProvider>
