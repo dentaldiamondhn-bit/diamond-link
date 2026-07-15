@@ -29,8 +29,14 @@ export default function TechSupportAccessPortal() {
         { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured', color: 'blue' },
         { href: '/patient-form', label: 'Nueva Historia', icon: 'fas fa-user-plus', color: 'green' },
         { href: '/odontogram', label: 'Odontograma', icon: 'fas fa-teeth', color: 'purple' },
+        { href: '/odontogram-pilot', label: 'Odontograma Pilot', icon: 'fas fa-teeth-open', color: 'indigo' },
         { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth', color: 'indigo' },
         { href: '/xray-viewer', label: 'Visor Rayos X', icon: 'fas fa-x-ray', color: 'pink' },
+        { href: '/estudio-periodontal', label: 'Estudio Periodontal', icon: 'fas fa-teeth-open', color: 'teal' },
+        { href: '/historia-clinica-ortodoncia', label: 'Historia Ortodoncia', icon: 'fas fa-notes-medical', color: 'purple' },
+        { href: '/notas-linea-de-tiempo', label: 'Notas Línea de Tiempo', icon: 'fas fa-timeline', color: 'pink' },
+        { href: '/patient-follow-up', label: 'Seguimiento Pacientes', icon: 'fas fa-user-clock', color: 'green' },
+        { href: '/presupuestos', label: 'Presupuestos', icon: 'fas fa-file-invoice-dollar', color: 'yellow' },
       ]
     },
     // Administrative Access
@@ -38,10 +44,16 @@ export default function TechSupportAccessPortal() {
       category: 'Acceso Administrativo',
       items: [
         { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt', color: 'yellow' },
+        { href: '/dashboard/documents', label: 'Documentos', icon: 'fas fa-file-alt', color: 'pink' },
         { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar', color: 'orange' },
         { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract', color: 'teal' },
         { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle', color: 'green' },
         { href: '/reports', label: 'Reportes', icon: 'fas fa-chart-bar', color: 'red' },
+        { href: '/facebook-ads', label: 'Facebook Ads', icon: 'fas fa-ad', color: 'indigo' },
+        { href: '/chat', label: 'Chat', icon: 'fas fa-comments', color: 'teal' },
+        { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt', color: 'orange' },
+        { href: '/menu-navegacion', label: 'Menú Navegación', icon: 'fas fa-bars', color: 'purple' },
+        { href: '/account', label: 'Mi Cuenta', icon: 'fas fa-user-cog', color: 'blue' },
       ]
     },
     // User Management (split by role)
@@ -49,6 +61,7 @@ export default function TechSupportAccessPortal() {
       category: 'Gestión de Usuarios',
       items: [
         { href: '/doctores', label: 'Doctores', icon: 'fas fa-user-md', color: 'blue' },
+        { href: '/admin/users', label: 'Usuarios Admin', icon: 'fas fa-users-cog', color: 'red' },
       ]
     },
   ];
