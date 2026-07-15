@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { auth } from '@clerk/nextjs/server';
-import { writeFile, unlink } from 'fs/promises';
-import { join } from 'path';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export const dynamic = 'force-dynamic';
 
@@ -26,15 +19,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing file or conversation ID' }, { status: 400 });
     }
 
-    // Use Clerk ID directly as user ID
-    const dbUserId = userId;
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
 
     // Check if user is participant
     const { data: participant } = await supabase
       .from('chat_participants')
       .select('*')
       .eq('conversation_id', conversationId)
-      .eq('user_id', dbUserId)
+      .eq('user_id', userId)
       .single();
 
     if (!participant) {
@@ -42,25 +38,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Supabase Storage
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const filePath = `chat/${conversationId}/${fileName}`;
+    const bytes = await file.arrayBuffer();
+    const fileBuffer = Buffer.from(bytes);
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const filePath = `chat/${conversationId}/${Date.now()}-${safeName}`;
 
-    const { data, error } = await supabase.storage
-      .from('documents')
+    const { error: uploadError } = await supabase.storage
+      .from('ticket-documents')
       .upload(filePath, fileBuffer, {
-        contentType: file.type,
+        contentType: file.type || 'application/octet-stream',
         upsert: false
       });
 
-    if (error) {
-      console.error('Error uploading file:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      return NextResponse.json({ error: `Storage error: ${uploadError.message}` }, { status: 500 });
     }
 
     // Get public URL
     const { data: urlData } = supabase.storage
-      .from('documents')
+      .from('ticket-documents')
       .getPublicUrl(filePath);
 
     return NextResponse.json({ 
@@ -69,8 +66,8 @@ export async function POST(request: NextRequest) {
       fileType: file.type,
       fileSize: file.size
     });
-  } catch (error) {
-    console.error('Error in chat file upload:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Chat upload error:', error?.message || error);
+    return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 });
   }
 }

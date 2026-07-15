@@ -85,6 +85,8 @@ export default function ChatPage() {
   const [callMuted, setCallMuted] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
   const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; previewUrl: string }[]>([]);
+  const [fileCaption, setFileCaption] = useState('');
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const dropdownMenuRef = useRef<HTMLDivElement>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -124,7 +126,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (dbUserId) {
-      loadAllUsers().then(() => loadConversations());
+      loadAllUsers().then(() => loadConversations(true));
     }
   }, [dbUserId]);
 
@@ -198,12 +200,12 @@ export default function ChatPage() {
         (payload) => {
           const msg = payload.new as any;
           if (!msg || msg.sender_id === dbUserId) return;
-          const isSelected = selectedConversation?.id === msg.conversation_id;
+          const isSelected = selectedConvRef.current?.id === msg.conversation_id;
+          loadConversations(true);
           if (!isSelected) {
-            loadConversations();
-            const senderName = getUserName(msg.sender_id);
-            const conv = conversations.find(c => c.id === msg.conversation_id);
-            const convName = conv ? getConversationDisplayName(conv) : 'Chat';
+            const users = allUsersRef.current;
+            const sender = users.find(u => u.id === msg.sender_id);
+            const senderName = sender ? `${sender.first_name} ${sender.last_name}`.trim() || 'Usuario' : msg.sender_id.slice(-8);
             showChatNotification(senderName, msg.content?.substring(0, 120) || 'Nuevo mensaje', msg.conversation_id);
             addNotification({ type: 'info', message: `${senderName}: ${msg.content?.substring(0, 80) || 'Nuevo mensaje'}` });
           }
@@ -211,7 +213,7 @@ export default function ChatPage() {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [dbUserId, selectedConversation?.id, conversations]);
+  }, [dbUserId]);
 
   // Realtime: conversation changes (new, update, delete)
   useEffect(() => {
@@ -220,7 +222,7 @@ export default function ChatPage() {
       .channel('chat-convs')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'chat_conversations' },
-        () => loadConversations()
+        () => loadConversations(true)
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -233,7 +235,7 @@ export default function ChatPage() {
       .channel('chat-parts')
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_participants', filter: `user_id=eq.${dbUserId}` },
-        () => loadConversations()
+        () => loadConversations(true)
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -275,15 +277,15 @@ export default function ChatPage() {
     }
   };
 
-  const loadConversations = async () => {
+  const loadConversations = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const result = await ChatService.getConversations(dbUserId!);
       setConversations(result.data || []);
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -321,12 +323,18 @@ export default function ChatPage() {
   };
 
   const notifService = useRef<MobileNotificationService | null>(null);
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+  const selectedConvRef = useRef(selectedConversation);
+  selectedConvRef.current = selectedConversation;
+  const allUsersRef = useRef(allUsers);
+  allUsersRef.current = allUsers;
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) return;
-    if (permission === 'default') {
-      const result = await Notification.requestPermission();
-      setPermission(result);
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+      setPermission(Notification.permission);
     }
     if (!notifService.current) {
       notifService.current = MobileNotificationService.getInstance();
@@ -335,7 +343,11 @@ export default function ChatPage() {
   };
 
   const showChatNotification = (title: string, body: string, convId?: string) => {
-    if (permission !== 'granted') return;
+    if (!('Notification' in window) || Notification.permission === 'denied') return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(p => setPermission(p));
+    }
+    if (Notification.permission !== 'granted') return;
     notifService.current?.showLocalNotification({
       id: `chat-${convId || Date.now()}`,
       title,
@@ -408,42 +420,57 @@ export default function ChatPage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !selectedConversation || !dbUserId) return;
+    const newFiles: { file: File; previewUrl: string }[] = [];
+    for (const file of Array.from(files)) {
+      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+      newFiles.push({ file, previewUrl });
+    }
+    setPendingFiles(prev => [...prev, ...newFiles]);
+    if (e.target) e.target.value = '';
+  };
 
+  const removePendingFile = (index: number) => {
+    setPendingFiles(prev => {
+      const file = prev[index];
+      if (file?.previewUrl) URL.revokeObjectURL(file.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const sendPendingFiles = async () => {
+    if (!pendingFiles.length || !selectedConversation || !dbUserId) return;
     setIsUploading(true);
+    const caption = fileCaption.trim();
     try {
-      for (const file of Array.from(files)) {
+      for (const { file } of pendingFiles) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('conversationId', selectedConversation.id);
-
-        const response = await fetch('/api/chat/upload', {
-          method: 'POST',
-          body: formData
-        });
-
+        const response = await fetch('/api/chat/upload', { method: 'POST', body: formData });
         const result = await response.json();
+        if (!response.ok) {
+          addNotification({ type: 'error', message: result.error || 'Error al subir archivo' });
+          continue;
+        }
         if (result.uploadedUrl) {
           const fileType = file.type.startsWith('image/') ? 'image' : 'file';
-          const messageData: CreateMessageData = {
+          await ChatService.sendMessage(dbUserId, {
             conversation_id: selectedConversation.id,
-            content: file.name,
+            content: caption || file.name,
             message_type: fileType as ChatMessageType,
-            attachments: [{
-              file_name: file.name,
-              file_type: file.type,
-              file_size: file.size,
-              file_url: result.uploadedUrl
-            }]
-          };
-          await ChatService.sendMessage(dbUserId, messageData);
+            attachments: [{ file_name: file.name, file_type: file.type, file_size: file.size, file_url: result.uploadedUrl }]
+          });
         }
       }
       loadMessages(selectedConversation.id);
+      setPendingFiles([]);
+      setFileCaption('');
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('Error uploading files:', error);
+      addNotification({ type: 'error', message: 'Error al subir archivo' });
     } finally {
       setIsUploading(false);
     }
@@ -808,30 +835,12 @@ export default function ChatPage() {
                 setDragOver(false);
                 const files = e.dataTransfer.files;
                 if (!files.length || !selectedConversation || !dbUserId) return;
-                setIsUploading(true);
-                try {
-                  for (const file of Array.from(files)) {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    formData.append('conversationId', selectedConversation.id);
-                    const response = await fetch('/api/chat/upload', { method: 'POST', body: formData });
-                    const result = await response.json();
-                    if (result.uploadedUrl) {
-                      const fileType = file.type.startsWith('image/') ? 'image' : 'file';
-                      await ChatService.sendMessage(dbUserId, {
-                        conversation_id: selectedConversation.id,
-                        content: file.name,
-                        message_type: fileType as ChatMessageType,
-                        attachments: [{ file_name: file.name, file_type: file.type, file_size: file.size, file_url: result.uploadedUrl }]
-                      });
-                    }
-                  }
-                  loadMessages(selectedConversation.id);
-                } catch (error) {
-                  console.error('Error uploading files:', error);
-                } finally {
-                  setIsUploading(false);
+                const newFiles: { file: File; previewUrl: string }[] = [];
+                for (const file of Array.from(files)) {
+                  const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : '';
+                  newFiles.push({ file, previewUrl });
                 }
+                setPendingFiles(prev => [...prev, ...newFiles]);
               }}
             >
               {dragOver && (
@@ -942,6 +951,58 @@ export default function ChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* File Preview Bar */}
+            {pendingFiles.length > 0 && (
+              <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 flex flex-wrap gap-2">
+                    {pendingFiles.map((f, i) => (
+                      <div key={i} className="relative group w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 flex-shrink-0">
+                        {f.previewUrl ? (
+                          <img src={f.previewUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <File className="w-8 h-8 text-slate-400" />
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removePendingFile(i)}
+                          className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3 text-white" />
+                        </button>
+                        <span className="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[10px] px-1 py-0.5 truncate text-center">
+                          {f.file.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => { setPendingFiles([]); setFileCaption(''); }}
+                    className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg flex-shrink-0"
+                  >
+                    <X className="w-4 h-4 text-slate-500" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    value={fileCaption}
+                    onChange={(e) => setFileCaption(e.target.value)}
+                    placeholder="Añade un texto..."
+                    className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPendingFiles(); } }}
+                  />
+                  <button
+                    onClick={sendPendingFiles}
+                    disabled={isUploading}
+                    className="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-medium rounded-lg hover:shadow-lg disabled:opacity-50 transition-all"
+                  >
+                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enviar'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Message Input */}
             <div className="p-4 border-t border-slate-200 dark:border-slate-700">
               <div className="flex items-end gap-2">
@@ -1015,7 +1076,7 @@ export default function ChatPage() {
               <input
                 type="file"
                 ref={fileInputRef}
-                onChange={handleFileUpload}
+                onChange={handleFileSelect}
                 className="hidden"
                 multiple
               />
