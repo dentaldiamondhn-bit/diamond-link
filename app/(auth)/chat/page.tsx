@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useUser, UserButton } from '@clerk/nextjs';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { ChatService } from '@/services/chatService';
@@ -42,12 +42,16 @@ import {
   CreditCard,
   User,
   Upload,
-  Close,
   Check,
   Loader2,
-  SmilePlus
+  SmilePlus,
+  Bell,
+  BellOff,
+  Mic,
+  MicOff,
+  PhoneOff,
+  Volume2
 } from 'lucide-react';
-import { UserAvatar } from '@/components/calendar/UserComponents';
 
 export default function ChatPage() {
   const { user } = useUser();
@@ -65,9 +69,48 @@ export default function ChatPage() {
   const [showPatientCaseModal, setShowPatientCaseModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
   
   const [dbUserId, setDbUserId] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<ChatUser[]>([]);
+  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showDropdownMenu, setShowDropdownMenu] = useState(false);
+  const [showCallModal, setShowCallModal] = useState<'audio' | 'video' | null>(null);
+  const [callActive, setCallActive] = useState(false);
+  const [callMuted, setCallMuted] = useState(false);
+  const [callSeconds, setCallSeconds] = useState(0);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const dropdownMenuRef = useRef<HTMLDivElement>(null);
+  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const emojiCategories = [
+    {
+      name: 'Caras',
+      emojis: ['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🙂','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥴','😵','🤯','🤠','🥳','😎','🤓','🧐','😕','😟','🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾']
+    },
+    {
+      name: 'Gestos',
+      emojis: ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤝','🙏','✍️','💅','🤳','💪','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄']
+    },
+    {
+      name: 'Corazones',
+      emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','🫶']
+    },
+    {
+      name: 'Objetos',
+      emojis: ['⌚','📱','💻','⌨️','🖥️','🖨️','🖱️','🖲️','🕹️','🗜️','💽','💾','💿','📀','📼','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🔌','💡','🔦','🕯️','🪔','🧯','🗑️','🛢️','💸','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🧰','🔧','🔨','⚒️','🛠️','⛏️','🔩','⚙️','🧱','⛓️','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🪦','⚱️','🏺','🔮','📿','🧿','🪬','💈','⚗️','🔭','🔬','🕳️','💊','💉','🩸','🩹','🩺','🩻','🌡️','🪞','🪟','🪠','🪤','🪣','🪥','🪦','🪧','🪪']
+    },
+    {
+      name: 'Animales',
+      emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔','🐾','🐉','🐲','🌵','🎄','🌲','🌳','🌴','🌱','🌿','☘️','🍀','🎍','🪴','🎋','🍃','🍂','🍁','🍄','🌾','💐','🌷','🌹','🥀','🌺','🌸','🌼','🌻','🌞','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒','🌓','🌔','🌙','🌎','🌍','🌏','🪐','💫','⭐','🌟','✨','⚡','☄️','💥','🔥','🌪️','🌈','☀️','🌤️','⛅','🌥️','☁️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','💧','💦','🫧','☔','☂️','🌊','🌫️']
+    },
+    {
+      name: 'Comida',
+      emojis: ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🫘','🥐','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🦴','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🫓','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','☕','🫖','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🫗','🥃','🍸','🍹','🧉','🍾','🧊','🥄','🍴','🥄','🔪','🫙','🏺']
+    }
+  ];
 
   useEffect(() => {
     if (user?.id) {
@@ -77,8 +120,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (dbUserId) {
-      loadConversations();
-      loadAllUsers();
+      loadAllUsers().then(() => loadConversations());
     }
   }, [dbUserId]);
 
@@ -87,6 +129,43 @@ export default function ChatPage() {
       loadMessages(selectedConversation.id);
     }
   }, [selectedConversation]);
+
+  useEffect(() => {
+    (async () => {
+      const ids = new Set<string>();
+      for (const conv of conversations) {
+        for (const p of conv.participants || []) {
+          if (p.user_id !== dbUserId) ids.add(p.user_id);
+        }
+      }
+      const newAvatars: Record<string, string> = {};
+      for (const uid of ids) {
+        if (userAvatars[uid]) { newAvatars[uid] = userAvatars[uid]; continue; }
+        const fromAll = allUsers.find(u => u.id === uid);
+        if (fromAll?.profile_image_url) { newAvatars[uid] = fromAll.profile_image_url; continue; }
+        try {
+          const res = await fetch(`/api/users?id=${uid}`);
+          const u = await res.json();
+          if (u?.profileImageUrl) {
+            newAvatars[uid] = u.profileImageUrl;
+            setAllUsers(prev => {
+              if (prev.find(x => x.id === u.id)) return prev;
+              return [...prev, {
+                id: u.id, email: u.email || '',
+                first_name: u.first_name || u.firstName || '',
+                last_name: u.last_name || u.lastName || '',
+                profile_image_url: u.profileImageUrl,
+                role: u.role || 'staff'
+              }];
+            });
+          }
+        } catch {}
+      }
+      if (Object.keys(newAvatars).length > 0) {
+        setUserAvatars(prev => ({ ...prev, ...newAvatars }));
+      }
+    })();
+  }, [conversations, dbUserId]);
 
   useEffect(() => {
     if (selectedConversation && dbUserId) {
@@ -111,6 +190,31 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+      if (dropdownMenuRef.current && !dropdownMenuRef.current.contains(e.target as Node)) {
+        setShowDropdownMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (callActive) {
+      callTimerRef.current = setInterval(() => {
+        setCallSeconds(s => s + 1);
+      }, 1000);
+    } else {
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+      setCallSeconds(0);
+    }
+    return () => { if (callTimerRef.current) clearInterval(callTimerRef.current); };
+  }, [callActive]);
+
   const getDbUserId = async () => {
     // Use Clerk ID directly as the user ID in chat system
     if (user?.id) {
@@ -131,18 +235,32 @@ export default function ChatPage() {
   };
 
   const loadAllUsers = async () => {
-    // Load users from Clerk API instead of Supabase
     try {
       const response = await fetch('/api/users');
-      const users = await response.json();
-      setAllUsers(users.map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        first_name: u.first_name,
-        last_name: u.last_name,
-        profile_image_url: u.profileImageUrl,
-        role: u.role
-      })) || []);
+      if (!response.ok) {
+        console.error('Failed to load users:', response.status);
+        setAllUsers([]);
+        return;
+      }
+      const data = await response.json();
+      const users = Array.isArray(data) ? data : (data?.data || []);
+      setAllUsers(users.map((u: any) => {
+        let firstName = u.first_name || u.firstName || '';
+        let lastName = u.last_name || u.lastName || '';
+        if (!firstName && !lastName && u.name) {
+          const parts = u.name.trim().split(/\s+/);
+          firstName = parts[0] || '';
+          lastName = parts.slice(1).join(' ') || '';
+        }
+        return {
+          id: u.id,
+          email: u.email || '',
+          first_name: firstName,
+          last_name: lastName,
+          profile_image_url: u.profileImageUrl || u.profile_image_url || null,
+          role: u.role || 'staff'
+        };
+      }));
     } catch (error) {
       console.error('Error loading users:', error);
       setAllUsers([]);
@@ -153,7 +271,9 @@ export default function ChatPage() {
     try {
       setLoadingMessages(true);
       const result = await ChatService.getMessages(conversationId, dbUserId!);
-      setMessages(result.data || []);
+      const msgs = result.data || [];
+      msgs.reverse();
+      setMessages(msgs);
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
@@ -241,6 +361,77 @@ export default function ChatPage() {
     }
   };
 
+  const insertEmoji = (emoji: string) => {
+    setMessageInput(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const handleCall = (type: 'audio' | 'video') => {
+    setShowCallModal(type);
+  };
+
+  const startCall = () => {
+    setShowCallModal(null);
+    setCallActive(true);
+  };
+
+  const endCall = () => {
+    setCallActive(false);
+    setShowCallModal(null);
+    setCallMuted(false);
+  };
+
+  const toggleMute = () => {
+    setCallMuted(!callMuted);
+  };
+
+  const formatCallTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handlePinConversation = async () => {
+    if (!selectedConversation || !dbUserId) return;
+    try {
+      await ChatService.updateConversation(selectedConversation.id, dbUserId, {
+        is_pinned: !selectedConversation.is_pinned
+      });
+      setSelectedConversation({ ...selectedConversation, is_pinned: !selectedConversation.is_pinned });
+      loadConversations();
+    } catch (error) {
+      console.error('Error pinning conversation:', error);
+    }
+    setShowDropdownMenu(false);
+  };
+
+  const handleArchiveConversation = async () => {
+    if (!selectedConversation || !dbUserId) return;
+    try {
+      await ChatService.updateConversation(selectedConversation.id, dbUserId, {
+        is_archived: true
+      });
+      setSelectedConversation(null);
+      loadConversations();
+    } catch (error) {
+      console.error('Error archiving conversation:', error);
+    }
+    setShowDropdownMenu(false);
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedConversation || !dbUserId) return;
+    if (!window.confirm('¿Estás seguro de eliminar esta conversación?')) return;
+    try {
+      await ChatService.deleteConversation(selectedConversation.id, dbUserId);
+      setSelectedConversation(null);
+      loadConversations();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    }
+    setShowDropdownMenu(false);
+  };
+
   const handlePatientCaseLink = async (data: {
     patient_id: string;
     link_type: PatientCaseLinkType;
@@ -266,42 +457,86 @@ export default function ChatPage() {
     }
   };
 
-  const filteredConversations = conversations.filter(conv => 
+  const filteredConversations = conversations.filter(conv =>
     conv.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getConversationDisplayName = (conv: ChatConversation): string => {
+  const getOtherParticipant = (conv: ChatConversation) => {
+    if (!dbUserId || !conv.participants?.length) return null;
+    const otherParticipant = conv.participants.find(p => p.user_id !== dbUserId);
+    if (!otherParticipant) return null;
+    const user = allUsers.find(u => u.id === otherParticipant.user_id);
+    return user || null;
+  };
+
+  const getUserAvatarUrl = (conv: ChatConversation): string | null => {
+    if (conv.avatar_url) return conv.avatar_url;
+    if (!dbUserId) return null;
+    const otherPart = conv.participants?.find(p => p.user_id !== dbUserId);
+    if (!otherPart) return null;
+    if (userAvatars[otherPart.user_id]) return userAvatars[otherPart.user_id];
+    const user = allUsers.find(u => u.id === otherPart.user_id);
+    if (user?.profile_image_url) return user.profile_image_url;
+    return null;
+  };
+
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0]?.[0]?.toUpperCase() || '?';
+  };
+
+  const avatarColors = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500', 'bg-cyan-500'];
+  const getAvatarColor = (name: string) => avatarColors[name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % avatarColors.length];
+
+  const getConversationDisplayName = (conv: ChatConversation) => {
     if (conv.name) return conv.name;
-    const otherParticipants = conv.participants?.filter(p => p.user_id !== dbUserId) || [];
-    if (otherParticipants.length > 0) {
-      return `Chat con usuario ${otherParticipants[0].user_id.slice(-6)}`;
-    }
+    const otherUser = getOtherParticipant(conv);
+    if (otherUser) return `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || 'Usuario';
+    const participant = conv.participants?.find(p => p.user_id !== dbUserId);
+    if (participant) return participant.user_id.slice(-8);
     return 'Chat';
   };
 
-  const getConversationAvatar = (conv: ChatConversation): string | null => {
-    if (conv.avatar_url) return conv.avatar_url;
-    return null;
+  const renderAvatar = (conv: ChatConversation, size: 'sm' | 'md' = 'md') => {
+    const avatarUrl = getUserAvatarUrl(conv);
+    const dim = size === 'sm' ? 'w-10 h-10' : 'w-12 h-12';
+    const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
+
+    if (avatarUrl) {
+      return <img src={avatarUrl} alt="" className={`${dim} rounded-full object-cover`} />;
+    }
+    const name = getConversationDisplayName(conv);
+    const initials = getInitials(name);
+    return (
+      <div className={`${dim} rounded-full ${getAvatarColor(name)} flex items-center justify-center text-white ${textSize} font-semibold`}>
+        {initials}
+      </div>
+    );
   };
 
   return (
     <div className="flex h-full">
         {/* Conversations Sidebar */}
         <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 flex-col bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700`}>
-          {/* Header */}
+          {/* Sidebar Header */}
           <div className="p-4 border-b border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl">
                   <MessageSquare className="w-5 h-5 text-white" />
                 </div>
+                <span className="font-bold text-lg text-slate-800 dark:text-white">Chat</span>
               </div>
-              <button
-                onClick={() => setShowNewChatModal(true)}
-                className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
-              >
-                <Plus className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              </button>
+              <div className="flex items-center gap-2">
+                <UserButton />
+                <button
+                  onClick={() => setShowNewChatModal(true)}
+                  className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
+                >
+                  <Plus className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                </button>
+              </div>
             </div>
             
             {/* Search */}
@@ -346,18 +581,8 @@ export default function ChatPage() {
                         : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border border-transparent'
                     }`}
                   >
-                    <div className="relative">
-                      {getConversationAvatar(conv) ? (
-                        <img 
-                          src={getConversationAvatar(conv)!} 
-                          alt=""
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
-                          <MessageSquare className="w-5 h-5 text-white" />
-                        </div>
-                      )}
+                    <div className="relative flex-shrink-0">
+                      {renderAvatar(conv, 'md')}
                       {conv.unread_count && conv.unread_count > 0 && (
                         <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                           {conv.unread_count > 9 ? '9+' : conv.unread_count}
@@ -365,11 +590,28 @@ export default function ChatPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0 text-left">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-slate-800 dark:text-white truncate">
                           {getConversationDisplayName(conv)}
                         </p>
-                        {conv.is_pinned && <Pin className="w-3 h-3 text-amber-500" />}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {conv.is_pinned && <Pin className="w-3 h-3 text-amber-500" />}
+                          <span className="text-xs text-slate-400 whitespace-nowrap">
+                            {(() => {
+                              const date = conv.last_message?.created_at || conv.last_message_at;
+                              if (!date) return '';
+                              const d = new Date(date);
+                              const now = new Date();
+                              const isToday = d.toDateString() === now.toDateString();
+                              const yesterday = new Date(now);
+                              yesterday.setDate(yesterday.getDate() - 1);
+                              const isYesterday = d.toDateString() === yesterday.toDateString();
+                              if (isToday) return d.toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' });
+                              if (isYesterday) return 'Ayer';
+                              return d.toLocaleDateString('es-HN', { day: '2-digit', month: '2-digit' });
+                            })()}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
                         {conv.last_message?.content || 'Sin mensajes'}
@@ -384,7 +626,8 @@ export default function ChatPage() {
 
         {/* Chat Area */}
         {selectedConversation ? (
-          <div className="flex-1 flex flex-col bg-white dark:bg-slate-800">
+          <div className="flex flex-1">
+            <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 min-w-0">
             {/* Chat Header */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -394,18 +637,8 @@ export default function ChatPage() {
                 >
                   <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 </button>
-                <div className="relative">
-                  {getConversationAvatar(selectedConversation) ? (
-                    <img 
-                      src={getConversationAvatar(selectedConversation)!} 
-                      alt=""
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
-                      <MessageSquare className="w-4 h-4 text-white" />
-                    </div>
-                  )}
+                <div className="relative flex-shrink-0">
+                  {renderAvatar(selectedConversation, 'sm')}
                 </div>
                 <div>
                   <h2 className="font-semibold text-slate-800 dark:text-white">
@@ -416,27 +649,111 @@ export default function ChatPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl">
+              <div className="flex items-center gap-2 relative">
+                <button
+                  onClick={() => handleCall('audio')}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl"
+                  title="Llamada de voz"
+                >
                   <Phone className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 </button>
-                <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl">
+                <button
+                  onClick={() => handleCall('video')}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl"
+                  title="Videollamada"
+                >
                   <Video className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 </button>
                 <button 
                   onClick={() => setShowInfoPanel(!showInfoPanel)}
                   className={`p-2 rounded-xl ${showInfoPanel ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                  title="Información"
                 >
                   <Info className={`w-5 h-5 ${showInfoPanel ? 'text-emerald-600' : 'text-slate-600 dark:text-slate-400'}`} />
                 </button>
-                <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl">
-                  <MoreVertical className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                </button>
+                <div className="relative" ref={dropdownMenuRef}>
+                  <button
+                    onClick={() => setShowDropdownMenu(!showDropdownMenu)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl"
+                    title="Más opciones"
+                  >
+                    <MoreVertical className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                  </button>
+                  {showDropdownMenu && (
+                    <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
+                      <button
+                        onClick={handlePinConversation}
+                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      >
+                        <Pin className="w-4 h-4" />
+                        {selectedConversation?.is_pinned ? 'Desfijar conversación' : 'Fijar conversación'}
+                      </button>
+                      <button
+                        onClick={handleArchiveConversation}
+                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      >
+                        <Archive className="w-4 h-4" />
+                        Archivar conversación
+                      </button>
+                      <hr className="border-slate-200 dark:border-slate-700 my-1" />
+                      <button
+                        onClick={handleDeleteConversation}
+                        className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Eliminar conversación
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div
+              ref={messagesAreaRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4 relative"
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+              onDrop={async (e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const files = e.dataTransfer.files;
+                if (!files.length || !selectedConversation || !dbUserId) return;
+                setIsUploading(true);
+                try {
+                  for (const file of Array.from(files)) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('conversationId', selectedConversation.id);
+                    const response = await fetch('/api/chat/upload', { method: 'POST', body: formData });
+                    const result = await response.json();
+                    if (result.uploadedUrl) {
+                      const fileType = file.type.startsWith('image/') ? 'image' : 'file';
+                      await ChatService.sendMessage(dbUserId, {
+                        conversation_id: selectedConversation.id,
+                        content: file.name,
+                        message_type: fileType as ChatMessageType,
+                        attachments: [{ file_name: file.name, file_type: file.type, file_size: file.size, file_url: result.uploadedUrl }]
+                      });
+                    }
+                  }
+                  loadMessages(selectedConversation.id);
+                } catch (error) {
+                  console.error('Error uploading files:', error);
+                } finally {
+                  setIsUploading(false);
+                }
+              }}
+            >
+              {dragOver && (
+                <div className="absolute inset-0 bg-emerald-500/10 border-2 border-dashed border-emerald-500 rounded-2xl flex items-center justify-center z-10">
+                  <div className="text-center">
+                    <Upload className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
+                    <p className="text-emerald-600 font-medium">Suelta los archivos aquí</p>
+                  </div>
+                </div>
+              )}
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
@@ -461,9 +778,21 @@ export default function ChatPage() {
                       className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}
                     >
                       {showAvatar && !isOwn ? (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
-                          <User className="w-4 h-4 text-white" />
-                        </div>
+                        (() => {
+                          const senderUser = allUsers.find(u => u.id === msg.sender_id);
+                          if (senderUser?.profile_image_url) {
+                            return <img src={senderUser.profile_image_url} alt="" className="w-8 h-8 rounded-full object-cover" />;
+                          }
+                          const name = senderUser ? `${senderUser.first_name} ${senderUser.last_name}` : '?';
+                          const initials = getInitials(name);
+                          const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500', 'bg-cyan-500'];
+                          const colorIndex = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
+                          return (
+                            <div className={`w-8 h-8 rounded-full ${colors[colorIndex]} flex items-center justify-center text-white text-xs font-semibold`}>
+                              {initials}
+                            </div>
+                          );
+                        })()
                       ) : !isOwn ? (
                         <div className="w-8" />
                       ) : null}
@@ -556,7 +885,36 @@ export default function ChatPage() {
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl resize-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     rows={1}
                   />
+                  {showEmojiPicker && (
+                    <div ref={emojiPickerRef} className="absolute bottom-full left-0 mb-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-80 max-h-80 overflow-hidden z-50">
+                      <div className="overflow-y-auto max-h-80 p-2 space-y-2">
+                        {emojiCategories.map((cat, ci) => (
+                          <div key={cat.name}>
+                            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider px-1 mb-1">{cat.name}</p>
+                            <div className="flex flex-wrap gap-0.5">
+                              {cat.emojis.map((emoji, ei) => (
+                                <button
+                                  key={`${ci}-${ei}`}
+                                  onClick={() => insertEmoji(emoji)}
+                                  className="w-8 h-8 flex items-center justify-center text-lg hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+                <button
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className={`p-2 rounded-xl ${showEmojiPicker ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                  title="Emoji"
+                >
+                  <SmilePlus className={`w-5 h-5 ${showEmojiPicker ? 'text-emerald-600' : 'text-slate-600 dark:text-slate-400'}`} />
+                </button>
                 
                 <button
                   onClick={handleSendMessage}
@@ -574,6 +932,52 @@ export default function ChatPage() {
                 multiple
               />
             </div>
+            </div>
+
+            {showInfoPanel && (
+              <div className="w-72 border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-y-auto flex-shrink-0">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                  <h3 className="font-semibold text-slate-800 dark:text-white">Información</h3>
+                </div>
+                <div className="p-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Participantes</p>
+                    <div className="space-y-2">
+                      {selectedConversation.participants?.map((p) => {
+                        const userInfo = allUsers.find(u => u.id === p.user_id);
+                        return (
+                          <div key={p.id} className="flex items-center gap-3">
+                            {userInfo?.profile_image_url ? (
+                              <img src={userInfo.profile_image_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                                <User className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                                {userInfo ? `${userInfo.first_name} ${userInfo.last_name}` : p.user_id.slice(-8)}
+                              </p>
+                              <p className="text-xs text-slate-400 capitalize">{p.role}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Tipo</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 capitalize">{selectedConversation.type}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Creado</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                      {new Date(selectedConversation.created_at).toLocaleDateString('es-HN', { dateStyle: 'long' })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="hidden md:flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-900">
@@ -588,6 +992,74 @@ export default function ChatPage() {
             </div>
           </div>
         )}
+
+      {/* Call Modal */}
+      {showCallModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center">
+            <div className="mb-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mx-auto mb-4">
+                <MessageSquare className="w-10 h-10 text-white" />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-1">
+                {getConversationDisplayName(selectedConversation!)}
+              </h2>
+              <p className="text-slate-400 text-sm">
+                {showCallModal === 'video' ? 'Videollamada' : 'Llamada de voz'}
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-6">
+              <button
+                onClick={toggleMute}
+                className={`p-4 rounded-full transition-all ${callMuted ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                title={callMuted ? 'Activar micrófono' : 'Silenciar'}
+              >
+                {callMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+              </button>
+              <button
+                onClick={endCall}
+                className="p-4 rounded-full bg-red-500 text-white hover:bg-red-600 transition-all"
+                title="Colgar"
+              >
+                <PhoneOff className="w-6 h-6" />
+              </button>
+              {showCallModal === 'video' && (
+                <button
+                  className="p-4 rounded-full bg-slate-700 text-slate-300 hover:bg-slate-600 transition-all"
+                  title="Alternar cámara"
+                >
+                  <Video className="w-6 h-6" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Call Active Banner */}
+      {callActive && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 px-4 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 bg-green-300 rounded-full animate-pulse" />
+            <span className="font-medium">{showCallModal === 'video' ? 'Videollamada' : 'Llamada de voz'} activa</span>
+            <span className="text-emerald-200 text-sm">{formatCallTime(callSeconds)}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleMute}
+              className={`p-2 rounded-lg ${callMuted ? 'bg-red-500' : 'bg-white/20 hover:bg-white/30'} transition-all`}
+            >
+              {callMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={endCall}
+              className="p-2 rounded-lg bg-red-500 hover:bg-red-600 transition-all"
+            >
+              <PhoneOff className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* New Chat Modal */}
       {showNewChatModal && (
@@ -857,7 +1329,7 @@ function PatientCaseModal({
                 ) : (
                   filteredPatients.map(p => (
                     <button
-                      key={p.id}
+                      key={p.paciente_id}
                       onClick={() => setSelectedPatient(p)}
                       className="w-full p-3 rounded-xl flex items-center gap-3 bg-slate-50 dark:bg-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
                     >

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import {
   ChatConversation,
   ChatMessage,
@@ -9,13 +9,19 @@ import {
   ChatFilters
 } from '@/types/chat';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export class ChatService {
   static async getConversations(userId: string, filters?: ChatFilters) {
+    // First, get conversation IDs where user is a participant
+    const { data: myParts, error: partErr } = await supabase
+      .from('chat_participants')
+      .select('conversation_id')
+      .eq('user_id', userId);
+
+    if (partErr) throw partErr;
+    if (!myParts || myParts.length === 0) return { data: [] };
+
+    const convIds = myParts.map(p => p.conversation_id);
+
     let query = supabase
       .from('chat_conversations')
       .select(`
@@ -29,7 +35,7 @@ export class ChatService {
           created_at
         )
       `)
-      .eq('chat_participants.user_id', userId)
+      .in('id', convIds)
       .neq('is_archived', true)
       .order('last_message_at', { ascending: false });
 
