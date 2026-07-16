@@ -26,14 +26,7 @@ export class ChatService {
       .from('chat_conversations')
       .select(`
         *,
-        participants:chat_participants(*),
-        last_message:chat_messages(
-          id,
-          content,
-          sender_id,
-          message_type,
-          created_at
-        )
+        participants:chat_participants(*)
       `)
       .in('id', convIds)
       .neq('is_archived', true)
@@ -51,9 +44,29 @@ export class ChatService {
       query = query.eq('is_pinned', filters.is_pinned);
     }
 
-    const { data, error } = await query;
-
+    const { data: conversations, error } = await query;
     if (error) throw error;
+
+    // Fetch latest message per conversation (no FK, so we query separately)
+    const { data: allRecentMessages } = await supabase
+      .from('chat_messages')
+      .select('id, content, sender_id, message_type, created_at, conversation_id')
+      .in('conversation_id', convIds)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    const latestByConv = new Map<string, any>();
+    for (const msg of allRecentMessages || []) {
+      if (!latestByConv.has(msg.conversation_id)) {
+        latestByConv.set(msg.conversation_id, msg);
+      }
+    }
+
+    const data = (conversations || []).map(conv => ({
+      ...conv,
+      last_message: latestByConv.get(conv.id) || null
+    }));
+
     return { data: data as ChatConversation[] };
   }
 
@@ -116,7 +129,7 @@ export class ChatService {
     let conversationType = data.type;
 
     if (data.type === 'direct' && data.participant_ids?.length === 1) {
-      conversationName = 'Chat';
+      conversationName = null;
     }
 
     const { data: conversation, error: convError } = await supabase
@@ -261,7 +274,7 @@ export class ChatService {
       .insert({
         conversation_id: data.conversation_id,
         sender_id: userId,
-        content: data.content,
+        content: data.content || 'Sin contenido',
         message_type: data.message_type || 'text',
         reply_to_id: data.reply_to_id
       })

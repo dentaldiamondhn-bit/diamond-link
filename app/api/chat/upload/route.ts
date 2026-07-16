@@ -37,6 +37,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not a participant' }, { status: 403 });
     }
 
+    const BUCKET = 'chat-uploads';
+
+    // Ensure bucket exists
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(b => b.name === BUCKET);
+    if (!bucketExists) {
+      const { error: createErr } = await supabase.storage.createBucket(BUCKET, {
+        public: true,
+        fileSizeLimit: 10485760,
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf']
+      });
+      if (createErr) {
+        return NextResponse.json({ error: `Failed to create bucket: ${createErr.message}` }, { status: 500 });
+      }
+    }
+
     // Upload to Supabase Storage
     const bytes = await file.arrayBuffer();
     const fileBuffer = Buffer.from(bytes);
@@ -44,20 +60,19 @@ export async function POST(request: NextRequest) {
     const filePath = `chat/${conversationId}/${Date.now()}-${safeName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('ticket-documents')
+      .from(BUCKET)
       .upload(filePath, fileBuffer, {
         contentType: file.type || 'application/octet-stream',
         upsert: false
       });
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError);
       return NextResponse.json({ error: `Storage error: ${uploadError.message}` }, { status: 500 });
     }
 
     // Get public URL
     const { data: urlData } = supabase.storage
-      .from('ticket-documents')
+      .from(BUCKET)
       .getPublicUrl(filePath);
 
     return NextResponse.json({ 

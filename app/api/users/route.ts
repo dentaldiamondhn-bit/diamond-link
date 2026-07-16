@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
     const transformedUsers = Array.isArray(userList.data) 
       ? userList.data.map((user: any) => ({
           id: user.id,
+          first_name: user.firstName || '',
+          last_name: user.lastName || '',
           name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           email: user.emailAddresses?.[0]?.emailAddress || '',
           role: user.publicMetadata?.role || user.privateMetadata?.role || 'STAFF',
@@ -63,6 +65,8 @@ export async function GET(request: NextRequest) {
         }))
       : [{
           id: userList.id,
+          first_name: userList.firstName || '',
+          last_name: userList.lastName || '',
           name: `${userList.firstName || ''} ${userList.lastName || ''}`.trim(),
           email: userList.emailAddresses?.[0]?.emailAddress || '',
           role: userList.publicMetadata?.role || userList.privateMetadata?.role || 'STAFF',

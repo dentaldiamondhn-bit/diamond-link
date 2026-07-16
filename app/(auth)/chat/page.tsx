@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useUser, UserButton } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
+import dynamic from 'next/dynamic';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNotification } from '@/contexts/NotificationContext';
 import { supabase } from '@/lib/supabase';
 import { ChatService } from '@/services/chatService';
-import MobileNotificationService from '@/services/mobileNotificationService';
+
+const UserButton = dynamic(() => import('@clerk/nextjs').then(m => m.UserButton), { ssr: false });
 import {
   ChatConversation,
   ChatMessage,
@@ -87,6 +89,7 @@ export default function ChatPage() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [pendingFiles, setPendingFiles] = useState<{ file: File; previewUrl: string }[]>([]);
   const [fileCaption, setFileCaption] = useState('');
+  const permissionRequested = useRef(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const dropdownMenuRef = useRef<HTMLDivElement>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -126,7 +129,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (dbUserId) {
-      loadAllUsers().then(() => loadConversations(true));
+      loadAllUsers().then(() => loadConversations());
     }
   }, [dbUserId]);
 
@@ -322,7 +325,6 @@ export default function ChatPage() {
     }
   };
 
-  const notifService = useRef<MobileNotificationService | null>(null);
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
   const selectedConvRef = useRef(selectedConversation);
@@ -331,34 +333,40 @@ export default function ChatPage() {
   allUsersRef.current = allUsers;
 
   const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) return;
+    if (!('Notification' in window) || permissionRequested.current) return;
+    permissionRequested.current = true;
     if (Notification.permission === 'default') {
       await Notification.requestPermission();
       setPermission(Notification.permission);
     }
-    if (!notifService.current) {
-      notifService.current = MobileNotificationService.getInstance();
-      await notifService.current.initialize();
-    }
   };
 
+  // Request notification permission on first user click
+  useEffect(() => {
+    const handler = () => { requestNotificationPermission(); document.removeEventListener('click', handler); };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, []);
+
   const showChatNotification = (title: string, body: string, convId?: string) => {
-    if (!('Notification' in window) || Notification.permission === 'denied') return;
-    if (Notification.permission === 'default') {
-      Notification.requestPermission().then(p => setPermission(p));
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+      const n = new Notification(title, {
+        body,
+        icon: '/favicon-192.png',
+        tag: convId || 'chat',
+      });
+      n.onclick = () => {
+        window.focus();
+        if (convId) {
+          const conv = conversationsRef.current.find(c => c.id === convId);
+          if (conv) setSelectedConversation(conv);
+        }
+        n.close();
+      };
+    } catch (e) {
+      console.error('Notification error:', e);
     }
-    if (Notification.permission !== 'granted') return;
-    notifService.current?.showLocalNotification({
-      id: `chat-${convId || Date.now()}`,
-      title,
-      body,
-      icon: '/favicon-192.png',
-      badge: '/favicon-192.png',
-      tag: convId || 'chat',
-      data: { url: '/chat', conversationId: convId },
-      requireInteraction: false,
-      silent: false,
-    }).catch(() => {});
   };
 
   const getUserName = (userId: string) => {
@@ -605,7 +613,7 @@ export default function ChatPage() {
   const getAvatarColor = (name: string) => avatarColors[name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % avatarColors.length];
 
   const getConversationDisplayName = (conv: ChatConversation) => {
-    if (conv.name) return conv.name;
+    if (conv.name && conv.name !== 'Chat') return conv.name;
     const otherUser = getOtherParticipant(conv);
     if (otherUser) return `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || 'Usuario';
     const participant = conv.participants?.find(p => p.user_id !== dbUserId);
@@ -729,7 +737,17 @@ export default function ChatPage() {
                         </div>
                       </div>
                       <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                        {conv.last_message?.content || 'Sin mensajes'}
+                        {conv.last_message
+                          ? conv.last_message.message_type === ChatMessageType.IMAGE
+                            ? '📷 Imagen'
+                            : conv.last_message.message_type === ChatMessageType.FILE
+                            ? '📎 Archivo'
+                            : conv.last_message.message_type === ChatMessageType.PATIENT_CASE
+                            ? '📋 Caso de paciente'
+                            : conv.last_message.message_type === ChatMessageType.SYSTEM
+                            ? '⚙️ Sistema'
+                            : conv.last_message.content || 'Sin contenido'
+                          : 'Sin mensajes'}
                       </p>
                     </div>
                   </button>
@@ -1382,11 +1400,28 @@ function PatientCaseModal({
 
   const loadPatients = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('patients')
-      .select('paciente_id, nombre_completo, identificacion')
-      .order('nombre_completo');
-    setPatients(data || []);
+    const candidates = ['patients', 'pacientes', 'users'];
+    for (const table of candidates) {
+      try {
+        const { data: sample, error } = await supabase.from(table).select('*').limit(1);
+        if (error) continue;
+        const cols = sample?.[0] ? Object.keys(sample[0]) : [];
+        const idCol = cols.find(c => /id|ID|paciente/.test(c)) || cols[0];
+        const nameCol = cols.find(c => /name|nombre/.test(c)) || cols[1];
+        if (!idCol || !nameCol) continue;
+        const { data: rows } = await supabase.from(table).select(`${idCol},${nameCol}`).limit(100);
+        if (rows) {
+          setPatients(rows.map((r: any) => ({
+            paciente_id: r[idCol] ?? '',
+            nombre_completo: r[nameCol] ?? 'Sin nombre',
+            identificacion: '',
+          })));
+        }
+        setLoading(false);
+        return;
+      } catch {}
+    }
+    setPatients([]);
     setLoading(false);
   };
 
