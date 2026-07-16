@@ -36,10 +36,10 @@ export default function GlobalChatBubble() {
           
           // Filter skills based on user role
           let filteredSkills = allSkills;
-          if (userRole !== 'tech_support') {
-            // For admin/doctor/staff: only show code-related or app-related skills
-            filteredSkills = allSkills.filter(skill => 
-              skill.category === 'code' || 
+          if (userRole === 'staff') {
+            // For staff: show a curated subset
+            filteredSkills = allSkills.filter(skill =>
+              skill.category === 'code' ||
               skill.category === 'app' ||
               skill.name.toLowerCase().includes('code') ||
               skill.name.toLowerCase().includes('app') ||
@@ -236,7 +236,7 @@ export default function GlobalChatBubble() {
                         ));
                       })()}
                     </select>
-                    {userRole !== 'tech_support' && (
+                    {userRole === 'staff' && (
                       <div className="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
                         * Limited skills for {userRole?.replace('_', ' ')} role
                       </div>

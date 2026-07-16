@@ -404,8 +404,8 @@ export default function TicketsPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Modern Header */}
         <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600 rounded-2xl shadow-xl mb-6">
           <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>

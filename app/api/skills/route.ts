@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('skills')
-      .select('*, metadata')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (search) {

@@ -128,7 +128,6 @@ async function importAgents() {
           .from('skills')
           .select('id')
           .eq('name', agent.name)
-          .eq('agency_type', 'agency')
           .single();
         
         if (existing) {
@@ -145,18 +144,10 @@ async function importAgents() {
             description: agent.description,
             prompt: agent.prompt,
             category: agent.category,
-            tags: agent.tags,
+            tags: [...agent.tags, 'agency'],
             is_public: true,
-            agency_type: agent.agency_type,
             created_by: systemUserId, // Use system user ID
-            version: 1,
-            metadata: {
-              emoji: agent.emoji,
-              color: agent.color,
-              vibe: agent.vibe,
-              division: agent.division,
-              source: 'agency-agents'
-            }
+            version: 1
           }]);
         
         if (insertError) {

@@ -61,82 +61,24 @@ export default function GlobalSearch() {
     const loadData = async () => {
       try {
         setLoading(true);
-        
-        // Try to load data with error handling for each service
-        let patientsData: any[] = [];
-        let treatmentsData: any[] = [];
-        let completedTreatmentsData: any[] = [];
-        let odontogramsData: any[] = [];
-        let consentsData: any[] = [];
-        
-        // Load patients with error handling
-        try {
-          patientsData = await PatientService.getPatients();
-        } catch (error) {
-          console.error('Error loading patients:', error);
-          patientsData = [];
-        }
-        
-        // Load treatments with error handling
-        try {
-          treatmentsData = await TreatmentService.getTreatments();
-        } catch (error) {
-          console.error('Error loading treatments:', error);
-          treatmentsData = [];
-        }
-        
-        // Load completed treatments with error handling
-        try {
-          completedTreatmentsData = await CompletedTreatmentService.getAllCompletedTreatments();
-        } catch (error) {
-          console.error('Error loading completed treatments:', error);
-          completedTreatmentsData = [];
-        }
-        
-        // Load odontograms with error handling
-        try {
-          odontogramsData = await OdontogramPilotService.getAllOdontograms();
-        } catch (error) {
-          console.error('Error loading odontograms:', error);
-          odontogramsData = [];
-        }
-        
-        // Load consents with error handling
-        try {
-          consentsData = await consentimientoService.getAllConsentimientos();
-        } catch (error) {
-          console.error('Error loading consents:', error);
-          consentsData = [];
-        }
-        
+
+        const [patientsData, treatmentsData, completedTreatmentsData, odontogramsData, consentsData, promosRes] = await Promise.all([
+          PatientService.getPatients().catch(() => [] as any[]),
+          TreatmentService.getTreatments().catch(() => [] as any[]),
+          CompletedTreatmentService.getAllCompletedTreatments().catch(() => [] as any[]),
+          OdontogramPilotService.getAllOdontograms().catch(() => [] as any[]),
+          consentimientoService.getAllConsentimientos().catch(() => [] as any[]),
+          fetch('/api/promociones').then(r => r.ok ? r.json().catch(() => []) : []).catch(() => [])
+        ]);
+
         setPatients(patientsData);
         setTreatments(treatmentsData);
         setCompletedTreatments(completedTreatmentsData);
         setOdontograms(odontogramsData);
         setConsents(consentsData);
-        
-        // Load promotions from API with error handling
-        try {
-          const promotionsResponse = await fetch('/api/promociones');
-          if (promotionsResponse.ok) {
-            const promotionsData = await promotionsResponse.json();
-            setPromotions(promotionsData);
-          } else {
-            console.error('Promotions API response not ok:', promotionsResponse.status);
-            setPromotions([]);
-          }
-        } catch (error) {
-          console.error('Error loading promotions:', error);
-          // Handle JSON parsing errors gracefully
-          if (error instanceof SyntaxError && error.message.includes('JSON')) {
-            console.error('API returned HTML instead of JSON - likely missing promociones table');
-          }
-          setPromotions([]);
-        }
-        
+        setPromotions(promosRes);
       } catch (error) {
         console.error('Error loading search data:', error);
-        // Set empty arrays on error to prevent crashes
         setPatients([]);
         setTreatments([]);
         setCompletedTreatments([]);

@@ -227,7 +227,8 @@ export default function GitHubCodespaces() {
   };
 
   return (
-    <div className="p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg dark:shadow-gray-800">
+    <div className="py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
           <Github className="h-6 w-6 mr-2" />
@@ -505,6 +506,7 @@ export default function GitHubCodespaces() {
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }
