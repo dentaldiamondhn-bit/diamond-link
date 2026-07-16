@@ -171,7 +171,7 @@ export default function AuthLayout({
                   {/* Main Content */}
                   <div className="flex-1 lg:ml-0 overflow-auto flex flex-col">
                     {/* Header with User Info */}
-                    <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4">
+                    <header className="bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 py-3">
                     <div className="flex items-center justify-between">
                       {/* Left side - Page Title */}
                       <div className="flex items-center">
@@ -411,8 +411,8 @@ export default function AuthLayout({
                     </div>
                   </header>
                   
-                  {/* Page Content */}
-                  <div className="flex-1 p-6 overflow-auto">
+                   {/* Page Content */}
+                  <div className="flex-1 p-3 sm:p-4 overflow-auto">
                     {children}
                   </div>
                 </div>
