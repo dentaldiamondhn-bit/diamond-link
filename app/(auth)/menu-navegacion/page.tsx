@@ -911,6 +911,13 @@ function MenuNavegacionContent() {
       href: `/presupuestos?id=${validPacienteId}`
     },
     {
+      id: 'linea-de-tiempo',
+      icon: 'fas fa-stream',
+      title: 'Notas - Línea de Tiempo',
+      description: 'Vista cronológica infográfica con citas, tratamientos, odontogramas, consentimientos y presupuestos del paciente.',
+      href: `/notas-linea-de-tiempo?id=${validPacienteId}`
+    },
+    {
       id: 'historia-clinica-ortodoncia',
       icon: 'fas fa-teeth',
       title: 'Historia Clínica Ortodóncica',
@@ -944,13 +951,6 @@ function MenuNavegacionContent() {
       title: 'Gestión Documental',
       description: getDocumentStatsDescription(),
       href: `/dashboard/documents?id=${validPacienteId}`
-    },
-    {
-      id: 'linea-de-tiempo',
-      icon: 'fas fa-stream',
-      title: 'Notas - Línea de Tiempo',
-      description: 'Vista cronológica infográfica con citas, tratamientos, odontogramas, consentimientos y presupuestos del paciente.',
-      href: `/notas-linea-de-tiempo?id=${validPacienteId}`
     },
     {
       id: 'estudios-periodontales',
