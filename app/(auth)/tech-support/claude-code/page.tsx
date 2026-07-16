@@ -476,7 +476,7 @@ const [input, setInput] = useState('');
   };
 
   return (
-    <div className="h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-full">
       {/* Modern Sidebar */}
       <div className="w-80 bg-white/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col">
         {/* Header */}
