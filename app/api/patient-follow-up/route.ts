@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
         patients (
           paciente_id,
           nombre_completo,
-          telefono
+          telefono,
+          codigopais
         ),
         vista_tratamientos_realizados_detalles (
           nombre_tratamiento
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
         paciente_id: row.paciente_id,
         paciente_nombre: row.patients?.nombre_completo || 'Desconocido',
         paciente_telefono: row.patients?.telefono,
+        paciente_codigopais: row.patients?.codigopais,
         ultimo_tratamiento: row.nombre_tratamiento,
         fecha_ultimo_tratamiento: row.fecha_cita,
         dias_ultimo_tratamiento: daysSince,

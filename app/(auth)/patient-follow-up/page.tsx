@@ -22,6 +22,7 @@ interface PatientFollowUp {
   paciente_id: string;
   paciente_nombre: string;
   paciente_telefono?: string;
+  paciente_codigopais?: string;
   ultimo_tratamiento: string;
   fecha_ultimo_tratamiento: string;
   dias_ultimo_tratamiento: number;
@@ -275,7 +276,7 @@ export default function PatientFollowUpPage() {
 
   const sendMessage = async (patient: PatientFollowUp) => {
     if (!patient.paciente_telefono) return;
-    const url = createWhatsAppUrl(patient.paciente_telefono, messageDraft);
+    const url = createWhatsAppUrl(patient.paciente_telefono, messageDraft, patient.paciente_codigopais);
     window.open(url, '_blank');
 
     try {
@@ -456,7 +457,7 @@ export default function PatientFollowUpPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
                         <div className="flex items-center gap-2">
                           <span className="text-gray-400">📞</span>
-                          <span>{patient.paciente_telefono ? formatPhoneDisplay(patient.paciente_telefono) : 'Sin teléfono'}</span>
+                          <span>{patient.paciente_telefono ? formatPhoneDisplay(patient.paciente_telefono, patient.paciente_codigopais) : 'Sin teléfono'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-gray-400">🗓️</span>
