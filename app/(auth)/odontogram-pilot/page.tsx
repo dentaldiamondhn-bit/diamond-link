@@ -831,7 +831,6 @@ function OdontogramPilotPageContent() {
          mordidas
        };
     };
-  };
 
   const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
       try {
