@@ -214,6 +214,10 @@ export default function ConsentimientoPreview() {
       .replace(/\{\{PATIENT_ID\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.numero_identidad || '_____________________'}</span>`)
       .replace(/\{\{PATIENT_ADDRESS\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.direccion || '__________________________________________'}</span>`)
       .replace(/\{\{DOCTOR_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.doctor || '_________________________'}</span>`)
+      .replace(/\{\{CURRENT_DATE\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">San Pedro Sula, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>`)
+      .replace(/\{\{REPRESENTANTE_LEGAL\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.representante_legal || '_________________________________________'}</span>`)
+      .replace(/\{\{REP_NUMERO_IDENTIDAD\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.rep_numero_identidad || '_________________________'}</span>`)
+      .replace(/\{\{CLINIC_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">Clínica Dental Diamond HN</span>`)
       .replace(/\n/g, '<br>');
   };
 

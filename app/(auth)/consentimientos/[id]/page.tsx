@@ -544,7 +544,6 @@ export default function ConsentimientoDocument() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Patient Signature Modal */}
       {showPatientSignatureModal && (
