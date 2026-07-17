@@ -46,6 +46,8 @@ export class OdontogramPilotService {
         .select()
         .single();
 
+      console.log('[DEBUG] createOdontogram - mordidas inserted:', JSON.stringify(datosOdontograma?.mordidas));
+
       if (error) {
         console.error('Error creating odontogram-pilot:', error);
         throw error;
@@ -243,6 +245,8 @@ export class OdontogramPilotService {
         mordidas: datosOdontograma?.mordidas || [],
         fecha_actualizacion: new Date().toISOString()
       };
+
+      console.log('[DEBUG] updateOdontogram - mordidas in updateData:', JSON.stringify(updateData.mordidas));
 
       if (notas !== undefined) {
         updateData.notas = notas;

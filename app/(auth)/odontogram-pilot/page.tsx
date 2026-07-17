@@ -585,8 +585,10 @@ function OdontogramPilotPageContent() {
     }
 
     if (odontogramData?.mordidas) {
+      console.log('[DEBUG] loadOdontogramData - mordidas from DB:', JSON.stringify(odontogramData.mordidas));
       setMordidas(odontogramData.mordidas);
     } else {
+      console.log('[DEBUG] loadOdontogramData - no mordidas in DB data');
       setMordidas([]);
     }
 
@@ -824,15 +826,16 @@ function OdontogramPilotPageContent() {
        }
      });
 
-     return {
-        tipo: tipoOdontograma,
-        dientes,
-        fecha: fechaOdontograma,
-        mordidas
-      };
-   };
+      return {
+         tipo: tipoOdontograma,
+         dientes,
+         fecha: fechaOdontograma,
+         mordidas
+       };
+    };
+  };
 
-    const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
+  const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
       try {
         setVersionLoading(true);
         setError(null);
@@ -868,6 +871,8 @@ function OdontogramPilotPageContent() {
     try {
       setSaving(true);
       setError(null);
+
+      console.log('[DEBUG] mordidas state before save:', JSON.stringify(mordidas));
 
       if (tipoOdontograma === 'oleary_adulto') {
         // Handle O'Leary mode
@@ -933,6 +938,8 @@ function OdontogramPilotPageContent() {
     try {
       setSaving(true);
       setError(null);
+
+      console.log('[DEBUG] guardarNuevoOdontograma - mordidas state before save:', JSON.stringify(mordidas));
 
       if (tipoOdontograma === 'oleary_adulto') {
         // Handle O'Leary mode
