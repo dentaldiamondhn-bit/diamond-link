@@ -36,6 +36,7 @@ export class OdontogramPilotService {
           paciente_id: pacienteId,
           datos_odontograma: datosOdontograma,
           mordidas: datosOdontograma?.mordidas || [],
+          gingivitis: datosOdontograma?.gingivitis || [],
           notas,
           version: nextVersion,
           activo: true,
@@ -164,7 +165,8 @@ export class OdontogramPilotService {
           fecha_creacion: latestVersion.fecha_creacion
         } : null,
         status_counts: statusCounts,
-        mordidas: latestVersion?.datos_odontograma?.mordidas || []
+        mordidas: latestVersion?.datos_odontograma?.mordidas || [],
+        gingivitis: latestVersion?.datos_odontograma?.gingivitis || []
       };
     } catch (error) {
       console.error('Unexpected error fetching odontogram-pilot statistics:', error);
@@ -241,6 +243,7 @@ export class OdontogramPilotService {
       const updateData: Record<string, any> = {
         datos_odontograma: datosOdontograma,
         mordidas: datosOdontograma?.mordidas || [],
+        gingivitis: datosOdontograma?.gingivitis || [],
         fecha_actualizacion: new Date().toISOString()
       };
 

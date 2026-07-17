@@ -526,6 +526,34 @@ function MenuNavegacionContent() {
     );
   };
 
+  const getGingivitisSeverity = () => {
+    if (!odontogramPilotStats?.gingivitis || odontogramPilotStats.gingivitis.length === 0) return null;
+    const rank: Record<string, number> = {
+      periodontitis: 4,
+      gingivitis_embarazo: 3,
+      gingivitis_generalizada: 2,
+      gingivitis_localizada: 1
+    };
+    let maxSeverity: string | null = null;
+    let maxRank = 0;
+    odontogramPilotStats.gingivitis.forEach((g: { tipo: string }) => {
+      const r = rank[g.tipo] || 0;
+      if (r > maxRank) {
+        maxRank = r;
+        maxSeverity = g.tipo;
+      }
+    });
+    return maxSeverity;
+  };
+
+  const getOdontogramHeaderGradient = () => {
+    const severity = getGingivitisSeverity();
+    if (severity === 'periodontitis') return 'from-red-500 to-red-700';
+    if (severity === 'gingivitis_embarazo') return 'from-orange-500 to-pink-500';
+    if (severity === 'gingivitis_generalizada' || severity === 'gingivitis_localizada') return 'from-yellow-500 to-yellow-700';
+    return 'from-teal-500 to-cyan-500';
+  };
+
   const getConsentimientoDescription = (): JSX.Element => {
     if (consentimientoStatsLoading) {
       return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
@@ -1146,7 +1174,7 @@ function MenuNavegacionContent() {
               key={item.id} 
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border border-gray-200 dark:border-gray-700 overflow-hidden group"
             >
-              <div className="bg-gradient-to-r from-teal-500 to-cyan-500 p-6 text-white">
+              <div className={`bg-gradient-to-r ${item.id === 'odontograma-pilot' ? getOdontogramHeaderGradient() : 'from-teal-500 to-cyan-500'} p-6 text-white`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white border border-white/30">
                     {typeof item.icon === 'string' ? (
@@ -1166,6 +1194,11 @@ function MenuNavegacionContent() {
                   {item.id === 'odontograma-pilot' && odontogramPilotStats?.mordidas?.length > 0 && (
                     <span className="text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
                       Mordida
+                    </span>
+                  )}
+                  {item.id === 'odontograma-pilot' && odontogramPilotStats?.gingivitis?.length > 0 && (
+                    <span className="text-xs bg-red-400 text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                      Gingivitis
                     </span>
                   )}
                 </div>

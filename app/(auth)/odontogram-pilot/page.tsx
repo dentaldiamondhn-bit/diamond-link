@@ -316,6 +316,7 @@ function OdontogramPilotPageContent() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [mordidas, setMordidas] = useState<string[]>([]);
+  const [gingivitis, setGingivitis] = useState<{ tipo: string; detalle?: string }[]>([]);
   const [popupState, setPopupState] = useState<{ show: boolean; toothNumber: number; noteText: string }>({
     show: false,
     toothNumber: 0,
@@ -590,6 +591,12 @@ function OdontogramPilotPageContent() {
       setMordidas([]);
     }
 
+    if (odontogramData?.gingivitis) {
+      setGingivitis(odontogramData.gingivitis);
+    } else {
+      setGingivitis([]);
+    }
+
     setDientesData(datos);
     setNotasGenerales(notasData || '');
   };
@@ -623,6 +630,7 @@ function OdontogramPilotPageContent() {
     setDientesData(datos);
     setNotasGenerales('');
     setMordidas([]);
+    setGingivitis([]);
   };
 
   const handleCuadranteChange = (numero: number, cuadrante: Cuadrante, nuevoEstado: string) => {
@@ -828,7 +836,8 @@ function OdontogramPilotPageContent() {
          tipo: tipoOdontograma,
          dientes,
          fecha: fechaOdontograma,
-         mordidas
+         mordidas,
+         gingivitis
        };
     };
 
@@ -1364,8 +1373,8 @@ function OdontogramPilotPageContent() {
           </div>
         </div>
 
-        {/* Mordidas + State Selector + Historial */}
-        <div className="flex items-start gap-4" style={{ margin: '20px auto', maxWidth: '1200px' }}>
+        {/* Mordidas + State Selector + Historial + Gingivitis */}
+        <div className="flex items-start gap-4" style={{ margin: '20px auto', maxWidth: '1600px' }}>
           {/* Mordidas Section */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-shrink-0 max-w-[280px]">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
@@ -1556,6 +1565,60 @@ function OdontogramPilotPageContent() {
             >
               <i className="fas fa-copy"></i> Guardar como Nueva Versión
             </button>
+          </div>
+
+          {/* Gingivitis / Periodontitis */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-shrink-0 max-w-[280px]">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+              Gingivitis / Periodontitis
+            </h3>
+            <div className="space-y-3">
+              {[
+                { key: 'gingivitis_generalizada', label: 'Gingivitis generalizada' },
+                { key: 'gingivitis_localizada', label: 'Gingivitis localizada' },
+                { key: 'gingivitis_embarazo', label: 'Gingivitis por embarazo' },
+                { key: 'periodontitis', label: 'Periodontitis' },
+              ].map(item => {
+                const entry = gingivitis.find(g => g.tipo === item.key);
+                const isChecked = !!entry;
+                return (
+                  <div key={item.key}>
+                    <label className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setGingivitis(prev => [...prev, { tipo: item.key }]);
+                          } else {
+                            setGingivitis(prev => prev.filter(g => g.tipo !== item.key));
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 select-none">
+                        {item.label}
+                      </span>
+                    </label>
+                    {item.key === 'gingivitis_localizada' && isChecked && (
+                      <input
+                        type="text"
+                        value={entry?.detalle || ''}
+                        onChange={(e) => {
+                          setGingivitis(prev => prev.map(g =>
+                            g.tipo === 'gingivitis_localizada'
+                              ? { ...g, detalle: e.target.value }
+                              : g
+                          ));
+                        }}
+                        placeholder="Especifique la ubicación..."
+                        className="ml-8 mt-1 w-[calc(100%-2rem)] px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 

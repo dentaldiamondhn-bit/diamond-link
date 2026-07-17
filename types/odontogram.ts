@@ -10,6 +10,11 @@ export interface Odontogram {
   activo: boolean;
 }
 
+export interface GingivitisEntry {
+  tipo: 'gingivitis_generalizada' | 'gingivitis_localizada' | 'gingivitis_embarazo' | 'periodontitis';
+  detalle?: string;
+}
+
 export interface OdontogramData {
   // Estructura de dientes - cada diente puede tener múltiples caras
   dientes: Record<string, DienteData>;
@@ -25,6 +30,8 @@ export interface OdontogramData {
   diagnosticos?: Diagnostico[];
   // Mordidas (tipos de mordida seleccionados)
   mordidas?: string[];
+  // Gingivitis/periodontitis conditions
+  gingivitis?: GingivitisEntry[];
 }
 
 export interface DienteData {
