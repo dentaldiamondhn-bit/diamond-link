@@ -623,6 +623,7 @@ function OdontogramPilotPageContent() {
     setDientesData(datos);
     setNotasGenerales('');
     setMordidas([]);
+  };
 
   const handleCuadranteChange = (numero: number, cuadrante: Cuadrante, nuevoEstado: string) => {
     const estadoAnterior = dientesData[numero]?.cuadrantes?.[cuadrante] || 'sano';
