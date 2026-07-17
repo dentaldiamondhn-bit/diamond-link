@@ -108,6 +108,7 @@ export default function AuthLayout({
   const isAIChatPage = pathname === '/tech-support/ai-chat';
 
   return (
+    <>
     <TutorialProvider>
       <ThemeProvider>
         <HistoricalModeProvider>
@@ -122,7 +123,7 @@ export default function AuthLayout({
                   {/* Mobile Menu Button */}
                   <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="lg:hidden fixed top-4 left-4 z-50 p-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 active:scale-95 group"
+                    className="xl:hidden fixed top-4 left-4 z-50 p-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 active:scale-95 group portrait-hamburger"
                     aria-label="Toggle menu"
                   >
                     <div className="w-6 h-6 flex items-center justify-center">
@@ -133,7 +134,7 @@ export default function AuthLayout({
                   {/* Mobile Overlay */}
                   {sidebarOpen && (
                     <div
-                      className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+                      className="xl:hidden fixed inset-0 bg-black bg-opacity-50 z-40 portrait-overlay"
                       onClick={() => setSidebarOpen(false)}
                     />
                   )}
@@ -141,8 +142,9 @@ export default function AuthLayout({
                   {/* Role-based Sidebar */}
                   <div className={`
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-                    lg:translate-x-0 fixed lg:relative lg:flex-shrink-0 
-                    transition-transform duration-300 ease-in-out z-50 lg:z-auto
+                    xl:translate-x-0 fixed xl:relative xl:flex-shrink-0 
+                    transition-transform duration-300 ease-in-out z-50 xl:z-auto
+                    portrait-sidebar
                   `}>
                     <div className="w-64 lg:w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
                       {userRole === 'tech_support' && <TechSupportSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
@@ -169,7 +171,7 @@ export default function AuthLayout({
                     </div>
                   </div>
                   {/* Main Content */}
-                  <div className="flex-1 lg:ml-0 overflow-auto flex flex-col">
+                  <div className="flex-1 xl:ml-0 overflow-auto flex flex-col">
                     {/* Header with User Info */}
                     <header className="bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 py-3">
                     <div className="flex items-center justify-between">
@@ -427,5 +429,19 @@ export default function AuthLayout({
         </HistoricalModeProvider>
       </ThemeProvider>
     </TutorialProvider>
+    <style>{`
+      @media (orientation: portrait) {
+        .portrait-sidebar {
+          transform: translateX(-100%) !important;
+        }
+        .portrait-hamburger {
+          display: flex !important;
+        }
+        .portrait-overlay {
+          display: block !important;
+        }
+      }
+    `}</style>
+    </>  
   );  
 }
