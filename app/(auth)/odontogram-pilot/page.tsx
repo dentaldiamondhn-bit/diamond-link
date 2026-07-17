@@ -326,19 +326,9 @@ function OdontogramPilotPageContent() {
 
   const filteredEstados = (tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS).filter(estado =>
     estado.label.toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => {
-    const searchLower = searchTerm.toLowerCase();
-    const aLabel = a.label.toLowerCase();
-    const bLabel = b.label.toLowerCase();
-
-    if (aLabel === searchLower && bLabel !== searchLower) return -1;
-    if (bLabel === searchLower && aLabel !== searchLower) return 1;
-
-    if (aLabel.startsWith(searchLower) && !bLabel.startsWith(searchLower)) return -1;
-    if (bLabel.startsWith(searchLower) && !aLabel.startsWith(searchLower)) return 1;
-
-    return aLabel.localeCompare(bLabel);
-  });
+  ).sort((a, b) =>
+    a.label.localeCompare(b.label, 'es')
+  );
 
   const handleEstadoSelect = (estadoKey: string) => {
     setEstadoSeleccionado(estadoKey);
