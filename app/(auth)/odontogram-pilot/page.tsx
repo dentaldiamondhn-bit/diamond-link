@@ -1374,9 +1374,9 @@ function OdontogramPilotPageContent() {
         </div>
 
         {/* Mordidas + State Selector + Historial + Gingivitis */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-start gap-4" style={{ margin: '20px auto', maxWidth: '1600px' }}>
+        <div className="flex items-start gap-4" style={{ margin: '20px auto', maxWidth: '1600px' }}>
           {/* Mordidas Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full lg:w-auto lg:flex-shrink-0 lg:max-w-[288px]">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-shrink-0 max-w-[288px]">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Mordida
             </h3>
@@ -1413,7 +1413,7 @@ function OdontogramPilotPageContent() {
           </div>
 
           {/* State Selector */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full lg:flex-1 lg:min-w-0">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-1 min-w-0">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Seleccionar Estado
             </h3>
@@ -1508,7 +1508,7 @@ function OdontogramPilotPageContent() {
           </div>
           
           {/* Historial de Odontogramas */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 w-full lg:w-auto lg:flex-shrink-0 lg:min-w-[247px] lg:max-w-[268px]">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 flex-shrink-0" style={{ minWidth: '247px', maxWidth: '268px' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center flex-1">
                 Historial de Odontogramas
@@ -1568,7 +1568,7 @@ function OdontogramPilotPageContent() {
           </div>
 
           {/* Gingivitis / Periodontitis */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full lg:w-auto lg:flex-shrink-0 lg:max-w-[288px]">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-shrink-0 max-w-[288px]">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Gingivitis / Periodontitis
             </h3>
