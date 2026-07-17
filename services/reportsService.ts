@@ -315,27 +315,33 @@ export class ReportsService {
 
       if (error) throw error;
 
-      // Since we can't get treatment names easily, let's return generic categories
-      // This can be enhanced later once we understand the table structure better
-      const totalTreatments = treatments?.length || 0;
-      const totalRevenue = treatments?.reduce((sum, item) => {
-        // Extract precio_final from the nested vista_tratamientos_realizados_detalles
-        const treatmentDetails = item.vista_tratamientos_realizados_detalles;
-        if (treatmentDetails && Array.isArray(treatmentDetails)) {
-          return sum + treatmentDetails.reduce((detailSum, detail) => detailSum + (detail.precio_final || 0), 0);
-        }
-        return sum;
-      }, 0) || 0;
+      // Group by treatment name
+      const treatmentMap = new Map<string, { count: number; revenue: number }>();
 
-      // Return generic treatment types for now
-      const treatmentTypes: TreatmentType[] = [
-        {
-          name: 'Tratamientos Generales',
-          count: totalTreatments,
-          revenue: totalRevenue,
-          percentage: 100
+      treatments?.forEach((item: any) => {
+        const details = item.vista_tratamientos_realizados_detalles;
+        if (details && Array.isArray(details)) {
+          details.forEach((detail: any) => {
+            const name = detail.nombre_tratamiento || 'Sin nombre';
+            const existing = treatmentMap.get(name) || { count: 0, revenue: 0 };
+            existing.count += 1;
+            existing.revenue += detail.precio_final || 0;
+            treatmentMap.set(name, existing);
+          });
         }
-      ];
+      });
+
+      const totalCount = Array.from(treatmentMap.values()).reduce((sum, t) => sum + t.count, 0);
+      const totalRevenue = Array.from(treatmentMap.values()).reduce((sum, t) => sum + t.revenue, 0);
+
+      const treatmentTypes: TreatmentType[] = Array.from(treatmentMap.entries())
+        .map(([name, data]) => ({
+          name,
+          count: data.count,
+          revenue: data.revenue,
+          percentage: totalCount > 0 ? Math.round((data.count / totalCount) * 100) : 0
+        }))
+        .sort((a, b) => b.count - a.count);
 
       return treatmentTypes;
     } catch (error) {
