@@ -381,9 +381,8 @@ export default function ConsentimientoPreview() {
           }
         }
       `}</style>
-      
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+
+      {/* Header */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 mb-8 print:hidden">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center space-x-4">
