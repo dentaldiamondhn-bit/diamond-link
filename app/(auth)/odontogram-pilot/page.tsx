@@ -315,6 +315,7 @@ function OdontogramPilotPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [mordidas, setMordidas] = useState<string[]>([]);
   const [popupState, setPopupState] = useState<{ show: boolean; toothNumber: number; noteText: string }>({
     show: false,
     toothNumber: 0,
@@ -579,10 +580,16 @@ function OdontogramPilotPageContent() {
              cuadrantes: crearDienteCuadrantes(),
              central: 'sano'
            };
-         }
-      });
+          }
+       });
     }
-    
+
+    if (odontogramData?.mordidas) {
+      setMordidas(odontogramData.mordidas);
+    } else {
+      setMordidas([]);
+    }
+
     setDientesData(datos);
     setNotasGenerales(notasData || '');
   };
@@ -615,7 +622,7 @@ function OdontogramPilotPageContent() {
     
     setDientesData(datos);
     setNotasGenerales('');
-  };
+    setMordidas([]);
 
   const handleCuadranteChange = (numero: number, cuadrante: Cuadrante, nuevoEstado: string) => {
     const estadoAnterior = dientesData[numero]?.cuadrantes?.[cuadrante] || 'sano';
@@ -817,10 +824,11 @@ function OdontogramPilotPageContent() {
      });
 
      return {
-       tipo: tipoOdontograma,
-       dientes,
-       fecha: fechaOdontograma
-     };
+        tipo: tipoOdontograma,
+        dientes,
+        fecha: fechaOdontograma,
+        mordidas
+      };
    };
 
     const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
@@ -1355,8 +1363,46 @@ function OdontogramPilotPageContent() {
           </div>
         </div>
 
-        {/* State Selector */}
-        <div className="flex justify-center" style={{ margin: '20px auto', maxWidth: '1200px' }}>
+        {/* Mordidas + State Selector */}
+        <div className="flex flex-wrap justify-center gap-4" style={{ margin: '20px auto', maxWidth: '1200px' }}>
+          {/* Mordidas Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-[280px]">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+              Mordida
+            </h3>
+            <div className="space-y-3">
+              {[
+                { key: 'mordida_abierta_anterior', label: 'Mordida abierta anterior' },
+                { key: 'mordida_abierta_posterior', label: 'Mordida abierta posterior' },
+                { key: 'mordida_cruzada_anterior', label: 'Mordida cruzada anterior' },
+                { key: 'mordida_cruzada_posterior', label: 'Mordida cruzada posterior' },
+                { key: 'mordida_bis_a_bis', label: 'Mordida bis a bis' },
+              ].map(item => (
+                <label
+                  key={item.key}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={mordidas.includes(item.key)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setMordidas(prev => [...prev, item.key]);
+                      } else {
+                        setMordidas(prev => prev.filter(k => k !== item.key));
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300 select-none">
+                    {item.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* State Selector */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-[540px]">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Seleccionar Estado
