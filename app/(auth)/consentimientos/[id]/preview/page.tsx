@@ -327,7 +327,7 @@ export default function ConsentimientoPreview() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Aggressive global print styles */}
       <style jsx global>{`
         @media print {
@@ -512,7 +512,6 @@ export default function ConsentimientoPreview() {
             day: 'numeric' 
           })}</p>
         </div>
-      </div>
     </div>
   );
 }
