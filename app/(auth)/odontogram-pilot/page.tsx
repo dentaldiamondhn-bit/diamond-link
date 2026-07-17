@@ -1364,10 +1364,10 @@ function OdontogramPilotPageContent() {
           </div>
         </div>
 
-        {/* Mordidas + State Selector */}
-        <div className="flex flex-wrap justify-center gap-4" style={{ margin: '20px auto', maxWidth: '1200px' }}>
+        {/* Mordidas + State Selector + Historial */}
+        <div className="flex items-start gap-4" style={{ margin: '20px auto', maxWidth: '1200px' }}>
           {/* Mordidas Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-[280px]">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-shrink-0 max-w-[280px]">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Mordida
             </h3>
@@ -1404,7 +1404,7 @@ function OdontogramPilotPageContent() {
           </div>
 
           {/* State Selector */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-[540px]">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-1 min-w-0">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Seleccionar Estado
             </h3>
@@ -1498,8 +1498,8 @@ function OdontogramPilotPageContent() {
             </div>
           </div>
           
-          {/* Historial de Odontogramas - moved to right side of State Selector */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6" style={{ marginLeft: '20px', minWidth: '280px' }}>
+          {/* Historial de Odontogramas */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-shrink-0" style={{ minWidth: '280px' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center flex-1">
                 Historial de Odontogramas
