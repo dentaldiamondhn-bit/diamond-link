@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
     // We filter out past system messages to use the freshly generated one
     const messagesForGroq = [
       newSystemMessage,
-      ...pastMessages.filter(m => m.role !== 'system'),
+      ...pastMessages.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
       newUserMessage
     ];
 
