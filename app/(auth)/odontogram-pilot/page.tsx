@@ -327,7 +327,7 @@ function OdontogramPilotPageContent() {
   const filteredEstados = (tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS).filter(estado =>
     estado.label.toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) =>
-    a.label.localeCompare(b.label, 'es')
+    a.label.localeCompare(b.label)
   );
 
   const handleEstadoSelect = (estadoKey: string) => {
@@ -1458,7 +1458,7 @@ function OdontogramPilotPageContent() {
               onChange={(e) => setEstadoSeleccionado(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             >
-              {(tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS).map(estado => (
+              {(tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS).slice().sort((a, b) => a.label.localeCompare(b.label)).map(estado => (
                 <option key={estado.key} value={estado.key}>
                   {estado.label}
                 </option>
