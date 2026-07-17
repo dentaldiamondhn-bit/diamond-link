@@ -1183,24 +1183,30 @@ function MenuNavegacionContent() {
                       <div className="w-7 h-7 flex items-center justify-center">{item.icon}</div>
                     )}
                   </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-semibold border border-white/30">
-                    Módulo
+                  <div className="flex flex-col gap-1 items-end">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-semibold border border-white/30">
+                      Módulo
+                    </div>
+                    {item.id === 'odontograma-pilot' && odontogramPilotStats?.mordidas?.length > 0 && (
+                      <span className="text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                        Mordida
+                      </span>
+                    )}
+                    {item.id === 'odontograma-pilot' && odontogramPilotStats?.gingivitis?.length > 0 && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${
+                        odontogramPilotStats.gingivitis.some((g: { tipo: string }) => g.tipo === 'periodontitis')
+                          ? 'bg-black text-white'
+                          : 'bg-red-400 text-white'
+                      }`}>
+                        {odontogramPilotStats.gingivitis.some((g: { tipo: string }) => g.tipo === 'periodontitis')
+                          ? 'Periodontitis'
+                          : 'Gingivitis'}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-white">{item.title}</h3>
-                  </div>
-                  {item.id === 'odontograma-pilot' && odontogramPilotStats?.mordidas?.length > 0 && (
-                    <span className="text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
-                      Mordida
-                    </span>
-                  )}
-                  {item.id === 'odontograma-pilot' && odontogramPilotStats?.gingivitis?.length > 0 && (
-                    <span className="text-xs bg-red-400 text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
-                      Gingivitis
-                    </span>
-                  )}
+                <div>
+                  <h3 className="text-lg font-bold text-white">{item.title}</h3>
                 </div>
               </div>
               <div className="p-6">

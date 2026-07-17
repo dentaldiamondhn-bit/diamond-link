@@ -1556,14 +1556,14 @@ function OdontogramPilotPageContent() {
               disabled={saving}
               className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full mb-2"
             >
-              <i className="fas fa-save"></i> {saving ? 'Guardando...' : 'Actualizar Versión Actual'}
+              <i className="fas fa-save"></i> {saving ? 'Guardando...' : 'Actualizar Versión'}
             </button>
             <button
               onClick={guardarNuevoOdontograma}
               disabled={saving}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full"
             >
-              <i className="fas fa-copy"></i> Guardar como Nueva Versión
+              <i className="fas fa-copy"></i> Nueva Versión
             </button>
           </div>
 
