@@ -23,6 +23,8 @@ export interface OdontogramData {
   tratamientos_planificados?: Tratamiento[];
   // Diagnósticos
   diagnosticos?: Diagnostico[];
+  // Mordidas (tipos de mordida seleccionados)
+  mordidas?: string[];
 }
 
 export interface DienteData {

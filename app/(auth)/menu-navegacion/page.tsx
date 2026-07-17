@@ -1163,6 +1163,11 @@ function MenuNavegacionContent() {
                   <div>
                     <h3 className="text-lg font-bold text-white">{item.title}</h3>
                   </div>
+                  {item.id === 'odontograma-pilot' && odontogramPilotStats?.mordidas?.length > 0 && (
+                    <span className="text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                      Mordida
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="p-6">
