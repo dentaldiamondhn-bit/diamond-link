@@ -1,11 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { useNotificationListener } from '@/hooks/useNotificationListener';
+import PushNotificationService from '@/services/pushNotificationService';
 
 export function NotificationListenerWrapper({ children }: { children: React.ReactNode }) {
-  // Enable notification listener for all authenticated users
   useNotificationListener();
-  
+  const { isLoaded, isSignedIn } = useUser();
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    PushNotificationService.initialize().catch(() => {});
+  }, [isLoaded, isSignedIn]);
+
   return <>{children}</>;
 }
