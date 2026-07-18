@@ -318,6 +318,51 @@ export class ChatService {
       })
       .eq('id', data.conversation_id);
 
+    // Notify other participants
+    try {
+      const { data: participants } = await supabase
+        .from('chat_participants')
+        .select('user_id')
+        .eq('conversation_id', data.conversation_id)
+        .neq('user_id', userId);
+
+      if (participants && participants.length > 0) {
+        const { data: conv } = await supabase
+          .from('chat_conversations')
+          .select('name, type')
+          .eq('id', data.conversation_id)
+          .single();
+
+        const convName = conv?.name || (conv?.type === 'direct' ? 'Chat directo' : 'Conversación');
+        for (const p of participants) {
+          try {
+            await fetch('/api/notifications/send-to-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: p.user_id,
+                notification: {
+                  type: 'chat_message',
+                  title: `Nuevo mensaje en ${convName}`,
+                  message: data.content || 'Sin contenido',
+                  metadata: {
+                    conversationId: data.conversation_id,
+                    senderId: userId,
+                    messageId: message.id,
+                    conversationName: convName,
+                  }
+                }
+              }),
+            });
+          } catch (notifErr) {
+            console.error('Failed to notify chat participant:', notifErr);
+          }
+        }
+      }
+    } catch (partErr) {
+      console.error('Failed to notify chat participants:', partErr);
+    }
+
     const { data: fullMessage } = await supabase
       .from('chat_messages')
       .select(`

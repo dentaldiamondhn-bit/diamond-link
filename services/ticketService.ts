@@ -350,6 +350,34 @@ export class TicketService {
         metadata: { old_status: null, new_status: TicketStatus.OPEN }
       }, creatorId);
 
+      // Notify assignees
+      if (assignee_ids && assignee_ids.length > 0) {
+        for (const assigneeId of assignee_ids) {
+          try {
+            await fetch('/api/notifications/send-to-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: assigneeId,
+                notification: {
+                  type: 'ticket_assigned',
+                  title: 'Nuevo ticket asignado',
+                  message: `Se te ha asignado el ticket: ${ticketData.title}`,
+                  metadata: {
+                    ticketId: ticket.id,
+                    ticketTitle: ticketData.title,
+                    ticketPriority: ticketData.priority,
+                    ticketNumber: ticket_number,
+                  }
+                }
+              }),
+            });
+          } catch (notifErr) {
+            console.error('Failed to notify ticket assignee:', notifErr);
+          }
+        }
+      }
+
       return { data: ticket, error: null };
     } catch (error) {
       console.error('Error creating ticket:', error);
@@ -395,6 +423,24 @@ export class TicketService {
             content: `Assigned to user ${updates.assignee_id}`,
             metadata: { old_assignee: currentTicket.assignee_id, new_assignee: updates.assignee_id }
           }, userId);
+          // Notify new assignee
+          try {
+            await fetch('/api/notifications/send-to-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: updates.assignee_id,
+                notification: {
+                  type: 'ticket_assigned',
+                  title: 'Ticket re-asignado',
+                  message: `Se te ha asignado el ticket: ${data.title}`,
+                  metadata: { ticketId, ticketTitle: data.title }
+                }
+              }),
+            });
+          } catch (notifErr) {
+            console.error('Failed to notify new ticket assignee:', notifErr);
+          }
         }
 
         // Create activity for priority change

@@ -3,6 +3,7 @@ import { CalendarTaskService } from './calendarTaskService';
 import { CalendarEventWithPatient } from '../types/calendar';
 import { CalendarTaskWithPatient } from '../types/calendarTasks';
 import { InviteeNotificationService } from './inviteeNotificationService';
+import { CalendarInviteesService } from './calendarInviteesService';
 import { supabase } from '../lib/supabase';
 
 export class CalendarReminderService {
@@ -152,18 +153,30 @@ export class CalendarReminderService {
         }
       };
 
-      const response = await fetch('/api/notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(notificationData),
-      });
+      const targetUsers = new Set<string>();
+      if (item.created_by) targetUsers.add(item.created_by);
 
-      if (!response.ok) {
-        console.error('Error sending reminder notification:', await response.text());
-      } else {
-        console.log(`✅ Reminder notification sent for ${reminder.item_type}: ${item.title}`);
+      if (reminder.item_type === 'event') {
+        try {
+          const invitees = await CalendarInviteesService.getInviteesForItem('event', item.id);
+          for (const inv of invitees) {
+            if (inv.user_id) targetUsers.add(inv.user_id);
+          }
+        } catch (e) {
+          console.error('Error fetching event invitees for reminder:', e);
+        }
+      }
+
+      for (const uid of targetUsers) {
+        try {
+          await fetch('/api/notifications/send-to-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: uid, notification: notificationData }),
+          });
+        } catch (e) {
+          console.error(`Error sending reminder notification to user ${uid}:`, e);
+        }
       }
     } catch (error) {
       console.error('Error sending reminder notification:', error);
@@ -186,51 +199,31 @@ export class CalendarReminderService {
         }
       };
 
-      const response = await fetch('/api/notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(notificationData),
-      });
+      const targetUsers = new Set<string>();
+      if (event.created_by) targetUsers.add(event.created_by);
 
-      if (!response.ok) {
-        console.error('Error creating calendar event notification:', await response.text());
+      try {
+        const invitees = await CalendarInviteesService.getInviteesForItem('event', event.id);
+        for (const inv of invitees) {
+          if (inv.user_id) targetUsers.add(inv.user_id);
+        }
+      } catch (e) {
+        console.error('Error fetching invitees:', e);
+      }
+
+      for (const uid of targetUsers) {
+        try {
+          await fetch('/api/notifications/send-to-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: uid, notification: notificationData }),
+          });
+        } catch (e) {
+          console.error(`Error sending event notification to user ${uid}:`, e);
+        }
       }
     } catch (error) {
       console.error('Error creating calendar event notification:', error);
-    }
-  }
-
-  // Create notification for reminder
-  static async createReminderNotification(event: CalendarEventWithPatient) {
-    try {
-      const notificationData = {
-        type: 'calendar_reminder',
-        title: `Recordatorio: ${event.title}`,
-        message: this.getReminderMessage(event, 'event'),
-        metadata: {
-          eventId: event.id,
-          eventTitle: event.title,
-          eventTime: new Date(event.start_date),
-          patientName: event.patient?.nombre_completo,
-          patientId: event.patient?.paciente_id,
-        }
-      };
-
-      const response = await fetch('/api/notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(notificationData),
-      });
-
-      if (!response.ok) {
-        console.error('Error creating calendar reminder notification:', await response.text());
-      }
-    } catch (error) {
-      console.error('Error creating calendar reminder notification:', error);
     }
   }
 

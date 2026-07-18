@@ -39,9 +39,10 @@ export class PushNotificationService {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
+        const json = sub.toJSON();
         await this.saveSubscription({
           endpoint: sub.endpoint,
-          keys: { p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.toJSON() as any).keys?.p256dh)), auth: '' },
+          keys: { p256dh: json.keys?.p256dh || '', auth: json.keys?.auth || '' },
         });
       }
       return true;

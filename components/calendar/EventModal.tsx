@@ -435,8 +435,16 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
     setDeleteError(null);
     
     try {
-      // Delete the event (this should cascade delete reminders and invitees if properly set up)
+      // Delete the event
       await CalendarService.deleteEvent(event.id);
+
+      // Notify invitees of cancellation
+      if (event) {
+        await InviteeNotificationService.notifyEventInvitees(
+          event as any,
+          'cancelled'
+        );
+      }
       
       // Show success state
       setDeleteSuccess(true);
