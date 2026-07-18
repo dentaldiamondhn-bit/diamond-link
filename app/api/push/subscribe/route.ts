@@ -3,14 +3,24 @@ import { createClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: NextRequest) {
+  const requestId = crypto.randomUUID().slice(0, 8);
   try {
-    const { userId } = await auth();
+    const authResult = await auth();
+    const userId = authResult?.userId;
+    console.log(`[${requestId}] POST /api/push/subscribe userId:`, userId);
+
     if (!userId) {
+      console.warn(`[${requestId}] No userId from Clerk auth`);
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { endpoint, keys } = await request.json();
+    const body = await request.json();
+    const { endpoint, keys } = body;
+    console.log(`[${requestId}] endpoint:`, endpoint?.slice(0, 50) + '...');
+    console.log(`[${requestId}] keys present:`, !!(keys?.p256dh && keys?.auth));
+
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
+      console.warn(`[${requestId}] Invalid subscription data`);
       return NextResponse.json({ error: 'Invalid subscription data' }, { status: 400 });
     }
 
@@ -26,13 +36,14 @@ export async function POST(request: NextRequest) {
     );
 
     if (error) {
-      console.error('Error saving push subscription:', error);
+      console.error(`[${requestId}] Supabase upsert error:`, error);
       return NextResponse.json({ error: 'Failed to save subscription' }, { status: 500 });
     }
 
+    console.log(`[${requestId}] Subscription saved successfully`);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error saving push subscription:', error);
+    console.error(`[${requestId}] Error saving push subscription:`, error);
     return NextResponse.json({ error: 'Failed to save subscription' }, { status: 500 });
   }
 }
