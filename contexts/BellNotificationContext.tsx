@@ -9,7 +9,7 @@ export interface BellNotification {
   type: string;
   title: string;
   message: string;
-  timestamp: string | Date;
+  timestamp: string;
   read: boolean;
   metadata?: Record<string, any>;
   userId?: string;
@@ -65,31 +65,25 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
   useEffect(() => {
     if (!userId) return;
 
-    try {
-      const channel = supabase
-        .channel('notifications-realtime')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${userId}`,
-          },
-          () => {
-            fetchNotifications();
-          },
-        )
-        .subscribe();
+    const channel = supabase
+      .channel('notifications-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchNotifications();
+        },
+      )
+      .subscribe();
 
-      return () => {
-        try {
-          supabase.removeChannel(channel);
-        } catch {}
-      };
-    } catch (e) {
-      console.error('Failed to subscribe to realtime notifications:', e);
-    }
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId, fetchNotifications]);
 
   const unreadCount = notifications.filter(n => !n.read).length;

@@ -24,11 +24,9 @@ export function NotificationDropdown() {
     }
   };
 
-  const formatTimeAgo = (date: string | Date) => {
-    const d = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(d.getTime())) return '';
+  const formatTimeAgo = (date: Date) => {
     const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
+    const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     
     if (diffMins < 1) return 'Ahora mismo';

@@ -10,7 +10,6 @@ export interface PushSubscriptionData {
 
 export class PushNotificationService {
   private static instance: PushNotificationService;
-  private _isSubscribed = false;
 
   static getInstance(): PushNotificationService {
     if (!PushNotificationService.instance) {
@@ -40,7 +39,6 @@ export class PushNotificationService {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        this._isSubscribed = true;
         const json = sub.toJSON();
         await this.saveSubscription({
           endpoint: sub.endpoint,
@@ -48,8 +46,7 @@ export class PushNotificationService {
         });
       }
       return true;
-    } catch (e) {
-      console.error('PushNotificationService.initialize error:', e);
+    } catch {
       return false;
     }
   }
@@ -74,19 +71,14 @@ export class PushNotificationService {
       });
 
       const subJSON = sub.toJSON();
-      const saved = await this.saveSubscription({
+      await this.saveSubscription({
         endpoint: sub.endpoint,
         keys: {
           p256dh: subJSON.keys?.p256dh || '',
           auth: subJSON.keys?.auth || '',
         },
       });
-      if (!saved) {
-        console.error('Push subscription created in browser but FAILED to save to server');
-        return false;
-      }
-      this._isSubscribed = true;
-      console.log('Push subscription created and saved successfully');
+
       return true;
     } catch (error) {
       console.error('Error subscribing to push:', error);
@@ -106,7 +98,6 @@ export class PushNotificationService {
           body: JSON.stringify({ endpoint: sub.endpoint }),
         });
       }
-      this._isSubscribed = false;
       return true;
     } catch (error) {
       console.error('Error unsubscribing:', error);
@@ -114,33 +105,12 @@ export class PushNotificationService {
     }
   }
 
-  private async saveSubscription(sub: PushSubscriptionData): Promise<boolean> {
-    try {
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        console.error('saveSubscription failed:', res.status, text);
-        return false;
-      }
-      console.log('Push subscription saved to server');
-      return true;
-    } catch (err) {
-      console.error('saveSubscription threw:', err);
-      return false;
-    }
-  }
-
-  getSubscriptionStatus(): { isSupported: boolean; isSubscribed: boolean; permission: NotificationPermission } {
-    return {
-      isSupported: this.isSupported,
-      isSubscribed: this._isSubscribed,
-      permission: this.isSupported ? Notification.permission : 'denied',
-    };
+  private async saveSubscription(sub: PushSubscriptionData): Promise<void> {
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub),
+    });
   }
 
   async showTestNotification(): Promise<void> {
