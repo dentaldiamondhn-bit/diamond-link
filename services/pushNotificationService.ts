@@ -71,13 +71,14 @@ export class PushNotificationService {
       });
 
       const subJSON = sub.toJSON();
-      await this.saveSubscription({
+      const saved = await this.saveSubscription({
         endpoint: sub.endpoint,
         keys: {
           p256dh: subJSON.keys?.p256dh || '',
           auth: subJSON.keys?.auth || '',
         },
       });
+      if (!saved) return false;
 
       return true;
     } catch (error) {
@@ -105,12 +106,18 @@ export class PushNotificationService {
     }
   }
 
-  private async saveSubscription(sub: PushSubscriptionData): Promise<void> {
-    await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sub),
-    });
+  private async saveSubscription(sub: PushSubscriptionData): Promise<boolean> {
+    try {
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   async showTestNotification(): Promise<void> {
