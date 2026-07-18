@@ -437,7 +437,7 @@ export default function ReportsPage() {
             ReportsService.getDoctorPerformance(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
             ReportsService.getTreatmentTypes(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
             ReportsService.getPatientStats(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
-            ReportsService.getPatientDemographics(userRole === 'doctor' ? doctorEmail : undefined),
+            ReportsService.getPatientDemographics(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
             ReportsService.getRevenueStats(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
             ReportsService.getDetailedPatientAnalytics(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
             ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),

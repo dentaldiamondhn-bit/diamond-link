@@ -371,45 +371,7 @@ export class ReportsService {
 
   static async getPatientStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any> {
     try {
-      // Get total patient count from patients table (like dashboard), filtered by doctor if specified
-      let patientsQuery = supabase
-        .from('patients')
-        .select('paciente_id');
-
-      // Add doctor filter to patients if specified
-      if (doctorEmail || doctorUserId) {
-        let doctorName: string | null = null;
-        
-        if (doctorEmail) {
-          const { data: doctorData } = await supabase
-            .from('doctors')
-            .select('name')
-            .eq('user_email', doctorEmail)
-            .single();
-          
-          if (doctorData) doctorName = doctorData.name;
-        }
-        
-        if (!doctorName && doctorUserId) {
-          const { data: doctorData } = await supabase
-            .from('doctors')
-            .select('name')
-            .eq('user_id', doctorUserId)
-            .single();
-          
-          if (doctorData) doctorName = doctorData.name;
-        }
-        
-        if (doctorName) {
-          patientsQuery = patientsQuery.eq('doctor', doctorName);
-        }
-      }
-
-      const { data: allPatients, error: allPatientsError } = await patientsQuery;
-
-      if (allPatientsError) throw allPatientsError;
-
-      // Get completed treatments in date range for new vs returning analysis, filtered by doctor if specified
+      // Get treatments in date range to determine active patients
       let treatmentsQuery = supabase
         .from('tratamientos_completados')
         .select('paciente_id, fecha_cita, patients!inner(doctor)')
@@ -417,52 +379,6 @@ export class ReportsService {
         .lte('fecha_cita', endDate || new Date().toISOString());
 
       // Add doctor filter to treatments if specified
-      if (doctorEmail) {
-        const { data: doctorData } = await supabase
-          .from('doctors')
-          .select('name')
-          .eq('user_email', doctorEmail)
-          .single();
-        
-        if (doctorData) {
-          treatmentsQuery = treatmentsQuery.eq('patients.doctor', doctorData.name);
-        }
-      }
-
-      const { data: completedTreatments, error: completedError } = await treatmentsQuery;
-
-      // Total patients from patients table (matches dashboard)
-      const totalPatients = allPatients?.length || 0;
-      
-      // For new vs returning, use completed treatments in the date range
-      const patientTreatmentCounts = completedTreatments?.reduce((acc, treatment) => {
-        acc[treatment.paciente_id] = (acc[treatment.paciente_id] || 0) + 1;
-        return acc;
-      }, {} as any);
-
-      const activePatients = Object.keys(patientTreatmentCounts).length;
-      const newPatients = Object.values(patientTreatmentCounts).filter((count: number) => count === 1).length;
-      const returningPatients = Object.values(patientTreatmentCounts).filter((count: number) => count > 1).length;
-
-      return {
-        totalPatients, // Total from patients table (matches dashboard)
-        newPatients, // New patients in date range
-        returningPatients, // Returning patients in date range
-        activePatients // Patients with treatments in date range
-      };
-    } catch (error) {
-      console.error('Error fetching patient stats:', error);
-      throw error;
-    }
-  }
-
-  static async getPatientDemographics(doctorEmail?: string, doctorUserId?: string) {
-    try {
-      let query = supabase
-        .from('patients')
-        .select('edad, sexo');
-
-      // Add doctor filter if specified
       if (doctorEmail || doctorUserId) {
         let doctorName: string | null = null;
         
@@ -487,11 +403,92 @@ export class ReportsService {
         }
         
         if (doctorName) {
-          query = query.eq('doctor', doctorName);
+          treatmentsQuery = treatmentsQuery.eq('patients.doctor', doctorName);
         }
       }
 
-      const { data: patients, error } = await query;
+      const { data: completedTreatments, error: completedError } = await treatmentsQuery;
+
+      if (completedError) throw completedError;
+
+      // Count all patients who had activity in the date range
+      const uniquePatientIds = new Set(completedTreatments?.map(t => t.paciente_id) || []);
+      const totalPatients = uniquePatientIds.size;
+
+      // For new vs returning, a "new" patient is one whose very first treatment
+      // falls within the date range. Since we only have treatments in the range,
+      // we conservatively label single-treatment patients as "new" and
+      // multi-treatment patients as "returning".
+      const patientTreatmentCounts = completedTreatments?.reduce((acc, treatment) => {
+        acc[treatment.paciente_id] = (acc[treatment.paciente_id] || 0) + 1;
+        return acc;
+      }, {} as any);
+
+      const newPatients = Object.values(patientTreatmentCounts).filter((count: number) => count === 1).length;
+      const returningPatients = Object.values(patientTreatmentCounts).filter((count: number) => count > 1).length;
+
+      return {
+        totalPatients,
+        newPatients,
+        returningPatients,
+        activePatients: totalPatients
+      };
+    } catch (error) {
+      console.error('Error fetching patient stats:', error);
+      throw error;
+    }
+  }
+
+  static async getPatientDemographics(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string) {
+    try {
+      // Get only patients who had treatments in the date range
+      let treatmentsQuery = supabase
+        .from('tratamientos_completados')
+        .select('paciente_id, patients!inner(edad, sexo, doctor)')
+        .gte('fecha_cita', startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString())
+        .lte('fecha_cita', endDate || new Date().toISOString());
+
+      if (doctorEmail || doctorUserId) {
+        let doctorName: string | null = null;
+        
+        if (doctorEmail) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_email', doctorEmail)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (!doctorName && doctorUserId) {
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('name')
+            .eq('user_id', doctorUserId)
+            .single();
+          
+          if (doctorData) doctorName = doctorData.name;
+        }
+        
+        if (doctorName) {
+          treatmentsQuery = treatmentsQuery.eq('patients.doctor', doctorName);
+        }
+      }
+
+      const { data: treatments, error } = await treatmentsQuery;
+
+      if (error) throw error;
+
+      // Deduplicate by paciente_id to get unique patients in the date range
+      const patientMap = new Map<string, any>();
+      treatments?.forEach((t: any) => {
+        if (t.patients && !patientMap.has(t.paciente_id)) {
+          patientMap.set(t.paciente_id, t.patients);
+        }
+      });
+
+      const patients = Array.from(patientMap.values());
 
       if (error) throw error;
 
