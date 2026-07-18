@@ -3,16 +3,25 @@ import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/lib/supabase/server';
 import webpush from 'web-push';
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || 'mailto:admin@diamondlink.app',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || '',
-);
+const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
+const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@diamondlink.app';
+const vapidConfigured = !!(vapidPublicKey && vapidPrivateKey);
+
+if (vapidConfigured) {
+  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+} else {
+  console.warn('Push disabled for /api/push/send — VAPID keys not configured');
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
+    if (!vapidConfigured) {
+      return NextResponse.json({ error: 'Push not configured — set VAPID keys' }, { status: 500 });
+    }
 
     const { subscription, data } = await request.json();
     if (!subscription || !data) {
