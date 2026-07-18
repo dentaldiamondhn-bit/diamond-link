@@ -11,7 +11,22 @@ export function NotificationListenerWrapper({ children }: { children: React.Reac
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
-    PushNotificationService.initialize().catch(() => {});
+
+    const setup = async () => {
+      try {
+        const svc = PushNotificationService;
+        await svc.initialize();
+
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          const reg = await navigator.serviceWorker.ready;
+          const existingSub = await reg.pushManager.getSubscription();
+          if (!existingSub) {
+            await svc.subscribe();
+          }
+        }
+      } catch {}
+    };
+    setup();
   }, [isLoaded, isSignedIn]);
 
   return <>{children}</>;

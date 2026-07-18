@@ -10,6 +10,7 @@ export interface PushSubscriptionData {
 
 export class PushNotificationService {
   private static instance: PushNotificationService;
+  private _isSubscribed = false;
 
   static getInstance(): PushNotificationService {
     if (!PushNotificationService.instance) {
@@ -39,6 +40,7 @@ export class PushNotificationService {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
+        this._isSubscribed = true;
         const json = sub.toJSON();
         await this.saveSubscription({
           endpoint: sub.endpoint,
@@ -70,6 +72,7 @@ export class PushNotificationService {
         applicationServerKey: this.urlBase64ToUint8Array(vapidKey),
       });
 
+      this._isSubscribed = true;
       const subJSON = sub.toJSON();
       await this.saveSubscription({
         endpoint: sub.endpoint,
@@ -98,6 +101,7 @@ export class PushNotificationService {
           body: JSON.stringify({ endpoint: sub.endpoint }),
         });
       }
+      this._isSubscribed = false;
       return true;
     } catch (error) {
       console.error('Error unsubscribing:', error);
@@ -111,6 +115,14 @@ export class PushNotificationService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sub),
     });
+  }
+
+  getSubscriptionStatus(): { isSupported: boolean; isSubscribed: boolean; permission: NotificationPermission } {
+    return {
+      isSupported: this.isSupported,
+      isSubscribed: this._isSubscribed,
+      permission: this.isSupported ? Notification.permission : 'denied',
+    };
   }
 
   async showTestNotification(): Promise<void> {
