@@ -20,11 +20,19 @@ export function NotificationListenerWrapper({ children }: { children: React.Reac
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           const reg = await navigator.serviceWorker.ready;
           const existingSub = await reg.pushManager.getSubscription();
-          if (!existingSub) {
-            await svc.subscribe();
+          if (existingSub) {
+            console.log('Existing push subscription found, re-synced');
+          } else {
+            console.log('Permission granted but no subscription — attempting subscribe...');
+            const ok = await svc.subscribe();
+            console.log('Auto-subscribe result:', ok);
           }
+        } else {
+          console.log('Push not auto-subscribing — permission:', typeof Notification !== 'undefined' ? Notification.permission : 'N/A');
         }
-      } catch {}
+      } catch (e) {
+        console.error('Notification setup error:', e);
+      }
     };
     setup();
   }, [isLoaded, isSignedIn]);

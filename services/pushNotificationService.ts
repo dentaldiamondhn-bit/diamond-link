@@ -48,7 +48,8 @@ export class PushNotificationService {
         });
       }
       return true;
-    } catch {
+    } catch (e) {
+      console.error('PushNotificationService.initialize error:', e);
       return false;
     }
   }
@@ -72,16 +73,20 @@ export class PushNotificationService {
         applicationServerKey: this.urlBase64ToUint8Array(vapidKey),
       });
 
-      this._isSubscribed = true;
       const subJSON = sub.toJSON();
-      await this.saveSubscription({
+      const saved = await this.saveSubscription({
         endpoint: sub.endpoint,
         keys: {
           p256dh: subJSON.keys?.p256dh || '',
           auth: subJSON.keys?.auth || '',
         },
       });
-
+      if (!saved) {
+        console.error('Push subscription created in browser but FAILED to save to server');
+        return false;
+      }
+      this._isSubscribed = true;
+      console.log('Push subscription created and saved successfully');
       return true;
     } catch (error) {
       console.error('Error subscribing to push:', error);
@@ -109,12 +114,25 @@ export class PushNotificationService {
     }
   }
 
-  private async saveSubscription(sub: PushSubscriptionData): Promise<void> {
-    await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sub),
-    });
+  private async saveSubscription(sub: PushSubscriptionData): Promise<boolean> {
+    try {
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('saveSubscription failed:', res.status, text);
+        return false;
+      }
+      console.log('Push subscription saved to server');
+      return true;
+    } catch (err) {
+      console.error('saveSubscription threw:', err);
+      return false;
+    }
   }
 
   getSubscriptionStatus(): { isSupported: boolean; isSubscribed: boolean; permission: NotificationPermission } {
