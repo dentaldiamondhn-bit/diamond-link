@@ -36,7 +36,7 @@ export class PushNotificationService {
   async initialize(): Promise<boolean> {
     if (!this.isSupported) return false;
     try {
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await navigator.serviceWorker.register('/sw.js');
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
         const json = sub.toJSON();
