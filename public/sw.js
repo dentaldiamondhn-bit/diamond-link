@@ -41,8 +41,8 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200],
   };
 
-  if (data.metadata?.eventTime || data.metadata?.taskTime) {
-    const d = new Date(data.metadata.eventTime || data.metadata.taskTime);
+  if (data.metadata?.eventTime || data.metadata?.taskTime || data.metadata?.itemTime) {
+    const d = new Date(data.metadata.eventTime || data.metadata.taskTime || data.metadata.itemTime);
     if (!isNaN(d.getTime())) {
       options.body += ` | ${d.toLocaleDateString('es-HN', {
         day: '2-digit',

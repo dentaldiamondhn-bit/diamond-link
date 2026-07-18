@@ -35,8 +35,8 @@ function showBrowserNotification(n: BellNotification) {
 
   let body = n.message || '';
   const meta = n.metadata || {};
-  if (meta.eventTime || meta.taskTime) {
-    const d = new Date(meta.eventTime || meta.taskTime);
+  if (meta.eventTime || meta.taskTime || meta.itemTime) {
+    const d = new Date(meta.eventTime || meta.taskTime || meta.itemTime);
     if (!isNaN(d.getTime())) {
       body += ` | ${d.toLocaleDateString('es-HN', {
         day: '2-digit', month: '2-digit', year: 'numeric',

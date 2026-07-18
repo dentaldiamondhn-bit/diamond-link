@@ -58,9 +58,9 @@ export function PushAutoSubscribe() {
   return debug ? (
     <div
       style={{
-        position: 'fixed', bottom: 16, left: 16, right: 16, zIndex: 9999,
-        padding: '10px 14px', borderRadius: 8, color: '#fff',
-        fontSize: 13, fontWeight: 500,
+        position: 'fixed', bottom: 8, right: 8, zIndex: 9999,
+        padding: '4px 8px', borderRadius: 6, color: '#fff',
+        fontSize: 11, fontWeight: 500, maxWidth: 200, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
         backgroundColor: debug.includes('exitosa') ? '#16a34a' : debug.includes('Error') || debug.includes('Fallo') ? '#dc2626' : '#2563eb',
       }}
     >

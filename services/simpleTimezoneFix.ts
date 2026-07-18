@@ -248,4 +248,29 @@ export class SimpleTimezoneFix {
       return 0;
     }
   }
+
+  /**
+   * Get local timezone offset as ±HH:mm (e.g. -06:00 for America/Tegucigalpa)
+   */
+  static getOffsetString(): string {
+    const offset = -new Date().getTimezoneOffset();
+    const sign = offset >= 0 ? '+' : '-';
+    const absHours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+    const absMins = String(Math.abs(offset) % 60).padStart(2, '0');
+    return `${sign}${absHours}:${absMins}`;
+  }
+
+  /**
+   * Convert a local datetime string (no timezone) to full ISO with offset
+   * for correct storage in Supabase timestamptz columns.
+   * Input: "2026-07-19T10:00"  →  Output: "2026-07-19T10:00:00-06:00"
+   */
+  static toTimezoneAwareISO(localStr: string): string {
+    if (!localStr) return '';
+    try {
+      return `${localStr}:00${SimpleTimezoneFix.getOffsetString()}`;
+    } catch {
+      return localStr;
+    }
+  }
 }

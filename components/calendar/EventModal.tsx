@@ -304,7 +304,7 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
           item_id: itemId,
           minutes_before: reminder.minutes_before,
           reminder_time: new Date(
-            new Date(formData.start_date).getTime() - 
+            new Date(SimpleTimezoneFix.toTimezoneAwareISO(formData.start_date)).getTime() -
             reminder.minutes_before * 60000
           ).toISOString(),
           created_by: userId,
@@ -340,6 +340,8 @@ export const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, 
     try {
       const eventData: CalendarEvent = {
         ...formData as CalendarEvent,
+        start_date: SimpleTimezoneFix.toTimezoneAwareISO(formData.start_date),
+        end_date: SimpleTimezoneFix.toTimezoneAwareISO(formData.end_date),
         created_by: userId,
         patient_id: formData.patient_id || null,
       };
@@ -488,19 +490,13 @@ const formatDateTimeLocal = (date: string | Date): string => {
   if (!date) return '';
   
   try {
-    // Use SimpleTimezoneFix to convert UTC to local time
     const dateObj = typeof date === 'string' ? new Date(date) : date;
-    
-    // Get local date using timezone fix
     const localDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
-    
-    // Format as yyyy-MM-ddThh:mm (local time)
     const year = localDate.getFullYear();
     const month = String(localDate.getMonth() + 1).padStart(2, '0');
     const day = String(localDate.getDate()).padStart(2, '0');
     const hours = String(localDate.getHours()).padStart(2, '0');
     const minutes = String(localDate.getMinutes()).padStart(2, '0');
-    
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   } catch (error) {
     console.error('Error formatting date time local:', error);

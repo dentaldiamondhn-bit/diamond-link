@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CalendarTask, CalendarTaskWithPatient } from '../../types/calendarTasks';
 import { CalendarTaskService } from '../../services/calendarTaskService';
 import { InviteeNotificationService } from '../../services/inviteeNotificationService';
+import { SimpleTimezoneFix } from '../../services/simpleTimezoneFix';
 import { format, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -288,7 +289,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
           item_id: itemId,
           minutes_before: reminder.minutes_before,
           reminder_time: new Date(
-            new Date(formData.due_date).getTime() - 
+            new Date(SimpleTimezoneFix.toTimezoneAwareISO(formData.due_date)).getTime() -
             reminder.minutes_before * 60000
           ).toISOString(),
           created_by: userId,
@@ -334,6 +335,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, task, onS
     try {
       const taskData: CalendarTask = {
         ...formData as CalendarTask,
+        due_date: SimpleTimezoneFix.toTimezoneAwareISO(formData.due_date),
         created_by: userId,
       };
 
