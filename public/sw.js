@@ -1,216 +1,85 @@
-// Service Worker for Diamond Link PWA
-const CACHE_NAME = 'diamond-link-v1';
-const urlsToCache = [
-  '/',
-  '/dashboard',
-  '/calendario',
-  '/pacientes',
-  '/Logo.svg',
-  '/favicon-192.png',
-  '/favicon-512.png'
-];
+const CACHE_NAME = 'diamond-link-v2';
 
-// Install event - cache resources
 self.addEventListener('install', (event) => {
-  console.log('🔧 Service Worker installing...');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('📦 Caching app shell');
-        return cache.addAll(urlsToCache);
-      })
-      .catch((error) => {
-        console.error('❌ Failed to cache resources:', error);
-      })
-  );
+  self.skipWaiting();
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('🚀 Service Worker activating...');
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) return caches.delete(name);
+        }),
+      ),
+    ),
   );
 });
 
-// Fetch event - serve from cache when offline, skip API calls
 self.addEventListener('fetch', (event) => {
-  // Skip API requests — always fetch from network
-  if (event.request.url.includes('/api/')) {
-    return;
-  }
-
+  if (event.request.url.includes('/api/')) return;
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-
-        // Clone the request
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then((response) => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          // Clone the response
-          const responseToCache = response.clone();
-
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              // Only cache GET requests to avoid TypeError with POST requests
-              if (event.request.method === 'GET') {
-                cache.put(event.request, responseToCache);
-              }
-            });
-
-          return response;
-        });
-      })
+    caches.match(event.request).then((cached) => cached || fetch(event.request)),
   );
 });
 
-// Push notification event
 self.addEventListener('push', (event) => {
-  console.log('📬 Push notification received:', event);
-
-  if (!event.data) {
-    console.log('❌ Push event has no data');
-    return;
+  let data;
+  try {
+    data = event.data?.json() || {};
+  } catch {
+    data = { title: 'Diamond Link', message: event.data?.text() || '' };
   }
 
-  try {
-    const data = event.data.json();
-    console.log('📬 Push notification data:', data);
+  const options = {
+    body: data.message || data.body || 'Nueva notificación',
+    icon: '/Logo.svg',
+    badge: '/Logo.svg',
+    tag: data.type || 'general',
+    data: data.metadata || data,
+    requireInteraction: true,
+    vibrate: [200, 100, 200],
+  };
 
-    const options = {
-      body: data.message || 'Nueva notificación de Diamond Link',
-      icon: '/Logo.svg',
-      badge: '/Logo.svg',
-      tag: data.type || 'general',
-      data: data,
-      requireInteraction: true
-      // Actions are not supported in all browsers
-      // actions: [
-      //   {
-      //     action: 'open',
-      //     title: 'Ver',
-      //     icon: '/Logo.svg'
-      //   },
-      //   {
-      //     action: 'dismiss',
-      //     title: 'Cerrar',
-      //     icon: '/Logo.svg'
-      //   }
-      // ]
-    };
-
-    // Add event time to notification body if available
-    if (data.metadata?.eventTime || data.metadata?.taskTime) {
-      const eventTime = new Date(data.metadata.eventTime || data.metadata.taskTime);
-      const formattedTime = eventTime.toLocaleDateString('es-HN', {
+  if (data.metadata?.eventTime || data.metadata?.taskTime) {
+    const d = new Date(data.metadata.eventTime || data.metadata.taskTime);
+    if (!isNaN(d.getTime())) {
+      options.body += ` | ${d.toLocaleDateString('es-HN', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
-      });
-      
-      options.body += ` | ${formattedTime}`;
+        minute: '2-digit',
+      })}`;
     }
-
-    event.waitUntil(
-      self.registration.showNotification(data.title || 'Diamond Link', options)
-    );
-  } catch (error) {
-    console.error('❌ Error processing push notification:', error);
-    
-    // Fallback notification
-    event.waitUntil(
-      self.registration.showNotification('Diamond Link', {
-        body: 'Tienes una nueva notificación',
-        icon: '/Logo.svg',
-        badge: '/Logo.svg',
-        tag: 'fallback'
-      })
-    );
   }
+
+  event.waitUntil(self.registration.showNotification(data.title || 'Diamond Link', options));
 });
 
-// Notification click event
 self.addEventListener('notificationclick', (event) => {
-  console.log('🔔 Notification clicked:', event);
-
   event.notification.close();
 
-  if (event.action === 'dismiss') return;
+  const data = event.notification.data || {};
+  let url = '/';
 
-  const data = event.notification.data;
-  const targetUrl = data?.conversationId ? `/chat?conv=${data.conversationId}` : data?.url || '/chat';
+  if (data.eventId || data.conversationId) {
+    url = data.conversationId ? `/chat?conv=${data.conversationId}` : '/calendario';
+  } else if (data.patientId) {
+    url = `/menu-navegacion?id=${data.patientId}`;
+  } else if (data.url) {
+    url = data.url;
+  }
 
   event.waitUntil(
-    clients.matchAll().then(clientList => {
-      for (const client of clientList) {
-        if (client.url.includes('/chat') || client.url === '/' || client.url.includes('/calendario')) {
-          client.postMessage({ type: 'NAVIGATE_CHAT', conversationId: data?.conversationId });
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+          client.postMessage({ type: 'NOTIFICATION_CLICKED', data });
           return client.focus();
         }
       }
-      return clients.openWindow(targetUrl);
-    })
+      return clients.openWindow(url);
+    }),
   );
 });
-
-// Notification close event
-self.addEventListener('notificationclose', (event) => {
-  console.log('🔕 Notification closed:', event);
-});
-
-// Background sync for calendar events
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'calendar-sync') {
-    console.log('🔄 Background sync for calendar events');
-    event.waitUntil(syncCalendarEvents());
-  }
-});
-
-// Sync calendar events function
-async function syncCalendarEvents() {
-  try {
-    // This would sync any pending calendar changes
-    console.log('📅 Syncing calendar events in background');
-  } catch (error) {
-    console.error('❌ Error syncing calendar events:', error);
-  }
-}
-
-// Periodic background sync for reminders
-self.addEventListener('periodicsync', (event) => {
-  if (event.tag === 'calendar-reminders') {
-    console.log('⏰ Periodic sync for calendar reminders');
-    event.waitUntil(checkReminders());
-  }
-});
-
-// Check for upcoming reminders
-async function checkReminders() {
-  try {
-    // This would check for upcoming reminders and show notifications
-    console.log('🔔 Checking for upcoming reminders');
-  } catch (error) {
-    console.error('❌ Error checking reminders:', error);
-  }
-}

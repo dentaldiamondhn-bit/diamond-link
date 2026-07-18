@@ -1,90 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import webpush from 'web-push';
 
-// In-memory storage for demo (in production, use database)
-const notifications: any[] = [];
-
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || 'mailto:admin@diamondlink.app',
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
+  process.env.VAPID_PRIVATE_KEY || '',
+);
 
 export async function POST(request: NextRequest) {
   try {
-    // Use service role to bypass authentication for sending notifications to any user
     const supabase = await createClient();
-    
     const { userId, notification } = await request.json();
-    
+
     if (!userId || !notification) {
       return NextResponse.json({ error: 'userId and notification are required' }, { status: 400 });
     }
-    
-    // Create notification for specific user
-    const newNotification = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      read: false,
-      userId: userId, // Target user ID
-      ...notification
-    };
-    
-    // Store notification in in-memory storage (sync with main notifications storage)
-    notifications.unshift(newNotification);
-    
-    console.log(`📢 Notification created for user ${userId}:`, newNotification);
-    
-    // Trigger browser notification immediately
-    await triggerBrowserNotification(userId, notification);
-    
-    return NextResponse.json(newNotification);
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type: notification.type || 'system',
+        title: notification.title,
+        message: notification.message,
+        data: notification.metadata || {},
+        read: false,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error storing notification:', error);
+      return NextResponse.json({ error: 'Failed to store notification' }, { status: 500 });
+    }
+
+    try {
+      await sendPushToUser(supabase, userId, {
+        title: notification.title || 'Diamond Link',
+        message: notification.message || '',
+        type: notification.type || 'general',
+        metadata: notification.metadata,
+      });
+    } catch (pushError) {
+      console.error('Push send failed (non-blocking):', pushError);
+    }
+
+    return NextResponse.json({ id: data.id, success: true });
   } catch (error) {
     console.error('Error sending notification to user:', error);
     return NextResponse.json({ error: 'Failed to send notification' }, { status: 500 });
   }
 }
 
-// Function to trigger browser notification for specific user
-async function triggerBrowserNotification(userId: string, notification: any) {
-  try {
-    // Create a server-sent event or WebSocket connection to trigger browser notification
-    // For now, we'll use a simple approach by calling a global function if available
-    
-    // This would typically be handled by WebSocket or SSE
-    // For demo purposes, we'll create a simple trigger mechanism
-    
-    console.log(`🔔 Triggering browser notification for user ${userId}:`, {
-      title: notification.title,
-      body: notification.message,
-      icon: '/Logo.svg',
-      badge: '/Logo.svg',
-      tag: 'calendar-notification',
-      requireInteraction: true,
-      data: notification.metadata
-    });
+async function sendPushToUser(supabase: any, userId: string, data: any) {
+  const { data: subs } = await supabase
+    .from('push_subscriptions')
+    .select('*')
+    .eq('user_id', userId);
 
-    // In a real implementation, you would:
-    // 1. Use WebSocket to send to specific client
-    // 2. Use Server-Sent Events to push to client
-    // 3. Use a notification service like OneSignal
-    
-    // For now, the client will poll and pick up the notification
-    
-  } catch (error) {
-    console.error('Error triggering browser notification:', error);
-  }
-}
+  if (!subs || subs.length === 0) return;
 
-// Export function to get notifications for specific user (for testing)
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+  const payload = JSON.stringify(data);
+
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth },
+        },
+        payload,
+      );
+    } catch (err: any) {
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        await supabase
+          .from('push_subscriptions')
+          .delete()
+          .eq('endpoint', sub.endpoint);
+      }
+      console.error('Push send error for', sub.endpoint, err.message);
     }
-    
-    const userNotifications = notifications.filter(n => n.userId === userId);
-    return NextResponse.json(userNotifications);
-  } catch (error) {
-    console.error('Error fetching notifications for user:', error);
-    return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
   }
 }

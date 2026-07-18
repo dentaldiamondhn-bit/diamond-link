@@ -1,210 +1,174 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useUser } from '@clerk/nextjs';
 
 export interface BellNotification {
   id: string;
-  type: 'patient_created' | 'patient_updated' | 'system' | 'calendar_event' | 'calendar_reminder';
+  type: string;
   title: string;
   message: string;
-  timestamp: Date;
+  timestamp: string;
   read: boolean;
-  metadata?: {
-    patientId?: string;
-    userId?: string;
-    userName?: string;
-    patientName?: string;
-    eventId?: string;
-    eventTitle?: string;
-    eventTime?: Date;
-  };
+  metadata?: Record<string, any>;
+  userId?: string;
 }
 
 interface BellNotificationContextType {
   notifications: BellNotification[];
   unreadCount: number;
-  addNotification: (notification: Omit<BellNotification, 'id' | 'timestamp' | 'read'>) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  removeNotification: (id: string) => void;
-  clearAll: () => void;
+  addNotification: (notification: { type?: string; title: string; message: string; metadata?: Record<string, any> }) => Promise<void>;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  removeNotification: (id: string) => Promise<void>;
+  clearAll: () => Promise<void>;
 }
 
 const BellNotificationContext = createContext<BellNotificationContextType | undefined>(undefined);
 
+function mapRow(row: any): BellNotification {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    message: row.message,
+    timestamp: row.created_at,
+    read: row.read,
+    metadata: row.data,
+    userId: row.user_id,
+  };
+}
+
 export function BellNotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<BellNotification[]>([]);
+  const { user } = useUser();
+  const userId = user?.id;
 
-  // Calculate unread count
+  const fetchNotifications = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch('/api/notifications', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch (e) {
+      console.error('Error fetching notifications:', e);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('notifications-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchNotifications();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, fetchNotifications]);
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const addNotification = async (notification: Omit<BellNotification, 'id' | 'timestamp' | 'read'>) => {
+  const addNotification = async (notification: { type?: string; title: string; message: string; metadata?: Record<string, any> }) => {
     try {
-      const response = await fetch('/api/notifications', {
+      await fetch('/api/notifications', {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(notification),
       });
-      
-      if (response.ok) {
-        const newNotification = await response.json();
-        setNotifications(prev => [newNotification, ...prev]);
-      } else {
-        console.error('Failed to add notification, status:', response.status);
-      }
-    } catch (error) {
-      console.error('Error adding notification:', error);
+    } catch (e) {
+      console.error('Error adding notification:', e);
     }
   };
 
   const markAsRead = async (id: string) => {
     try {
-      const response = await fetch('/api/notifications', {
+      const res = await fetch('/api/notifications', {
         method: 'PATCH',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          notificationId: id,
-          action: 'markAsRead'
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: id, action: 'markAsRead' }),
       });
-      
-      if (response.ok) {
-        setNotifications(prev => 
-          prev.map(n => n.id === id ? { ...n, read: true } : n)
-        );
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
       }
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
+    } catch (e) {
+      console.error('Error marking notification as read:', e);
     }
   };
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch('/api/notifications', {
+      const res = await fetch('/api/notifications', {
         method: 'PATCH',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'markAllAsRead'
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'markAllAsRead' }),
       });
-      
-      if (response.ok) {
-        setNotifications(prev => 
-          prev.map(n => ({ ...n, read: true }))
-        );
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       }
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+    } catch (e) {
+      console.error('Error marking all as read:', e);
     }
   };
 
   const removeNotification = async (id: string) => {
     try {
-      const response = await fetch('/api/notifications', {
+      const res = await fetch('/api/notifications', {
         method: 'PATCH',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          notificationId: id,
-          action: 'remove'
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: id, action: 'remove' }),
       });
-      
-      if (response.ok) {
+      if (res.ok) {
         setNotifications(prev => prev.filter(n => n.id !== id));
       }
-    } catch (error) {
-      console.error('Error removing notification:', error);
+    } catch (e) {
+      console.error('Error removing notification:', e);
     }
   };
 
   const clearAll = async () => {
     try {
-      const response = await fetch('/api/notifications', {
+      const res = await fetch('/api/notifications', {
         method: 'PATCH',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'clearAll'
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clearAll' }),
       });
-      
-      if (response.ok) {
+      if (res.ok) {
         setNotifications([]);
       }
-    } catch (error) {
-      console.error('Error clearing all notifications:', error);
+    } catch (e) {
+      console.error('Error clearing all:', e);
     }
   };
 
-  // Fetch notifications from server and sync periodically
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const response = await fetch('/api/notifications', {
-          method: 'GET',
-          credentials: 'include', // Include cookies for authentication
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-        
-        if (response.status === 401) {
-          console.error('🔔 Authentication failed - user not logged in');
-          return;
-        }
-        
-        if (response.ok) {
-          const serverNotifications = await response.json();
-          // Convert server notifications to client format
-          const clientNotifications = serverNotifications.map((notif: any) => ({
-            ...notif,
-            timestamp: new Date(notif.timestamp)
-          }));
-          setNotifications(clientNotifications);
-        } else {
-          const errorText = await response.text();
-          console.error('🔔 Failed to fetch notifications, status:', response.status, 'Error:', errorText);
-        }
-      } catch (error) {
-        console.error('❌ Error fetching notifications:', error);
-      }
-    };
-
-    // Initial fetch
-    fetchNotifications();
-    
-    // Sync with server every 30 seconds to reduce resource usage
-    const syncInterval = setInterval(fetchNotifications, 30000);
-
-    return () => {
-      clearInterval(syncInterval);
-    };
-  }, []);
-
   return (
-    <BellNotificationContext.Provider value={{
-      notifications,
-      unreadCount,
-      addNotification,
-      markAsRead,
-      markAllAsRead,
-      removeNotification,
-      clearAll
-    }}>
+    <BellNotificationContext.Provider
+      value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification, clearAll }}
+    >
       {children}
     </BellNotificationContext.Provider>
   );
@@ -212,8 +176,6 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
 
 export function useBellNotifications() {
   const context = useContext(BellNotificationContext);
-  if (context === undefined) {
-    throw new Error('useBellNotifications must be used within a BellNotificationProvider');
-  }
+  if (!context) throw new Error('useBellNotifications must be used within a BellNotificationProvider');
   return context;
 }

@@ -1,42 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { createClient } from '@/lib/supabase/server';
+import webpush from 'web-push';
 
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || 'mailto:admin@diamondlink.app',
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
+  process.env.VAPID_PRIVATE_KEY || '',
+);
 
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
     const { subscription, data } = await request.json();
-    
     if (!subscription || !data) {
-      return NextResponse.json({ 
-        error: 'Subscription and data are required' 
-      }, { status: 400 });
+      return NextResponse.json({ error: 'Subscription and data are required' }, { status: 400 });
     }
 
-    // In a real implementation, you would use a push service like Firebase Cloud Messaging
-    // or a Web Push Protocol library to send the notification
-    
-    console.log('📬 Sending push notification:', {
-      subscription: subscription.endpoint,
-      data
-    });
+    const supabase = await createClient();
+    let targets;
 
-    // For demo purposes, we'll just log the notification
-    // In production, you would:
-    // 1. Use web-push library to send the notification
-    // 2. Handle VAPID authentication
-    // 3. Send to the push service
-    
-    // Example with web-push library (not implemented here):
-    // import webpush from 'web-push';
-    // await webpush.sendNotification(subscription, JSON.stringify(data));
+    if (subscription.endpoint) {
+      targets = [subscription];
+    } else if (data.targetUserId) {
+      const { data: subs } = await supabase
+        .from('push_subscriptions')
+        .select('*')
+        .eq('user_id', data.targetUserId);
+      targets = subs || [];
+    }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Push notification sent (demo mode)' 
-    });
+    if (!targets || targets.length === 0) {
+      return NextResponse.json({ error: 'No push targets' }, { status: 404 });
+    }
+
+    const payload = JSON.stringify(data);
+    const results = [];
+
+    for (const sub of targets) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload,
+        );
+        results.push({ endpoint: sub.endpoint, status: 'sent' });
+      } catch (err: any) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          results.push({ endpoint: sub.endpoint, status: 'unsubscribed' });
+        } else {
+          results.push({ endpoint: sub.endpoint, status: 'error', message: err.message });
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, results });
   } catch (error) {
-    console.error('❌ Error sending push notification:', error);
-    return NextResponse.json({ 
-      error: 'Failed to send push notification' 
-    }, { status: 500 });
+    console.error('Error sending push notification:', error);
+    return NextResponse.json({ error: 'Failed to send push notification' }, { status: 500 });
   }
 }

@@ -1,36 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-
+import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const subscription = await request.json();
-    
-    if (!subscription || !subscription.endpoint) {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const { endpoint, keys } = await request.json();
+    if (!endpoint || !keys?.p256dh || !keys?.auth) {
       return NextResponse.json({ error: 'Invalid subscription data' }, { status: 400 });
     }
 
-    // In a real implementation, you would save this to a database
-    // For now, we'll just log it
-    console.log('📱 Push subscription received:', subscription);
-    
-    // TODO: Save to database
-    // const supabase = await createClient();
-    // await supabase.from('push_subscriptions').upsert({
-    //   endpoint: subscription.endpoint,
-    //   keys: subscription.keys,
-    //   user_id: userId, // You'd get this from authentication
-    //   created_at: new Date().toISOString()
-    // });
+    const supabase = await createClient();
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      {
+        user_id: userId,
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      },
+      { onConflict: 'user_id,endpoint' },
+    );
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Subscription saved successfully' 
-    });
+    if (error) {
+      console.error('Error saving push subscription:', error);
+      return NextResponse.json({ error: 'Failed to save subscription' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('❌ Error saving push subscription:', error);
-    return NextResponse.json({ 
-      error: 'Failed to save subscription' 
-    }, { status: 500 });
+    console.error('Error saving push subscription:', error);
+    return NextResponse.json({ error: 'Failed to save subscription' }, { status: 500 });
   }
 }

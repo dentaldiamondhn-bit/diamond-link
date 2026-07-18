@@ -2,7 +2,6 @@
 
 import { PatientService } from '@/services/patientService';
 import { StorageService } from '@/services/storageService';
-import { NotificationService } from '@/services/notificationService';
 import { Patient } from '@/types/patient';
 import { redirect } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -377,9 +376,17 @@ export async function updatePatient(patientId: string, formData: FormData) {
         console.error('Error fetching user data from Clerk:', clerkError);
       }
       
-      // Use NotificationService to send notification
-      await NotificationService.notifyPatientUpdated(patientName, userId || 'unknown', userName);
-      console.log('Patient update notification sent for:', patientName, 'by:', userName);
+      try {
+        await supabaseServer.from('notifications').insert({
+          user_id: userId || 'unknown',
+          type: 'patient_updated',
+          title: 'Historia de paciente actualizada',
+          message: `Se ha actualizado la historia de ${patientName}`,
+          data: { patientName, userId, userName },
+        });
+      } catch (notifError) {
+        console.error('Failed to create notification:', notifError);
+      }
     } catch (notificationError) {
       console.error('Failed to send patient update notification:', notificationError);
       // Don't fail the whole operation if notification fails
