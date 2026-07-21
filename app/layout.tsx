@@ -2,6 +2,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react'
 import VercelAnalytics from '@/components/VercelAnalytics'
+import { PHProvider } from '@/providers/PostHogProvider'
 import './globals.css'
 import BannerAlert from '@/components/BannerAlert'
 import GlobalChatBubble from '@/components/GlobalChatBubble'
@@ -107,7 +108,9 @@ export default function RootLayout({
         </head>
         <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
           <BannerAlert />
-          {children}
+          <PHProvider>
+            {children}
+          </PHProvider>
           <GlobalChatBubble />
           <Analytics />
           <VercelAnalytics />

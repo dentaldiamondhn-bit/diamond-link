@@ -220,9 +220,6 @@ export default function ReportsPage() {
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const currentDatesRef = useRef<{ start: string; end: string }>({ start: '', end: '' });
-  const doctorEmail = user?.primaryEmailAddress?.emailAddress || '';
-  const doctorUserId = user?.id || '';
-
   const getCurrentDateRange = () => {
     const range = tabDateRanges[activeTab];
     if (range?.startDate && range?.endDate) {
@@ -387,6 +384,13 @@ export default function ReportsPage() {
         setPatientAnalytics(cached.patientAnalytics);
         setFinancialTransactions(cached.financialTransactions);
         setMonthlyIncome(cached.monthlyIncome);
+        if (cached.allFinancialTransactions) {
+          const filtered = cached.allFinancialTransactions.filter((t: any) => {
+            const tDate = new Date(t.fecha);
+            return tDate.getFullYear() === selectedYear;
+          });
+          setMonthlyIncome(aggregateMonthlyIncome(filtered));
+        }
         return;
       }
 
@@ -423,37 +427,30 @@ export default function ReportsPage() {
             endDate = now.toISOString();
           }
 
-          const [reportDataResult,
-            doctorPerformanceResult,
-            treatmentTypesResult,
-            patientStatsResult,
-            patientDemographicsResult,
-            revenueStatsResult,
-            patientAnalyticsResult,
-            financialTransactionsResult,
-            allFinancialTransactionsResult
-          ] = await Promise.all([
-            ReportsService.getReportData(timeRange, startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined, userRole === 'doctor' ? doctorUserId : undefined),
-            ReportsService.getDoctorPerformance(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
-            ReportsService.getTreatmentTypes(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
-            ReportsService.getPatientStats(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
-            ReportsService.getPatientDemographics(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
-            ReportsService.getRevenueStats(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
-            ReportsService.getDetailedPatientAnalytics(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
-            ReportsService.getFinancialTransactions(startDate, endDate, userRole === 'doctor' ? doctorEmail : undefined),
-            ReportsService.getAllFinancialTransactions(userRole === 'doctor' ? doctorEmail : undefined)
-          ]);
+          const res = await fetch('/api/reports/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              timeRange,
+              startDate,
+              endDate,
+              sections: ['reportData','doctorPerformance','treatmentTypes','patientStats','patientDemographics','revenueStats','detailedPatientAnalytics','financialTransactions','allFinancialTransactions'],
+            }),
+          });
+          if (!res.ok) throw new Error(`Reports API returned ${res.status}`);
+          const { data: apiData } = await res.json();
 
-          setReportData(reportDataResult);
-          setDoctorPerformance(doctorPerformanceResult);
-          setTreatmentTypes(treatmentTypesResult);
-          setPatientStats(patientStatsResult);
-          setPatientDemographics(patientDemographicsResult);
-          setRevenueStats(revenueStatsResult);
-          setPatientAnalytics(patientAnalyticsResult);
-          setFinancialTransactions(financialTransactionsResult);
-          
-          const filteredTransactions = allFinancialTransactionsResult.filter((t: any) => {
+          setReportData(apiData.reportData || []);
+          setDoctorPerformance(apiData.doctorPerformance || []);
+          setTreatmentTypes(apiData.treatmentTypes || []);
+          setPatientStats(apiData.patientStats || {});
+          setPatientDemographics(apiData.patientDemographics || {});
+          setRevenueStats(apiData.revenueStats || {});
+          setPatientAnalytics(apiData.detailedPatientAnalytics || []);
+          setFinancialTransactions(apiData.financialTransactions || []);
+
+          const allTransactions = apiData.allFinancialTransactions || [];
+          const filteredTransactions = allTransactions.filter((t: any) => {
             const tDate = new Date(t.fecha);
             const year = tDate.getFullYear();
             return year === selectedYear;
@@ -462,15 +459,16 @@ export default function ReportsPage() {
           setMonthlyIncome(monthlyData);
 
           dataCache.current[cacheKey] = {
-            reportData: reportDataResult,
-            doctorPerformance: doctorPerformanceResult,
-            treatmentTypes: treatmentTypesResult,
-            patientStats: patientStatsResult,
-            patientDemographics: patientDemographicsResult,
-            revenueStats: revenueStatsResult,
-            patientAnalytics: patientAnalyticsResult,
-            financialTransactions: financialTransactionsResult,
+            reportData: apiData.reportData || [],
+            doctorPerformance: apiData.doctorPerformance || [],
+            treatmentTypes: apiData.treatmentTypes || [],
+            patientStats: apiData.patientStats || {},
+            patientDemographics: apiData.patientDemographics || {},
+            revenueStats: apiData.revenueStats || {},
+            patientAnalytics: apiData.detailedPatientAnalytics || [],
+            financialTransactions: apiData.financialTransactions || [],
             monthlyIncome: monthlyData,
+            allFinancialTransactions: apiData.allFinancialTransactions || [],
           };
           
         } catch (err) {

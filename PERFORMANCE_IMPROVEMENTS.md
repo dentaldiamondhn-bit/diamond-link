@@ -10,28 +10,19 @@
 | `date-fns` | v4 | Performent date utilities |
 | `react-window` + `react-virtualized-auto-sizer` | latest | Virtualized lists |
 | ESLint + TypeScript | latest | Code quality |
+| `posthog-js` | ^1.405 | Product analytics, session replays, error tracking (free tier: 1M events/mo) |
+| `@tanstack/react-query` | ^5 | Data fetching & caching (dedup, auto-refetch) |
+| `@next/bundle-analyzer` | ^15 | Bundle size visualization (`npm run analyze`) |
+| `sharp` | ^0.33 | Production image optimization for `next/image` |
 
-## Missing — Consider Installing
+### next.config.js Flags
+- `experimental.optimizePackageImports` set for `react-icons` and `lucide-react` — tree-shakes unused icon imports
+- `swcMinify: true` — default in Next 15, confirmed
 
-### 1. `@sentry/nextjs` — Error Tracking & Performance Monitoring
-- Captures unhandled exceptions, promise rejections, and API errors in production
-- Traces slow server components, API routes, and database queries
-- Biggest gap: currently no visibility into production crashes
+## Next Steps
 
-### 2. `@tanstack/react-query` — Data Fetching & Caching
-- Deduplicates API/Supabase calls — multiple components requesting the same data hit cache instead of making N requests
-- Auto-refetch on stale, background sync, optimistic updates
-- Directly reduces redundant fetches at the component level
-
-### 3. `@next/bundle-analyzer` — Bundle Size Analysis
-- Run `ANALYZE=true next build` to visualize JS bundle composition
-- Useful to verify heavy packages (`puppeteer`, `groq-sdk`, `lottie-web`) aren't leaking into client chunks
-
-### 4. Verify `next.config.js` Flags
-- `swcMinify: true` (default in Next 15, confirm)
-- Consider `sharp` for production image optimization (`next/image` recommends it)
-- Ensure `experimental.optimizePackageImports` is configured for big icon libs (`lucide-react`, `react-icons`)
+- Set up PostHog: create a free account at https://posthog.com, get an API key, enter it in the system settings page
+- Wrap the app with `<QueryClientProvider>` from `@tanstack/react-query` and migrate data fetches to `useQuery`/`useMutation`
+- Run `npm run analyze` to verify bundle composition; check `puppeteer`, `groq-sdk`, `lottie-web` aren't leaking into client chunks
 
 ---
-
-*Revisit target: after current UI and backend improvements are complete.*

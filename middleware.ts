@@ -144,7 +144,9 @@ export default clerkMiddleware(async (auth, req) => {
       '/tickets',
       '/xray-viewer',
       '/historia-clinica-ortodoncia',
-      '/tratamientos-completados'
+      '/tratamientos-completados',
+      '/reports',
+      '/reportes'
     ];
     
     // Check for exact match or starts with
@@ -160,22 +162,6 @@ export default clerkMiddleware(async (auth, req) => {
       return response;
     }
 
-    // Reports page - restricted to doctors, admins, and tech-support only
-    if (req.nextUrl.pathname === '/reports' || req.nextUrl.pathname === '/reportes') {
-      // TEMPORARY: Allow all authenticated users to access reports for testing
-      const response = NextResponse.next();
-      addCloudflareHeaders(response, req);
-      return response;
-      
-      if (userRole === 'doctor' || userRole === 'admin' || userRole === 'tech_support') {
-        const response = NextResponse.next();
-        addCloudflareHeaders(response, req);
-        return response;
-      } else {
-        return new Response('Access Denied', { status: 403 });
-      }
-    }
-    
     // EMERGENCY BYPASS: Allow tech-support/users access for tech support user while metadata is broken
     if (recheckedUserId === 'user_3A1mYfR054eV3tqtellpfMKZ7f6' && 
         req.nextUrl.pathname === '/tech-support/users') {
