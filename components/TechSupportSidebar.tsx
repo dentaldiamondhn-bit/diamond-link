@@ -19,6 +19,7 @@ const techSupportNavItems = [
   { href: '/tech-support/codespaces', label: 'Local Android Dev', icon: 'fas fa-mobile-alt' },
   { href: '/tech-support/github-codespaces', label: 'GitHub Codespaces', icon: 'fas fa-code-branch' },
   { href: '/tech-support/access-portal', label: 'Portal de Acceso', icon: 'fas fa-th-large' },
+  { href: '/tech-support/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye' },
   // User management (usuarios only - doctores handled by admin)
   { href: '/tech-support/users', label: 'Usuarios', icon: 'fas fa-users-cog' },
 ];

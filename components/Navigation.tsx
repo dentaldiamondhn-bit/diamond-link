@@ -45,6 +45,7 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
     { href: '/tech-support/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
     { href: '/tech-support/system-logs', label: 'System Logs', icon: 'fas fa-file-alt' },
     { href: '/tech-support/system-settings', label: 'Settings', icon: 'fas fa-cog' },
+    { href: '/tech-support/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye' },
   ],
 };
 
