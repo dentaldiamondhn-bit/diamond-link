@@ -176,11 +176,11 @@ export default function DentalAIVisionWorkspace() {
 
   const activeSource = isDemo || boxes.length === 0
     ? [
-        { x: 0.28, y: 0.45, w: 0.05, h: 0.14, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
-        { x: 0.52, y: 0.44, w: 0.04, h: 0.13, label: 'Mesial Caries #09', confidence: 0.71 },
-        { x: 0.67, y: 0.46, w: 0.05, h: 0.14, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
-        { x: 0.65, y: 0.58, w: 0.06, h: 0.16, label: 'Periapical Radiolucency #19', confidence: 0.85 },
-        { x: 0.31, y: 0.57, w: 0.06, h: 0.15, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
+        { x: 0.23, y: 0.44, w: 0.05, h: 0.12, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+        { x: 0.38, y: 0.43, w: 0.04, h: 0.13, label: 'Mesial Caries #09', confidence: 0.71 },
+        { x: 0.48, y: 0.44, w: 0.05, h: 0.12, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+        { x: 0.48, y: 0.52, w: 0.05, h: 0.14, label: 'Periapical Radiolucency #19', confidence: 0.85 },
+        { x: 0.25, y: 0.52, w: 0.05, h: 0.14, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
       ]
     : boxes;
 
