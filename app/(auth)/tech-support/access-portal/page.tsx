@@ -32,6 +32,7 @@ export default function TechSupportAccessPortal() {
         { href: '/odontogram-pilot', label: 'Odontograma Pilot', icon: 'fas fa-teeth-open', color: 'indigo' },
         { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth', color: 'indigo' },
         { href: '/xray-viewer', label: 'Visor Rayos X', icon: 'fas fa-x-ray', color: 'pink' },
+        { href: '/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye', color: 'teal' },
         { href: '/estudio-periodontal', label: 'Estudio Periodontal', icon: 'fas fa-teeth-open', color: 'teal' },
         { href: '/historia-clinica-ortodoncia', label: 'Historia Ortodoncia', icon: 'fas fa-notes-medical', color: 'purple' },
         { href: '/notas-linea-de-tiempo', label: 'Notas Línea de Tiempo', icon: 'fas fa-timeline', color: 'pink' },

@@ -23,6 +23,7 @@ const adminNavItems = [
   { href: '/reports', label: 'Reportes', icon: <AnimatedReport /> },
   { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
   { href: '/facebook-ads', label: 'Facebook Ads', icon: 'fab fa-facebook' },
+  { href: '/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye' },
 ];
 
 interface AdminSidebarProps {

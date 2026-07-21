@@ -23,6 +23,7 @@ const doctorNavItems = [
   { href: '/patient-follow-up', label: 'Seguimiento', icon: 'fas fa-clipboard-check' },
   { href: '/reports', label: 'Reportes', icon: <AnimatedReport /> },
   { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
+  { href: '/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye' },
 ];
 
 interface DoctorSidebarProps {

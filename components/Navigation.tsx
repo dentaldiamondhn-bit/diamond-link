@@ -23,6 +23,7 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
     { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+    { href: '/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye' },
   ],
   doctor: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -31,6 +32,7 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
     { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados className="w-4 h-4" /> },
     { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract' },
     { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
+    { href: '/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye' },
   ],
   staff: [
     { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
@@ -45,7 +47,6 @@ const roleBasedNavItems: Record<string, NavItem[]> = {
     { href: '/tech-support/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt' },
     { href: '/tech-support/system-logs', label: 'System Logs', icon: 'fas fa-file-alt' },
     { href: '/tech-support/system-settings', label: 'Settings', icon: 'fas fa-cog' },
-    { href: '/tech-support/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye' },
   ],
 };
 

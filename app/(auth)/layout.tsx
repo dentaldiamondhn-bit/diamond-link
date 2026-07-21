@@ -147,7 +147,7 @@ export default function AuthLayout({
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
                     xl:translate-x-0 fixed xl:relative xl:flex-shrink-0 
                     transition-transform duration-300 ease-in-out z-50 xl:z-auto
-                    portrait-sidebar
+                    ${sidebarOpen ? 'portrait-sidebar-open' : 'portrait-sidebar-closed'}
                   `}>
                     <div className="w-64 lg:w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
                       {userRole === 'tech_support' && <TechSupportSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
@@ -335,7 +335,13 @@ export default function AuthLayout({
                              Odontograma Pilot
                            </h1>
                          )}
-                         {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (
+                          {pathname === '/dental-ai-vision' && (
+                            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                              <i className="fas fa-eye mr-2 text-teal-600"></i>
+                              Dental AI Vision
+                            </h1>
+                          )}
+                          {(pathname === '/xray-viewer' || pathname.startsWith('/xray-viewer/')) && (
                            <div className="flex items-center">
                              <i className="fas fa-x-ray text-2xl text-teal-600 mr-3"></i>
                              <div>
@@ -434,8 +440,11 @@ export default function AuthLayout({
     </TutorialProvider>
     <style>{`
       @media (orientation: portrait) {
-        .portrait-sidebar {
+        .portrait-sidebar-closed {
           transform: translateX(-100%) !important;
+        }
+        .portrait-sidebar-open {
+          transform: translateX(0) !important;
         }
         .portrait-hamburger {
           display: flex !important;
