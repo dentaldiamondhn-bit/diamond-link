@@ -14,10 +14,11 @@ const HF_HOST = 'https://api-inference.huggingface.co';
 
 const DEMO_RESULT: DetectionResult = {
   boxes: [
-    { x: 120, y: 80, w: 90, h: 110, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
-    { x: 340, y: 140, w: 85, h: 105, label: 'Periapical Radiolucency #19', confidence: 0.85 },
-    { x: 460, y: 120, w: 80, h: 100, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
-    { x: 30, y: 160, w: 70, h: 90, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+    { x: 304, y: 210, w: 48, h: 75, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+    { x: 496, y: 290, w: 56, h: 80, label: 'Periapical Radiolucency #19', confidence: 0.85 },
+    { x: 256, y: 300, w: 56, h: 75, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
+    { x: 160, y: 240, w: 48, h: 70, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+    { x: 400, y: 200, w: 52, h: 78, label: 'Mesial Caries #09', confidence: 0.71 },
   ],
   model: 'demo',
   image_width: 800,
@@ -48,10 +49,10 @@ async function callHFInference(buffer: Buffer, model: string): Promise<any> {
 
 function parseBoxes(data: HFBox[], model: string, imgW: number, imgH: number): DetectionResult {
   const boxes = (Array.isArray(data) ? data : []).map((item) => ({
-    x: item.box?.xmin ?? 0,
-    y: item.box?.ymin ?? 0,
-    w: (item.box?.xmax ?? 0) - (item.box?.xmin ?? 0),
-    h: (item.box?.ymax ?? 0) - (item.box?.ymin ?? 0),
+    x: (item.box?.xmin ?? 0) * imgW,
+    y: (item.box?.ymin ?? 0) * imgH,
+    w: ((item.box?.xmax ?? 0) - (item.box?.xmin ?? 0)) * imgW,
+    h: ((item.box?.ymax ?? 0) - (item.box?.ymin ?? 0)) * imgH,
     label: item.label || 'unknown',
     confidence: item.score ?? 0,
   }));

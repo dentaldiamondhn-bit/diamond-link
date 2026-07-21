@@ -162,8 +162,8 @@ export default function DentalAIVisionWorkspace() {
   const activeFinding = findings.find(f => f.tooth === selectedTooth);
 
   const canvasToothBoxes = (boxes.length > 0 ? boxes : [
-    { x: 120, y: 80, w: 90, h: 110, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
-    { x: 340, y: 140, w: 85, h: 105, label: 'Periapical Radiolucency #19', confidence: 0.85 },
+    { x: 304, y: 210, w: 48, h: 75, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+    { x: 496, y: 290, w: 56, h: 80, label: 'Periapical Radiolucency #19', confidence: 0.85 },
   ]).map(b => scaleBox(b, imageNatural.w, imageNatural.h, imageLayout));
 
   const hasFinding = (toothNum: string) => findings.some(f => f.tooth === toothNum);
