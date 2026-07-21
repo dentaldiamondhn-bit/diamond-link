@@ -108,7 +108,6 @@ export default function AuthLayout({
 
   // Check if current page is ai-chat (which has its own full-screen layout)
   const isAIChatPage = pathname === '/tech-support/ai-chat';
-  const isDentalAIVision = pathname === '/dental-ai-vision';
 
   return (
     <>
@@ -424,7 +423,7 @@ export default function AuthLayout({
                   </header>
                   
                    {/* Page Content */}
-                   <div className={`flex-1 overflow-auto ${isDentalAIVision ? '' : 'p-3 sm:p-4'}`}>
+                   <div className="flex-1 overflow-auto">
                      {children}
                    </div>
                 </div>
