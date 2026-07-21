@@ -106,8 +106,8 @@ export default function AuthLayout({
 
   const roleBadgeInfo = getRoleBadgeInfo(userRole || 'staff');
 
-  // Check if current page is ai-chat (which has its own full-screen layout)
-  const isAIChatPage = pathname === '/tech-support/ai-chat';
+  // Check if current page is ai-chat or dental-ai-vision (full-screen layouts)
+  const isFullScreenPage = pathname === '/tech-support/ai-chat' || pathname === '/dental-ai-vision';
 
   return (
     <>
@@ -118,8 +118,8 @@ export default function AuthLayout({
           <BellNotificationProvider>
             <PushAutoSubscribe />
             <NotificationListenerWrapper>
-              {isAIChatPage ? (
-                // For ai-chat page, render children directly without header/sidebar
+              {isFullScreenPage ? (
+                // For full-screen pages, render children directly without header/sidebar
                 children
               ) : (
                 <div className="flex h-screen bg-gray-100 relative">
