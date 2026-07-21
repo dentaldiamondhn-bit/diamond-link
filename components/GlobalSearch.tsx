@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { PatientService } from '../services/patientService';
 import { OdontogramPilotService } from '../services/odontogramPilotService';
@@ -398,12 +399,12 @@ export default function GlobalSearch() {
         )}
       </div>
 
-      {showSearchResults && searchQuery && (
+      {showSearchResults && searchQuery && typeof window !== 'undefined' && createPortal(
         <div 
           className="fixed mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999] max-h-96 overflow-y-auto"
           style={{
-            top: searchRef.current?.getBoundingClientRect().bottom + window.scrollY + 8 + 'px',
-            left: searchRef.current?.getBoundingClientRect().left + window.scrollX + 'px'
+            top: (searchRef.current?.getBoundingClientRect().bottom ?? 0) + 8 + 'px',
+            left: (searchRef.current?.getBoundingClientRect().left ?? 0) + 'px'
           }}>
           
           {/* Patient-Centric Results - Highest Priority */}
@@ -713,7 +714,8 @@ export default function GlobalSearch() {
               No se encontraron resultados
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
