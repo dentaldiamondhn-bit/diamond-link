@@ -4,7 +4,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Upload, Image as ImageIcon, Eye, EyeOff, ZoomIn, ZoomOut,
   Sliders, CheckCircle2, XCircle, Sparkles, Send, FileText,
-  AlertCircle, Loader2, Activity, ChevronRight,
+  AlertCircle, Loader2, Activity,
 } from 'lucide-react';
 
 type AnalysisType = 'tooth-detection' | 'caries-detection' | 'segmentation';
@@ -33,6 +33,41 @@ const TOOTH_MAP: Record<string, { diagnosis: string; confidence: number; severit
 const TEETH_UPPER = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16'];
 const TEETH_LOWER = ['17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32'];
 
+interface ImgLayout {
+  offsetX: number; offsetY: number; renderW: number; renderH: number;
+}
+
+function computeImgLayout(
+  containerW: number, containerH: number, naturalW: number, naturalH: number
+): ImgLayout {
+  const imgAspect = naturalW / naturalH;
+  const contAspect = containerW / containerH;
+  let renderW: number, renderH: number, offsetX: number, offsetY: number;
+  if (imgAspect > contAspect) {
+    renderW = containerW;
+    renderH = containerW / imgAspect;
+    offsetX = 0;
+    offsetY = (containerH - renderH) / 2;
+  } else {
+    renderH = containerH;
+    renderW = containerH * imgAspect;
+    offsetX = (containerW - renderW) / 2;
+    offsetY = 0;
+  }
+  return { offsetX, offsetY, renderW, renderH };
+}
+
+function scaleBox(
+  box: BoundingBox, naturalW: number, naturalH: number, layout: ImgLayout
+): { left: number; top: number; width: number; height: number } {
+  return {
+    left: layout.offsetX + (box.x / naturalW) * layout.renderW,
+    top: layout.offsetY + (box.y / naturalH) * layout.renderH,
+    width: (box.w / naturalW) * layout.renderW,
+    height: (box.h / naturalH) * layout.renderH,
+  };
+}
+
 export default function DentalAIVisionWorkspace() {
   const [mode, setMode] = useState<'upload' | 'workspace'>('upload');
   const [image, setImage] = useState<string | null>(null);
@@ -43,7 +78,6 @@ export default function DentalAIVisionWorkspace() {
   const [isDemo, setIsDemo] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [selectedTooth, setSelectedTooth] = useState<string | null>('14');
   const [showOverlays, setShowOverlays] = useState(true);
@@ -51,6 +85,11 @@ export default function DentalAIVisionWorkspace() {
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
   const [boxes, setBoxes] = useState<BoundingBox[]>([]);
+  const [imageNatural, setImageNatural] = useState({ w: 800, h: 500 });
+  const [imageLayout, setImageLayout] = useState<ImgLayout>({ offsetX: 0, offsetY: 0, renderW: 800, renderH: 500 });
+
+  const imgRef = useRef<HTMLImageElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const spaceRef = useRef(false);
 
   const loadImage = useCallback((f: File) => {
@@ -86,6 +125,9 @@ export default function DentalAIVisionWorkspace() {
       setIsDemo(!!json._demo);
       const resultBoxes: BoundingBox[] = (data.boxes || []).filter((b: BoundingBox) => b.w > 0 && b.h > 0);
       setBoxes(resultBoxes);
+      if (data.image_width && data.image_height) {
+        setImageNatural({ w: data.image_width, h: data.image_height });
+      }
       const generated: Finding[] = resultBoxes.map((b: BoundingBox, i: number) => ({
         id: `find-${i}`, tooth: b.label.replace(/\D/g, '') || String(i + 1).padStart(2, '0'),
         diagnosis: b.label, confidence: Math.round(b.confidence * 100),
@@ -119,12 +161,10 @@ export default function DentalAIVisionWorkspace() {
 
   const activeFinding = findings.find(f => f.tooth === selectedTooth);
 
-  const canvasToothBoxes: { tooth: string; x: number; y: number; w: number; h: number; confidence: number }[] = boxes.length > 0
-    ? boxes.map(b => ({ tooth: b.label.replace(/\D/g, '') || '00', x: b.x, y: b.y, w: b.w, h: b.h, confidence: b.confidence }))
-    : [
-        { tooth: '14', x: 42, y: 35, w: 16, h: 20, confidence: 0.92 },
-        { tooth: '19', x: 60, y: 50, w: 16, h: 20, confidence: 0.85 },
-      ];
+  const canvasToothBoxes = (boxes.length > 0 ? boxes : [
+    { x: 120, y: 80, w: 90, h: 110, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+    { x: 340, y: 140, w: 85, h: 105, label: 'Periapical Radiolucency #19', confidence: 0.85 },
+  ]).map(b => scaleBox(b, imageNatural.w, imageNatural.h, imageLayout));
 
   const hasFinding = (toothNum: string) => findings.some(f => f.tooth === toothNum);
 
@@ -142,21 +182,19 @@ export default function DentalAIVisionWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (mode === 'workspace' && image) {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      const img = new window.Image();
-      img.onload = () => {
-        canvas.width = 800;
-        canvas.height = 500;
-        ctx.clearRect(0, 0, 800, 500);
-        ctx.drawImage(img, 0, 0, 800, 500);
-      };
-      img.src = image;
-    }
-  }, [mode, image]);
+    if (mode !== 'workspace') return;
+    const imgEl = imgRef.current;
+    const container = canvasContainerRef.current;
+    if (!imgEl || !container) return;
+    const updateLayout = () => {
+      const cr = container.getBoundingClientRect();
+      setImageLayout(computeImgLayout(cr.width, cr.height, imageNatural.w, imageNatural.h));
+    };
+    const ro = new ResizeObserver(updateLayout);
+    ro.observe(container);
+    updateLayout();
+    return () => ro.disconnect();
+  }, [mode, imageNatural]);
 
   if (mode === 'upload') {
     return (
@@ -253,19 +291,33 @@ export default function DentalAIVisionWorkspace() {
         </header>
 
         <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden p-6">
-          <div className="relative w-full max-w-4xl h-[500px] rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center shadow-2xl overflow-hidden">
-            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-contain" />
-            {showOverlays && canvasToothBoxes.map((t) => {
-              const isSelected = selectedTooth === t.tooth;
+          <div ref={canvasContainerRef} className="relative w-full max-w-4xl h-[500px] rounded-lg border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden">
+            <img
+              ref={imgRef}
+              src={image!}
+              alt="X-Ray"
+              className="absolute inset-0 w-full h-full object-contain"
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                setImageNatural({ w: img.naturalWidth, h: img.naturalHeight });
+              }}
+            />
+            {showOverlays && canvasToothBoxes.map((t, i) => {
+              const toothLabel = boxes[i]?.label.replace(/\D/g, '') || String(i + 1).padStart(2, '0');
+              const isSelected = selectedTooth === toothLabel;
               return (
-                <div key={t.tooth} onClick={() => setSelectedTooth(t.tooth)}
-                  className={`absolute border-2 rounded transition-all cursor-pointer flex flex-col justify-between p-1 ${
-                    isSelected ? 'border-rose-500 bg-rose-500/20 ring-4 ring-rose-500/20' : 'border-rose-500/60 bg-rose-500/10 hover:border-rose-400'
+                <div key={i} onClick={() => setSelectedTooth(toothLabel)}
+                  className={`absolute border-2 rounded transition-all cursor-pointer flex flex-col justify-between p-0.5 ${
+                    isSelected
+                      ? 'border-rose-500 bg-rose-500/20 ring-4 ring-rose-500/20'
+                      : 'border-rose-500/60 bg-rose-500/10 hover:border-rose-400'
                   }`}
-                  style={{ left: `${t.x}%`, top: `${t.y}%`, width: `${t.w}%`, height: `${t.h}%` }}
+                  style={{ left: `${t.left}px`, top: `${t.top}px`, width: `${t.width}px`, height: `${t.height}px` }}
                 >
-                  <span className="text-[10px] font-mono bg-rose-500 text-white px-1 rounded w-max">#{t.tooth}</span>
-                  <span className="text-[9px] font-semibold text-rose-200">{(t.confidence * 100).toFixed(0)}%</span>
+                  <span className="text-[10px] font-mono bg-rose-500 text-white px-1 rounded w-max">#{toothLabel}</span>
+                  <span className="text-[9px] font-semibold text-rose-200">
+                    {boxes[i] ? `${(boxes[i].confidence * 100).toFixed(0)}%` : ''}
+                  </span>
                 </div>
               );
             })}

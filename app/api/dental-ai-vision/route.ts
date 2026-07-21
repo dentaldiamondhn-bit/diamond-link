@@ -14,15 +14,21 @@ const HF_HOST = 'https://api-inference.huggingface.co';
 
 const DEMO_RESULT: DetectionResult = {
   boxes: [
-    { x: 42, y: 35, w: 16, h: 20, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
-    { x: 60, y: 50, w: 16, h: 20, label: 'Periapical Radiolucency #19', confidence: 0.85 },
-    { x: 72, y: 45, w: 14, h: 18, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
-    { x: 10, y: 55, w: 12, h: 15, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+    { x: 120, y: 80, w: 90, h: 110, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+    { x: 340, y: 140, w: 85, h: 105, label: 'Periapical Radiolucency #19', confidence: 0.85 },
+    { x: 460, y: 120, w: 80, h: 100, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
+    { x: 30, y: 160, w: 70, h: 90, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
   ],
   model: 'demo',
   image_width: 800,
   image_height: 500,
 };
+
+interface HFBox {
+  box?: { xmin: number; ymin: number; xmax: number; ymax: number };
+  label?: string;
+  score?: number;
+}
 
 async function callHFInference(buffer: Buffer, model: string): Promise<any> {
   const response = await fetch(`${HF_HOST}/models/${model}`, {
@@ -40,8 +46,8 @@ async function callHFInference(buffer: Buffer, model: string): Promise<any> {
   return response.json();
 }
 
-function parseBoxes(data: any, model: string): DetectionResult {
-  const boxes = (Array.isArray(data) ? data : []).map((item: any) => ({
+function parseBoxes(data: HFBox[], model: string, imgW: number, imgH: number): DetectionResult {
+  const boxes = (Array.isArray(data) ? data : []).map((item) => ({
     x: item.box?.xmin ?? 0,
     y: item.box?.ymin ?? 0,
     w: (item.box?.xmax ?? 0) - (item.box?.xmin ?? 0),
@@ -49,21 +55,44 @@ function parseBoxes(data: any, model: string): DetectionResult {
     label: item.label || 'unknown',
     confidence: item.score ?? 0,
   }));
-  return { boxes, model, image_width: 0, image_height: 0 };
+  return { boxes, model, image_width: imgW, image_height: imgH };
 }
 
-function parseMasks(data: any, model: string): DetectionResult {
+function parseMasks(data: any, model: string, imgW: number, imgH: number): DetectionResult {
   const masks = (Array.isArray(data) ? data : []).map((item: any) => ({
     mask: item.mask || '', label: item.label || 'unknown',
   }));
-  return { boxes: [], masks, model, image_width: 0, image_height: 0 };
+  return { boxes: [], masks, model, image_width: imgW, image_height: imgH };
 }
 
 const MODELS: Record<string, { task: 'object-detection' | 'image-segmentation'; model: string }> = {
-  'tooth-detection': { task: 'object-detection', model: 'AI-RESEARCHER-2024/AI-in-Dentistry' },
-  'caries-detection': { task: 'object-detection', model: 'keremberke/yolov8n-dental-caries-detection' },
-  'segmentation': { task: 'image-segmentation', model: 'AI-RESEARCHER-2024/AI-in-Dentistry' },
+  'tooth-detection': { task: 'object-detection', model: 'liodon-ai/dental-panoramic-detector' },
+  'caries-detection': { task: 'object-detection', model: 'nsitnov/8024-yolov8-model' },
+  'segmentation': { task: 'image-segmentation', model: 'nsitnov/8024-yolov8-model' },
 };
+
+function imageDimensionsFromBuffer(buffer: Buffer): { width: number; height: number } {
+  const firstBytes = buffer.slice(0, 33).toString('hex').toUpperCase();
+  let width = 800, height = 500;
+  if (firstBytes.startsWith('FFD8')) {
+    let offset = 2;
+    while (offset < buffer.length) {
+      if (buffer[offset] !== 0xFF) break;
+      const marker = buffer[offset + 1];
+      if (marker === 0xC0 || marker === 0xC1 || marker === 0xC2) {
+        height = (buffer[offset + 5] << 8) + buffer[offset + 6];
+        width = (buffer[offset + 7] << 8) + buffer[offset + 8];
+        break;
+      }
+      const segLen = (buffer[offset + 2] << 8) + buffer[offset + 3];
+      offset += 2 + segLen;
+    }
+  } else if (firstBytes.startsWith('89504E47')) {
+    width = (buffer[16] << 24) + (buffer[17] << 16) + (buffer[18] << 8) + buffer[19];
+    height = (buffer[20] << 24) + (buffer[21] << 16) + (buffer[22] << 8) + buffer[23];
+  }
+  return { width, height };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -80,26 +109,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: `Unknown analysis type: ${analysisType}` }, { status: 400 });
     }
 
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { width: imgW, height: imgH } = imageDimensionsFromBuffer(buffer);
+
     if (!HF_TOKEN) {
+      const demo = { ...DEMO_RESULT, image_width: imgW, image_height: imgH };
       return NextResponse.json({
         success: true,
-        data: DEMO_RESULT,
+        data: demo,
         _demo: true,
-        _notice: 'HUGGINGFACE_API_KEY not set. Showing simulated results. Add it to Vercel project env vars for real inference.',
+        _notice: 'HUGGINGFACE_API_KEY not set. Showing simulated results.',
       });
     }
-
-    const buffer = Buffer.from(await file.arrayBuffer());
 
     let result: DetectionResult;
     try {
       const data = await callHFInference(buffer, config.model);
-      result = config.task === 'object-detection' ? parseBoxes(data, config.model) : parseMasks(data, config.model);
+      result = config.task === 'object-detection'
+        ? parseBoxes(data, config.model, imgW, imgH)
+        : parseMasks(data, config.model, imgW, imgH);
     } catch (hfErr: any) {
       console.warn('HF Inference failed, falling back to demo:', hfErr.message);
+      const demo = { ...DEMO_RESULT, image_width: imgW, image_height: imgH };
       return NextResponse.json({
         success: true,
-        data: DEMO_RESULT,
+        data: demo,
         _demo: true,
         _notice: `HF Inference unavailable (${hfErr.message}). Showing simulated results.`,
       });
@@ -108,6 +142,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: result });
   } catch (error: any) {
     console.error('Dental AI Vision API error:', error);
-    return NextResponse.json({ success: true, data: DEMO_RESULT, _demo: true, _notice: error.message });
+    const demo = { ...DEMO_RESULT, image_width: 800, image_height: 500 };
+    return NextResponse.json({ success: true, data: demo, _demo: true, _notice: error.message });
   }
 }
