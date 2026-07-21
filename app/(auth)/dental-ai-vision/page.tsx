@@ -60,6 +60,15 @@ function computeImgLayout(
 function scaleBox(
   box: BoundingBox, naturalW: number, naturalH: number, layout: ImgLayout
 ): { left: number; top: number; width: number; height: number } {
+  const isNormalized = box.x <= 1 && box.y <= 1 && box.w <= 1 && box.h <= 1;
+  if (isNormalized) {
+    return {
+      left: layout.offsetX + box.x * layout.renderW,
+      top: layout.offsetY + box.y * layout.renderH,
+      width: box.w * layout.renderW,
+      height: box.h * layout.renderH,
+    };
+  }
   return {
     left: layout.offsetX + (box.x / naturalW) * layout.renderW,
     top: layout.offsetY + (box.y / naturalH) * layout.renderH,
@@ -161,10 +170,21 @@ export default function DentalAIVisionWorkspace() {
 
   const activeFinding = findings.find(f => f.tooth === selectedTooth);
 
-  const canvasToothBoxes = (boxes.length > 0 ? boxes : [
-    { x: imageNatural.w * 0.36, y: imageNatural.h * 0.44, w: imageNatural.w * 0.05, h: imageNatural.h * 0.14, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
-    { x: imageNatural.w * 0.62, y: imageNatural.h * 0.58, w: imageNatural.w * 0.06, h: imageNatural.h * 0.15, label: 'Periapical Radiolucency #19', confidence: 0.85 },
-  ]).map(b => scaleBox(b, imageNatural.w, imageNatural.h, imageLayout));
+  interface RenderedBox { left: number; top: number; width: number; height: number; toothLabel: string; confidence: number; }
+
+  const activeSource = isDemo || boxes.length === 0
+    ? [
+        { x: 0.37, y: 0.44, w: 0.05, h: 0.14, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+        { x: 0.61, y: 0.58, w: 0.06, h: 0.16, label: 'Periapical Radiolucency #19', confidence: 0.85 },
+        { x: 0.32, y: 0.59, w: 0.06, h: 0.15, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
+        { x: 0.22, y: 0.45, w: 0.06, h: 0.14, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+      ]
+    : boxes;
+
+  const canvasToothBoxes: RenderedBox[] = activeSource.map(b => {
+    const pos = scaleBox(b, imageNatural.w, imageNatural.h, imageLayout);
+    return { ...pos, toothLabel: b.label.replace(/\D/g, '') || '00', confidence: b.confidence };
+  });
 
   const hasFinding = (toothNum: string) => findings.some(f => f.tooth === toothNum);
 
@@ -303,10 +323,9 @@ export default function DentalAIVisionWorkspace() {
               }}
             />
             {showOverlays && canvasToothBoxes.map((t, i) => {
-              const toothLabel = boxes[i]?.label.replace(/\D/g, '') || String(i + 1).padStart(2, '0');
-              const isSelected = selectedTooth === toothLabel;
+              const isSelected = selectedTooth === t.toothLabel;
               return (
-                <div key={i} onClick={() => setSelectedTooth(toothLabel)}
+                <div key={i} onClick={() => setSelectedTooth(t.toothLabel)}
                   className={`absolute border-2 rounded transition-all cursor-pointer flex flex-col justify-between p-0.5 ${
                     isSelected
                       ? 'border-rose-500 bg-rose-500/20 ring-4 ring-rose-500/20'
@@ -314,9 +333,9 @@ export default function DentalAIVisionWorkspace() {
                   }`}
                   style={{ left: `${t.left}px`, top: `${t.top}px`, width: `${t.width}px`, height: `${t.height}px` }}
                 >
-                  <span className="text-[10px] font-mono bg-rose-500 text-white px-1 rounded w-max">#{toothLabel}</span>
+                  <span className="text-[10px] font-mono bg-rose-500 text-white px-1 rounded w-max">#{t.toothLabel}</span>
                   <span className="text-[9px] font-semibold text-rose-200">
-                    {boxes[i] ? `${(boxes[i].confidence * 100).toFixed(0)}%` : ''}
+                    {`${(t.confidence * 100).toFixed(0)}%`}
                   </span>
                 </div>
               );
