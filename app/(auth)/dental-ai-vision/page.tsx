@@ -24,10 +24,11 @@ interface Finding {
 }
 
 const TOOTH_MAP: Record<string, { diagnosis: string; confidence: number; severity: Finding['severity'] }> = {
+  '03': { diagnosis: 'Horizontal Bone Loss (2.8mm)', confidence: 68, severity: 'low' },
+  '09': { diagnosis: 'Mesial Caries', confidence: 71, severity: 'medium' },
   '14': { diagnosis: 'Distal Occlusal Caries', confidence: 92, severity: 'high' },
   '19': { diagnosis: 'Periapical Radiolucency', confidence: 85, severity: 'high' },
   '30': { diagnosis: 'Marginal Leakage (Existing Crown)', confidence: 74, severity: 'medium' },
-  '03': { diagnosis: 'Horizontal Bone Loss (2.8mm)', confidence: 68, severity: 'low' },
 };
 
 const TEETH_UPPER = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16'];
@@ -147,10 +148,11 @@ export default function DentalAIVisionWorkspace() {
         setFindings(Object.entries(TOOTH_MAP).map(([tooth, info], i) => ({
           id: `mock-${i}`, tooth, ...info, verified: null,
         })));
+        setSelectedTooth('09');
       } else {
         setFindings(generated);
+        if (generated.length > 0) setSelectedTooth(generated[0].tooth);
       }
-      if (generated.length > 0) setSelectedTooth(generated[0].tooth);
       setMessages([{ role: 'assistant', text: `AI Analysis complete. Detected ${Math.max(generated.length, Object.keys(TOOTH_MAP).length)} areas of interest.${json._demo ? ' (Demo mode)' : ''}` }]);
       setMode('workspace');
     } catch (err: any) {
@@ -158,8 +160,8 @@ export default function DentalAIVisionWorkspace() {
       const demo = Object.entries(TOOTH_MAP).map(([tooth, info], i) => ({
         id: `demo-${i}`, tooth, ...info, verified: null,
       }));
-      setFindings(demo); setBoxes([]); setSelectedTooth('14');
-      setMessages([{ role: 'assistant', text: 'Demo mode: AI service unavailable. Showing simulated findings.' }]);
+      setFindings(demo); setBoxes([]); setSelectedTooth('09');
+      setMessages([{ role: 'assistant', text: 'Demo mode: Showing simulated findings for 5 target teeth.' }]);
       setMode('workspace');
     } finally { setProcessing(false); }
   };
@@ -174,10 +176,11 @@ export default function DentalAIVisionWorkspace() {
 
   const activeSource = isDemo || boxes.length === 0
     ? [
-        { x: 0.37, y: 0.44, w: 0.05, h: 0.14, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
-        { x: 0.61, y: 0.58, w: 0.06, h: 0.16, label: 'Periapical Radiolucency #19', confidence: 0.85 },
-        { x: 0.32, y: 0.59, w: 0.06, h: 0.15, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
-        { x: 0.22, y: 0.45, w: 0.06, h: 0.14, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+        { x: 0.28, y: 0.45, w: 0.05, h: 0.14, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+        { x: 0.52, y: 0.44, w: 0.04, h: 0.13, label: 'Mesial Caries #09', confidence: 0.71 },
+        { x: 0.67, y: 0.46, w: 0.05, h: 0.14, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+        { x: 0.65, y: 0.58, w: 0.06, h: 0.16, label: 'Periapical Radiolucency #19', confidence: 0.85 },
+        { x: 0.31, y: 0.57, w: 0.06, h: 0.15, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
       ]
     : boxes;
 
