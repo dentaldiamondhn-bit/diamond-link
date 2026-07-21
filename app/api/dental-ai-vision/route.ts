@@ -1,28 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const PYTHON_AI_URL = process.env.PYTHON_AI_URL || 'http://127.0.0.1:8000';
 const HF_TOKEN = process.env.HUGGINGFACE_API_KEY;
 
-interface DetectionResult {
-  boxes: Array<{ x: number; y: number; w: number; h: number; label: string; confidence: number }>;
-  masks?: Array<{ mask: string; label: string }>;
-  model: string;
-  image_width: number;
-  image_height: number;
-}
+const DEMO_RESULT = {
+  boxes: [
+    { x: 0.23, y: 0.44, w: 0.05, h: 0.12, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+    { x: 0.38, y: 0.43, w: 0.04, h: 0.13, label: 'Mesial Caries #09', confidence: 0.71 },
+    { x: 0.48, y: 0.44, w: 0.05, h: 0.12, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+    { x: 0.48, y: 0.52, w: 0.05, h: 0.14, label: 'Periapical Radiolucency #19', confidence: 0.85 },
+    { x: 0.25, y: 0.52, w: 0.05, h: 0.14, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
+  ],
+  image_width: 800,
+  image_height: 500,
+};
 
 const HF_HOST = 'https://api-inference.huggingface.co';
 
-const DEMO_RESULT: DetectionResult = {
-  boxes: [
-    { x: 304, y: 210, w: 48, h: 75, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
-    { x: 496, y: 290, w: 56, h: 80, label: 'Periapical Radiolucency #19', confidence: 0.85 },
-    { x: 256, y: 300, w: 56, h: 75, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
-    { x: 160, y: 240, w: 48, h: 70, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
-    { x: 400, y: 200, w: 52, h: 78, label: 'Mesial Caries #09', confidence: 0.71 },
-  ],
-  model: 'demo',
-  image_width: 800,
-  image_height: 500,
+const MODELS: Record<string, string> = {
+  'tooth-detection': 'liodon-ai/dental-panoramic-detector',
+  'caries-detection': 'nsitnov/8024-yolov8-model',
+  'segmentation': 'nsitnov/8024-yolov8-model',
 };
 
 interface HFBox {
@@ -31,24 +29,8 @@ interface HFBox {
   score?: number;
 }
 
-async function callHFInference(buffer: Buffer, model: string): Promise<any> {
-  const response = await fetch(`${HF_HOST}/models/${model}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${HF_TOKEN}`,
-      'Content-Type': 'application/octet-stream',
-    },
-    body: buffer,
-  });
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`HF API ${response.status}: ${body.slice(0, 200)}`);
-  }
-  return response.json();
-}
-
-function parseBoxes(data: HFBox[], model: string, imgW: number, imgH: number): DetectionResult {
-  const boxes = (Array.isArray(data) ? data : []).map((item) => ({
+function parseHFBoxes(data: HFBox[], imgW: number, imgH: number) {
+  return (Array.isArray(data) ? data : []).map((item) => ({
     x: (item.box?.xmin ?? 0) * imgW,
     y: (item.box?.ymin ?? 0) * imgH,
     w: ((item.box?.xmax ?? 0) - (item.box?.xmin ?? 0)) * imgW,
@@ -56,94 +38,102 @@ function parseBoxes(data: HFBox[], model: string, imgW: number, imgH: number): D
     label: item.label || 'unknown',
     confidence: item.score ?? 0,
   }));
-  return { boxes, model, image_width: imgW, image_height: imgH };
 }
-
-function parseMasks(data: any, model: string, imgW: number, imgH: number): DetectionResult {
-  const masks = (Array.isArray(data) ? data : []).map((item: any) => ({
-    mask: item.mask || '', label: item.label || 'unknown',
-  }));
-  return { boxes: [], masks, model, image_width: imgW, image_height: imgH };
-}
-
-const MODELS: Record<string, { task: 'object-detection' | 'image-segmentation'; model: string }> = {
-  'tooth-detection': { task: 'object-detection', model: 'liodon-ai/dental-panoramic-detector' },
-  'caries-detection': { task: 'object-detection', model: 'nsitnov/8024-yolov8-model' },
-  'segmentation': { task: 'image-segmentation', model: 'nsitnov/8024-yolov8-model' },
-};
 
 function imageDimensionsFromBuffer(buffer: Buffer): { width: number; height: number } {
-  const firstBytes = buffer.slice(0, 33).toString('hex').toUpperCase();
-  let width = 800, height = 500;
-  if (firstBytes.startsWith('FFD8')) {
+  const hex = buffer.slice(0, 33).toString('hex').toUpperCase();
+  if (hex.startsWith('FFD8')) {
     let offset = 2;
     while (offset < buffer.length) {
       if (buffer[offset] !== 0xFF) break;
       const marker = buffer[offset + 1];
       if (marker === 0xC0 || marker === 0xC1 || marker === 0xC2) {
-        height = (buffer[offset + 5] << 8) + buffer[offset + 6];
-        width = (buffer[offset + 7] << 8) + buffer[offset + 8];
-        break;
+        return {
+          height: (buffer[offset + 5] << 8) + buffer[offset + 6],
+          width: (buffer[offset + 7] << 8) + buffer[offset + 8],
+        };
       }
-      const segLen = (buffer[offset + 2] << 8) + buffer[offset + 3];
-      offset += 2 + segLen;
+      offset += 2 + ((buffer[offset + 2] << 8) + buffer[offset + 3]);
     }
-  } else if (firstBytes.startsWith('89504E47')) {
-    width = (buffer[16] << 24) + (buffer[17] << 16) + (buffer[18] << 8) + buffer[19];
-    height = (buffer[20] << 24) + (buffer[21] << 16) + (buffer[22] << 8) + buffer[23];
+  } else if (hex.startsWith('89504E47')) {
+    return {
+      width: (buffer[16] << 24) + (buffer[17] << 16) + (buffer[18] << 8) + buffer[19],
+      height: (buffer[20] << 24) + (buffer[21] << 16) + (buffer[22] << 8) + buffer[23],
+    };
   }
-  return { width, height };
+  return { width: 800, height: 500 };
+}
+
+async function tryPythonAI(formData: FormData): Promise<Response | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${PYTHON_AI_URL}/api/dental-ai-vision`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return res.ok ? res : null;
+  } catch {
+    return null;
+  }
+}
+
+async function tryHFInference(buffer: Buffer, imgW: number, imgH: number, model: string) {
+  const res = await fetch(`${HF_HOST}/models/${model}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${HF_TOKEN}`,
+      'Content-Type': 'application/octet-stream',
+    },
+    body: buffer,
+  });
+  if (!res.ok) throw new Error(`HF API ${res.status}`);
+  const data = await res.json();
+  return { boxes: parseHFBoxes(data, imgW, imgH), image_width: imgW, image_height: imgH };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const form = await req.formData();
-    const file = form.get('image') as File;
-    const analysisType = (form.get('type') as string) || 'tooth-detection';
+    const formData = await req.formData();
+    const file = formData.get('image') as File;
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No image provided' }, { status: 400 });
     }
 
-    const config = MODELS[analysisType];
-    if (!config) {
-      return NextResponse.json({ success: false, error: `Unknown analysis type: ${analysisType}` }, { status: 400 });
+    // 1. Try local Python ONNX server first
+    const pythonRes = await tryPythonAI(formData);
+    if (pythonRes) {
+      const data = await pythonRes.json();
+      return NextResponse.json(data);
     }
 
+    // 2. Fallback to HuggingFace Inference API
+    const analysisType = (formData.get('type') as string) || 'tooth-detection';
+    const model = MODELS[analysisType];
     const buffer = Buffer.from(await file.arrayBuffer());
     const { width: imgW, height: imgH } = imageDimensionsFromBuffer(buffer);
 
-    if (!HF_TOKEN) {
-      const demo = { ...DEMO_RESULT, image_width: imgW, image_height: imgH };
-      return NextResponse.json({
-        success: true,
-        data: demo,
-        _demo: true,
-        _notice: 'HUGGINGFACE_API_KEY not set. Showing simulated results.',
-      });
+    if (model && HF_TOKEN) {
+      try {
+        const result = await tryHFInference(buffer, imgW, imgH, model);
+        return NextResponse.json({ success: true, data: result });
+      } catch (hfErr: any) {
+        console.warn('HF Inference failed:', hfErr.message);
+      }
     }
 
-    let result: DetectionResult;
-    try {
-      const data = await callHFInference(buffer, config.model);
-      result = config.task === 'object-detection'
-        ? parseBoxes(data, config.model, imgW, imgH)
-        : parseMasks(data, config.model, imgW, imgH);
-    } catch (hfErr: any) {
-      console.warn('HF Inference failed, falling back to demo:', hfErr.message);
-      const demo = { ...DEMO_RESULT, image_width: imgW, image_height: imgH };
-      return NextResponse.json({
-        success: true,
-        data: demo,
-        _demo: true,
-        _notice: `HF Inference unavailable (${hfErr.message}). Showing simulated results.`,
-      });
-    }
-
-    return NextResponse.json({ success: true, data: result });
+    // 3. Demo fallback
+    return NextResponse.json({
+      success: true,
+      data: { ...DEMO_RESULT, image_width: imgW, image_height: imgH },
+      _demo: true,
+      _notice: 'AI server unavailable. Showing simulated results.',
+    });
   } catch (error: any) {
     console.error('Dental AI Vision API error:', error);
-    const demo = { ...DEMO_RESULT, image_width: 800, image_height: 500 };
-    return NextResponse.json({ success: true, data: demo, _demo: true, _notice: error.message });
+    return NextResponse.json({ success: true, data: DEMO_RESULT, _demo: true, _notice: error.message });
   }
 }
