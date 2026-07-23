@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
 import { useUser } from '@clerk/nextjs';
-import GlobalSearch from './GlobalSearch';
 import { TutorialButton } from './TutorialButton';
 import AnimatedReport from './AnimatedReport';
 import AnimatedUser from './AnimatedUser';
@@ -280,24 +279,19 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
           // Add GlobalSearch after dashboard item
           if (item.href === '/dashboard') {
             return (
-              <React.Fragment key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={handleLinkClick}
-                  className={navItemClasses(isActive)}
-                >
-                  {typeof item.icon === 'string' ? (
-                    <i className={`${item.icon} w-5 mr-3`}></i>
-                  ) : (
-                    <div className="w-5 mr-3">{item.icon}</div>
-                  )}
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-                {/* Global Search Component */}
-                <div className="px-4 py-2">
-                  <GlobalSearch />
-                </div>
-              </React.Fragment>
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={handleLinkClick}
+                className={navItemClasses(isActive)}
+              >
+                {typeof item.icon === 'string' ? (
+                  <i className={`${item.icon} w-5 mr-3`}></i>
+                ) : (
+                  <div className="w-5 mr-3">{item.icon}</div>
+                )}
+                <span className="font-medium">{item.label}</span>
+              </Link>
             );
           }
           

@@ -19,6 +19,7 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import { TutorialProvider } from '@/contexts/TutorialContext';
 import { TutorialModal } from '@/components/TutorialModal';
 import { TutorialButton } from '@/components/TutorialButton';
+import GlobalSearch from '@/components/GlobalSearch';
 import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
 import AnimatedFolder from '@/components/AnimatedFolder';
 import AnimatedUsers from '@/components/AnimatedUsers';
@@ -372,6 +373,9 @@ export default function AuthLayout({
                       <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                         {/* Header Actions - Left of User Info */}
                         <div className="hidden sm:flex items-center space-x-3">
+                          {/* Global Search */}
+                          <GlobalSearch />
+                          
                           {/* Dark Mode Toggle */}
                           <DarkModeToggle />
                           
@@ -381,6 +385,7 @@ export default function AuthLayout({
                         
                         {/* Mobile Actions */}
                         <div className="flex sm:hidden items-center space-x-2">
+                          <GlobalSearch />
                           <DarkModeToggle />
                           <NotificationDropdown />
                         </div>

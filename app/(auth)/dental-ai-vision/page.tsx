@@ -62,20 +62,25 @@ function scaleBox(
   box: BoundingBox, naturalW: number, naturalH: number, layout: ImgLayout
 ): { left: number; top: number; width: number; height: number } {
   const isNormalized = box.x <= 1 && box.y <= 1 && box.w <= 1 && box.h <= 1;
+  console.log('[scaleBox]', { box, naturalW, naturalH, layout, isNormalized });
   if (isNormalized) {
-    return {
+    const result = {
       left: layout.offsetX + box.x * layout.renderW,
       top: layout.offsetY + box.y * layout.renderH,
       width: box.w * layout.renderW,
       height: box.h * layout.renderH,
     };
+    console.log('[scaleBox] normalized result', result);
+    return result;
   }
-  return {
+  const result = {
     left: layout.offsetX + (box.x / naturalW) * layout.renderW,
     top: layout.offsetY + (box.y / naturalH) * layout.renderH,
     width: (box.w / naturalW) * layout.renderW,
     height: (box.h / naturalH) * layout.renderH,
   };
+  console.log('[scaleBox] pixel fallback result', result);
+  return result;
 }
 
 export default function DentalAIVisionWorkspace() {
@@ -132,18 +137,23 @@ export default function DentalAIVisionWorkspace() {
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Processing failed');
       const data = json.data;
+      console.log('[API] response', { _demo: json._demo, boxes: data.boxes, image_width: data.image_width, image_height: data.image_height });
       setIsDemo(!!json._demo);
       const resultBoxes: BoundingBox[] = (data.boxes || []).filter((b: BoundingBox) => b.w > 0 && b.h > 0);
       setBoxes(resultBoxes);
       if (data.image_width && data.image_height) {
         setImageNatural({ w: data.image_width, h: data.image_height });
       }
-      const generated: Finding[] = resultBoxes.map((b: BoundingBox, i: number) => ({
-        id: `find-${i}`, tooth: b.label.replace(/\D/g, '') || String(i + 1).padStart(2, '0'),
-        diagnosis: b.label, confidence: Math.round(b.confidence * 100),
-        severity: b.confidence >= 0.8 ? 'high' : b.confidence >= 0.6 ? 'medium' : 'low',
-        verified: null,
-      }));
+      const generated: Finding[] = resultBoxes.map((b: BoundingBox, i: number) => {
+        const match = b.label.match(/#(\d{2})/);
+        const toothNum = match ? match[1] : String(i + 1).padStart(2, '0');
+        return {
+          id: `find-${i}`, tooth: toothNum,
+          diagnosis: b.label, confidence: Math.round(b.confidence * 100),
+          severity: b.confidence >= 0.8 ? 'high' : b.confidence >= 0.6 ? 'medium' : 'low',
+          verified: null,
+        };
+      });
       if (generated.length === 0) {
         setFindings(Object.entries(TOOTH_MAP).map(([tooth, info], i) => ({
           id: `mock-${i}`, tooth, ...info, verified: null,
@@ -176,17 +186,20 @@ export default function DentalAIVisionWorkspace() {
 
   const activeSource = isDemo || boxes.length === 0
     ? [
-        { x: 0.23, y: 0.44, w: 0.05, h: 0.12, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
-        { x: 0.38, y: 0.43, w: 0.04, h: 0.13, label: 'Mesial Caries #09', confidence: 0.71 },
-        { x: 0.48, y: 0.44, w: 0.05, h: 0.12, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
-        { x: 0.48, y: 0.52, w: 0.05, h: 0.14, label: 'Periapical Radiolucency #19', confidence: 0.85 },
-        { x: 0.25, y: 0.52, w: 0.05, h: 0.14, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
+        { x: 0.20, y: 0.43, w: 0.05, h: 0.12, label: 'Horizontal Bone Loss #03', confidence: 0.68 },
+        { x: 0.22, y: 0.54, w: 0.05, h: 0.14, label: 'Marginal Leakage Crown #30', confidence: 0.74 },
+        { x: 0.40, y: 0.41, w: 0.04, h: 0.13, label: 'Mesial Caries #09', confidence: 0.71 },
+        { x: 0.60, y: 0.45, w: 0.05, h: 0.12, label: 'Distal Occlusal Caries #14', confidence: 0.92 },
+        { x: 0.60, y: 0.55, w: 0.05, h: 0.14, label: 'Periapical Radiolucency #19', confidence: 0.85 },
       ]
     : boxes;
 
   const canvasToothBoxes: RenderedBox[] = activeSource.map(b => {
     const pos = scaleBox(b, imageNatural.w, imageNatural.h, imageLayout);
-    return { ...pos, toothLabel: b.label.replace(/\D/g, '') || '00', confidence: b.confidence };
+    const match = b.label.match(/#(\d{2})/);
+    const toothLabel = match ? match[1] : '00';
+    console.log('[renderBox]', { label: b.label, toothLabel, pos, imageNatural, imageLayout });
+    return { ...pos, toothLabel, confidence: b.confidence };
   });
 
   const hasFinding = (toothNum: string) => findings.some(f => f.tooth === toothNum);

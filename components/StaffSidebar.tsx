@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
 import { useUser } from '@clerk/nextjs';
-import GlobalSearch from './GlobalSearch';
 import { TutorialButton } from './TutorialButton';
 import AnimatedUser from './AnimatedUser';
 import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
@@ -51,31 +50,25 @@ export default function StaffSidebar({ sidebarOpen, setSidebarOpen }: StaffSideb
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
         {staffNavItems.map((item) => {
-          // Add GlobalSearch after dashboard item
           if (item.href === '/dashboard') {
             return (
-              <React.Fragment key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={handleLinkClick}
-                  className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
-                    pathname === item.href || pathname.startsWith(item.href + '/')
-                      ? 'bg-green-600 text-white shadow-lg'
-                      : 'text-green-200 hover:bg-green-800 hover:text-white'
-                  }`}
-                >
-                  {typeof item.icon === 'string' ? (
-                    <i className={`${item.icon} w-5 mr-3`}></i>
-                  ) : (
-                    <div className="w-5 mr-3">{item.icon}</div>
-                  )}
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-                {/* Global Search Component */}
-                <div className="px-4 py-2">
-                  <GlobalSearch />
-                </div>
-              </React.Fragment>
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={handleLinkClick}
+                className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
+                  pathname === item.href || pathname.startsWith(item.href + '/')
+                    ? 'bg-green-600 text-white shadow-lg'
+                    : 'text-green-200 hover:bg-green-800 hover:text-white'
+                }`}
+              >
+                {typeof item.icon === 'string' ? (
+                  <i className={`${item.icon} w-5 mr-3`}></i>
+                ) : (
+                  <div className="w-5 mr-3">{item.icon}</div>
+                )}
+                <span className="font-medium">{item.label}</span>
+              </Link>
             );
           }
           
