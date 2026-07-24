@@ -42,6 +42,7 @@ export default function InventarioPage() {
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [addStockItem, setAddStockItem] = useState<InventarioItem | null>(null);
   const [addStockCantidad, setAddStockCantidad] = useState(1);
+  const [addStockForm, setAddStockForm] = useState({ precio: 0, precio_compra: 0, fecha_compra: '' });
 
   const [showMovimientoModal, setShowMovimientoModal] = useState(false);
   const [movimientoTipo, setMovimientoTipo] = useState<'entrada' | 'salida'>('entrada');
@@ -251,23 +252,48 @@ export default function InventarioPage() {
   const openAddStockModal = (item: InventarioItem) => {
     setAddStockItem(item);
     setAddStockCantidad(1);
+    setAddStockForm({
+      precio: item.precio ?? item.insumo?.precio ?? 0,
+      precio_compra: item.precio_compra ?? 0,
+      fecha_compra: item.fecha_compra || '',
+    });
     setShowAddStockModal(true);
   };
 
   const saveAddStock = async () => {
     if (!addStockItem || addStockCantidad < 1) return;
     try {
-      const res = await fetch('/api/inventario/movimientos', {
-        method: 'POST',
+      const res = await fetch(`/api/inventario?id=${addStockItem.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          inventario_id: addStockItem.id,
-          tipo: 'entrada',
-          cantidad: addStockCantidad,
-          notas: 'Agregado manualmente',
+          stock_actual: addStockItem.stock_actual + addStockCantidad,
+          stock_minimo: addStockItem.stock_minimo,
+          precio: addStockForm.precio,
+          precio_compra: addStockForm.precio_compra,
+          fecha_compra: addStockForm.fecha_compra || null,
+          moneda: addStockItem.moneda || 'HNL',
+          codigo: addStockItem.codigo,
+          nombre: addStockItem.nombre,
+          marca: addStockItem.marca,
+          marca_id: addStockItem.marca_id,
+          ubicacion: addStockItem.ubicacion,
+          imagen_url: addStockItem.imagen_url,
+          activo: addStockItem.activo,
         }),
       });
       if (res.ok) {
+        // Also register movement for audit trail (best-effort)
+        await fetch('/api/inventario/movimientos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            inventario_id: addStockItem.id,
+            tipo: 'entrada',
+            cantidad: addStockCantidad,
+            notas: 'Agregado manualmente',
+          }),
+        }).catch(() => {});
         await loadInventario();
         setShowAddStockModal(false);
       } else {
@@ -666,7 +692,7 @@ export default function InventarioPage() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="fixed inset-0 bg-gray-500 opacity-75" onClick={() => setShowAddStockModal(false)}></div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 relative z-10">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 relative z-10">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 <i className="fas fa-plus-circle mr-2 text-green-600"></i>
                 Agregar Stock
@@ -684,6 +710,39 @@ export default function InventarioPage() {
                     onChange={(e) => setAddStockCantidad(Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                     autoFocus
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio Venta</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={addStockForm.precio}
+                      onChange={(e) => setAddStockForm({ ...addStockForm, precio: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio Compra</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={addStockForm.precio_compra}
+                      onChange={(e) => setAddStockForm({ ...addStockForm, precio_compra: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Compra</label>
+                  <input
+                    type="date"
+                    value={addStockForm.fecha_compra}
+                    onChange={(e) => setAddStockForm({ ...addStockForm, fecha_compra: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                   />
                 </div>
               </div>
