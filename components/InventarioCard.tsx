@@ -7,11 +7,11 @@ import { formatCurrency } from '@/utils/currencyUtils';
 interface InventarioCardProps {
   item: InventarioItem;
   onEdit: (item: InventarioItem) => void;
-  onMovimientos: (item: InventarioItem) => void;
+  onAddStock: (item: InventarioItem) => void;
   onDelete: (item: InventarioItem) => void;
 }
 
-export default function InventarioCard({ item, onEdit, onMovimientos, onDelete }: InventarioCardProps) {
+export default function InventarioCard({ item, onEdit, onAddStock, onDelete }: InventarioCardProps) {
   const nombre = item.nombre || item.insumo?.nombre || 'Desconocido';
   const codigo = item.codigo || item.insumo?.codigo || '';
   const precio = item.precio ?? item.insumo?.precio ?? 0;
@@ -126,10 +126,10 @@ export default function InventarioCard({ item, onEdit, onMovimientos, onDelete }
             <i className="fas fa-edit mr-1"></i>Editar
           </button>
           <button
-            onClick={() => onMovimientos(item)}
-            className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+            onClick={() => onAddStock(item)}
+            className="flex-1 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
           >
-            <i className="fas fa-history mr-1"></i>Mov.
+            <i className="fas fa-plus-circle mr-1"></i>Agregar
           </button>
           <button
             onClick={() => onDelete(item)}

@@ -39,6 +39,10 @@ export default function InventarioPage() {
     activo: true,
   });
 
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
+  const [addStockItem, setAddStockItem] = useState<InventarioItem | null>(null);
+  const [addStockCantidad, setAddStockCantidad] = useState(1);
+
   const [showMovimientoModal, setShowMovimientoModal] = useState(false);
   const [movimientoTipo, setMovimientoTipo] = useState<'entrada' | 'salida'>('entrada');
   const [movimientoForm, setMovimientoForm] = useState({ inventario_id: '', cantidad: 1, precio_unitario: 0, notas: '' });
@@ -244,6 +248,38 @@ export default function InventarioPage() {
     }
   };
 
+  const openAddStockModal = (item: InventarioItem) => {
+    setAddStockItem(item);
+    setAddStockCantidad(1);
+    setShowAddStockModal(true);
+  };
+
+  const saveAddStock = async () => {
+    if (!addStockItem || addStockCantidad < 1) return;
+    try {
+      const res = await fetch('/api/inventario/movimientos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inventario_id: addStockItem.id,
+          tipo: 'entrada',
+          cantidad: addStockCantidad,
+          notas: 'Agregado manualmente',
+        }),
+      });
+      if (res.ok) {
+        await loadInventario();
+        setShowAddStockModal(false);
+      } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'desconocido'));
+      }
+    } catch (err) {
+      console.error('Error adding stock:', err);
+      alert('Error al agregar stock');
+    }
+  };
+
   const openNuevoItemModal = async () => {
     setNuevoItemForm({ codigo: '', nombre: '', precio: 0, precio_compra: 0, fecha_compra: '', moneda: 'HNL', marca_id: '', marca: '', stock_actual: 0, stock_minimo: 5, ubicacion: '', imagen_url: '', activo: true });
     try {
@@ -430,10 +466,7 @@ export default function InventarioPage() {
                 key={item.id}
                 item={item}
                 onEdit={openEditModal}
-                onMovimientos={(item) => {
-                  setMovFilterInventarioId(item.id);
-                  setActiveTab('movimientos');
-                }}
+                onAddStock={openAddStockModal}
                 onDelete={deleteInventario}
               />
             ))
@@ -627,6 +660,52 @@ export default function InventarioPage() {
 
       {/* Tab: Distribuidores */}
       {activeTab === 'distribuidores' && <DistribuidoresTab />}
+
+      {/* Add Stock Modal */}
+      {showAddStockModal && addStockItem && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen p-4">
+            <div className="fixed inset-0 bg-gray-500 opacity-75" onClick={() => setShowAddStockModal(false)}></div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 relative z-10">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <i className="fas fa-plus-circle mr-2 text-green-600"></i>
+                Agregar Stock
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                {addStockItem.nombre || addStockItem.insumo?.nombre} — Stock actual: <strong>{addStockItem.stock_actual}</strong>
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad a agregar</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={addStockCantidad}
+                    onChange={(e) => setAddStockCantidad(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowAddStockModal(false)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveAddStock}
+                  disabled={addStockCantidad < 1}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  <i className="fas fa-check mr-2"></i>Agregar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {showEditModal && editItem && (
