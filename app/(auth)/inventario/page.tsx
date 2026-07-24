@@ -965,6 +965,7 @@ export default function InventarioPage() {
                         src={editForm.imagen_url}
                         alt="Preview"
                         className="h-24 w-24 object-contain border border-gray-200 dark:border-gray-600 rounded-lg"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
                       />
                     </div>
                   )}
@@ -1325,6 +1326,7 @@ export default function InventarioPage() {
                         src={nuevoItemForm.imagen_url}
                         alt="Preview"
                         className="h-24 w-24 object-contain border border-gray-200 dark:border-gray-600 rounded-lg"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
                       />
                     </div>
                   )}

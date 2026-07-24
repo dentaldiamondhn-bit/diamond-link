@@ -439,6 +439,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
                                 src={item.imagen_url}
                                 alt={item.nombre}
                                 className="w-20 h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
                               />
                             </div>
                           )}

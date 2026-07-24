@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { InventarioItem } from '@/types/inventario';
 import { formatCurrency } from '@/utils/currencyUtils';
 
@@ -12,6 +12,7 @@ interface InventarioCardProps {
 }
 
 export default function InventarioCard({ item, onEdit, onAddStock, onDelete }: InventarioCardProps) {
+  const [imgError, setImgError] = useState(false);
   const nombre = item.nombre || item.insumo?.nombre || 'Desconocido';
   const codigo = item.codigo || item.insumo?.codigo || '';
   const precio = item.precio ?? item.insumo?.precio ?? 0;
@@ -25,11 +26,12 @@ export default function InventarioCard({ item, onEdit, onAddStock, onDelete }: I
     }`}>
       {/* Image */}
       <div className="h-40 bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-        {item.imagen_url ? (
+        {item.imagen_url && !imgError ? (
           <img
             src={item.imagen_url}
             alt={nombre}
             className="w-full h-full object-contain p-2"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="text-center text-gray-400 dark:text-gray-500">
