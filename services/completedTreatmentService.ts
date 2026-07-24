@@ -278,11 +278,25 @@ export class CompletedTreatmentService {
         .in('tratamiento_completado_id', treatmentIds)
         .order('creado_en', { ascending: true });
 
+      // Batch-fetch inventory items for ALL treatments
+      const { data: allInvItems } = await supabase
+        .from('tratamientos_inventario')
+        .select('*')
+        .in('tratamiento_completado_id', treatmentIds);
+
       const itemsByTreatment: Record<string, any[]> = {};
       if (allItems) {
         for (const item of allItems) {
           if (!itemsByTreatment[item.tratamiento_completado_id]) itemsByTreatment[item.tratamiento_completado_id] = [];
           itemsByTreatment[item.tratamiento_completado_id].push(item);
+        }
+      }
+
+      const invItemsByTreatment: Record<string, any[]> = {};
+      if (allInvItems) {
+        for (const item of allInvItems) {
+          if (!invItemsByTreatment[item.tratamiento_completado_id]) invItemsByTreatment[item.tratamiento_completado_id] = [];
+          invItemsByTreatment[item.tratamiento_completado_id].push(item);
         }
       }
 
@@ -303,6 +317,7 @@ export class CompletedTreatmentService {
       const treatmentsWithItems = uniqueTreatments.map((treatment: any) => ({
         ...treatment,
         tratamientos_realizados: itemsByTreatment[treatment.id] || [],
+        tratamientos_inventario: invItemsByTreatment[treatment.id] || [],
         paciente: patientMap[treatment.paciente_id] || {},
         paciente_beneficiario: treatment.beneficiario_nombre_completo ? {
           nombre_completo: treatment.beneficiario_nombre_completo,

@@ -303,7 +303,7 @@ function TratamientosCompletadosPageContent() {
         comparison = (a.paciente_doctor || a.paciente?.doctor || '').localeCompare(b.paciente_doctor || b.paciente?.doctor || '');
         break;
       case 'tratamientos':
-        comparison = (a.tratamientos_realizados?.length || 0) - (b.tratamientos_realizados?.length || 0);
+        comparison = ((a.tratamientos_realizados?.length || 0) + (a.tratamientos_inventario?.length || 0)) - ((b.tratamientos_realizados?.length || 0) + (b.tratamientos_inventario?.length || 0));
         break;
       case 'total':
         comparison = (a.total_final || 0) - (b.total_final || 0);
@@ -417,7 +417,7 @@ function TratamientosCompletadosPageContent() {
     setTreatmentToDelete({
       id: treatment.id,
       patientName: treatment.paciente?.nombre_completo || 'Paciente Desconocido',
-      treatmentCount: treatment.tratamientos_realizados?.length || 0
+      treatmentCount: (treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0)
     });
     setDeleteError(null);
   };
@@ -857,9 +857,9 @@ function TratamientosCompletadosPageContent() {
                       {/* Treatment Items */}
                       <div className="mb-4">
                         <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                          Tratamientos Realizados ({treatment.tratamientos_realizados.length})
+                          Tratamientos Realizados ({(treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0)})
                         </div>
-                        {treatment.tratamientos_realizados.map((tr) => (
+                        {treatment.tratamientos_realizados?.map((tr) => (
                           <div key={tr.id} className="flex items-center justify-between py-1">
                             <div className="flex-1">
                               <div className="flex flex-col">
@@ -878,6 +878,23 @@ function TratamientosCompletadosPageContent() {
                             </div>
                             <span className="text-sm font-semibold text-teal-600 dark:text-teal-400">
                               {formatCurrency(tr.precio_final * tr.cantidad)}
+                            </span>
+                          </div>
+                        ))}
+                        {treatment.tratamientos_inventario?.map((item) => (
+                          <div key={`inv-${item.id}`} className="flex items-center justify-between py-1 pl-4 border-l-2 border-amber-300 dark:border-amber-700">
+                            <div className="flex-1">
+                              <div className="flex flex-col">
+                                <span className="text-sm text-gray-700 dark:text-gray-300">
+                                  {item.cantidad}x {item.nombre}
+                                </span>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {item.codigo} <span className="text-amber-600 dark:text-amber-400">(Inventario)</span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-sm font-semibold text-teal-600 dark:text-teal-400">
+                              {formatCurrency(item.precio * item.cantidad)}
                             </span>
                           </div>
                         ))}
@@ -1090,7 +1107,7 @@ function TratamientosCompletadosPageContent() {
                           {treatment.paciente_doctor || treatment.paciente?.doctor || 'No especificado'}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {treatment.tratamientos_realizados.length} tratamiento(s)
+                          {(treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0)} item(s)
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           <div>
