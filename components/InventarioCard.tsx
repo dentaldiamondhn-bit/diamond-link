@@ -96,6 +96,19 @@ export default function InventarioCard({ item, onEdit, onMovimientos, onDelete }
               {formatCurrency(precio, moneda as any)}
             </span>
           </div>
+          {item.precio_compra > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 dark:text-gray-400">Ganancia:</span>
+              <span className={`font-medium ${
+                precio > item.precio_compra ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+                {formatCurrency(precio - item.precio_compra, moneda as any)}
+                <span className="ml-1 text-xs">
+                  ({item.precio_compra > 0 ? Math.round(((precio - item.precio_compra) / item.precio_compra) * 100) : 0}%)
+                </span>
+              </span>
+            </div>
+          )}
           {item.ubicacion && (
             <div className="flex justify-between text-sm">
               <span className="text-gray-500 dark:text-gray-400">Ubicación:</span>

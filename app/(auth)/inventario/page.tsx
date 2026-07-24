@@ -36,6 +36,7 @@ export default function InventarioPage() {
     codigo: '',
     nombre: '',
     precio: 0,
+    precio_compra: 0,
     moneda: 'HNL' as 'HNL' | 'USD',
     marca_id: '',
     marca: '',
@@ -205,7 +206,7 @@ export default function InventarioPage() {
   };
 
   const openNuevoItemModal = async () => {
-    setNuevoItemForm({ codigo: '', nombre: '', precio: 0, moneda: 'HNL', marca_id: '', marca: '', stock_actual: 0, stock_minimo: 5, ubicacion: '', imagen_url: '', activo: true });
+    setNuevoItemForm({ codigo: '', nombre: '', precio: 0, precio_compra: 0, moneda: 'HNL', marca_id: '', marca: '', stock_actual: 0, stock_minimo: 5, ubicacion: '', imagen_url: '', activo: true });
     try {
       const res = await fetch('/api/inventario/marcas');
       if (res.ok) setMarcasList(await res.json());
@@ -812,11 +813,11 @@ export default function InventarioPage() {
                   />
                 </div>
 
-                {/* Price and Currency — 2-column grid like TreatmentModal */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Price and Currency — 3-column grid */}
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Precio <span className="text-red-500">*</span>
+                      Precio Venta <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -830,6 +831,27 @@ export default function InventarioPage() {
                         step="0.01"
                         value={nuevoItemForm.precio}
                         onChange={(e) => setNuevoItemForm({ ...nuevoItemForm, precio: parseFloat(e.target.value) || 0 })}
+                        className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Precio Compra
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 dark:text-gray-400 text-sm">
+                          {getCurrencySymbol(nuevoItemForm.moneda)}
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={nuevoItemForm.precio_compra}
+                        onChange={(e) => setNuevoItemForm({ ...nuevoItemForm, precio_compra: parseFloat(e.target.value) || 0 })}
                         className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                         placeholder="0.00"
                       />
@@ -852,6 +874,23 @@ export default function InventarioPage() {
                     </select>
                   </div>
                 </div>
+
+                {/* Ganancia (calculated) */}
+                {nuevoItemForm.precio > 0 && nuevoItemForm.precio_compra > 0 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200">Ganancia</span>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                          {getCurrencySymbol(nuevoItemForm.moneda)}{(nuevoItemForm.precio - nuevoItemForm.precio_compra).toFixed(2)}
+                        </span>
+                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">
+                          ({nuevoItemForm.precio_compra > 0 ? Math.round(((nuevoItemForm.precio - nuevoItemForm.precio_compra) / nuevoItemForm.precio_compra) * 100) : 0}%)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Stock */}
                 <div className="grid grid-cols-2 gap-4">

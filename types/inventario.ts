@@ -5,6 +5,7 @@ export interface InventarioItem {
   codigo: string | null;
   nombre: string;
   precio: number;
+  precio_compra: number;
   moneda: string;
   marca: string | null;
   stock_actual: number;

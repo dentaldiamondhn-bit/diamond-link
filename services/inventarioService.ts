@@ -88,6 +88,7 @@ export class InventarioService {
     codigo?: string;
     nombre?: string;
     precio?: number;
+    precio_compra?: number;
     moneda?: string;
     marca?: string;
     stock_actual: number;
@@ -131,6 +132,7 @@ export class InventarioService {
         codigo: item.codigo || null,
         nombre: item.nombre || '',
         precio: item.precio ?? 0,
+        precio_compra: item.precio_compra ?? 0,
         moneda: item.moneda || 'HNL',
         marca: item.marca || null,
         stock_actual: item.stock_actual,
@@ -148,6 +150,17 @@ export class InventarioService {
         .upsert(payload)
         .select('*, marca_ref:marcas(*), insumo:insumos(*)')
         .single();
+
+      // Fallback: precio_compra column may not exist in schema cache
+      if (error && (error.message?.includes('precio_compra') || error.code === 'PGRST204')) {
+        delete payload.precio_compra;
+        const { data: fallback } = await supabase
+          .from('inventario')
+          .upsert(payload)
+          .select('*, marca_ref:marcas(*), insumo:insumos(*)')
+          .single();
+        if (fallback) return fallback;
+      }
 
       if (error && error.message?.includes('marca_ref')) {
         const { data: fallback } = await supabase
