@@ -73,17 +73,18 @@ interface Treatment {
 }
 
 interface SelectedTreatment {
-  tratamiento_id: number;
+  tratamiento_id: number | string;
   nombre_tratamiento: string;
   codigo_tratamiento: string;
   precio_original: number;
   precio_final: number;
-  moneda: Currency; // Add currency field
+  moneda: Currency;
   cantidad: number;
   notas: string;
   doctor_id?: string;
   doctor_name?: string;
-  disableElderlyDiscount?: boolean; // Add this for per-treatment control
+  disableElderlyDiscount?: boolean;
+  imagen_url?: string;
 }
 
 
@@ -97,13 +98,14 @@ function NuevoTratamientoCompletadoPageContent() {
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [paquetes, setPaquetes] = useState<Paquete[]>([]);
+  const [insumos, setInsumos] = useState<any[]>([]);
   const [selectedTreatments, setSelectedTreatments] = useState<SelectedTreatment[]>([]);
   const [discountType, setDiscountType] = useState<'monto' | 'porcentaje' | 'ninguno'>('ninguno');
   const [discountValue, setDiscountValue] = useState(0);
   const [doctorNotes, setDoctorNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
-  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones' | 'paquetes'>('tratamientos');
+  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones' | 'paquetes' | 'insumos'>('tratamientos');
   const [showPatientSignatureModal, setShowPatientSignatureModal] = useState(false);
   const [patientSignature, setPatientSignature] = useState<string | null>(null);
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
@@ -160,6 +162,7 @@ function NuevoTratamientoCompletadoPageContent() {
       loadAvailableTreatments();
       loadPromotions();
       loadPaquetes();
+      loadInsumos();
     } else {
       router.push('/tratamientos-completados');
     }
@@ -247,6 +250,34 @@ function NuevoTratamientoCompletadoPageContent() {
     } catch (error) {
       console.error('Error loading paquetes:', error);
       setPaquetes([]);
+    }
+  };
+
+  const loadInsumos = async () => {
+    try {
+      const [invRes, insumosRes] = await Promise.all([
+        fetch('/api/inventario'),
+        fetch('/api/insumos'),
+      ]);
+      let combined: any[] = [];
+      if (invRes.ok) {
+        const data = await invRes.json();
+        combined = data.filter((i: any) => i.activo !== false);
+      }
+      if (insumosRes.ok) {
+        const oldInsumos = await insumosRes.json();
+        for (const ins of oldInsumos) {
+          if (ins.activo === false) continue;
+          const exists = combined.some((i: any) => i.insumo_id === ins.id || i.id === ins.id);
+          if (!exists) {
+            combined.push(ins);
+          }
+        }
+      }
+      setInsumos(combined);
+    } catch (error) {
+      console.error('Error loading insumos:', error);
+      setInsumos([]);
     }
   };
 
@@ -682,12 +713,16 @@ function NuevoTratamientoCompletadoPageContent() {
         
         // Increment the counter for each treatment that was completed (main payer)
         for (const item of selectedTreatments) {
+          if (String(item.tratamiento_id).startsWith('inv_')) continue;
           try {
             await TreatmentService.incrementTreatmentCounter(item.tratamiento_id, item.cantidad);
           } catch (error) {
             console.error(`Error incrementing counter for treatment ${item.tratamiento_id}:`, error);
           }
         }
+
+        // Decrement inventory for insumos used (main payer)
+        await decrementInsumosInventory(selectedTreatments);
         
         // 2. Create separate treatment records for each beneficiary
         for (const beneficiary of beneficiaries) {
@@ -761,12 +796,16 @@ function NuevoTratamientoCompletadoPageContent() {
         
         // Increment the counter for each treatment that was completed
         for (const item of selectedTreatments) {
+          if (String(item.tratamiento_id).startsWith('inv_')) continue;
           try {
             await TreatmentService.incrementTreatmentCounter(item.tratamiento_id, item.cantidad);
           } catch (error) {
             console.error(`Error incrementing counter for treatment ${item.tratamiento_id}:`, error);
           }
         }
+
+        // Decrement inventory for insumos used
+        await decrementInsumosInventory(selectedTreatments);
         
         alert('Tratamiento completado guardado exitosamente');
       }
@@ -777,6 +816,28 @@ function NuevoTratamientoCompletadoPageContent() {
       alert('Error al guardar el tratamiento');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const decrementInsumosInventory = async (items: SelectedTreatment[]) => {
+    for (const item of items) {
+      if (typeof item.tratamiento_id === 'string' && item.tratamiento_id.startsWith('inv_')) {
+        const inventarioId = item.tratamiento_id.replace('inv_', '');
+        try {
+          await fetch('/api/inventario/movimientos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inventario_id: inventarioId,
+              tipo: 'salida',
+              cantidad: item.cantidad || 1,
+              notas: `Venta: ${item.nombre_tratamiento}`,
+            }),
+          });
+        } catch (error) {
+          console.error(`Error registrando salida de inventario item ${inventarioId}:`, error);
+        }
+      }
     }
   };
 
@@ -799,8 +860,63 @@ function NuevoTratamientoCompletadoPageContent() {
       paquete.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+  const filteredInsumos = insumos
+    .filter(inv => {
+      if (inv.activo === false) return false;
+      const name = (inv.nombre || inv.insumo?.nombre || '').toLowerCase();
+      const code = (inv.codigo || inv.insumo?.codigo || '').toLowerCase();
+      const q = searchTerm.toLowerCase();
+      return name.includes(q) || code.includes(q);
+    });
+
   const addPaquete = (paquete: any) => {
-    setSelectedTreatments([...selectedTreatments, paquete]);
+    setSelectedTreatments(prev => {
+      const existing = prev.find(item => item.tratamiento_id === paquete.id);
+      if (existing) {
+        return prev.filter(item => item.tratamiento_id !== paquete.id);
+      }
+      const newItem: SelectedTreatment = {
+        tratamiento_id: paquete.id,
+        nombre_tratamiento: paquete.nombre,
+        codigo_tratamiento: paquete.codigo,
+        precio_original: paquete.precio_total,
+        precio_final: paquete.precio_total,
+        moneda: paquete.moneda || 'HNL' as Currency,
+        cantidad: 1,
+        notas: paquete.descripcion || '',
+        doctor_id: '',
+        doctor_name: '',
+      };
+      return [...prev, newItem];
+    });
+  };
+
+  const addInsumo = (invItem: any) => {
+    const nombre = invItem.nombre || invItem.insumo?.nombre || '';
+    const codigo = invItem.codigo || invItem.insumo?.codigo || '';
+    const precio = invItem.precio ?? invItem.insumo?.precio ?? 0;
+    const moneda = invItem.moneda || invItem.insumo?.moneda || 'HNL';
+    const descripcion = invItem.descripcion || invItem.insumo?.descripcion || '';
+    setSelectedTreatments(prev => {
+      const existing = prev.find(item => item.tratamiento_id === `inv_${invItem.id}`);
+      if (existing) {
+        return prev.filter(item => item.tratamiento_id !== `inv_${invItem.id}`);
+      }
+      const newItem: SelectedTreatment = {
+        tratamiento_id: `inv_${invItem.id}`,
+        nombre_tratamiento: nombre,
+        codigo_tratamiento: codigo,
+        precio_original: precio,
+        precio_final: precio,
+        moneda: moneda as Currency,
+        cantidad: 1,
+        notas: descripcion,
+        doctor_id: '',
+        doctor_name: '',
+        imagen_url: invItem.imagen_url || undefined,
+      };
+      return [...prev, newItem];
+    });
   };
 
   if (loading) {
@@ -880,8 +996,9 @@ function NuevoTratamientoCompletadoPageContent() {
                       <i className="fas fa-percent mr-1"></i>
                       {getPatientType(patient).category === '4ta' ? '35%' : '25%'} descuento
                     </span>
-                  )}
-                </div>
+              )}
+
+            </div>
               </div>
             </div>
           </div>
@@ -954,6 +1071,16 @@ function NuevoTratamientoCompletadoPageContent() {
                   }`}
                 >
                   Paquetes
+                </button>
+                <button
+                  onClick={() => setActiveTab('insumos')}
+                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === 'insumos'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Insumos
                 </button>
               </div>
 
@@ -1062,6 +1189,108 @@ function NuevoTratamientoCompletadoPageContent() {
                   </div>
                 </div>
               )}
+
+              {/* Paquetes Tab */}
+              {activeTab === 'paquetes' && (
+                <div>
+                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      placeholder="Buscar paquete..."
+                    />
+                  </div>
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                    {filteredPaquetes.length > 0 ? (
+                      filteredPaquetes.map((paquete) => (
+                        <div
+                          key={paquete.id}
+                          onClick={() => addPaquete(paquete)}
+                          className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-sm text-gray-900 dark:text-white">
+                              {paquete.codigo} - {paquete.nombre}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {paquete.descripcion}
+                            </div>
+                          </div>
+                          <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
+                            {formatCurrency(paquete.precio_total, paquete.moneda || 'HNL' as Currency)}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                        No se encontraron paquetes
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Insumos Tab */}
+              {activeTab === 'insumos' && (
+                <div>
+                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      placeholder="Buscar insumo..."
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                    {filteredInsumos.length > 0 ? (
+                      filteredInsumos.map((inv) => (
+                        <div
+                          key={inv.id}
+                          onClick={() => addInsumo(inv)}
+                          className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                        >
+                          <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                            {inv.imagen_url ? (
+                              <img
+                                src={inv.imagen_url}
+                                alt={inv.nombre || inv.insumo?.nombre}
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <i className="fas fa-box text-sm"></i>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                              {inv.codigo || inv.insumo?.codigo} - {inv.nombre || inv.insumo?.nombre}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {inv.insumo?.descripcion}
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
+                              {formatCurrency(inv.precio ?? inv.insumo?.precio ?? 0, (inv.moneda || inv.insumo?.moneda || 'HNL') as Currency)}
+                            </div>
+                            <div className={`text-xs ${inv.stock_actual < inv.stock_minimo ? 'text-red-500' : 'text-gray-500'}`}>
+                              Stock: {inv.stock_actual}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                        No se encontraron items en inventario
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Selected Treatments */}
@@ -1083,10 +1312,20 @@ function NuevoTratamientoCompletadoPageContent() {
                     return (
                     <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white">{item.nombre_tratamiento}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{item.codigo_tratamiento}</p>
-                          <p className="text-sm font-medium text-teal-600">{formatCurrency(item.precio_original, item.moneda || 'HNL' as Currency)}</p>
+                        <div className="flex-1 flex items-start gap-3">
+                          {item.imagen_url && (
+                            <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                              <img
+                                src={item.imagen_url}
+                                alt={item.nombre_tratamiento}
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-white">{item.nombre_tratamiento}</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{item.codigo_tratamiento}</p>
+                            <p className="text-sm font-medium text-teal-600">{formatCurrency(item.precio_original, item.moneda || 'HNL' as Currency)}</p>
                           
                           {/* Doctor Selection */}
                           <div className="mt-2">
@@ -1151,6 +1390,7 @@ function NuevoTratamientoCompletadoPageContent() {
                         className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white text-sm"
                         rows={2}
                       />
+                    </div>
                     </div>
                     );
                   })}
@@ -1512,51 +1752,6 @@ function NuevoTratamientoCompletadoPageContent() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Paquetes Tab */}
-      {activeTab === 'paquetes' && (
-        <div>
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-3">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-              placeholder="Buscar paquete..."
-            />
-          </div>
-
-          {/* Paquetes List */}
-          <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
-            {filteredPaquetes.length > 0 ? (
-              filteredPaquetes.map((paquete) => (
-                <div
-                  key={paquete.id}
-                  onClick={() => addPaquete(paquete)}
-                  className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-                >
-                  <div className="flex-1">
-                    <div className="font-medium text-sm text-gray-900 dark:text-white">
-                      {paquete.codigo} - {paquete.nombre}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {paquete.descripcion}
-                    </div>
-                  </div>
-                  <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
-                    {formatCurrency(paquete.precio_total, paquete.moneda || 'HNL' as Currency)}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
-                No se encontraron paquetes
-              </div>
-            )}
           </div>
         </div>
       )}

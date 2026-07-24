@@ -361,13 +361,19 @@ export default function AuthLayout({
                               Notas - Línea de Tiempo
                             </h1>
                           )}
-                          {pathname === '/patient-follow-up' && (
-                            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                              <span className="mr-2">📋</span>
-                              Seguimiento de Pacientes
-                            </h1>
-                          )}
-                      </div>
+                           {pathname === '/patient-follow-up' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                               <span className="mr-2">📋</span>
+                               Seguimiento de Pacientes
+                             </h1>
+                           )}
+                           {pathname === '/inventario' && (
+                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                               <i className="fas fa-warehouse mr-3 text-teal-600"></i>
+                               Inventario y Accountability
+                             </h1>
+                           )}
+                       </div>
                       
                       {/* Right side - User Info and Actions */}
                       <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">

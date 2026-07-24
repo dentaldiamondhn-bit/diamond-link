@@ -53,6 +53,18 @@ interface CompletedTreatment {
       notas?: string;
     };
   }[];
+  tratamientos_inventario?: {
+    id: string;
+    tratamiento_completado_id: string;
+    inventario_id: string;
+    nombre: string;
+    codigo?: string;
+    cantidad: number;
+    precio: number;
+    moneda: Currency;
+    imagen_url?: string;
+    notas?: string;
+  }[];
 }
 
 export default function TratamientoCompletadoViewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -321,7 +333,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Total de Tratamientos</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {treatment.tratamientos_realizados?.length || 0} procedimientos
+                    {(treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0)} procedimientos
                   </p>
                 </div>
               </div>
@@ -334,9 +346,9 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
               </h3>
               
               {/* Always show treatments, regardless of historical mode */}
-              {treatment.tratamientos_realizados && treatment.tratamientos_realizados.length > 0 ? (
+              {treatment.tratamientos_realizados && treatment.tratamientos_realizados.length > 0 || treatment.tratamientos_inventario && treatment.tratamientos_inventario.length > 0 ? (
                 <div className="space-y-3">
-                  {treatment.tratamientos_realizados.map((item) => (
+                  {treatment.tratamientos_realizados?.map((item) => (
                     <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -397,6 +409,66 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
                               {formatCurrency(item.precio_original, item.moneda || 'HNL' as Currency)}
                             </p>
                           )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Inventory (insumos) items used */}
+                  {treatment.tratamientos_inventario?.map((item) => (
+                    <div key={`inv-${item.id}`} className="border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center mb-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-gray-900 dark:text-white">
+                                {item.nombre}
+                              </h4>
+                              <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-xs rounded-full">
+                                Inventario
+                              </span>
+                            </div>
+                            {item.codigo && (
+                              <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 text-xs rounded-full">
+                                {item.codigo}
+                              </span>
+                            )}
+                          </div>
+                          {item.imagen_url && (
+                            <div className="mb-3">
+                              <img
+                                src={item.imagen_url}
+                                alt={item.nombre}
+                                className="w-20 h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                              />
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Cantidad:</span>
+                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                                {item.cantidad}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Precio Unitario:</span>
+                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                                {formatCurrency(item.precio, item.moneda || 'HNL' as Currency)}
+                              </span>
+                            </div>
+                          </div>
+                          {item.notas && (
+                            <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-700 rounded text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">Notas:</span>
+                              <p className="mt-1 text-gray-700 dark:text-gray-300">
+                                {item.notas}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right ml-4">
+                          <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {formatCurrency(item.precio, item.moneda || 'HNL' as Currency)}
+                          </p>
                         </div>
                       </div>
                     </div>

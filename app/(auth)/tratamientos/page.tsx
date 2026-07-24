@@ -42,7 +42,8 @@ export default function TratamientosPage() {
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [paquetes, setPaquetes] = useState<Paquete[]>([]);
-  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones' | 'paquetes'>('tratamientos');
+  const [insumos, setInsumos] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones' | 'paquetes' | 'insumos'>('tratamientos');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -50,6 +51,7 @@ export default function TratamientosPage() {
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
   const [selectedPaquete, setSelectedPaquete] = useState<Paquete | null>(null);
+  const [selectedInsumo, setSelectedInsumo] = useState<any | null>(null);
   const [selectedTreatments, setSelectedTreatments] = useState<TreatmentItem[]>([]);
   
   // Form data states
@@ -83,6 +85,14 @@ export default function TratamientosPage() {
     moneda: 'HNL',
     max_pacientes: 1,
     veces_vendido: 0,
+    activo: true,
+  });
+  const [insumoFormData, setInsumoFormData] = useState({
+    codigo: '',
+    nombre: '',
+    descripcion: '',
+    precio: 0,
+    moneda: 'HNL',
     activo: true,
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -126,6 +136,7 @@ export default function TratamientosPage() {
     loadTreatments();
     loadPromotions();
     loadPaquetes();
+    loadInsumos();
   }, []);
 
   const loadTreatments = async () => {
@@ -180,6 +191,20 @@ export default function TratamientosPage() {
       console.error('Error loading paquetes:', error);
       // Set empty array if API fails
       setPaquetes([]);
+    }
+  };
+
+  const loadInsumos = async () => {
+    try {
+      const response = await fetch('/api/insumos');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setInsumos(data);
+    } catch (error) {
+      console.error('Error loading insumos:', error);
+      setInsumos([]);
     }
   };
 
@@ -270,10 +295,17 @@ export default function TratamientosPage() {
     paquete.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredInsumos = insumos.filter(insumo =>
+    insumo.activo !== false &&
+    (insumo.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    insumo.codigo?.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   // Pagination calculations
   const currentData = activeTab === 'tratamientos' ? filteredTreatments : 
                      activeTab === 'promociones' ? filteredPromotions : 
-                     filteredPaquetes;
+                     activeTab === 'paquetes' ? filteredPaquetes :
+                     filteredInsumos;
   const totalRecords = currentData.length;
   const totalPages = Math.ceil(totalRecords / recordsPerPagePref);
   const startIndex = (currentPage - 1) * recordsPerPagePref;
@@ -522,7 +554,18 @@ export default function TratamientosPage() {
       const nextCode = await TreatmentService.generateNextPaqueteCode();
       setPaqueteFormData(prev => ({ ...prev, codigo: nextCode }));
     } catch (error) {
-      console.error('Error generating next paquete code:', error);
+      console.error('Error loading paquetes:', error);
+    }
+    
+    // Load insumos
+    try {
+      const response = await fetch('/api/insumos');
+      if (response.ok) {
+        const insumosData = await response.json();
+        setInsumos(insumosData);
+      }
+    } catch (error) {
+      console.error('Error loading insumos:', error);
     }
     
     setShowAddModal(true);
@@ -568,7 +611,57 @@ export default function TratamientosPage() {
     setSelectedTreatment(null);
     setSelectedPromotion(null);
     setSelectedPaquete(paquete);
+    setSelectedInsumo(null);
     setShowDeleteModal(true);
+  };
+
+  const handleDeleteInsumo = (insumo: any) => {
+    setSelectedTreatment(null);
+    setSelectedPromotion(null);
+    setSelectedPaquete(null);
+    setSelectedInsumo(insumo);
+    setShowDeleteModal(true);
+  };
+
+  const handleAddInsumo = async () => {
+    setSelectedTreatment(null);
+    setSelectedPromotion(null);
+    setSelectedPaquete(null);
+    setSelectedInsumo(null);
+    setInsumoFormData({
+      codigo: '',
+      nombre: '',
+      descripcion: '',
+      precio: 0,
+      moneda: 'HNL',
+      activo: true,
+    });
+    try {
+      const response = await fetch('/api/insumos');
+      if (response.ok) {
+        const insumosData = await response.json();
+        setInsumos(insumosData);
+      }
+    } catch (error) {
+      console.error('Error loading insumos:', error);
+    }
+    setShowAddModal(true);
+  };
+
+  const handleEditInsumo = (insumo: any) => {
+    setSelectedTreatment(null);
+    setSelectedPromotion(null);
+    setSelectedPaquete(null);
+    setSelectedInsumo(insumo);
+    setInsumoFormData({
+      codigo: insumo.codigo,
+      nombre: insumo.nombre,
+      descripcion: insumo.descripcion || '',
+      precio: insumo.precio,
+      moneda: insumo.moneda,
+      activo: insumo.activo !== false,
+    });
+    setShowAddModal(true);
   };
 
   // Autocomplete function for codigo
@@ -782,6 +875,40 @@ export default function TratamientosPage() {
 
         // Reload paquetes to ensure data consistency
         await loadPaquetes();
+      } else if (activeTab === 'insumos') {
+        const insumoData = {
+          codigo: insumoFormData.codigo || '',
+          nombre: insumoFormData.nombre || '',
+          descripcion: insumoFormData.descripcion || '',
+          precio: insumoFormData.precio || 0,
+          moneda: insumoFormData.moneda || 'HNL',
+          activo: insumoFormData.activo !== false,
+        };
+
+        if (selectedInsumo) {
+          const response = await fetch(`/api/insumos?id=${selectedInsumo.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(insumoData),
+          });
+          if (!response.ok) throw new Error('Failed to update insumo');
+          const updatedInsumo = await response.json();
+          setInsumos(prev => prev.map(i => i.id === selectedInsumo.id ? updatedInsumo : i));
+        } else {
+          const response = await fetch('/api/insumos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(insumoData),
+          });
+          if (!response.ok) throw new Error('Failed to create insumo');
+          const newInsumo = await response.json();
+          setInsumos(prev => [...prev, newInsumo]);
+        }
+        await loadInsumos();
+        setInsumoFormData({ codigo: '', nombre: '', descripcion: '', precio: 0, moneda: 'HNL', activo: true });
+        setShowAddModal(false);
+        setSelectedInsumo(null);
+        await loadInsumos();
       } else if (activeTab === 'promociones') {
         // Handle promotions
         const promotionData = {
@@ -884,6 +1011,15 @@ export default function TratamientosPage() {
           veces_vendido: 0,
           activo: true,
         });
+      } else if (activeTab === 'insumos') {
+        setInsumoFormData({
+          codigo: '',
+          nombre: '',
+          descripcion: '',
+          precio: 0,
+          moneda: 'HNL',
+          activo: true,
+        });
       }
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -929,11 +1065,23 @@ export default function TratamientosPage() {
         
         // Reload paquetes to ensure data consistency
         await loadPaquetes();
+      } else if (activeTab === 'insumos' && selectedInsumo) {
+        const response = await fetch(`/api/insumos?id=${selectedInsumo.id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete insumo');
+        }
+
+        setInsumos(prev => prev.filter(i => i.id !== selectedInsumo.id));
+        await loadInsumos();
       }
       setShowDeleteModal(false);
       setSelectedTreatment(null);
       setSelectedPromotion(null);
       setSelectedPaquete(null);
+      setSelectedInsumo(null);
     } catch (error) {
       console.error('Error deleting:', error);
       // You could show a toast notification here
@@ -981,6 +1129,17 @@ export default function TratamientosPage() {
                     <i className="fas fa-box mr-2"></i>
                     Paquetes
                   </button>
+                  <button
+                    onClick={() => setActiveTab('insumos')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'insumos'
+                        ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    <i className="fas fa-syringe mr-2"></i>
+                    Insumos
+                  </button>
                 </nav>
               </div>
               
@@ -990,7 +1149,7 @@ export default function TratamientosPage() {
                     <div className="relative flex-1">
                       <input
                         type="text"
-                        placeholder={activeTab === 'tratamientos' ? 'Buscar por nombre, código o especialidad...' : activeTab === 'promociones' ? 'Buscar por nombre o código...' : 'Buscar por nombre o código...'}
+                        placeholder={activeTab === 'tratamientos' ? 'Buscar por nombre, código o especialidad...' : 'Buscar por nombre o código...'}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full px-4 py-2 pl-10 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
@@ -1026,11 +1185,11 @@ export default function TratamientosPage() {
             <div className="flex items-center gap-4">
               {/* Add Button */}
               <button
-                onClick={activeTab === 'tratamientos' ? handleAddTreatment : activeTab === 'promociones' ? handleAddPromotion : handleAddPaquete}
+                onClick={activeTab === 'tratamientos' ? handleAddTreatment : activeTab === 'promociones' ? handleAddPromotion : activeTab === 'paquetes' ? handleAddPaquete : handleAddInsumo}
                 className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl"
               >
                 <i className="fas fa-plus mr-2"></i>
-                {activeTab === 'tratamientos' ? 'Nuevo Tratamiento' : activeTab === 'promociones' ? 'Nueva Promoción' : 'Nuevo Paquete'}
+                {activeTab === 'tratamientos' ? 'Nuevo Tratamiento' : activeTab === 'promociones' ? 'Nueva Promoción' : activeTab === 'paquetes' ? 'Nuevo Paquete' : 'Nuevo Insumo'}
               </button>
               
               {/* View Toggle */}
@@ -1301,9 +1460,7 @@ export default function TratamientosPage() {
                     )}
                   </tbody>
                 </table>
-              ) : null}
-              {/* Paquetes Table */}
-              {activeTab === 'paquetes' && (
+              ) : activeTab === 'paquetes' ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-800">
@@ -1414,7 +1571,78 @@ export default function TratamientosPage() {
                     </tbody>
                   </table>
                 </div>
-              )}
+              ) : activeTab === 'insumos' ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Código</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Precio</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                      {loading ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                            <LoadingAnimation />
+                          </td>
+                        </tr>
+                      ) : filteredInsumos.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                            <i className="fas fa-inbox text-4xl mb-4"></i>
+                            <p className="text-lg">No se encontraron insumos</p>
+                            <p className="text-sm mt-2">
+                              {searchTerm ? 'Intenta con otra búsqueda' : 'Agrega tu primer insumo para comenzar'}
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedData.map((insumo) => (
+                          <tr key={insumo.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{insumo.codigo}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              <div>
+                                <div className="font-medium">{insumo.nombre}</div>
+                                {insumo.descripcion && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{insumo.descripcion}</div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                              {formatCurrency(insumo.precio, insumo.moneda)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                insumo.activo
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}>
+                                {insumo.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button onClick={() => handleEditInsumo(insumo)} className="text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300 mr-3 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors" title="Editar insumo">
+                                <i className="fas fa-edit"></i>
+                                <span className="text-xs">Editar</span>
+                              </button>
+                              <button onClick={() => handleDeleteInsumo(insumo)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Eliminar insumo">
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <AnimatedRubish />
+                                </div>
+                                <span className="text-xs">Eliminar</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -1424,7 +1652,7 @@ export default function TratamientosPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
                 {/* Records Counter */}
                 <div className="text-sm text-gray-700">
-                  <span className="font-medium">Total {activeTab === 'tratamientos' ? 'Tratamientos' : activeTab === 'promociones' ? 'Promociones' : 'Paquetes'}: {totalRecords}</span>
+                  <span className="font-medium">Total {activeTab === 'tratamientos' ? 'Tratamientos' : activeTab === 'promociones' ? 'Promociones' : activeTab === 'paquetes' ? 'Paquetes' : 'Insumos'}: {totalRecords}</span>
                   <span className="mx-2">|</span>
                   <span>Mostrando: {startIndex + 1}-{Math.min(endIndex, totalRecords)} de {totalRecords}</span>
                 </div>
@@ -1514,7 +1742,9 @@ export default function TratamientosPage() {
                         ? (selectedTreatment ? 'Editar Tratamiento' : 'Nuevo Tratamiento')
                         : activeTab === 'promociones'
                         ? (selectedPromotion ? 'Editar Promoción' : 'Nueva Promoción')
-                        : 'Nuevo Paquete'
+                        : activeTab === 'paquetes'
+                        ? (selectedPaquete ? 'Editar Paquete' : 'Nuevo Paquete')
+                        : (selectedInsumo ? 'Editar Insumo' : 'Nuevo Insumo')
                       }
                     </h3>
                   </div>
@@ -1542,7 +1772,8 @@ export default function TratamientosPage() {
                           value={
                             activeTab === 'tratamientos' ? (treatmentFormData.codigo || '') : 
                             activeTab === 'promociones' ? (promotionFormData.codigo || '') :
-                            (paqueteFormData.codigo || '')
+                            activeTab === 'paquetes' ? (paqueteFormData.codigo || '') :
+                            (insumoFormData.codigo || '')
                           }
                           onChange={(e) => {
                             if (activeTab === 'tratamientos') {
@@ -1551,6 +1782,8 @@ export default function TratamientosPage() {
                               handlePromotionCodigoChange(e.target.value);
                             } else if (activeTab === 'paquetes') {
                               setPaqueteFormData({ ...paqueteFormData, codigo: e.target.value });
+                            } else if (activeTab === 'insumos') {
+                              setInsumoFormData({ ...insumoFormData, codigo: e.target.value });
                             }
                           }}
                           onFocus={() => {
@@ -1571,6 +1804,8 @@ export default function TratamientosPage() {
                               ? "Escribe código de promoción o busca existente"
                               : activeTab === 'paquetes'
                               ? "Código generado automáticamente para nuevos paquetes"
+                              : activeTab === 'insumos'
+                              ? "Código del insumo"
                               : ""
                           }
                         />
@@ -1630,7 +1865,8 @@ export default function TratamientosPage() {
                         value={
                             activeTab === 'tratamientos' ? (treatmentFormData.nombre || '') : 
                             activeTab === 'promociones' ? (promotionFormData.nombre || '') :
-                            (paqueteFormData.nombre || '')
+                            activeTab === 'paquetes' ? (paqueteFormData.nombre || '') :
+                            (insumoFormData.nombre || '')
                           }
                           onChange={(e) => {
                             if (activeTab === 'tratamientos') {
@@ -1639,6 +1875,8 @@ export default function TratamientosPage() {
                               setPromotionFormData({ ...promotionFormData, nombre: e.target.value });
                             } else if (activeTab === 'paquetes') {
                               setPaqueteFormData({ ...paqueteFormData, nombre: e.target.value });
+                            } else if (activeTab === 'insumos') {
+                              setInsumoFormData({ ...insumoFormData, nombre: e.target.value });
                             }
                           }}
                       />
@@ -1805,6 +2043,73 @@ export default function TratamientosPage() {
                               />
                             </div>
                             <p className="mt-1 text-xs text-gray-500">Número máximo de pacientes que pueden beneficiarse del paquete</p>
+                          </div>
+                        </div>
+                      </>
+                    ) : activeTab === 'insumos' ? (
+                      <>
+                        <div>
+                          <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Descripción
+                          </label>
+                          <textarea
+                            id="descripcion"
+                            rows={3}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            value={insumoFormData.descripcion || ''}
+                            onChange={(e) => setInsumoFormData({ ...insumoFormData, descripcion: e.target.value })}
+                            placeholder="Describe el insumo..."
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="precio" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Precio <span className="text-red-500">*</span>
+                            </label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(insumoFormData.moneda || 'HNL')}</span>
+                              </div>
+                              <input
+                                type="number"
+                                id="precio"
+                                required
+                                min="0"
+                                step="0.01"
+                                className="pl-8 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                value={insumoFormData.precio || 0}
+                                onChange={(e) => setInsumoFormData({ ...insumoFormData, precio: parseFloat(e.target.value) || 0 })}
+                                style={{ MozAppearance: "textfield", appearance: "textfield" }}
+                              />
+                              <style jsx>{`
+                                input[type="number"]::-webkit-outer-spin-button,
+                                input[type="number"]::-webkit-inner-spin-button {
+                                  -webkit-appearance: none;
+                                  margin: 0;
+                                }
+                                input[type="number"] {
+                                  -moz-appearance: textfield;
+                                }
+                              `}</style>
+                            </div>
+                          </div>
+                          <div>
+                            <label htmlFor="moneda" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Moneda <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              id="moneda"
+                              required
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                              value={insumoFormData.moneda || 'HNL'}
+                              onChange={(e) => setInsumoFormData({ ...insumoFormData, moneda: e.target.value as 'HNL' | 'USD' })}
+                            >
+                              {getAvailableCurrencies().map((currency) => (
+                                <option key={currency.code} value={currency.code}>
+                                  {currency.symbol} - {currency.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       </>
@@ -1986,7 +2291,8 @@ export default function TratamientosPage() {
                         checked={
                             activeTab === 'tratamientos' ? treatmentFormData.activo : 
                             activeTab === 'promociones' ? promotionFormData.activo :
-                            paqueteFormData.activo
+                            activeTab === 'paquetes' ? paqueteFormData.activo :
+                            insumoFormData.activo
                           }
                         onChange={(e) => {
                             if (activeTab === 'tratamientos') {
@@ -1995,6 +2301,8 @@ export default function TratamientosPage() {
                               setPromotionFormData({ ...promotionFormData, activo: e.target.checked });
                             } else if (activeTab === 'paquetes') {
                               setPaqueteFormData({ ...paqueteFormData, activo: e.target.checked });
+                            } else if (activeTab === 'insumos') {
+                              setInsumoFormData({ ...insumoFormData, activo: e.target.checked });
                             }
                           }}
                       />
@@ -2034,7 +2342,7 @@ export default function TratamientosPage() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && (selectedTreatment || selectedPromotion) && (
+      {showDeleteModal && (selectedTreatment || selectedPromotion || selectedPaquete || selectedInsumo) && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
@@ -2049,7 +2357,7 @@ export default function TratamientosPage() {
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                     <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                      {activeTab === 'tratamientos' ? 'Eliminar Tratamiento' : activeTab === 'promociones' ? 'Eliminar Promoción' : 'Eliminar Paquete'}
+                      {activeTab === 'tratamientos' ? 'Eliminar Tratamiento' : activeTab === 'promociones' ? 'Eliminar Promoción' : activeTab === 'paquetes' ? 'Eliminar Paquete' : 'Eliminar Insumo'}
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -2057,7 +2365,9 @@ export default function TratamientosPage() {
                           ? `el tratamiento "${selectedTreatment?.nombre}"` 
                           : activeTab === 'promociones'
                           ? `la promoción "${selectedPromotion?.nombre}"`
-                          : `el paquete "${selectedPaquete?.nombre}"`
+                          : activeTab === 'paquetes'
+                          ? `el paquete "${selectedPaquete?.nombre}"`
+                          : `el insumo "${selectedInsumo?.nombre}"`
                         }? Esta acción no se puede deshacer.
                       </p>
                     </div>

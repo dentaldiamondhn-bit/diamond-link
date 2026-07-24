@@ -17,6 +17,7 @@ const adminNavItems = [
   { href: '/doctores', label: 'Doctores', icon: 'fas fa-user-md' },
   { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth' },
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados /> },
+  { href: '/inventario', label: 'Inventario', icon: 'fas fa-warehouse' },
   { href: '/patient-follow-up', label: 'Seguimiento', icon: 'fas fa-clipboard-check' },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar' },
   { href: '/reports', label: 'Reportes', icon: <AnimatedReport /> },
@@ -49,7 +50,7 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSideb
           <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10" />
           <div>
             <h1 className="text-xl font-bold text-white">Diamond Link</h1>
-            <p className="text-xs text-gray-400">Acceso Total</p>
+            <p className="text-xs text-gray-400">Acesso Administrativo</p>
           </div>
         </div>
       </div>

@@ -2,6 +2,20 @@ import { supabase } from '../lib/supabase';
 import { DoctorValidator } from '../utils/doctorValidator';
 import { Currency } from '../utils/currencyUtils';
 
+export interface InventarioEnTratamiento {
+  id: string;
+  tratamiento_completado_id: string;
+  inventario_id: string;
+  nombre: string;
+  codigo?: string;
+  cantidad: number;
+  precio: number;
+  moneda: Currency;
+  imagen_url?: string;
+  notas?: string;
+  created_at: string;
+}
+
 export interface CompletedTreatment {
   id: string;
   paciente_id: string;
@@ -27,12 +41,13 @@ export interface CompletedTreatment {
   paciente?: any;
   paciente_beneficiario?: any;
   tratamientos_realizados?: TreatmentItem[];
+  tratamientos_inventario?: InventarioEnTratamiento[];
 }
 
 export interface TreatmentItem {
   id: string;
   tratamiento_completado_id: string;
-  tratamiento_id: number;
+  tratamiento_id: number | string;
   nombre_tratamiento: string;
   codigo_tratamiento: string;
   precio_original: number;
@@ -202,7 +217,21 @@ export class CompletedTreatmentService {
         paciente: patientData,
         tratamientos_realizados: items || []  // Add this line!
       };
-      
+
+      // Also fetch inventory items from tratamientos_inventario
+      const { data: invItems, error: invError } = await supabase
+        .from('tratamientos_inventario')
+        .select('*, inventario:inventario(imagen_url)')
+        .eq('tratamiento_completado_id', id);
+
+      if (!invError && invItems) {
+        (result as any).tratamientos_inventario = invItems.map((item: any) => ({
+          ...item,
+          imagen_url: item.inventario?.imagen_url || null,
+          inventario: undefined,
+        }));
+      }
+
       return result;
     } catch (error) {
       console.error('Unexpected error fetching completed treatment:', error);
@@ -325,10 +354,15 @@ export class CompletedTreatmentService {
         throw new Error('No treatment ID returned from database');
       }
 
+      // Filter out inventory-only items (they use inv_ prefix as tratamiento_id)
+      const realTreatmentItems = treatmentData.tratamientos_realizados?.filter(
+        item => !String(item.tratamiento_id).startsWith('inv_')
+      ) ?? [];
+
       // Insert treatment items into tratamientos_realizados table
-      if (treatmentData.tratamientos_realizados && treatmentData.tratamientos_realizados.length > 0) {
+      if (realTreatmentItems.length > 0) {
         // Validate all doctor IDs in treatment items
-        for (const item of treatmentData.tratamientos_realizados) {
+        for (const item of realTreatmentItems) {
           if (item.doctor_id) {
             const doctorValidation = await DoctorValidator.validateDoctorId(item.doctor_id);
             if (!doctorValidation.isValid) {
@@ -337,7 +371,7 @@ export class CompletedTreatmentService {
           }
         }
 
-        const treatmentItems = treatmentData.tratamientos_realizados.map(item => ({
+        const treatmentItems = realTreatmentItems.map(item => ({
           tratamiento_completado_id: treatmentId,
           tratamiento_id: item.tratamiento_id,
           nombre_tratamiento: item.nombre_tratamiento,
@@ -366,6 +400,7 @@ export class CompletedTreatmentService {
 
       // Increment promotion counters for any promotion items
       for (const item of treatmentData.tratamientos_realizados) {
+        if (String(item.tratamiento_id).startsWith('inv_')) continue;
         // Check if this item is a promotion (by checking if it has promotion-like characteristics)
         if (item.notas && item.notas.includes('Promoción:')) {
           try {
@@ -376,6 +411,70 @@ export class CompletedTreatmentService {
           } catch (promoError) {
             console.warn('Failed to increment promotion counter:', promoError);
             // Don't throw error, just log it - the treatment was created successfully
+          }
+        }
+      }
+
+      // Insert inventory items into tratamientos_inventario table
+      const inventarioItems = treatmentData.tratamientos_realizados?.filter(
+        item => String(item.tratamiento_id).startsWith('inv_')
+      ) ?? [];
+
+      if (inventarioItems.length > 0) {
+        const inventarioInserts = await Promise.all(inventarioItems.map(async (item) => {
+          const inventarioId = String(item.tratamiento_id).replace('inv_', '');
+          return {
+            tratamiento_completado_id: treatmentId,
+            inventario_id: inventarioId,
+            nombre: item.nombre_tratamiento,
+            codigo: item.codigo_tratamiento,
+            cantidad: item.cantidad,
+            precio: item.precio_final,
+            moneda: item.moneda,
+            notas: item.notas,
+            created_at: new Date().toISOString(),
+          };
+        }));
+
+        const { error: invError } = await supabase
+          .from('tratamientos_inventario')
+          .insert(inventarioInserts);
+
+        // Decrement stock_actual for each inventory item used
+        for (const invItem of inventarioItems) {
+          const inventarioId = String(invItem.tratamiento_id).replace('inv_', '');
+          const cantidad = invItem.cantidad || 1;
+
+          const { data: current } = await supabase
+            .from('inventario')
+            .select('stock_actual')
+            .eq('id', inventarioId)
+            .single();
+
+          if (current) {
+            const newStock = Math.max(0, current.stock_actual - cantidad);
+            await supabase
+              .from('inventario')
+              .update({ stock_actual: newStock, updated_at: new Date().toISOString() })
+              .eq('id', inventarioId);
+          }
+
+          // Register movement record for audit trail
+          try {
+            await supabase
+              .from('movimientos_inventario')
+              .insert([{
+                inventario_id: inventarioId,
+                tipo: 'salida',
+                cantidad,
+                notas: `Venta: ${invItem.nombre_tratamiento}`,
+                tratamiento_completado_id: treatmentId,
+                created_at: new Date().toISOString(),
+              }])
+              .select()
+              .maybeSingle();
+          } catch (movError) {
+            console.warn('Could not register movement (table may not exist):', movError);
           }
         }
       }

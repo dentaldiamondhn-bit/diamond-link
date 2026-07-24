@@ -1,6 +1,7 @@
 import { Currency } from '../utils/currencyUtils';
 import { Treatment, Promotion } from '../types/treatment';
 import { Paquete, PaqueteTratamiento } from '../types/paquete';
+import { Insumo } from '../types/insumo';
 import { supabase } from '../lib/supabase';
 
 export class TreatmentService {
@@ -737,6 +738,144 @@ export class TreatmentService {
       }
     } catch (error) {
       console.error('Unexpected error incrementing paquete counter:', error);
+      throw error;
+    }
+  }
+
+  // Insumos CRUD operations
+  static async getInsumos(): Promise<Insumo[]> {
+    try {
+      const { data, error } = await supabase
+        .from('insumos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching insumos:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error fetching insumos:', error);
+      throw error;
+    }
+  }
+
+  static async createInsumo(insumoData: Omit<Insumo, 'id' | 'created_at' | 'updated_at'>): Promise<Insumo> {
+    try {
+      const { data, error } = await supabase
+        .from('insumos')
+        .insert([{
+          codigo: insumoData.codigo,
+          nombre: insumoData.nombre,
+          descripcion: insumoData.descripcion || null,
+          precio: insumoData.precio,
+          moneda: insumoData.moneda,
+          activo: insumoData.activo,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating insumo:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error creating insumo:', error);
+      throw error;
+    }
+  }
+
+  static async updateInsumo(id: string, insumoData: Partial<Insumo>): Promise<Insumo> {
+    try {
+      const { data, error } = await supabase
+        .from('insumos')
+        .update({
+          ...insumoData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating insumo:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error updating insumo:', error);
+      throw error;
+    }
+  }
+
+  static async deleteInsumo(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('insumos')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting insumo:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Unexpected error deleting insumo:', error);
+      throw error;
+    }
+  }
+
+  static async searchInsumos(searchTerm: string): Promise<Insumo[]> {
+    try {
+      const { data, error } = await supabase
+        .from('insumos')
+        .select('*')
+        .or(`nombre.ilike.%${searchTerm}%,codigo.ilike.%${searchTerm}%`)
+        .order('nombre', { ascending: true });
+
+      if (error) {
+        console.error('Error searching insumos:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error searching insumos:', error);
+      throw error;
+    }
+  }
+
+  static async generateNextInsumoCode(): Promise<string> {
+    try {
+      const { data: existingInsumos, error } = await supabase
+        .from('insumos')
+        .select('codigo')
+        .like('codigo', 'I%')
+        .order('codigo', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching existing insumos:', error);
+        throw error;
+      }
+
+      const existingNumbers = existingInsumos?.map(i => {
+        const match = i.codigo.match(/^I(\d+)$/);
+        return match ? parseInt(match[1]) : 0;
+      }) || [];
+
+      const maxNumber = Math.max(...existingNumbers, 0);
+      const nextNumber = maxNumber + 1;
+
+      return `I${nextNumber.toString().padStart(3, '0')}`;
+    } catch (error) {
+      console.error('Error generating next insumo code:', error);
       throw error;
     }
   }
