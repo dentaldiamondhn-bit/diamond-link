@@ -89,6 +89,7 @@ export class InventarioService {
     nombre?: string;
     precio?: number;
     precio_compra?: number;
+    fecha_compra?: string | null;
     moneda?: string;
     marca?: string;
     stock_actual: number;
@@ -133,6 +134,7 @@ export class InventarioService {
         nombre: item.nombre || '',
         precio: item.precio ?? 0,
         precio_compra: item.precio_compra ?? 0,
+        fecha_compra: item.fecha_compra || null,
         moneda: item.moneda || 'HNL',
         marca: item.marca || null,
         stock_actual: item.stock_actual,

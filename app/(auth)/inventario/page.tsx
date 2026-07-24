@@ -23,7 +23,21 @@ export default function InventarioPage() {
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
   const [editItem, setEditItem] = useState<InventarioItem | null>(null);
-  const [editForm, setEditForm] = useState({ stock_actual: 0, stock_minimo: 0, ubicacion: '' });
+  const [editForm, setEditForm] = useState({
+    codigo: '',
+    nombre: '',
+    precio: 0,
+    precio_compra: 0,
+    fecha_compra: '',
+    moneda: 'HNL' as 'HNL' | 'USD',
+    marca_id: '',
+    marca: '',
+    stock_actual: 0,
+    stock_minimo: 0,
+    ubicacion: '',
+    imagen_url: '',
+    activo: true,
+  });
 
   const [showMovimientoModal, setShowMovimientoModal] = useState(false);
   const [movimientoTipo, setMovimientoTipo] = useState<'entrada' | 'salida'>('entrada');
@@ -37,6 +51,7 @@ export default function InventarioPage() {
     nombre: '',
     precio: 0,
     precio_compra: 0,
+    fecha_compra: '',
     moneda: 'HNL' as 'HNL' | 'USD',
     marca_id: '',
     marca: '',
@@ -135,9 +150,19 @@ export default function InventarioPage() {
   const openEditModal = (item: InventarioItem) => {
     setEditItem(item);
     setEditForm({
+      codigo: item.codigo || '',
+      nombre: item.nombre || item.insumo?.nombre || '',
+      precio: item.precio ?? item.insumo?.precio ?? 0,
+      precio_compra: item.precio_compra ?? 0,
+      fecha_compra: item.fecha_compra || '',
+      moneda: (item.moneda || item.insumo?.moneda || 'HNL') as 'HNL' | 'USD',
+      marca_id: item.marca_id || '',
+      marca: item.marca || '',
       stock_actual: item.stock_actual,
       stock_minimo: item.stock_minimo,
       ubicacion: item.ubicacion || '',
+      imagen_url: item.imagen_url || '',
+      activo: item.activo ?? true,
     });
     setShowEditModal(true);
   };
@@ -149,17 +174,31 @@ export default function InventarioPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          codigo: editForm.codigo,
+          nombre: editForm.nombre,
+          precio: editForm.precio,
+          precio_compra: editForm.precio_compra,
+          fecha_compra: editForm.fecha_compra || null,
+          moneda: editForm.moneda,
+          marca_id: editForm.marca_id,
+          marca: editForm.marca,
           stock_actual: editForm.stock_actual,
           stock_minimo: editForm.stock_minimo,
           ubicacion: editForm.ubicacion,
+          imagen_url: editForm.imagen_url,
+          activo: editForm.activo,
         }),
       });
       if (res.ok) {
         await loadInventario();
         setShowEditModal(false);
+      } else {
+        const err = await res.json();
+        alert('Error al guardar: ' + (err.error || 'desconocido'));
       }
     } catch (err) {
       console.error('Error saving inventario:', err);
+      alert('Error al guardar');
     }
   };
 
@@ -206,7 +245,7 @@ export default function InventarioPage() {
   };
 
   const openNuevoItemModal = async () => {
-    setNuevoItemForm({ codigo: '', nombre: '', precio: 0, precio_compra: 0, moneda: 'HNL', marca_id: '', marca: '', stock_actual: 0, stock_minimo: 5, ubicacion: '', imagen_url: '', activo: true });
+    setNuevoItemForm({ codigo: '', nombre: '', precio: 0, precio_compra: 0, fecha_compra: '', moneda: 'HNL', marca_id: '', marca: '', stock_actual: 0, stock_minimo: 5, ubicacion: '', imagen_url: '', activo: true });
     try {
       const res = await fetch('/api/inventario/marcas');
       if (res.ok) setMarcasList(await res.json());
@@ -224,7 +263,11 @@ export default function InventarioPage() {
       const res = await fetch('/api/inventario/upload-image', { method: 'POST', body: formData });
       if (res.ok) {
         const { url } = await res.json();
-        setNuevoItemForm(prev => ({ ...prev, imagen_url: url }));
+        if (showEditModal) {
+          setEditForm(prev => ({ ...prev, imagen_url: url }));
+        } else {
+          setNuevoItemForm(prev => ({ ...prev, imagen_url: url }));
+        }
       } else {
         const err = await res.json();
         alert('Error al subir imagen: ' + (err.error || 'desconocido'));
@@ -590,31 +633,162 @@ export default function InventarioPage() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen p-4">
             <div className="fixed inset-0 bg-gray-500 opacity-75" onClick={() => setShowEditModal(false)}></div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 relative z-10">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full p-6 relative z-10">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Editar Inventario: {editItem.nombre || editItem.insumo?.nombre || ''}
+                <i className="fas fa-edit mr-2 text-teal-600"></i>
+                Editar Item: {editItem.nombre || editItem.insumo?.nombre || ''}
               </h3>
               <div className="space-y-4">
+                {/* Código y Marca */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código</label>
+                    <input
+                      type="text"
+                      value={editForm.codigo}
+                      onChange={(e) => setEditForm({ ...editForm, codigo: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Marca</label>
+                    <input
+                      type="text"
+                      value={editForm.marca}
+                      onChange={(e) => setEditForm({ ...editForm, marca: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Nombre */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stock Actual</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Nombre <span className="text-red-500">*</span>
+                  </label>
                   <input
-                    type="number"
-                    min="0"
-                    value={editForm.stock_actual}
-                    onChange={(e) => setEditForm({ ...editForm, stock_actual: parseInt(e.target.value) || 0 })}
+                    type="text"
+                    value={editForm.nombre}
+                    onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                   />
                 </div>
+
+                {/* Price and Currency — 3-column grid */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Precio Venta <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 dark:text-gray-400 text-sm">
+                          {getCurrencySymbol(editForm.moneda)}
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editForm.precio}
+                        onChange={(e) => setEditForm({ ...editForm, precio: parseFloat(e.target.value) || 0 })}
+                        className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Precio Compra
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 dark:text-gray-400 text-sm">
+                          {getCurrencySymbol(editForm.moneda)}
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editForm.precio_compra}
+                        onChange={(e) => setEditForm({ ...editForm, precio_compra: parseFloat(e.target.value) || 0 })}
+                        className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Moneda <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={editForm.moneda}
+                      onChange={(e) => setEditForm({ ...editForm, moneda: e.target.value as 'HNL' | 'USD' })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                    >
+                      {getAvailableCurrencies().map(c => (
+                        <option key={c.code} value={c.code}>
+                          {c.symbol} - {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Ganancia (calculated) */}
+                {editForm.precio > 0 && editForm.precio_compra > 0 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200">Ganancia</span>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                          {getCurrencySymbol(editForm.moneda)}{(editForm.precio - editForm.precio_compra).toFixed(2)}
+                        </span>
+                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">
+                          ({editForm.precio_compra > 0 ? Math.round(((editForm.precio - editForm.precio_compra) / editForm.precio_compra) * 100) : 0}%)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fecha de Compra */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stock Mínimo</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Compra</label>
                   <input
-                    type="number"
-                    min="0"
-                    value={editForm.stock_minimo}
-                    onChange={(e) => setEditForm({ ...editForm, stock_minimo: parseInt(e.target.value) || 0 })}
+                    type="date"
+                    value={editForm.fecha_compra}
+                    onChange={(e) => setEditForm({ ...editForm, fecha_compra: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                   />
                 </div>
+
+                {/* Stock */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stock Actual</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.stock_actual}
+                      onChange={(e) => setEditForm({ ...editForm, stock_actual: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stock Mínimo</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.stock_minimo}
+                      onChange={(e) => setEditForm({ ...editForm, stock_minimo: parseInt(e.target.value) || 5 })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Ubicación */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ubicación</label>
                   <input
@@ -624,6 +798,52 @@ export default function InventarioPage() {
                     placeholder="Ej: Estante A, Gabinete 3..."
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                   />
+                </div>
+
+                {/* Imagen */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Imagen del Item</label>
+                  <div className="flex items-center gap-4">
+                    <label className="cursor-pointer px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors text-sm">
+                      <i className="fas fa-upload mr-2"></i>
+                      {uploadingImage ? 'Subiendo...' : 'Seleccionar Imagen'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        disabled={uploadingImage}
+                      />
+                    </label>
+                    {editForm.imagen_url && (
+                      <span className="text-xs text-green-600 dark:text-green-400">
+                        <i className="fas fa-check-circle mr-1"></i>Imagen seleccionada
+                      </span>
+                    )}
+                  </div>
+                  {editForm.imagen_url && (
+                    <div className="mt-2">
+                      <img
+                        src={editForm.imagen_url}
+                        alt="Preview"
+                        className="h-24 w-24 object-contain border border-gray-200 dark:border-gray-600 rounded-lg"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Activo checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="edit-item-activo"
+                    checked={editForm.activo}
+                    onChange={(e) => setEditForm({ ...editForm, activo: e.target.checked })}
+                    className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="edit-item-activo" className="ml-2 block text-sm text-gray-900 dark:text-white">
+                    Activo
+                  </label>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
@@ -635,9 +855,10 @@ export default function InventarioPage() {
                 </button>
                 <button
                   onClick={saveEdit}
-                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+                  disabled={!editForm.nombre.trim()}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
                 >
-                  Guardar
+                  <i className="fas fa-save mr-2"></i>Guardar Cambios
                 </button>
               </div>
             </div>
@@ -891,6 +1112,17 @@ export default function InventarioPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Fecha de Compra */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Compra</label>
+                  <input
+                    type="date"
+                    value={nuevoItemForm.fecha_compra}
+                    onChange={(e) => setNuevoItemForm({ ...nuevoItemForm, fecha_compra: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
 
                 {/* Stock */}
                 <div className="grid grid-cols-2 gap-4">

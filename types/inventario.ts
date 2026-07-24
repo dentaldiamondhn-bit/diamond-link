@@ -6,6 +6,7 @@ export interface InventarioItem {
   nombre: string;
   precio: number;
   precio_compra: number;
+  fecha_compra: string | null;
   moneda: string;
   marca: string | null;
   stock_actual: number;
