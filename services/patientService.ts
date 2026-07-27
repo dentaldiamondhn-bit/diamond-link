@@ -2,7 +2,6 @@ import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { Patient } from '../types/patient';
 import { DoctorValidator } from '../utils/doctorValidator';
-import CapacitorNotificationService from './capacitorNotificationService';
 
 export class PatientService {
   static async createPatient(patientData: Omit<Patient, 'paciente_id'>) {
@@ -246,65 +245,6 @@ export class PatientService {
     } catch (error) {
       console.error('Unexpected error deleting patient:', error);
       throw error;
-    }
-  }
-
-  // Schedule appointment reminder for a patient
-  static async scheduleAppointmentReminder(appointmentData: {
-    patientId: string;
-    patientName: string;
-    doctorName: string;
-    appointmentDate: Date;
-    appointmentId?: string;
-  }): Promise<boolean> {
-    try {
-      const notificationService = CapacitorNotificationService.getInstance();
-      
-      // Schedule reminder for 24 hours before appointment
-      const reminderDate = new Date(appointmentData.appointmentDate.getTime() - 24 * 60 * 60 * 1000);
-      
-      // Only schedule if reminder date is in the future
-      if (reminderDate > new Date()) {
-        const appointmentNotification = {
-          id: appointmentData.appointmentId || `appointment-${Date.now()}`,
-          title: 'Cita Dental - Diamond Link',
-          body: `Tiene una cita con ${appointmentData.doctorName} mañana a ${appointmentData.appointmentDate.toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })}`,
-          scheduledDate: reminderDate,
-          patientId: appointmentData.patientId,
-          appointmentId: appointmentData.appointmentId
-        };
-
-        const scheduled = await notificationService.scheduleAppointmentReminder(appointmentNotification);
-        
-        if (scheduled) {
-          console.log('✅ Appointment reminder scheduled for:', appointmentData.patientName);
-        }
-        
-        return scheduled;
-      } else {
-        console.log('⚠️ Appointment date is too soon to schedule reminder');
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Failed to schedule appointment reminder:', error);
-      return false;
-    }
-  }
-
-  // Cancel appointment reminder
-  static async cancelAppointmentReminder(appointmentId: string): Promise<boolean> {
-    try {
-      const notificationService = CapacitorNotificationService.getInstance();
-      const cancelled = await notificationService.cancelNotification(appointmentId);
-      
-      if (cancelled) {
-        console.log('✅ Appointment reminder cancelled:', appointmentId);
-      }
-      
-      return cancelled;
-    } catch (error) {
-      console.error('❌ Failed to cancel appointment reminder:', error);
-      return false;
     }
   }
 

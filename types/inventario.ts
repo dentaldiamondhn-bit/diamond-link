@@ -36,13 +36,17 @@ export interface MovimientoInventario {
   id: string;
   inventario_id: string | null;
   insumo_id: string | null;
-  tipo: 'entrada' | 'salida';
+  tipo: string | null;
   cantidad: number;
   precio_unitario: number | null;
   notas: string | null;
   created_by: string | null;
-  tratamiento_completado_id: number | null;
   created_at: string;
+  accion: string;
+  entidad_tipo: string | null;
+  entidad_nombre: string | null;
+  entidad_codigo: string | null;
+  detalle: string | null;
   inventario?: {
     codigo: string;
     nombre: string;

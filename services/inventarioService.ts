@@ -174,6 +174,16 @@ export class InventarioService {
       }
 
       if (error) throw error;
+      this.registrarActividad({
+        accion: item.id ? 'item_editado' : 'item_creado',
+        entidad_tipo: 'inventario',
+        entidad_nombre: data.nombre,
+        entidad_codigo: data.codigo,
+        inventario_id: data.id,
+        detalle: item.id
+          ? `Item "${data.nombre}" (${data.codigo || 'sin código'}) fue actualizado`
+          : `Item "${data.nombre}" (${data.codigo || 'sin código'}) fue creado`,
+      }).catch(() => {});
       return data;
     } catch (error: any) {
       const supabaseError = error?.message || error?.details || error;
@@ -187,9 +197,18 @@ export class InventarioService {
       // Fetch item first to get image URL and insumo_id
       const { data: item } = await supabase
         .from('inventario')
-        .select('imagen_url, insumo_id')
+        .select('imagen_url, insumo_id, nombre, codigo')
         .eq('id', id)
         .single();
+
+      this.registrarActividad({
+        accion: 'item_eliminado',
+        entidad_tipo: 'inventario',
+        entidad_nombre: item?.nombre,
+        entidad_codigo: item?.codigo,
+        inventario_id: id,
+        detalle: item ? `Item "${item.nombre}" (${item.codigo || 'sin código'}) fue eliminado` : 'Item eliminado',
+      }).catch(() => {});
 
       // Delete image from storage if present
       if (item?.imagen_url) {
@@ -226,8 +245,29 @@ export class InventarioService {
     precio_unitario?: number;
     notas?: string;
     created_by?: string;
-    tratamiento_completado_id?: number;
-  }): Promise<MovimientoInventario> {
+  }): Promise<MovimientoInventario | null> {
+    // Always update stock first
+    const updateStock = async () => {
+      const { data: invItem } = await supabase
+        .from('inventario')
+        .select('stock_actual')
+        .eq('id', mov.inventario_id)
+        .single();
+
+      if (invItem) {
+        let newStock = invItem.stock_actual;
+        if (mov.tipo === 'entrada') {
+          newStock += mov.cantidad;
+        } else if (mov.tipo === 'salida') {
+          newStock = Math.max(0, newStock - mov.cantidad);
+        }
+        await supabase
+          .from('inventario')
+          .update({ stock_actual: newStock, updated_at: new Date().toISOString() })
+          .eq('id', mov.inventario_id);
+      }
+    };
+
     try {
       const { data, error } = await supabase
         .from('movimientos_inventario')
@@ -239,34 +279,13 @@ export class InventarioService {
           precio_unitario: mov.precio_unitario || null,
           notas: mov.notas || null,
           created_by: mov.created_by || null,
-          tratamiento_completado_id: mov.tratamiento_completado_id || null,
           created_at: new Date().toISOString(),
         }])
         .select('*, inventario:inventario(codigo, nombre, marca, imagen_url), insumo:insumos(codigo, nombre)')
         .single();
 
-      // Directly update stock_actual (in case DB trigger is not active)
-      if (data) {
-        const { data: invItem } = await supabase
-          .from('inventario')
-          .select('stock_actual')
-          .eq('id', mov.inventario_id)
-          .single();
-
-        if (invItem) {
-          let newStock = invItem.stock_actual;
-          if (mov.tipo === 'entrada') {
-            newStock += mov.cantidad;
-          } else if (mov.tipo === 'salida') {
-            newStock = Math.max(0, newStock - mov.cantidad);
-          }
-
-          await supabase
-            .from('inventario')
-            .update({ stock_actual: newStock, updated_at: new Date().toISOString() })
-            .eq('id', mov.inventario_id);
-        }
-      }
+      // Always update stock
+      await updateStock();
 
       if (error && error.message?.includes('inventario')) {
         const { data: fallback } = await supabase
@@ -279,49 +298,78 @@ export class InventarioService {
             precio_unitario: mov.precio_unitario || null,
             notas: mov.notas || null,
             created_by: mov.created_by || null,
-            tratamiento_completado_id: mov.tratamiento_completado_id || null,
             created_at: new Date().toISOString(),
           }])
           .select('*, insumo:insumos(codigo, nombre)')
           .single();
 
-        // Also update stock for fallback
-        if (fallback) {
-          const { data: invItem } = await supabase
-            .from('inventario')
-            .select('stock_actual')
-            .eq('id', mov.inventario_id)
-            .single();
-
-          if (invItem) {
-            let newStock = invItem.stock_actual;
-            if (mov.tipo === 'entrada') {
-              newStock += mov.cantidad;
-            } else if (mov.tipo === 'salida') {
-              newStock = Math.max(0, newStock - mov.cantidad);
-            }
-
-            await supabase
-              .from('inventario')
-              .update({ stock_actual: newStock, updated_at: new Date().toISOString() })
-              .eq('id', mov.inventario_id);
-          }
-        }
+        if (fallback) await updateStock();
         return fallback;
       }
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Could not insert movement, stock updated directly:', error);
+        return null;
+      }
       return data;
     } catch (error) {
-      console.error('Error registrando movimiento:', error);
-      throw error;
+      // Stock was already updated, log but don't throw
+      console.warn('Movement insert failed, stock updated directly:', error);
+      await updateStock().catch(() => {});
+      return null;
+    }
+  }
+
+  static async registrarActividad(params: {
+    accion: string;
+    entidad_tipo: string;
+    entidad_nombre?: string;
+    entidad_codigo?: string;
+    inventario_id?: string;
+    insumo_id?: string;
+    tipo?: string;
+    cantidad?: number;
+    precio_unitario?: number;
+    notas?: string;
+    created_by?: string;
+    detalle?: string;
+  }): Promise<void> {
+    try {
+      const payload: any = {
+        inventario_id: params.inventario_id || null,
+        insumo_id: params.insumo_id || null,
+        tipo: params.tipo || null,
+        cantidad: params.cantidad ?? 0,
+        precio_unitario: params.precio_unitario || null,
+        notas: params.notas || null,
+        created_by: params.created_by || null,
+        created_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from('movimientos_inventario').insert([{
+        ...payload,
+        accion: params.accion,
+        entidad_tipo: params.entidad_tipo,
+        entidad_nombre: params.entidad_nombre || null,
+        entidad_codigo: params.entidad_codigo || null,
+        detalle: params.detalle || null,
+      }]);
+      if (error) {
+        // Columns may not exist yet (migration not run) — insert without them
+        await supabase.from('movimientos_inventario').insert([{
+          ...payload,
+          notas: params.detalle || params.notas || null,
+        }]);
+      }
+    } catch (error) {
+      console.warn('Could not register activity:', error);
     }
   }
 
   static async getMovimientos(params?: {
     inventario_id?: string;
     insumo_id?: string;
-    tipo?: 'entrada' | 'salida';
+    tipo?: string;
+    accion?: string;
     desde?: string;
     hasta?: string;
     limit?: number;
@@ -336,6 +384,7 @@ export class InventarioService {
       if (params?.inventario_id) query = query.eq('inventario_id', params.inventario_id);
       if (params?.insumo_id) query = query.eq('insumo_id', params.insumo_id);
       if (params?.tipo) query = query.eq('tipo', params.tipo);
+      if (params?.accion) query = query.eq('accion', params.accion);
       if (params?.desde) query = query.gte('created_at', params.desde);
       if (params?.hasta) query = query.lte('created_at', params.hasta);
       if (params?.limit) query = query.limit(params.limit);
@@ -385,7 +434,10 @@ export class InventarioService {
   // -- Marcas --
   static async getMarcas(): Promise<any[]> {
     try {
-      const { data, error } = await supabase.from('marcas').select('*').order('nombre');
+      const { data, error } = await supabase
+        .from('marcas')
+        .select('*, distribuidor:distribuidores(nombre, contacto)')
+        .order('nombre');
       if (error) throw error;
       return data || [];
     } catch (error) {
@@ -394,14 +446,22 @@ export class InventarioService {
     }
   }
 
-  static async createMarca(marca: { codigo: string; nombre: string; tipo?: string }): Promise<any> {
+  static async createMarca(marca: { codigo: string; nombre: string; tipo?: string; distribuidor_id?: string | null }): Promise<any> {
     try {
       const { data, error } = await supabase.from('marcas').insert([{
         codigo: marca.codigo,
         nombre: marca.nombre,
         tipo: marca.tipo || null,
+        distribuidor_id: marca.distribuidor_id || null,
       }]).select().single();
       if (error) throw error;
+      await this.registrarActividad({
+        accion: 'marca_creada',
+        entidad_tipo: 'marca',
+        entidad_nombre: data.nombre,
+        entidad_codigo: data.codigo,
+        detalle: `Marca "${data.nombre}" (${data.codigo}) fue creada`,
+      });
       return data;
     } catch (error) {
       console.error('Error creating marca:', error);
@@ -409,13 +469,21 @@ export class InventarioService {
     }
   }
 
-  static async updateMarca(id: string, marca: { codigo?: string; nombre?: string; tipo?: string }): Promise<any> {
+  static async updateMarca(id: string, marca: { codigo?: string; nombre?: string; tipo?: string; distribuidor_id?: string | null }): Promise<any> {
     try {
+      const { data: before } = await supabase.from('marcas').select('nombre, codigo').eq('id', id).single();
       const { data, error } = await supabase.from('marcas').update({
         ...marca,
         updated_at: new Date().toISOString(),
       }).eq('id', id).select().single();
       if (error) throw error;
+      await this.registrarActividad({
+        accion: 'marca_editada',
+        entidad_tipo: 'marca',
+        entidad_nombre: data.nombre,
+        entidad_codigo: data.codigo,
+        detalle: `Marca "${before?.nombre || ''}" actualizada a "${data.nombre}"`,
+      });
       return data;
     } catch (error) {
       console.error('Error updating marca:', error);
@@ -425,8 +493,19 @@ export class InventarioService {
 
   static async deleteMarca(id: string): Promise<void> {
     try {
+      const { data: before } = await supabase.from('marcas').select('nombre, codigo').eq('id', id).single();
+      await supabase.from('inventario').update({ marca_id: null }).eq('marca_id', id);
       const { error } = await supabase.from('marcas').delete().eq('id', id);
       if (error) throw error;
+      if (before) {
+        await this.registrarActividad({
+          accion: 'marca_eliminada',
+          entidad_tipo: 'marca',
+          entidad_nombre: before.nombre,
+          entidad_codigo: before.codigo,
+          detalle: `Marca "${before.nombre}" (${before.codigo}) fue eliminada`,
+        });
+      }
     } catch (error) {
       console.error('Error deleting marca:', error);
       throw error;

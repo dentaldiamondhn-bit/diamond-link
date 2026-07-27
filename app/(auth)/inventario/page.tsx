@@ -14,6 +14,40 @@ import { formatDateForDisplay } from '@/utils/dateUtils';
 export default function InventarioPage() {
   const { userRole } = useRoleBasedAccess();
 
+  const getAccionLabel = (mov: MovimientoInventario) => {
+    if (mov.accion) {
+      const labels: Record<string, string> = {
+        entrada_stock: 'Entrada',
+        salida_stock: 'Salida',
+        item_creado: 'Item Creado',
+        item_editado: 'Item Editado',
+        item_eliminado: 'Item Eliminado',
+        marca_creada: 'Marca Creada',
+        marca_editada: 'Marca Editada',
+        marca_eliminada: 'Marca Eliminada',
+      };
+      return labels[mov.accion] || mov.accion;
+    }
+    if (mov.tipo === 'entrada') return 'Entrada';
+    if (mov.tipo === 'salida') return 'Salida';
+    if (mov.entidad_tipo === 'marca') return 'Marca';
+    if (mov.entidad_tipo === 'inventario') return 'Item';
+    return 'Movimiento';
+  };
+
+  const getAccionColor = (mov: MovimientoInventario) => {
+    const a = mov.accion || mov.tipo || '';
+    if (a === 'entrada_stock' || a === 'entrada') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+    if (a === 'salida_stock' || a === 'salida') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+    if (a === 'item_creado') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+    if (a === 'item_editado') return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+    if (a === 'item_eliminado') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+    if (a === 'marca_creada') return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
+    if (a === 'marca_editada') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400';
+    if (a === 'marca_eliminada') return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400';
+    return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400';
+  };
+
   const [activeTab, setActiveTab] = useState<'inventario' | 'movimientos' | 'reportes' | 'marcas' | 'distribuidores'>('inventario');
   const [inventario, setInventario] = useState<InventarioItem[]>([]);
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
@@ -71,6 +105,7 @@ export default function InventarioPage() {
   // Filters for movimientos
   const [movFilterTipo, setMovFilterTipo] = useState<string>('');
   const [movFilterInventarioId, setMovFilterInventarioId] = useState<string>('');
+  const [movFilterAccion, setMovFilterAccion] = useState<string>('');
 
   const [valorTotal, setValorTotal] = useState(0);
   const [stockBajoCount, setStockBajoCount] = useState(0);
@@ -93,6 +128,7 @@ export default function InventarioPage() {
       const params = new URLSearchParams();
       if (movFilterTipo) params.set('tipo', movFilterTipo);
       if (movFilterInventarioId) params.set('inventario_id', movFilterInventarioId);
+      if (movFilterAccion) params.set('accion', movFilterAccion);
       params.set('limit', '100');
 
       const res = await fetch(`/api/inventario/movimientos?${params}`);
@@ -102,7 +138,7 @@ export default function InventarioPage() {
     } catch (err) {
       console.error('Error loading movimientos:', err);
     }
-  }, [movFilterTipo, movFilterInventarioId]);
+  }, [movFilterTipo, movFilterInventarioId, movFilterAccion]);
 
   const loadValorTotal = useCallback(async () => {
     try {
@@ -263,42 +299,62 @@ export default function InventarioPage() {
   const saveAddStock = async () => {
     if (!addStockItem || addStockCantidad < 1) return;
     try {
-      const res = await fetch(`/api/inventario?id=${addStockItem.id}`, {
-        method: 'PUT',
+      // Try movement API first — records movement AND updates stock
+      let ok = false;
+      const movRes = await fetch('/api/inventario/movimientos', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          stock_actual: addStockItem.stock_actual + addStockCantidad,
-          stock_minimo: addStockItem.stock_minimo,
-          precio: addStockForm.precio,
-          precio_compra: addStockForm.precio_compra,
-          fecha_compra: addStockForm.fecha_compra || null,
-          moneda: addStockItem.moneda || 'HNL',
-          codigo: addStockItem.codigo,
-          nombre: addStockItem.nombre,
-          marca: addStockItem.marca,
-          marca_id: addStockItem.marca_id,
-          ubicacion: addStockItem.ubicacion,
-          imagen_url: addStockItem.imagen_url,
-          activo: addStockItem.activo,
+          inventario_id: addStockItem.id,
+          tipo: 'entrada',
+          cantidad: addStockCantidad,
+          precio_unitario: addStockForm.precio_compra || undefined,
+          notas: 'Agregado manualmente',
         }),
       });
-      if (res.ok) {
-        // Also register movement for audit trail (best-effort)
-        await fetch('/api/inventario/movimientos', {
-          method: 'POST',
+
+      if (movRes.ok) {
+        ok = true;
+        // Also update precio_compra, precio, fecha_compra via PUT
+        await fetch(`/api/inventario?id=${addStockItem.id}`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            inventario_id: addStockItem.id,
-            tipo: 'entrada',
-            cantidad: addStockCantidad,
-            notas: 'Agregado manualmente',
+            precio: addStockForm.precio,
+            precio_compra: addStockForm.precio_compra,
+            fecha_compra: addStockForm.fecha_compra || null,
           }),
         }).catch(() => {});
+      } else {
+        // Fallback: use PUT to update stock directly, no movement recorded
+        const putRes = await fetch(`/api/inventario?id=${addStockItem.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stock_actual: addStockItem.stock_actual + addStockCantidad,
+            stock_minimo: addStockItem.stock_minimo,
+            precio: addStockForm.precio,
+            precio_compra: addStockForm.precio_compra,
+            fecha_compra: addStockForm.fecha_compra || null,
+            moneda: addStockItem.moneda || 'HNL',
+            codigo: addStockItem.codigo,
+            nombre: addStockItem.nombre,
+            marca: addStockItem.marca,
+            marca_id: addStockItem.marca_id,
+            ubicacion: addStockItem.ubicacion,
+            imagen_url: addStockItem.imagen_url,
+            activo: addStockItem.activo,
+          }),
+        });
+        ok = putRes.ok;
+      }
+
+      if (ok) {
         await loadInventario();
+        await loadMovimientos();
         setShowAddStockModal(false);
       } else {
-        const err = await res.json();
-        alert('Error: ' + (err.error || 'desconocido'));
+        alert('Error al agregar stock');
       }
     } catch (err) {
       console.error('Error adding stock:', err);
@@ -506,13 +562,28 @@ export default function InventarioPage() {
           {/* Filters */}
           <div className="flex flex-wrap gap-3 mb-4">
             <select
+              value={movFilterAccion}
+              onChange={(e) => setMovFilterAccion(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white"
+            >
+              <option value="">Todas las actividades</option>
+              <option value="entrada_stock">Entradas Stock</option>
+              <option value="salida_stock">Salidas Stock</option>
+              <option value="item_creado">Items Creados</option>
+              <option value="item_editado">Items Editados</option>
+              <option value="item_eliminado">Items Eliminados</option>
+              <option value="marca_creada">Marcas Creadas</option>
+              <option value="marca_editada">Marcas Editadas</option>
+              <option value="marca_eliminada">Marcas Eliminadas</option>
+            </select>
+            <select
               value={movFilterTipo}
               onChange={(e) => setMovFilterTipo(e.target.value)}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white"
             >
-              <option value="">Todos los tipos</option>
-              <option value="entrada">Entradas</option>
-              <option value="salida">Salidas</option>
+              <option value="">Entrada / Salida</option>
+              <option value="entrada">Solo Entradas</option>
+              <option value="salida">Solo Salidas</option>
             </select>
             <select
               value={movFilterInventarioId}
@@ -550,8 +621,8 @@ export default function InventarioPage() {
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fecha</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Item</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Tipo</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Acción</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Detalle</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cantidad</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Precio U.</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total</th>
@@ -566,37 +637,38 @@ export default function InventarioPage() {
                       </td>
                     </tr>
                   ) : (
-                    movimientos.map((mov) => (
-                      <tr key={mov.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
-                          {formatDateForDisplay(mov.created_at, { includeTime: true })}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                          {mov.inventario?.codigo || mov.insumo?.codigo || mov.inventario?.nombre || mov.insumo?.nombre || '-'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            mov.tipo === 'entrada'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                          }`}>
-                            {mov.tipo === 'entrada' ? 'Entrada' : 'Salida'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
-                          {mov.cantidad}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                          {mov.precio_unitario ? formatCurrency(mov.precio_unitario, 'HNL') : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
-                          {mov.precio_unitario ? formatCurrency(mov.precio_unitario * mov.cantidad, 'HNL') : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate">
-                          {mov.notas || '-'}
-                        </td>
-                      </tr>
-                    ))
+                    movimientos.map((mov) => {
+                      const accionLabel = getAccionLabel(mov);
+                      const accionColor = getAccionColor(mov);
+                      const detalle = mov.detalle || mov.inventario?.codigo || mov.insumo?.codigo || mov.inventario?.nombre || mov.insumo?.nombre || mov.entidad_nombre || '-';
+                      return (
+                        <tr key={mov.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                            {formatDateForDisplay(mov.created_at, { includeTime: true })}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${accionColor}`}>
+                              {accionLabel}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white max-w-[250px] truncate">
+                            {detalle}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
+                            {mov.tipo && mov.cantidad > 0 ? mov.cantidad : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                            {mov.precio_unitario ? formatCurrency(mov.precio_unitario, 'HNL') : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
+                            {mov.precio_unitario && mov.cantidad > 0 ? formatCurrency(mov.precio_unitario * mov.cantidad, 'HNL') : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate">
+                            {mov.notas || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

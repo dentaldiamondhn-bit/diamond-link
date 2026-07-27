@@ -26,7 +26,6 @@ import AnimatedUsers from '@/components/AnimatedUsers';
 import { usePathname } from 'next/navigation';
 import { useNotificationListener } from '@/hooks/useNotificationListener';
 import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
-import { PushAutoSubscribe } from '@/components/notifications/PushAutoSubscribe';
 
 export default function AuthLayout({
   children,
@@ -47,7 +46,6 @@ export default function AuthLayout({
           <HistoricalModeProvider>
             <NotificationProvider>
               <BellNotificationProvider>
-                <PushAutoSubscribe />
                 <NotificationListenerWrapper>
                   {children}
                 </NotificationListenerWrapper>
@@ -117,7 +115,6 @@ export default function AuthLayout({
         <HistoricalModeProvider>
           <NotificationProvider>
           <BellNotificationProvider>
-            <PushAutoSubscribe />
             <NotificationListenerWrapper>
               {isAIChatPage ? (
                 // For ai-chat page, render children directly without header/sidebar

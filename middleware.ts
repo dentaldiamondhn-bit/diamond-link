@@ -33,6 +33,7 @@ function canAccessRouteServer(userRole: string, pathname: string): boolean {
     '/reports': ['admin', 'doctor', 'assistant'], // Allow doctors to access reports for testing
     '/doctores': ['admin'],
     '/tech-support': ['admin'],
+    '/inventario': ['admin', 'tech_support'],
   };
 
   console.log('🔍 ROUTE PERMISSIONS CHECK:', {
@@ -145,9 +146,10 @@ export default clerkMiddleware(async (auth, req) => {
       '/xray-viewer',
       '/historia-clinica-ortodoncia',
       '/tratamientos-completados',
-      '/reports',
-      '/reportes'
-    ];
+    '/reports',
+    '/reportes',
+    '/inventario'
+  ];
     
     // Check for exact match or starts with
     const isAllowedRoute = allowedRoutes.some(route => 

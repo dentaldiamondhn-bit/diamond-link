@@ -21,7 +21,6 @@ import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
 import MobileLayout from '@/components/MobileLayout';
 import { VirtualizedPatientList } from '@/components/VirtualizedPatientList';
 import { useDeviceInfo, getDeviceSpecificStyles } from '@/hooks/useDeviceInfo';
-import { useMobileNotifications } from '@/services/mobileNotificationService';
 import { useMobileAnalytics } from '@/services/mobileAnalyticsService';
 
 export default function PacientesPage() {
@@ -40,7 +39,6 @@ export default function PacientesPage() {
   // Mobile enhancement hooks
   const deviceInfo = useDeviceInfo();
   const deviceStyles = getDeviceSpecificStyles(deviceInfo);
-  const { showNotification } = useMobileNotifications();
   const { track, trackMobileGesture, trackCalendarInteraction } = useMobileAnalytics();
   
   // Use page preferences for pacientes page

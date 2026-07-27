@@ -483,7 +483,6 @@ export class CompletedTreatmentService {
                 tipo: 'salida',
                 cantidad,
                 notas: `Venta: ${invItem.nombre_tratamiento}`,
-                tratamiento_completado_id: treatmentId,
                 created_at: new Date().toISOString(),
               }])
               .select()

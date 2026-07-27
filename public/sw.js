@@ -23,40 +23,6 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-self.addEventListener('push', (event) => {
-  let data;
-  try {
-    data = event.data?.json() || {};
-  } catch {
-    data = { title: 'Diamond Link', message: event.data?.text() || '' };
-  }
-
-  const options = {
-    body: data.message || data.body || 'Nueva notificación',
-    icon: '/Logo.svg',
-    badge: '/Logo.svg',
-    tag: data.type || 'general',
-    data: data.metadata || data,
-    requireInteraction: true,
-    vibrate: [200, 100, 200],
-  };
-
-  if (data.metadata?.eventTime || data.metadata?.taskTime || data.metadata?.itemTime) {
-    const d = new Date(data.metadata.eventTime || data.metadata.taskTime || data.metadata.itemTime);
-    if (!isNaN(d.getTime())) {
-      options.body += ` | ${d.toLocaleDateString('es-HN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })}`;
-    }
-  }
-
-  event.waitUntil(self.registration.showNotification(data.title || 'Diamond Link', options));
-});
-
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 

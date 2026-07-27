@@ -50,6 +50,7 @@ export default function TechSupportAccessPortal() {
         { href: '/consentimientos', label: 'Consentimientos', icon: 'fas fa-file-contract', color: 'teal' },
         { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: 'fas fa-check-circle', color: 'green' },
         { href: '/reports', label: 'Reportes', icon: 'fas fa-chart-bar', color: 'red' },
+        { href: '/inventario', label: 'Inventario', icon: 'fas fa-warehouse', color: 'teal' },
         { href: '/facebook-ads', label: 'Facebook Ads', icon: 'fas fa-ad', color: 'indigo' },
         { href: '/chat', label: 'Chat', icon: 'fas fa-comments', color: 'teal' },
         { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt', color: 'orange' },

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { useDeviceInfo, getDeviceSpecificStyles } from '@/hooks/useDeviceInfo';
-import { useMobileNotifications } from '@/services/mobileNotificationService';
 import { useMobileAnalytics } from '@/services/mobileAnalyticsService';
 import { registerServiceWorker } from '@/lib/serviceWorker';
 import { SwipeCalendar, TouchButton } from '@/components/gestures/SwipeCalendar';
@@ -14,8 +13,6 @@ import {
   Monitor, 
   Wifi, 
   WifiOff, 
-  Bell, 
-  BellOff,
   Camera,
   Calendar,
   Users,
@@ -26,7 +23,6 @@ interface MobileLayoutProps {
   children: React.ReactNode;
   showDeviceIndicator?: boolean;
   showNetworkStatus?: boolean;
-  showNotificationStatus?: boolean;
   enableGestures?: boolean;
   className?: string;
 }
@@ -35,13 +31,11 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   children,
   showDeviceIndicator = true,
   showNetworkStatus = true,
-  showNotificationStatus = true,
   enableGestures = true,
   className = ''
 }) => {
   const deviceInfo = useDeviceInfo();
   const deviceStyles = getDeviceSpecificStyles(deviceInfo);
-  const { permission: notificationPermission, requestPermission, showNotification } = useMobileNotifications();
   const { track, trackMobileGesture, isInitialized: analyticsInitialized } = useMobileAnalytics();
   
   const [isOnline, setIsOnline] = useState(true);
@@ -84,26 +78,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     }
   }, [deviceInfo, track]);
 
-  // Request notification permission on mobile
-  useEffect(() => {
-    if (deviceInfo.isMobile && notificationPermission.default) {
-      // Auto-request permission on mobile after user interaction
-      const handleUserInteraction = () => {
-        requestPermission();
-        document.removeEventListener('click', handleUserInteraction);
-        document.removeEventListener('touchstart', handleUserInteraction);
-      };
-
-      document.addEventListener('click', handleUserInteraction);
-      document.addEventListener('touchstart', handleUserInteraction);
-
-      return () => {
-        document.removeEventListener('click', handleUserInteraction);
-        document.removeEventListener('touchstart', handleUserInteraction);
-      };
-    }
-  }, [deviceInfo, notificationPermission, requestPermission]);
-
   // Track device info
   useEffect(() => {
     if (analyticsInitialized) {
@@ -129,19 +103,6 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
     if (enableGestures) {
       trackMobileGesture('swipe_right', { context: 'mobile_layout' });
       setShowMobileMenu(true);
-    }
-  };
-
-  const handleNotificationRequest = async () => {
-    const permission = await requestPermission();
-    if (permission.granted) {
-      showNotification({
-        id: 'welcome',
-        title: 'Notificaciones Activadas',
-        body: 'Recibirás recordatorios de citas y actualizaciones importantes',
-        icon: '/Logo.svg',
-        tag: 'welcome'
-      });
     }
   };
 
@@ -190,26 +151,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
             </div>
           )}
 
-          {/* Notification Status */}
-          {showNotificationStatus && (deviceInfo.isMobile || deviceInfo.isTablet) && (
-            <div className="flex items-center gap-2">
-              {notificationPermission.granted ? (
-                <>
-                  <Bell className="h-4 w-4 text-green-600" />
-                  <span className="text-green-600">Notifications</span>
-                </>
-              ) : (
-                <TouchButton
-                  onTap={handleNotificationRequest}
-                  className="flex items-center gap-2 text-orange-600"
-                >
-                  <BellOff className="h-4 w-4" />
-                  <span>Enable</span>
-                </TouchButton>
-              )}
-            </div>
-          )}
-        </div>
+          </div>
 
         {/* Mobile Menu Toggle */}
         {(deviceInfo.isMobile || deviceInfo.isTablet) && (

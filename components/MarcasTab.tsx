@@ -5,18 +5,23 @@ import { Marca } from '@/types/marcas';
 
 export default function MarcasTab() {
   const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [distribuidores, setDistribuidores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Marca | null>(null);
-  const [form, setForm] = useState({ codigo: '', nombre: '', tipo: '' });
+  const [form, setForm] = useState({ codigo: '', nombre: '', tipo: '', distribuidor_id: '' });
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/inventario/marcas');
-      if (res.ok) setMarcas(await res.json());
+      const [mRes, dRes] = await Promise.all([
+        fetch(`/api/inventario/marcas?_=${Date.now()}`),
+        fetch(`/api/inventario/distribuidores?_=${Date.now()}`),
+      ]);
+      if (mRes.ok) setMarcas(await mRes.json());
+      if (dRes.ok) setDistribuidores(await dRes.json());
     } catch (err) {
-      console.error('Error loading marcas:', err);
+      console.error('Error loading data:', err);
     } finally {
       setLoading(false);
     }
@@ -26,13 +31,18 @@ export default function MarcasTab() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ codigo: '', nombre: '', tipo: '' });
+    setForm({ codigo: '', nombre: '', tipo: '', distribuidor_id: '' });
     setShowForm(true);
   };
 
   const openEdit = (m: Marca) => {
     setEditing(m);
-    setForm({ codigo: m.codigo, nombre: m.nombre, tipo: m.tipo || '' });
+    setForm({
+      codigo: m.codigo,
+      nombre: m.nombre,
+      tipo: m.tipo || '',
+      distribuidor_id: m.distribuidor_id || '',
+    });
     setShowForm(true);
   };
 
@@ -43,14 +53,23 @@ export default function MarcasTab() {
         ? `/api/inventario/marcas?id=${editing.id}`
         : '/api/inventario/marcas';
       const method = editing ? 'PUT' : 'POST';
+      const body: any = {
+        codigo: form.codigo,
+        nombre: form.nombre,
+        tipo: form.tipo || null,
+      };
+      if (form.distribuidor_id) body.distribuidor_id = form.distribuidor_id;
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         await load();
         setShowForm(false);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Error al guardar');
       }
     } catch (err) {
       console.error('Error saving marca:', err);
@@ -61,9 +80,15 @@ export default function MarcasTab() {
     if (!confirm(`¿Eliminar "${m.nombre}"?`)) return;
     try {
       const res = await fetch(`/api/inventario/marcas?id=${m.id}`, { method: 'DELETE' });
-      if (res.ok) await load();
+      if (res.ok) {
+        await load();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Error desconocido al eliminar');
+      }
     } catch (err) {
       console.error('Error deleting marca:', err);
+      alert('Error de red al eliminar la marca');
     }
   };
 
@@ -71,7 +96,8 @@ export default function MarcasTab() {
     !search ||
     m.nombre.toLowerCase().includes(search.toLowerCase()) ||
     m.codigo.toLowerCase().includes(search.toLowerCase()) ||
-    (m.tipo || '').toLowerCase().includes(search.toLowerCase())
+    (m.tipo || '').toLowerCase().includes(search.toLowerCase()) ||
+    (m.distribuidor?.nombre || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -81,7 +107,7 @@ export default function MarcasTab() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar marca, código o tipo..."
+          placeholder="Buscar marca, código, tipo o distribuidor..."
           className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white max-w-xs"
         />
         <button
@@ -100,20 +126,22 @@ export default function MarcasTab() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Distribuidor</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">Cargando...</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Cargando...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">No hay marcas registradas</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No hay marcas registradas</td></tr>
               ) : (
                 filtered.map(m => (
                   <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900 dark:text-white">{m.codigo}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{m.nombre}</td>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{m.tipo || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{m.distribuidor?.nombre || '-'}</td>
                     <td className="px-4 py-3 text-right text-sm">
                       <button onClick={() => openEdit(m)} className="text-teal-600 hover:text-teal-800 mr-3">
                         <i className="fas fa-edit"></i>
@@ -174,6 +202,19 @@ export default function MarcasTab() {
                     placeholder="Ej: Cepillo Dental Suave, Pasta Dental"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Distribuidor</label>
+                  <select
+                    value={form.distribuidor_id}
+                    onChange={(e) => setForm({ ...form, distribuidor_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="">Sin distribuidor</option>
+                    {distribuidores.map(d => (
+                      <option key={d.id} value={d.id}>{d.nombre}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">

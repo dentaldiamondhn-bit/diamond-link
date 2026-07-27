@@ -7,7 +7,8 @@ export async function GET(request: NextRequest) {
     const movimientos = await InventarioService.getMovimientos({
       inventario_id: searchParams.get('inventario_id') || undefined,
       insumo_id: searchParams.get('insumo_id') || undefined,
-      tipo: (searchParams.get('tipo') as 'entrada' | 'salida') || undefined,
+      tipo: searchParams.get('tipo') || undefined,
+      accion: searchParams.get('accion') || undefined,
       desde: searchParams.get('desde') || undefined,
       hasta: searchParams.get('hasta') || undefined,
       limit: parseInt(searchParams.get('limit') || '50'),
@@ -34,7 +35,6 @@ export async function POST(request: NextRequest) {
       precio_unitario: data.precio_unitario,
       notas: data.notas,
       created_by: data.created_by,
-      tratamiento_completado_id: data.tratamiento_completado_id,
     });
     return NextResponse.json(movimiento, { status: 201 });
   } catch (error) {
