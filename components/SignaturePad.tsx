@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import SignaturePad from 'signature_pad';
 import { useTheme } from '@/contexts/ThemeContext';
+import AnimatedBorderContainer from './AnimatedBorderContainer';
 
 interface SignaturePadComponentProps {
   onChange: (signatureData: string | null) => void;
@@ -110,29 +111,24 @@ export default function SignaturePadComponent({ onChange, value, disabled = fals
 
   return (
     <div className={`w-full ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-      <div className="relative">
-        <canvas
-          ref={canvasRef}
-          className={`border-2 rounded-lg w-full ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'} ${
-            resolvedTheme === 'dark' 
-              ? 'border-gray-600' 
-              : 'border-gray-300'
-          }`}
-          style={{ 
-            touchAction: 'none', 
-            height: '225px', // 150px * 1.50 = 225px
-            backgroundColor: resolvedTheme === 'dark' ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)'
-          }}
-        />
-        {isEmpty && (
-          <div className="signature-placeholder absolute inset-0 flex flex-col items-center justify-center pointer-events-none ${
-            resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-400'
-          }">
-            <i className="fas fa-signature text-4xl mb-2 opacity-50"></i>
-            <span>Por favor, firme aquí</span>
-          </div>
-        )}
-      </div>
+      <AnimatedBorderContainer>
+        <div className="relative p-0 w-full" style={{ height: '225px' }}>
+          <canvas
+            ref={canvasRef}
+            className="w-full h-full cursor-crosshair rounded-[14px]"
+            style={{ 
+              touchAction: 'none', 
+              backgroundColor: resolvedTheme === 'dark' ? 'rgb(31, 41, 55)' : 'rgb(255, 255, 255)'
+            }}
+          />
+          {isEmpty && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none animate-fade-in-up">
+              <i className="fas fa-signature text-[2.7rem] mb-2 text-gray-400 animate-pulse-icon"></i>
+              <span className="text-[1.2rem] text-gray-400 animate-pulse-text">Por favor, firme aquí</span>
+            </div>
+          )}
+        </div>
+      </AnimatedBorderContainer>
       <div className="flex justify-between items-center mt-3">
         <button
           type="button"
