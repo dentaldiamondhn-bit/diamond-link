@@ -1,10 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
+import { createClerkClient } from '@clerk/backend';
 
 export const runtime = 'nodejs';
 
 function getUserId(req: NextRequest) {
   return req.headers.get('x-user-id') || '';
+}
+
+async function fetchClerkUsersByIds(userIds: string[]): Promise<Map<string, any>> {
+  try {
+    if (!process.env.CLERK_SECRET_KEY) return new Map();
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+    const userMap = new Map<string, any>();
+
+    if (userIds.length === 0) return userMap;
+
+    const clerkUsers = await clerk.users.getUserList({
+      userId: userIds,
+      limit: Math.min(userIds.length, 100),
+    });
+
+    if (clerkUsers?.data) {
+      for (const user of clerkUsers.data) {
+        userMap.set(user.id, {
+          id: user.id,
+          first_name: user.firstName || '',
+          last_name: user.lastName || '',
+          email: user.emailAddresses?.[0]?.emailAddress || '',
+          profileImageUrl: user.imageUrl || null,
+        });
+      }
+    }
+
+    return userMap;
+  } catch {
+    return new Map();
+  }
 }
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -24,28 +56,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .eq('id', eventId)
       .single();
 
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[participants] event lookup', eventId, eventData, eventError);
+    }
+
     if (eventError || !eventData) {
       return NextResponse.json(participants, { status: 200 });
     }
 
-    if (eventData.user_id) {
-    const { data: ownerUser, error: ownerError } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, email, profile_image_url')
-      .eq('id', eventData.user_id)
-      .single();
-
-    if (!ownerError && ownerUser) {
-      participants.push({
-        id: ownerUser.id,
-        role: 'owner',
-        first_name: ownerUser.first_name,
-        last_name: ownerUser.last_name,
-        email: ownerUser.email,
-        profile_image_url: ownerUser.profile_image_url,
-      });
-    }
-    }
+    const userIdsToFetch = new Set<string>();
+    if (eventData.user_id) userIdsToFetch.add(eventData.user_id);
 
     const { data: invitees, error: inviteesError } = await supabase
       .from('event_invitees')
@@ -54,26 +74,41 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .in('status', ['pending', 'accepted']);
 
     if (!inviteesError && invitees && invitees.length > 0) {
-      const userIds = invitees.map((inv) => inv.user_id);
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, first_name, last_name, email, profile_image_url')
-        .in('id', userIds);
-
-      if (!usersError && usersData) {
-        const userMap = new Map(usersData.map((u) => [u.id, u]));
-        for (const invitee of invitees) {
-          const userData = userMap.get(invitee.user_id);
-          participants.push({
-            id: invitee.user_id,
-            role: invitee.status === 'accepted' ? 'invitee_accepted' : 'invitee_pending',
-            first_name: userData?.first_name || 'Invited',
-            last_name: userData?.last_name || 'User',
-            email: userData?.email || '',
-            profile_image_url: userData?.profile_image_url || null,
-          });
-        }
+      for (const invitee of invitees) {
+        userIdsToFetch.add(invitee.user_id);
       }
+    }
+
+    const userMap = await fetchClerkUsersByIds(Array.from(userIdsToFetch));
+
+    if (eventData.user_id) {
+      const owner = userMap.get(eventData.user_id);
+      participants.push({
+        id: eventData.user_id,
+        role: 'owner',
+        first_name: owner?.first_name || 'Usuario',
+        last_name: owner?.last_name || '',
+        email: owner?.email || '',
+        profile_image_url: owner?.profileImageUrl || null,
+      });
+    }
+
+    if (!inviteesError && invitees && invitees.length > 0) {
+      for (const invitee of invitees) {
+        const userData = userMap.get(invitee.user_id);
+        participants.push({
+          id: invitee.user_id,
+          role: invitee.status === 'accepted' ? 'invitee_accepted' : 'invitee_pending',
+          first_name: userData?.first_name || 'Usuario',
+          last_name: userData?.last_name || '',
+          email: userData?.email || '',
+          profile_image_url: userData?.profileImageUrl || null,
+        });
+      }
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[participants] final response', eventId, participants);
     }
 
     return NextResponse.json(participants, { status: 200 });

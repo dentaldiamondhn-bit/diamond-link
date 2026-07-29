@@ -85,22 +85,27 @@ export default function UpcomingEvents({ events, onAddEvent, onEditEvent }: Prop
 
         setUpcomingEvents(upcoming);
 
-        const pMap: Record<number, Participant[]> = {};
-        await Promise.all(
-          upcoming.map(async (event) => {
-            try {
-              const res = await fetch(`/api/events/${event.id}/participants`, {
-                headers: { 'x-user-id': event.user_id },
-              });
-              if (res.ok) {
-                const data = await res.json();
-                pMap[event.id] = data;
-              }
-            } catch {
-              pMap[event.id] = [];
+    const pMap: Record<number, Participant[]> = {};
+    await Promise.all(
+      upcoming.map(async (event) => {
+        try {
+          const res = await fetch(`/api/events/${event.id}/participants`, {
+            headers: { 'x-user-id': event.user_id },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            pMap[event.id] = data;
+            if (process.env.NODE_ENV === 'development') {
+              console.debug('[UpcomingEvents] participants for', event.id, data);
             }
-          })
-        );
+          } else {
+            pMap[event.id] = [];
+          }
+        } catch {
+          pMap[event.id] = [];
+        }
+      })
+    );
 
         setParticipantsMap(pMap);
       } catch (err) {
