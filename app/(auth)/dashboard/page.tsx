@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PatientService } from '../../../services/patientService';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
-import { CalendarService } from '../../../services/calendarService';
 import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
 import { UserAvatar } from '../../../components/calendar/UserComponents';
 import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
@@ -109,15 +108,24 @@ export default function DashboardPage() {
         // Fetch role-specific data
         
         // Fetch upcoming events for logged-in user
-        const userUpcomingEvents = await CalendarService.getUpcomingEvents(user?.id);
+        const evRes = await fetch('/api/events/upcoming', {
+          headers: { 'x-user-id': user?.id || '' },
+        });
+        const userUpcomingEvents = evRes.ok ? await evRes.json() : [];
         setUpcomingEvents(userUpcomingEvents);
         
-        // Fetch participants for each event
+        // Fetch participants for each event using new participants API
         const participantsData: Record<string, any[]> = {};
         for (const event of userUpcomingEvents) {
           if (event.id) {
-            const participants = await CalendarService.getEventParticipants(event.id);
-            participantsData[event.id] = participants;
+            const res = await fetch(`/api/events/${event.id}/participants`, {
+              headers: { 'x-user-id': event.user_id },
+            });
+            if (res.ok) {
+              participantsData[event.id] = await res.json();
+            } else {
+              participantsData[event.id] = [];
+            }
           }
         }
         setEventParticipants(participantsData);
@@ -489,15 +497,16 @@ export default function DashboardPage() {
                     {/* Date Row */}
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
                       <i className="fas fa-calendar-alt mr-2"></i>
-                      {SimpleTimezoneFix.formatDisplayDate(event.start_date)} - {SimpleTimezoneFix.formatTime(event.start_date)}
-                      {event.end_date && ` - ${SimpleTimezoneFix.formatTime(event.end_date)}`}
+                      {event.date ? new Date(event.date).toLocaleDateString('es-HN', { day: 'numeric', month: 'long', year: 'numeric' }) : SimpleTimezoneFix.formatDisplayDate(event.start_date)}
+                      {event.start_time && ` - ${event.start_time}`}
+                      {event.end_time && ` - ${event.end_time}`}
                     </div>
                     
                     {/* Patient Row */}
-                    {event.patient && (
+                    {(event.patient_name || event.patient?.nombre_completo) && (
                       <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
                         <i className="fas fa-user mr-2"></i>
-                        {event.patient.nombre_completo}
+                        {event.patient_name || event.patient?.nombre_completo}
                       </div>
                     )}
                     
