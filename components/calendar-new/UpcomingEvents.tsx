@@ -10,7 +10,7 @@ interface Participant {
   first_name?: string;
   last_name?: string;
   email?: string;
-  profile_image_url?: string | null;
+  profileImageUrl?: string | null;
 }
 
 interface Props {
@@ -224,9 +224,9 @@ export default function UpcomingEvents({ events, onAddEvent, onEditEvent }: Prop
                             })`}
                           >
                             <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-600">
-                              {participant.profile_image_url ? (
+                              {participant.profileImageUrl ? (
                                 <img
-                                  src={participant.profile_image_url}
+                                  src={participant.profileImageUrl}
                                   alt={`${participant.first_name} ${participant.last_name}`}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {

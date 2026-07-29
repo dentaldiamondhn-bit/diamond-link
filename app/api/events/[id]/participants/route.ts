@@ -1,42 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
-import { createClerkClient } from '@clerk/backend';
 
 export const runtime = 'nodejs';
 
 function getUserId(req: NextRequest) {
   return req.headers.get('x-user-id') || '';
-}
-
-async function fetchClerkUsersByIds(userIds: string[]): Promise<Map<string, any>> {
-  try {
-    if (!process.env.CLERK_SECRET_KEY) return new Map();
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const userMap = new Map<string, any>();
-
-    if (userIds.length === 0) return userMap;
-
-    const clerkUsers = await clerk.users.getUserList({
-      userId: userIds,
-      limit: Math.min(userIds.length, 100),
-    });
-
-    if (clerkUsers?.data) {
-      for (const user of clerkUsers.data) {
-        userMap.set(user.id, {
-          id: user.id,
-          first_name: user.firstName || '',
-          last_name: user.lastName || '',
-          email: user.emailAddresses?.[0]?.emailAddress || '',
-          profileImageUrl: user.imageUrl || null,
-        });
-      }
-    }
-
-    return userMap;
-  } catch {
-    return new Map();
-  }
 }
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -55,10 +23,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .select('user_id, title')
       .eq('id', eventId)
       .single();
-
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[participants] event lookup', eventId, eventData, eventError);
-    }
 
     if (eventError || !eventData) {
       return NextResponse.json(participants, { status: 200 });
@@ -79,7 +43,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       }
     }
 
-    const userMap = await fetchClerkUsersByIds(Array.from(userIdsToFetch));
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, email, profile_image_url')
+      .in('id', Array.from(userIdsToFetch));
+
+    const userMap = new Map((usersData || []).map((u) => [u.id, u]));
 
     if (eventData.user_id) {
       const owner = userMap.get(eventData.user_id);
@@ -89,7 +58,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         first_name: owner?.first_name || 'Usuario',
         last_name: owner?.last_name || '',
         email: owner?.email || '',
-        profile_image_url: owner?.profileImageUrl || null,
+        profileImageUrl: owner?.profile_image_url || null,
       });
     }
 
@@ -102,17 +71,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           first_name: userData?.first_name || 'Usuario',
           last_name: userData?.last_name || '',
           email: userData?.email || '',
-          profile_image_url: userData?.profileImageUrl || null,
+          profileImageUrl: userData?.profile_image_url || null,
         });
       }
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[participants] final response', eventId, participants);
-    }
-
     return NextResponse.json(participants, { status: 200 });
   } catch (err: any) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[participants] error', err);
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

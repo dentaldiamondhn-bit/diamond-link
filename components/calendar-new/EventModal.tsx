@@ -149,7 +149,37 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       });
       if (res.ok) {
         const data = await res.json();
-        setSelectedUsers(data);
+        const enriched = await Promise.all(
+          (data || []).map(async (invitee: any) => {
+            try {
+              const userRes = await fetch(`/api/users?id=${invitee.user_id}`, {
+                headers: { 'x-user-id': userId },
+              });
+              if (userRes.ok) {
+                const userData = await userRes.json();
+                return {
+                  ...invitee,
+                  id: invitee.user_id,
+                  first_name: userData.first_name || '',
+                  last_name: userData.last_name || '',
+                  email: userData.email || '',
+                  profileImageUrl: userData.profileImageUrl || null,
+                };
+              }
+            } catch {
+              // ignore
+            }
+            return {
+              ...invitee,
+              id: invitee.user_id,
+              first_name: '',
+              last_name: '',
+              email: '',
+              profileImageUrl: null,
+            };
+          })
+        );
+        setSelectedUsers(enriched);
       }
     } catch {
       // ignore
