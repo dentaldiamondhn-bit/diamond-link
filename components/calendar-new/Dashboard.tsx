@@ -8,6 +8,7 @@ import DayDetail from '@/components/calendar-new/DayDetail';
 import EventModal from '@/components/calendar-new/EventModal';
 import TaskPanel from '@/components/calendar-new/TaskPanel';
 import ReminderPanel from '@/components/calendar-new/ReminderPanel';
+import UpcomingEvents from '@/components/calendar-new/UpcomingEvents';
 import { useToast } from '@/components/calendar-new/Toast';
 
 interface Props {
@@ -246,6 +247,12 @@ export default function Dashboard({ userId }: Props) {
         editingEvent={editingEvent}
         userId={userId}
         onSaved={fetchAll}
+      />
+
+      <UpcomingEvents
+        events={events}
+        onAddEvent={openNewEvent}
+        onEditEvent={openEditEvent}
       />
     </div>
   );
