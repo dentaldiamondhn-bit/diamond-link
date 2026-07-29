@@ -29,22 +29,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     if (eventData.user_id) {
-      const { data: ownerUser, error: ownerError } = await supabase
-        .from('users')
-        .select('id, first_name, last_name, email, profileImageUrl')
-        .eq('id', eventData.user_id)
-        .single();
+    const { data: ownerUser, error: ownerError } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, email, profile_image_url')
+      .eq('id', eventData.user_id)
+      .single();
 
-      if (!ownerError && ownerUser) {
-        participants.push({
-          id: ownerUser.id,
-          role: 'owner',
-          first_name: ownerUser.first_name,
-          last_name: ownerUser.last_name,
-          email: ownerUser.email,
-          profile_image_url: ownerUser.profileImageUrl,
-        });
-      }
+    if (!ownerError && ownerUser) {
+      participants.push({
+        id: ownerUser.id,
+        role: 'owner',
+        first_name: ownerUser.first_name,
+        last_name: ownerUser.last_name,
+        email: ownerUser.email,
+        profile_image_url: ownerUser.profile_image_url,
+      });
+    }
     }
 
     const { data: invitees, error: inviteesError } = await supabase
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       const userIds = invitees.map((inv) => inv.user_id);
       const { data: usersData, error: usersError } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email, profileImageUrl')
+        .select('id, first_name, last_name, email, profile_image_url')
         .in('id', userIds);
 
       if (!usersError && usersData) {
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             first_name: userData?.first_name || 'Invited',
             last_name: userData?.last_name || 'User',
             email: userData?.email || '',
-            profile_image_url: userData?.profileImageUrl || null,
+            profile_image_url: userData?.profile_image_url || null,
           });
         }
       }
