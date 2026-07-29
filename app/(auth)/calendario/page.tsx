@@ -1,19 +1,12 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { Calendar } from '../../../components/calendar/Calendar';
+import { ToastProvider } from '@/components/calendar-new/Toast';
+import Dashboard from '@/components/calendar-new/Dashboard';
 import { useEffect, useState } from 'react';
 
 export default function CalendarPage() {
   const { user, isLoaded } = useUser();
-  const [userRole, setUserRole] = useState<string>('staff');
-
-  useEffect(() => {
-    if (isLoaded && user) {
-      const role = user.publicMetadata?.role as string || 'staff';
-      setUserRole(role);
-    }
-  }, [user, isLoaded]);
 
   if (!isLoaded) {
     return (
@@ -38,8 +31,8 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-64px)] p-4 bg-gray-50 dark:bg-gray-900">
-      <Calendar userId={user.id} userRole={userRole} />
-    </div>
+    <ToastProvider>
+      <Dashboard userId={user.id} />
+    </ToastProvider>
   );
 }

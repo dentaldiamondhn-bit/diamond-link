@@ -345,6 +345,14 @@ body {
   @apply border-gray-700;
 }
 
+.dark .border-gray-100 {
+  @apply border-gray-700;
+}
+
+.dark .border-gray-50 {
+  @apply border-gray-700;
+}
+
 .dark .border-gray-300 {
   @apply border-gray-600;
 }
@@ -355,6 +363,79 @@ body {
 
 .dark .hover\:bg-gray-100:hover {
   @apply hover:bg-gray-700;
+}
+
+.dark .bg-teal-50 {
+  @apply bg-teal-900/30;
+}
+
+.dark .bg-amber-50 {
+  @apply bg-amber-900/30;
+}
+
+.dark .bg-rose-50 {
+  @apply bg-rose-900/30;
+}
+
+.dark .text-teal-600 {
+  @apply text-teal-400;
+}
+
+.dark .text-amber-600 {
+  @apply text-amber-400;
+}
+
+.dark .text-rose-600 {
+  @apply text-rose-400;
+}
+
+.dark .text-rose-700 {
+  @apply text-rose-300;
+}
+
+.dark .hover\:bg-teal-50:hover {
+  @apply hover:bg-teal-900/30;
+}
+
+.dark .hover\:bg-amber-50:hover {
+  @apply hover:bg-amber-900/30;
+}
+
+.dark .hover\:bg-rose-50:hover {
+  @apply hover:bg-rose-900/30;
+}
+
+.dark .ring-gray-400 {
+  @apply ring-gray-300;
+}
+
+.dark .bg-teal-100 {
+  @apply bg-teal-900/50;
+}
+
+.dark .ring-teal-100 {
+  @apply ring-teal-900/50;
+}
+
+/* Override hardcoded light-mode border reset for dark mode */
+.dark *,
+.dark *::before,
+.dark *::after {
+  border-color: hsl(var(--border));
+}
+
+/* Explicit dark mode for native form controls */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: hsl(var(--input));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: hsl(var(--muted-foreground));
 }
 
 /* Ensure smooth scrolling on mobile devices */
