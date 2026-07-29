@@ -130,7 +130,17 @@ export async function PUT(req: Request) {
       .select()
       .single();
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      return new Response(
+        JSON.stringify({
+          error: dbError.message,
+          code: dbError.code,
+          details: dbError.details,
+          hint: dbError.hint,
+        }),
+        { status: 400 }
+      );
+    }
     return new Response(JSON.stringify(data), { status: 200 });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
