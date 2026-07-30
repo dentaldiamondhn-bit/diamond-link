@@ -37,25 +37,8 @@ export default function AuthLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
-  // Always wrap with providers, but conditionally render the full layout
-  // This ensures context providers are available for all pages
-  if (!userLoaded || !user) {
-    return (
-      <TutorialProvider>
-        <ThemeProvider>
-          <HistoricalModeProvider>
-            <NotificationProvider>
-              <BellNotificationProvider>
-                <NotificationListenerWrapper>
-                  {children}
-                </NotificationListenerWrapper>
-              </BellNotificationProvider>
-            </NotificationProvider>
-          </HistoricalModeProvider>
-        </ThemeProvider>
-      </TutorialProvider>
-    );
-  }
+  const ready = userLoaded && !!user;
+  const isAIChatPage = pathname === '/tech-support/ai-chat';
 
   // Role badge colors and styles
   const getRoleBadgeInfo = (role: string) => {
@@ -105,48 +88,55 @@ export default function AuthLayout({
 
   const roleBadgeInfo = getRoleBadgeInfo(userRole || 'staff');
 
-  // Check if current page is ai-chat (which has its own full-screen layout)
-  const isAIChatPage = pathname === '/tech-support/ai-chat';
-
-  return (
-    <>
+  const providers = (content: React.ReactNode) => (
     <TutorialProvider>
       <ThemeProvider>
         <HistoricalModeProvider>
           <NotificationProvider>
           <BellNotificationProvider>
             <NotificationListenerWrapper>
-              {isAIChatPage ? (
-                // For ai-chat page, render children directly without header/sidebar
-                children
-              ) : (
-                <div className="flex h-screen bg-gray-100 relative">
-                  {/* Mobile Menu Button */}
-                  <button
-                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="xl:hidden fixed top-4 left-4 z-50 p-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 active:scale-95 group portrait-hamburger"
-                    aria-label="Toggle menu"
-                  >
-                    <div className="w-6 h-6 flex items-center justify-center">
-                      <AnimatedBurger />
-                    </div>
-                  </button>
+              {content}
+            </NotificationListenerWrapper>
+          </BellNotificationProvider>
+          </NotificationProvider>
+        </HistoricalModeProvider>
+      </ThemeProvider>
+    </TutorialProvider>
+  );
 
-                  {/* Mobile Overlay */}
-                  {sidebarOpen && (
-                    <div
-                      className="xl:hidden fixed inset-0 bg-black bg-opacity-50 z-40 portrait-overlay"
-                      onClick={() => setSidebarOpen(false)}
-                    />
-                  )}
+  if (isAIChatPage) {
+    return providers(children);
+  }
 
-                  {/* Role-based Sidebar */}
-                  <div className={`
-                    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-                    xl:translate-x-0 fixed xl:relative xl:flex-shrink-0 
-                    transition-transform duration-300 ease-in-out z-50 xl:z-auto
-                    ${sidebarOpen ? 'portrait-sidebar-open' : 'portrait-sidebar-closed'}
-                  `}>
+  return providers(
+    <div className="flex h-screen bg-gray-100 relative">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`xl:hidden fixed top-4 left-4 z-50 p-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-300 hover:scale-105 active:scale-95 group portrait-hamburger ${ready ? '' : 'hidden'}`}
+        aria-label="Toggle menu"
+      >
+        <div className="w-6 h-6 flex items-center justify-center">
+          <AnimatedBurger />
+        </div>
+      </button>
+
+      {/* Mobile Overlay */}
+      {ready && sidebarOpen && (
+        <div
+          className="xl:hidden fixed inset-0 bg-black bg-opacity-50 z-40 portrait-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Role-based Sidebar */}
+      <div className={`
+        transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'}
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+        xl:translate-x-0 fixed xl:relative xl:flex-shrink-0 
+        transition-transform duration-300 ease-in-out z-50 xl:z-auto
+        ${sidebarOpen ? 'portrait-sidebar-open' : 'portrait-sidebar-closed'}
+      `}>
                     <div className="w-64 lg:w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
                       {userRole === 'tech_support' && <TechSupportSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
                       {userRole === 'admin' && <AdminSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
@@ -174,7 +164,7 @@ export default function AuthLayout({
                   {/* Main Content */}
                   <div className="flex-1 xl:ml-0 overflow-auto flex flex-col">
                     {/* Header with User Info */}
-                    <header className="bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 py-3">
+                    <header className={`transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'} bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 py-3`}>
                     <div className="flex items-center justify-between">
                       {/* Left side - Page Title */}
                       <div className="flex items-center">
@@ -437,9 +427,8 @@ export default function AuthLayout({
                 </div>
                 
                 {/* Tutorial Modal */}
-                <TutorialModal />
+                {ready && <TutorialModal />}
               </div>
-              )}
             </NotificationListenerWrapper>
           </BellNotificationProvider>
           </NotificationProvider>
@@ -462,6 +451,5 @@ export default function AuthLayout({
         }
       }
     `}</style>
-    </>  
   );  
 }
