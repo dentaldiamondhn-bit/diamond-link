@@ -17,9 +17,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/api/')) return;
+  const url = event.request.url;
+  if (url.includes('/api/')) return;
+  if (!url.startsWith(self.location.origin)) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request)),
+    caches.match(event.request).then((cached) => cached || fetch(event.request)).catch(() => fetch(event.request)),
   );
 });
 
