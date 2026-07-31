@@ -287,7 +287,7 @@ export default function DashboardPage() {
               <>
                 {/* Admin-specific stats */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Total de Usuarios</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Total de Pacientes</h3>
                   <p className="text-3xl font-bold text-red-600 dark:text-red-400">
                     {loading ? '...' : patientCount}
                   </p>
