@@ -135,6 +135,8 @@ export default function PatientFollowUpPage() {
   const [notesDraft, setNotesDraft] = useState('');
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [messageDraft, setMessageDraft] = useState('');
+  const [messageHistory, setMessageHistory] = useState<Record<string, any[]>>({});
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const prefsLoaded = useRef(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -143,13 +145,13 @@ export default function PatientFollowUpPage() {
 
   const loadGlobalTemplates = useCallback(async () => {
     try {
-      const res = await fetch('/api/whatsapp-templates');
+      const res = await fetch(`/api/whatsapp-templates?t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setGlobalTemplates(data);
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to load global WhatsApp templates', err);
     }
   }, []);
 
@@ -290,12 +292,26 @@ export default function PatientFollowUpPage() {
     }
   };
 
-  const handleWhatsApp = (patient: PatientFollowUp) => {
+  const handleWhatsApp = async (patient: PatientFollowUp) => {
     const globalMessage = globalTemplates[patient.tipo_seguimiento];
     const defaultMessage = globalMessage || WHATSAPP_TEMPLATES[patient.tipo_seguimiento] || WHATSAPP_TEMPLATES.otro;
     const customMessage = patient.follow_up_status?.custom_whatsapp_message;
     setMessageDraft(customMessage || defaultMessage);
     setEditingMessage(patientRowKey(patient));
+
+    // Load message history for this patient
+    try {
+      setLoadingHistory(true);
+      const res = await fetch(`/api/whatsapp-message-history?paciente_id=${patient.paciente_id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessageHistory(prev => ({ ...prev, [patient.paciente_id]: data }));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const sendMessage = async (patient: PatientFollowUp) => {
@@ -318,10 +334,81 @@ export default function PatientFollowUpPage() {
         await PatientFollowUpStatusService.markWhatsAppSent(statusId);
         await PatientFollowUpStatusService.updateCustomWhatsAppMessage(statusId, messageDraft);
       }
+
+      // Save to message history
+      try {
+        await fetch('/api/whatsapp-message-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paciente_id: patient.paciente_id,
+            message_text: messageDraft,
+            follow_up_status_id: statusId,
+          }),
+        });
+      } catch {
+        // ignore history save errors
+      }
+
       setEditingMessage(null);
       loadPatients();
     } catch (err) {
       console.error('Error updating follow-up status:', err);
+    }
+  };
+
+  const loadMessageIntoEditor = (messageText: string) => {
+    setMessageDraft(messageText);
+  };
+
+  const copyMessageToClipboard = async (messageText: string) => {
+    try {
+      await navigator.clipboard.writeText(messageText);
+      alert('Message copied to clipboard');
+    } catch {
+      console.error('Failed to copy message');
+    }
+  };
+
+  const sendHistoryMessage = async (patient: PatientFollowUp, historyItem: any) => {
+    const url = createWhatsAppUrl(patient.paciente_telefono, historyItem.message_text, patient.paciente_codigopais);
+    window.open(url, '_blank');
+
+    try {
+      let statusId = patient.follow_up_status?.id;
+      if (!statusId) {
+        const created = await PatientFollowUpStatusService.createFollowUpStatus({
+          paciente_id: patient.paciente_id,
+          treatment_date: patient.fecha_ultimo_tratamiento,
+          notes: '',
+        });
+        if (created) statusId = created.id;
+      }
+
+      if (statusId) {
+        await PatientFollowUpStatusService.markWhatsAppSent(statusId);
+        await PatientFollowUpStatusService.updateCustomWhatsAppMessage(statusId, historyItem.message_text);
+      }
+
+      // Save to message history
+      try {
+        await fetch('/api/whatsapp-message-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paciente_id: patient.paciente_id,
+            message_text: historyItem.message_text,
+            follow_up_status_id: statusId,
+          }),
+        });
+      } catch {
+        // ignore history save errors
+      }
+
+      setEditingMessage(null);
+      loadPatients();
+    } catch (err) {
+      console.error('Error sending history message:', err);
     }
   };
 
@@ -639,6 +726,51 @@ export default function PatientFollowUpPage() {
                           Cancelar
                         </button>
                       </div>
+
+                      {/* Message History Panel */}
+                      {loadingHistory ? (
+                        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Cargando historial...</p>
+                        </div>
+                      ) : messageHistory[patient.paciente_id]?.length > 0 ? (
+                        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Historial de mensajes enviados
+                          </h4>
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {messageHistory[patient.paciente_id].map((item, index) => (
+                              <div key={item.id || index} className="p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                                <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap mb-2">
+                                  {item.message_text}
+                                </p>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => loadMessageIntoEditor(item.message_text)}
+                                    className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                                  >
+                                    ✏️ Editar
+                                  </button>
+                                  <button
+                                    onClick={() => copyMessageToClipboard(item.message_text)}
+                                    className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                                  >
+                                    📋 Copiar
+                                  </button>
+                                  <button
+                                    onClick={() => sendHistoryMessage(patient, item)}
+                                    className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+                                  >
+                                    📤 Enviar
+                                  </button>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {new Date(item.sent_at).toLocaleString('es-HN')}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
