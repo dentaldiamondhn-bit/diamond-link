@@ -293,10 +293,10 @@ export default function PatientFollowUpPage() {
   };
 
   const handleWhatsApp = async (patient: PatientFollowUp) => {
+    // Always use global template first, then fallback to hardcoded defaults
     const globalMessage = globalTemplates[patient.tipo_seguimiento];
     const defaultMessage = globalMessage || WHATSAPP_TEMPLATES[patient.tipo_seguimiento] || WHATSAPP_TEMPLATES.otro;
-    const customMessage = patient.follow_up_status?.custom_whatsapp_message;
-    setMessageDraft(customMessage || defaultMessage);
+    setMessageDraft(defaultMessage);
     setEditingMessage(patientRowKey(patient));
 
     // Load message history for this patient
