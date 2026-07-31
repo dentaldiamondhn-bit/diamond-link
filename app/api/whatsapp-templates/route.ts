@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { auth } from '@clerk/nextjs/server';
+import { createClerkClient } from '@clerk/backend';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,8 +53,28 @@ Agenda tu cita con nosotros:
 Clínica Dental Diamond – Tu sonrisa, nuestra prioridad 😍`,
 };
 
+async function getCurrentUserRole(): Promise<string | null> {
+  try {
+    const { userId } = await auth();
+    if (!userId) return null;
+
+    if (!process.env.CLERK_SECRET_KEY) return null;
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+    const user = await clerk.users.getUser(userId);
+    const role = (user.publicMetadata?.role || user.privateMetadata?.role || 'staff') as string;
+    return role.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   try {
+    const role = await getCurrentUserRole();
+    if (!role) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { data, error } = await supabase
       .from('whatsapp_templates')
       .select('tipo, message_text')
@@ -80,6 +102,15 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const role = await getCurrentUserRole();
+    if (!role) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (role !== 'admin' && role !== 'doctor') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     const templates: Record<string, string> = body;
 
