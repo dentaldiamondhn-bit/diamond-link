@@ -108,27 +108,29 @@ export default function DashboardPage() {
         // Fetch role-specific data
         
         // Fetch upcoming events for logged-in user
-        const evRes = await fetch('/api/events/upcoming', {
-          headers: { 'x-user-id': user?.id || '' },
-        });
-        const userUpcomingEvents = evRes.ok ? await evRes.json() : [];
-        setUpcomingEvents(userUpcomingEvents);
-        
-        // Fetch participants for each event using new participants API
-        const participantsData: Record<string, any[]> = {};
-        for (const event of userUpcomingEvents) {
-          if (event.id) {
-            const res = await fetch(`/api/events/${event.id}/participants`, {
-              headers: { 'x-user-id': event.user_id },
-            });
-            if (res.ok) {
-              participantsData[event.id] = await res.json();
-            } else {
-              participantsData[event.id] = [];
+        if (user?.id) {
+          const evRes = await fetch('/api/events/upcoming', {
+            headers: { 'x-user-id': user.id },
+          });
+          const userUpcomingEvents = evRes.ok ? await evRes.json() : [];
+          setUpcomingEvents(userUpcomingEvents);
+          
+          // Fetch participants for each event using new participants API
+          const participantsData: Record<string, any[]> = {};
+          for (const event of userUpcomingEvents) {
+            if (event.id) {
+              const res = await fetch(`/api/events/${event.id}/participants`, {
+                headers: { 'x-user-id': event.user_id },
+              });
+              if (res.ok) {
+                participantsData[event.id] = await res.json();
+              } else {
+                participantsData[event.id] = [];
+              }
             }
           }
+          setEventParticipants(participantsData);
         }
-        setEventParticipants(participantsData);
         
         if (userRole === 'doctor') {
           // Fetch doctor's patients and stats
