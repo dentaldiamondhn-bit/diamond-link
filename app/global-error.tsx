@@ -1,23 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
-
 export default function GlobalError({
-  error,
   reset,
 }: {
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    try {
-      const posthog = (window as any).posthog
-      if (posthog?.captureException) {
-        posthog.captureException(error)
-      }
-    } catch {}
-  }, [error])
-
   return (
     <html>
       <body>

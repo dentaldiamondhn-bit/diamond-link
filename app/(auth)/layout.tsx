@@ -109,6 +109,7 @@ export default function AuthLayout({
   }
 
   return providers(
+    <>
     <div className="flex h-screen bg-gray-100 relative">
       {/* Mobile Menu Button */}
       <button
@@ -429,12 +430,6 @@ export default function AuthLayout({
                 {/* Tutorial Modal */}
                 {ready && <TutorialModal />}
               </div>
-            </NotificationListenerWrapper>
-          </BellNotificationProvider>
-          </NotificationProvider>
-        </HistoricalModeProvider>
-      </ThemeProvider>
-    </TutorialProvider>
     <style>{`
       @media (orientation: portrait) {
         .portrait-sidebar-closed {
@@ -451,5 +446,6 @@ export default function AuthLayout({
         }
       }
     `}</style>
+    </>
   );  
 }

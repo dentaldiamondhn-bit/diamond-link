@@ -1,5 +1,3 @@
-import { withPostHogConfig } from "@posthog/nextjs-config";
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Removed static export to allow dynamic App Router routes such as Clerk sign-in
@@ -53,12 +51,4 @@ const nextConfig = {
   },
 };
 
-export default withPostHogConfig(nextConfig, {
-  personalApiKey: process.env.POSTHOG_API_KEY,
-  projectId: process.env.POSTHOG_PROJECT_ID,
-  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-  sourcemaps: {
-    enabled: true,
-    deleteAfterUpload: true,
-  },
-});
+export default nextConfig;

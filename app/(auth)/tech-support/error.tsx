@@ -1,23 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
-
 export default function Error({
-  error,
   reset,
 }: {
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    try {
-      const posthog = (window as any).posthog
-      if (posthog?.captureException) {
-        posthog.captureException(error)
-      }
-    } catch {}
-  }, [error])
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] p-8">
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">

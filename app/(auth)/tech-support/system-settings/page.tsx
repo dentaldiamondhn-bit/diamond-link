@@ -1,9 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import posthog from 'posthog-js';
+import React, { useState, useEffect } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
-import { useGlobalPreferences } from '@/hooks/useUserPreferences';
 import { useTheme } from '@/contexts/ThemeContext';
 import AccessDenied from '@/components/AccessDenied';
 import { 
@@ -69,14 +67,9 @@ const DEFAULT_SETTINGS: SystemSetting[] = [
 export default function SystemSettings() {
   const { userRole } = useRoleBasedAccess();
   const { resolvedTheme } = useTheme();
-  const { preferences: globalPrefs, updatePreferences: updateGlobalPrefs } = useGlobalPreferences();
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN || process.env.NEXT_PUBLIC_POSTHOG_KEY;
-  const posthogEnabled = !!(globalPrefs?.posthog_enabled);
-  const posthogConfigured = !!(posthogKey && posthogEnabled);
 
   if (userRole !== 'tech_support') {
     return (
@@ -102,16 +95,6 @@ export default function SystemSettings() {
     setSettings(DEFAULT_SETTINGS);
     setLoading(false);
   }, []);
-
-  const togglePosthog = useCallback(async () => {
-    const next = !posthogEnabled;
-    await updateGlobalPrefs({ posthog_enabled: next });
-    if (next) {
-      posthog.opt_in_capturing();
-    } else {
-      posthog.opt_out_capturing();
-    }
-  }, [posthogEnabled, updateGlobalPrefs]);
 
   const updateSetting = (key: string, value: string | boolean | number) => {
     setSettings(prev => prev.map(setting => 
@@ -268,36 +251,6 @@ export default function SystemSettings() {
           </div>
           <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
             <div className="flex items-center space-x-3">
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={posthogEnabled}
-                  onChange={togglePosthog}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-              </label>
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">PostHog</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {posthogConfigured
-                    ? 'posthog-js v1 — capturing'
-                    : !posthogKey
-                    ? 'NEXT_PUBLIC_POSTHOG_KEY not set'
-                    : 'toggle to enable'}
-                </p>
-              </div>
-            </div>
-            <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-              posthogConfigured
-                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300'
-            }`}>
-              {posthogConfigured ? 'Activo' : 'Inactivo'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-            <div className="flex items-center space-x-3">
               <div className="text-green-500">
                 <CheckCircle className="w-5 h-5" />
               </div>
@@ -340,34 +293,6 @@ export default function SystemSettings() {
         </div>
       </div>
 
-      {/* PostHog Dashboard */}
-      <div className={`rounded-xl shadow-sm ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
-        <div className="p-4 md:p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl">
-              <BarChart3 className="w-5 h-5 text-white" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">PostHog Analytics</h2>
-          </div>
-          {posthogKey ? (
-            <div className="relative w-full" style={{ height: '600px' }}>
-              <iframe
-                src="https://us.posthog.com/shared/Htxe2AhZXJ6AFMjJL0z85jf0Up_WKg"
-                className="w-full h-full border-0 rounded-lg"
-                allow="fullscreen"
-                title="PostHog Dashboard"
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-48 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                NEXT_PUBLIC_POSTHOG_KEY not set — configure it in .env to view analytics
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Package Versions */}
       <div className={`rounded-xl shadow-sm p-4 md:p-6 ${resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="flex items-center gap-3 mb-4">
@@ -376,7 +301,6 @@ export default function SystemSettings() {
         </div>
         <div className="flex flex-wrap gap-2">
           {[
-            { name: 'posthog-js', version: '^1.405', status: 'installed' },
             { name: '@tanstack/react-query', version: '^5', status: 'installed' },
             { name: '@next/bundle-analyzer', version: '^15', status: 'dev' },
             { name: 'sharp', version: '^0.33', status: 'installed' },
