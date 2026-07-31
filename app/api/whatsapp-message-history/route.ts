@@ -30,7 +30,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching whatsapp message history:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      }, { status: 400 });
     }
 
     return NextResponse.json(data || []);
@@ -66,7 +71,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error saving whatsapp message history:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      }, { status: 400 });
     }
 
     return NextResponse.json(data, { status: 201 });
