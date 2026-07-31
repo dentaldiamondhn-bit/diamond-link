@@ -205,12 +205,6 @@ export class PatientFollowUpStatusService {
       throw error;
     }
   }
-    } catch (error: any) {
-      if (error?.message?.includes('does not exist') || error?.code === '42P01') return;
-      console.error('Unexpected error updating notes:', error);
-      throw error;
-    }
-  }
 
   /**
    * Toggle a boolean field (whatsapp_sent, patient_responded, appointment_scheduled)
