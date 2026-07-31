@@ -175,6 +175,37 @@ export class PatientFollowUpStatusService {
         throw error;
       }
     } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error.code === '42P01') return;
+      console.error('Unexpected error updating notes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update custom WhatsApp message for a patient
+   */
+  static async updateCustomWhatsAppMessage(id: string, custom_whatsapp_message: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('patient_follow_up_status')
+        .update({
+          custom_whatsapp_message,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        if (error.message?.includes('does not exist') || error.code === '42P01') return;
+        console.error('Error updating custom WhatsApp message:', error);
+        throw error;
+      }
+    } catch (error: any) {
+      if (error?.message?.includes('does not exist') || error.code === '42P01') return;
+      console.error('Unexpected error updating custom WhatsApp message:', error);
+      throw error;
+    }
+  }
+    } catch (error: any) {
       if (error?.message?.includes('does not exist') || error?.code === '42P01') return;
       console.error('Unexpected error updating notes:', error);
       throw error;

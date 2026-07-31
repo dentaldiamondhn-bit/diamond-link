@@ -6,6 +6,7 @@ import { PatientFollowUpStatusService } from '@/services/patientFollowUpStatusSe
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useUser } from '@clerk/nextjs';
 import PatientOverviewModal from '@/components/PatientOverviewModal';
+import GlobalWhatsAppEdit from '@/components/GlobalWhatsAppEdit';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -16,6 +17,7 @@ interface FollowUpStatus {
   patient_responded: boolean;
   appointment_scheduled: boolean;
   notes?: string;
+  custom_whatsapp_message?: string;
 }
 
 interface PatientFollowUp {
@@ -136,6 +138,8 @@ export default function PatientFollowUpPage() {
   const [savingNotes, setSavingNotes] = useState(false);
   const prefsLoaded = useRef(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [globalTemplates, setGlobalTemplates] = useState<Record<string, string>>({});
+  const [showGlobalEditor, setShowGlobalEditor] = useState(false);
   const patientRowKey = (p: PatientFollowUp) => `${p.paciente_id}__${p.tipo_seguimiento}`;
 
   /* ---- load saved preferences from Supabase -------------------- */
@@ -151,6 +155,21 @@ export default function PatientFollowUpPage() {
       prefsLoaded.current = true;
     })();
   }, [user?.id]);
+
+  useEffect(() => {
+    const loadGlobalTemplates = async () => {
+      try {
+        const res = await fetch('/api/whatsapp-templates');
+        if (res.ok) {
+          const data = await res.json();
+          setGlobalTemplates(data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadGlobalTemplates();
+  }, []);
 
   /* ---- save preferences to Supabase on change ------------------ */
   const savePrefs = useCallback(
@@ -270,8 +289,11 @@ export default function PatientFollowUpPage() {
   };
 
   const handleWhatsApp = (patient: PatientFollowUp) => {
+    const globalMessage = globalTemplates[patient.tipo_seguimiento];
+    const defaultMessage = globalMessage || WHATSAPP_TEMPLATES[patient.tipo_seguimiento] || WHATSAPP_TEMPLATES.otro;
+    const customMessage = patient.follow_up_status?.custom_whatsapp_message;
+    setMessageDraft(customMessage || defaultMessage);
     setEditingMessage(patientRowKey(patient));
-    setMessageDraft(WHATSAPP_TEMPLATES[patient.tipo_seguimiento] || WHATSAPP_TEMPLATES.otros);
   };
 
   const sendMessage = async (patient: PatientFollowUp) => {
@@ -280,17 +302,19 @@ export default function PatientFollowUpPage() {
     window.open(url, '_blank');
 
     try {
-      if (patient.follow_up_status?.id) {
-        await PatientFollowUpStatusService.markWhatsAppSent(patient.follow_up_status.id);
-      } else {
+      let statusId = patient.follow_up_status?.id;
+      if (!statusId) {
         const created = await PatientFollowUpStatusService.createFollowUpStatus({
           paciente_id: patient.paciente_id,
           treatment_date: patient.fecha_ultimo_tratamiento,
           notes: '',
         });
-        if (created) {
-          await PatientFollowUpStatusService.markWhatsAppSent(created.id);
-        }
+        if (created) statusId = created.id;
+      }
+
+      if (statusId) {
+        await PatientFollowUpStatusService.markWhatsAppSent(statusId);
+        await PatientFollowUpStatusService.updateCustomWhatsAppMessage(statusId, messageDraft);
       }
       setEditingMessage(null);
       loadPatients();
@@ -350,67 +374,78 @@ export default function PatientFollowUpPage() {
           <StatCard label="Vencidos" value={stats.overdue} color="text-red-600" bg="bg-red-50 dark:bg-red-900/20" icon="⚠️" />
         </div>
 
-        {/* Controls Bar */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          {/* Filter buttons */}
-          <div className="flex gap-2 flex-shrink-0">
-            {(['all', 'limpieza', 'ortodoncia'] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filter === f
-                    ? f === 'limpieza'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : f === 'ortodoncia'
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : 'bg-teal-600 text-white shadow-md'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
-                }`}
-              >
-                {f === 'all' ? 'Todos' : f === 'limpieza' ? '🦷 Limpieza' : '😁 Ortodoncia'}
-              </button>
-            ))}
-          </div>
+         {/* Controls Bar */}
+         <div className="flex flex-col sm:flex-row gap-3 mb-6">
+           {/* Filter buttons */}
+           <div className="flex gap-2 flex-shrink-0">
+             {(['all', 'limpieza', 'ortodoncia'] as const).map(f => (
+               <button
+                 key={f}
+                 onClick={() => setFilter(f)}
+                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                   filter === f
+                     ? f === 'limpieza'
+                       ? 'bg-blue-600 text-white shadow-md'
+                       : f === 'ortodoncia'
+                       ? 'bg-purple-600 text-white shadow-md'
+                       : 'bg-teal-600 text-white shadow-md'
+                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                 }`}
+               >
+                 {f === 'all' ? 'Todos' : f === 'limpieza' ? '🦷 Limpieza' : '😁 Ortodoncia'}
+               </button>
+             ))}
+           </div>
 
-          {/* Search */}
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              placeholder="Buscar por nombre o tratamiento..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full px-4 py-2 pl-10 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
-            />
-            <svg className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+           {/* Search */}
+           <div className="flex-1 relative">
+             <input
+               type="text"
+               placeholder="Buscar por nombre o tratamiento..."
+               value={search}
+               onChange={e => setSearch(e.target.value)}
+               className="w-full px-4 py-2 pl-10 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+             />
+             <svg className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+             </svg>
+           </div>
 
-          {/* Sort */}
-          <div className="flex gap-2 flex-shrink-0">
-            {([
-              { key: 'days' as SortKey, label: 'Días' },
-              { key: 'name' as SortKey, label: 'Nombre' },
-              { key: 'date' as SortKey, label: 'Fecha' },
-            ]).map(s => (
-              <button
-                key={s.key}
-                onClick={() => toggleSort(s.key)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
-                  sortKey === s.key
-                    ? 'bg-gray-800 dark:bg-gray-700 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                {s.label}
-                {sortKey === s.key && (
-                  <span className="text-xs">{sortDir === 'desc' ? '↓' : '↑'}</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+           {/* Sort */}
+           <div className="flex gap-2 flex-shrink-0">
+             {([
+               { key: 'days' as SortKey, label: 'Días' },
+               { key: 'name' as SortKey, label: 'Nombre' },
+               { key: 'date' as SortKey, label: 'Fecha' },
+             ]).map(s => (
+               <button
+                 key={s.key}
+                 onClick={() => toggleSort(s.key)}
+                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                   sortKey === s.key
+                     ? 'bg-gray-800 dark:bg-gray-700 text-white'
+                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                 }`}
+               >
+                 {s.label}
+                 {sortKey === s.key && (
+                   <span className="text-xs">{sortDir === 'desc' ? '↓' : '↑'}</span>
+                 )}
+               </button>
+             ))}
+           </div>
+
+           {/* Global WhatsApp Editor Button */}
+           <button
+             onClick={() => setShowGlobalEditor(true)}
+             className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+           >
+             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+             </svg>
+             Editar Mensajes Globales
+           </button>
+         </div>
 
         {/* Loading */}
         {loading ? (
@@ -615,6 +650,25 @@ export default function PatientFollowUpPage() {
         pacienteId={selectedPatientId || ''}
         isOpen={!!selectedPatientId}
         onClose={() => setSelectedPatientId(null)}
+      />
+
+      <GlobalWhatsAppEdit
+        isOpen={showGlobalEditor}
+        onClose={() => setShowGlobalEditor(false)}
+        onSaved={() => {
+          const loadGlobalTemplates = async () => {
+            try {
+              const res = await fetch('/api/whatsapp-templates');
+              if (res.ok) {
+                const data = await res.json();
+                setGlobalTemplates(data);
+              }
+            } catch {
+              // ignore
+            }
+          };
+          loadGlobalTemplates();
+        }}
       />
     </div>
   );

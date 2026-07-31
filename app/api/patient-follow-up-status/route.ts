@@ -65,18 +65,22 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, whatsapp_sent, patient_responded, appointment_scheduled } = body;
+    const { id, whatsapp_sent, patient_responded, appointment_scheduled, custom_whatsapp_message } = body;
 
     const supabase = createServiceClient();
 
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (whatsapp_sent !== undefined) updateData.whatsapp_sent = whatsapp_sent;
+    if (patient_responded !== undefined) updateData.patient_responded = patient_responded;
+    if (appointment_scheduled !== undefined) updateData.appointment_scheduled = appointment_scheduled;
+    if (custom_whatsapp_message !== undefined) updateData.custom_whatsapp_message = custom_whatsapp_message;
+
     const { data, error } = await supabase
       .from('patient_follow_up_status')
-      .update({
-        ...(whatsapp_sent !== undefined && { whatsapp_sent }),
-        ...(patient_responded !== undefined && { patient_responded }),
-        ...(appointment_scheduled !== undefined && { appointment_scheduled }),
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
