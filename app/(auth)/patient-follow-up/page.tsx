@@ -140,6 +140,23 @@ export default function PatientFollowUpPage() {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [globalTemplates, setGlobalTemplates] = useState<Record<string, string>>({});
   const [showGlobalEditor, setShowGlobalEditor] = useState(false);
+
+  const loadGlobalTemplates = useCallback(async () => {
+    try {
+      const res = await fetch('/api/whatsapp-templates');
+      if (res.ok) {
+        const data = await res.json();
+        setGlobalTemplates(data);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    loadGlobalTemplates();
+  }, [loadGlobalTemplates]);
+
   const patientRowKey = (p: PatientFollowUp) => `${p.paciente_id}__${p.tipo_seguimiento}`;
 
   /* ---- load saved preferences from Supabase -------------------- */
@@ -155,21 +172,6 @@ export default function PatientFollowUpPage() {
       prefsLoaded.current = true;
     })();
   }, [user?.id]);
-
-  useEffect(() => {
-    const loadGlobalTemplates = async () => {
-      try {
-        const res = await fetch('/api/whatsapp-templates');
-        if (res.ok) {
-          const data = await res.json();
-          setGlobalTemplates(data);
-        }
-      } catch {
-        // ignore
-      }
-    };
-    loadGlobalTemplates();
-  }, []);
 
   /* ---- save preferences to Supabase on change ------------------ */
   const savePrefs = useCallback(
@@ -654,21 +656,11 @@ export default function PatientFollowUpPage() {
 
       <GlobalWhatsAppEdit
         isOpen={showGlobalEditor}
-        onClose={() => setShowGlobalEditor(false)}
-        onSaved={() => {
-          const loadGlobalTemplates = async () => {
-            try {
-              const res = await fetch('/api/whatsapp-templates');
-              if (res.ok) {
-                const data = await res.json();
-                setGlobalTemplates(data);
-              }
-            } catch {
-              // ignore
-            }
-          };
+        onClose={() => {
+          setShowGlobalEditor(false);
           loadGlobalTemplates();
         }}
+        onSaved={loadGlobalTemplates}
       />
     </div>
   );
