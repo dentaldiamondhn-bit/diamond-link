@@ -107,6 +107,18 @@ function formatDate(dateString: string) {
   });
 }
 
+function formatTime(dateString: string) {
+  return new Date(dateString).toLocaleTimeString('es-HN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getInitials(name: string | null) {
+  if (!name) return '?';
+  return name.trim().charAt(0).toUpperCase();
+}
+
 function cleanPhone(phone: string): string {
   let clean = phone.replace(/[\s\-\(\)]/g, '');
   if (clean.startsWith('+')) clean = clean.substring(1);
@@ -751,6 +763,39 @@ export default function PatientFollowUpPage() {
                           <div className="space-y-2 max-h-60 overflow-y-auto">
                             {messageHistory[patient.paciente_id].map((item, index) => (
                               <div key={item.id || index} className="p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                                <div className="flex items-start gap-2 mb-2">
+                                  <div className="w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                    {item.sent_by_image ? (
+                                      <img
+                                        src={item.sent_by_image}
+                                        alt={item.sent_by_name || 'Usuario'}
+                                        className="w-full h-full rounded-full object-cover"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none';
+                                          const fallback = e.currentTarget.parentElement?.querySelector('span');
+                                          if (fallback) fallback.style.display = 'block';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <span className={item.sent_by_image ? 'hidden' : 'text-[10px] font-bold text-teal-600'}>
+                                      {getInitials(item.sent_by_name)}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline gap-2 flex-wrap">
+                                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+                                        {item.sent_by_name || 'Usuario'}
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        {formatDate(item.sent_at)}
+                                        {formatTime(item.sent_at) && <span className="ml-1">{formatTime(item.sent_at)}</span>}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
                                 <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap mb-2">
                                   {item.message_text}
                                 </p>
@@ -774,9 +819,6 @@ export default function PatientFollowUpPage() {
                                     📤 Enviar
                                   </button>
                                 </div>
-                                <p className="text-xs text-gray-400 mt-1">
-                                  {new Date(item.sent_at).toLocaleString('es-HN')}
-                                </p>
                               </div>
                             ))}
                           </div>

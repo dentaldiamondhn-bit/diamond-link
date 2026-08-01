@@ -8,6 +8,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+
 const DEFAULT_TEMPLATES: Record<string, string> = {
   limpieza: `💎 ¡Hola! Somos Clínica Dental Diamond 🦷
 
@@ -53,28 +55,50 @@ Agenda tu cita con nosotros:
 Clínica Dental Diamond – Tu sonrisa, nuestra prioridad 😍`,
 };
 
-async function getCurrentUserRole(): Promise<string | null> {
+async function getCurrentUser(): Promise<{ userId: string; role: string; name: string; image: string } | null> {
   try {
     const { userId } = await auth();
     if (!userId) return null;
 
     if (!process.env.CLERK_SECRET_KEY) return null;
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
     const user = await clerk.users.getUser(userId);
     const role = (user.publicMetadata?.role || user.privateMetadata?.role || 'staff') as string;
-    return role.toLowerCase();
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || user.emailAddresses[0]?.emailAddress || 'Usuario';
+    const image = user.profileImageUrl || user.imageUrl || '';
+    return { userId, role: role.toLowerCase(), name, image };
   } catch {
     return null;
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const role = await getCurrentUserRole();
-    if (!role) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const searchParams = request.nextUrl.searchParams;
+    const tipo = searchParams.get('tipo');
+
+    // If tipo is specified, return history for that tipo
+    if (tipo) {
+      const { data, error } = await supabase
+        .from('whatsapp_templates_history')
+        .select('*')
+        .eq('tipo', tipo)
+        .order('changed_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error fetching whatsapp templates history:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json(data || []);
+    }
+
+    // Otherwise return current templates
     const { data, error } = await supabase
       .from('whatsapp_templates')
       .select('tipo, message_text')
@@ -102,12 +126,12 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const role = await getCurrentUserRole();
-    if (!role) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (role !== 'admin' && role !== 'doctor') {
+    if (user.role !== 'admin' && user.role !== 'doctor') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -117,6 +141,13 @@ export async function PUT(request: NextRequest) {
     if (!templates || typeof templates !== 'object') {
       return NextResponse.json({ error: 'Invalid templates payload' }, { status: 400 });
     }
+
+    // Get current templates to compare
+    const { data: currentTemplates } = await supabase
+      .from('whatsapp_templates')
+      .select('tipo, message_text');
+
+    const currentMap = new Map(currentTemplates?.map(t => [t.tipo, t.message_text]) || []);
 
     const updates = Object.entries(templates).map(([tipo, message_text]) => ({
       tipo,
@@ -131,6 +162,28 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error('Error updating whatsapp templates:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Save history for changed templates
+    const historyEntries = Object.entries(templates)
+      .filter(([tipo, message_text]) => currentMap.get(tipo) !== message_text)
+      .map(([tipo, message_text]) => ({
+        tipo,
+        message_text,
+        changed_by: user.userId,
+        changed_by_name: user.name,
+        changed_by_image: user.image,
+      }));
+
+    if (historyEntries.length > 0) {
+      const { error: historyError } = await supabase
+        .from('whatsapp_templates_history')
+        .insert(historyEntries);
+
+      if (historyError) {
+        console.error('Error saving whatsapp templates history:', historyError);
+        // Don't fail the request, just log
+      }
     }
 
     return NextResponse.json({ ok: true, templates: data });
