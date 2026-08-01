@@ -92,6 +92,10 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error('Error fetching whatsapp templates history:', error);
+        // If table doesn't exist (PGRST116), return empty array instead of 500
+        if (error.code === 'PGRST116' || error.message?.includes('does not exist')) {
+          return NextResponse.json([]);
+        }
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
