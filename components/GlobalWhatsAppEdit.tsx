@@ -90,8 +90,8 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     }
   };
 
-  const loadHistory = async (tipo: TemplateKey) => {
-    if (history[tipo].length > 0) return;
+  const loadHistory = async (tipo: TemplateKey, forceReload = false) => {
+    if (history[tipo].length > 0 && !forceReload) return;
     setLoadingHistory(prev => ({ ...prev, [tipo]: true }));
     try {
       const res = await fetch(`/api/whatsapp-templates?tipo=${tipo}&t=${Date.now()}`, { cache: 'no-store' });
@@ -121,7 +121,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
 
     const templatesChannel = supabase
       .channel('public:whatsapp_templates')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_templates' }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_templates' }, (payload: any) => {
         const updatedTemplate = payload.new as any;
         setTemplates(prev => ({
           ...prev,
@@ -131,14 +131,20 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
 
     const historyChannel = supabase
       .channel('public:whatsapp_templates_history')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, () => {
-        setHistory(prev => ({ ...prev }));
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, (payload: any) => {
+        const newEntry = payload.new as any;
+        if (newEntry?.tipo) {
+          loadHistory(newEntry.tipo as TemplateKey, true);
+        }
       });
 
     const deleteChannel = supabase
       .channel('public:whatsapp_templates_history_delete')
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'whatsapp_templates_history' }, () => {
-        setHistory(prev => ({ ...prev }));
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'whatsapp_templates_history' }, (payload: any) => {
+        const oldEntry = payload.old as any;
+        if (oldEntry?.tipo) {
+          loadHistory(oldEntry.tipo as TemplateKey, true);
+        }
       });
 
     const cleanup = () => {
@@ -150,7 +156,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     supabase.subscribe(templatesChannel).subscribe(historyChannel).subscribe(deleteChannel);
 
     return cleanup;
-  }, [isOpen, activeTab]);
+  }, [isOpen, activeTab, loadTemplates, loadHistory]);
 
   const handleSave = async () => {
     setSaving(true);

@@ -275,11 +275,18 @@ export default function PatientFollowUpPage() {
 
     const templateHistoryChannel = supabase
       .channel('public:whatsapp_templates_history')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, (payload) => {
-        const newHistory = payload.new as any;
-        setGlobalTemplates(prev => ({ ...prev }), () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, (payload: any) => {
+        const newEntry = payload.new as any;
+        if (newEntry?.tipo) {
+          loadGlobalTemplates();
           setShowGlobalEditor(true);
-        });
+        }
+      });
+
+    const templateHistoryDeleteChannel = supabase
+      .channel('public:whatsapp_templates_history_delete')
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'whatsapp_templates_history' }, () => {
+        loadGlobalTemplates();
       });
 
     const cleanup = () => {
@@ -287,12 +294,17 @@ export default function PatientFollowUpPage() {
       supabase.removeChannel(messageChannel);
       supabase.removeChannel(templateChannel);
       supabase.removeChannel(templateHistoryChannel);
+      supabase.removeChannel(templateHistoryDeleteChannel);
     };
 
-    supabase.subscribe(statusChannel).subscribe(messageChannel).subscribe(templateChannel).subscribe(templateHistoryChannel);
+    supabase.subscribe(statusChannel)
+      .subscribe(messageChannel)
+      .subscribe(templateChannel)
+      .subscribe(templateHistoryChannel)
+      .subscribe(templateHistoryDeleteChannel);
 
     return cleanup;
-  }, [user, loadPatients]);
+  }, [user, loadPatients, loadGlobalTemplates]);
 
   /* ---- computed stats & sorted list ------------------------------ */
   const stats = useMemo(() => {
