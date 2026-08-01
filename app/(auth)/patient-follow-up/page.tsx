@@ -302,13 +302,18 @@ export default function PatientFollowUpPage() {
     // Load message history for this patient
     try {
       setLoadingHistory(true);
-      const res = await fetch(`/api/whatsapp-message-history?paciente_id=${patient.paciente_id}`);
+      const res = await fetch(`/api/whatsapp-message-history?paciente_id=${patient.paciente_id}&t=${Date.now()}`, { cache: 'no-store' });
+      console.log('History fetch response:', res.status, res.ok);
       if (res.ok) {
         const data = await res.json();
+        console.log('Loaded message history:', data);
         setMessageHistory(prev => ({ ...prev, [patient.paciente_id]: data }));
+      } else {
+        const err = await res.json();
+        console.error('Failed to load message history:', err);
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Error loading message history:', err);
     } finally {
       setLoadingHistory(false);
     }
@@ -337,7 +342,7 @@ export default function PatientFollowUpPage() {
 
       // Save to message history
       try {
-        await fetch('/api/whatsapp-message-history', {
+        const res = await fetch('/api/whatsapp-message-history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -346,8 +351,14 @@ export default function PatientFollowUpPage() {
             follow_up_status_id: statusId,
           }),
         });
-      } catch {
-        // ignore history save errors
+        if (!res.ok) {
+          const err = await res.json();
+          console.error('Failed to save message history:', err);
+        } else {
+          console.log('Message history saved successfully');
+        }
+      } catch (err) {
+        console.error('Error saving message history:', err);
       }
 
       setEditingMessage(null);
