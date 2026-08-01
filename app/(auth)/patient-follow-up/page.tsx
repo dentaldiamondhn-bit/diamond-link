@@ -7,6 +7,7 @@ import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useUser } from '@clerk/nextjs';
 import PatientOverviewModal from '@/components/PatientOverviewModal';
 import GlobalWhatsAppEdit from '@/components/GlobalWhatsAppEdit';
+import { supabase } from '@/lib/supabase';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -228,6 +229,70 @@ export default function PatientFollowUpPage() {
   useEffect(() => {
     loadPatients();
   }, [loadPatients]);
+
+  /* ---- real-time subscriptions ---------------------------------- */
+  useEffect(() => {
+    if (!user) return;
+
+    const statusChannel = supabase
+      .channel('public:patient_follow_up_status')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'patient_follow_up_status' }, (payload) => {
+        const updatedStatus = payload.new as any;
+        setPatients(prev => prev.map(p => {
+          if (p.follow_up_status?.id === updatedStatus.id) {
+            return {
+              ...p,
+              follow_up_status: {
+                ...p.follow_up_status!,
+                ...updatedStatus,
+              },
+            };
+          }
+          return p;
+        }));
+      });
+
+    const messageChannel = supabase
+      .channel('public:whatsapp_message_history')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_message_history' }, (payload) => {
+        const newMessage = payload.new as any;
+        const pacienteId = newMessage.paciente_id;
+        setMessageHistory(prev => ({
+          ...prev,
+          [pacienteId]: [...(prev[pacienteId] || []), newMessage],
+        }));
+      });
+
+    const templateChannel = supabase
+      .channel('public:whatsapp_templates')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_templates' }, (payload) => {
+        const updatedTemplate = payload.new as any;
+        setGlobalTemplates(prev => ({
+          ...prev,
+          [updatedTemplate.tipo]: updatedTemplate.message_text,
+        }));
+      });
+
+    const templateHistoryChannel = supabase
+      .channel('public:whatsapp_templates_history')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, (payload) => {
+        const newHistory = payload.new as any;
+        setGlobalTemplates(prev => ({ ...prev }), () => {
+          setShowGlobalEditor(true);
+        });
+      });
+
+    const cleanup = () => {
+      supabase.removeChannel(statusChannel);
+      supabase.removeChannel(messageChannel);
+      supabase.removeChannel(templateChannel);
+      supabase.removeChannel(templateHistoryChannel);
+    };
+
+    supabase.subscribe(statusChannel).subscribe(messageChannel).subscribe(templateChannel).subscribe(templateHistoryChannel);
+
+    return cleanup;
+  }, [user, loadPatients]);
 
   /* ---- computed stats & sorted list ------------------------------ */
   const stats = useMemo(() => {

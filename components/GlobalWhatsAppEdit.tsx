@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Clock, Trash2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface Props {
   isOpen: boolean;
@@ -113,6 +114,43 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
   useEffect(() => {
     loadHistory(activeTab);
   }, [activeTab]);
+
+  /* ---- real-time subscriptions for template history -------------- */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const templatesChannel = supabase
+      .channel('public:whatsapp_templates')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_templates' }, (payload) => {
+        const updatedTemplate = payload.new as any;
+        setTemplates(prev => ({
+          ...prev,
+          [updatedTemplate.tipo]: updatedTemplate.message_text,
+        }));
+      });
+
+    const historyChannel = supabase
+      .channel('public:whatsapp_templates_history')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, () => {
+        setHistory(prev => ({ ...prev }));
+      });
+
+    const deleteChannel = supabase
+      .channel('public:whatsapp_templates_history_delete')
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'whatsapp_templates_history' }, () => {
+        setHistory(prev => ({ ...prev }));
+      });
+
+    const cleanup = () => {
+      supabase.removeChannel(templatesChannel);
+      supabase.removeChannel(historyChannel);
+      supabase.removeChannel(deleteChannel);
+    };
+
+    supabase.subscribe(templatesChannel).subscribe(historyChannel).subscribe(deleteChannel);
+
+    return cleanup;
+  }, [isOpen, activeTab]);
 
   const handleSave = async () => {
     setSaving(true);
