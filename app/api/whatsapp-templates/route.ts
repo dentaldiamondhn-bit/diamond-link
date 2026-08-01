@@ -191,3 +191,52 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (user.role !== 'admin' && user.role !== 'doctor') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    // Verify the history entry belongs to the current user (or user is admin)
+    const { data: historyEntry } = await supabase
+      .from('whatsapp_templates_history')
+      .select('changed_by')
+      .eq('id', id)
+      .single();
+
+    if (!historyEntry) {
+      return NextResponse.json({ error: 'History entry not found' }, { status: 404 });
+    }
+
+    if (historyEntry.changed_by !== user.userId && user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { error } = await supabase
+      .from('whatsapp_templates_history')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting whatsapp templates history:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

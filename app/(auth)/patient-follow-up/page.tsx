@@ -435,6 +435,27 @@ export default function PatientFollowUpPage() {
     }
   };
 
+  const deleteMessage = async (messageId: string, pacienteId: string) => {
+    if (!confirm('¿Eliminar este mensaje del historial?')) return;
+    try {
+      const res = await fetch(`/api/whatsapp-message-history?id=${messageId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete');
+      }
+      // Remove from local state
+      setMessageHistory(prev => ({
+        ...prev,
+        [pacienteId]: prev[pacienteId]?.filter(m => m.id !== messageId) || [],
+      }));
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      alert('Error al eliminar el mensaje');
+    }
+  };
+
   const startEditNotes = (patient: PatientFollowUp) => {
     setEditingNotes(patientRowKey(patient));
     setNotesDraft(patient.follow_up_status?.notes || '');
@@ -817,6 +838,12 @@ export default function PatientFollowUpPage() {
                                     className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
                                   >
                                     📤 Enviar
+                                  </button>
+                                  <button
+                                    onClick={() => deleteMessage(item.id, patient.paciente_id)}
+                                    className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+                                  >
+                                    🗑️ Eliminar
                                   </button>
                                 </div>
                               </div>

@@ -142,6 +142,27 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     setShowHistory(prev => ({ ...prev, [activeTab]: false }));
   };
 
+  const deleteHistoryItem = async (id: string, tipo: TemplateKey) => {
+    if (!confirm('¿Eliminar esta entrada del historial?')) return;
+    try {
+      const res = await fetch(`/api/whatsapp-templates?id=${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete');
+      }
+      // Remove from local state
+      setHistory(prev => ({
+        ...prev,
+        [tipo]: prev[tipo].filter(item => item.id !== id),
+      }));
+    } catch (err) {
+      console.error('Error deleting history item:', err);
+      alert('Error al eliminar la entrada del historial');
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -243,8 +264,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
                         {history[activeTab].map((item) => (
                           <div
                             key={item.id}
-                            className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-                            onClick={() => loadHistoryMessage(item.message_text)}
+                            className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                           >
                             <div className="flex items-start gap-2">
                               <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -275,10 +295,23 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
                                     {formatTime(item.changed_at) && <span className="ml-1">{formatTime(item.changed_at)}</span>}
                                   </span>
                                 </div>
-                                <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap mt-1 line-clamp-3 cursor-pointer">
+                                <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap mt-1 line-clamp-3 cursor-pointer"
+                                   onClick={() => loadHistoryMessage(item.message_text)}>
                                   {item.message_text}
                                 </p>
                               </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteHistoryItem(item.id, activeTab);
+                                }}
+                                className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                title="Eliminar"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
                             </div>
                           </div>
                         ))}
