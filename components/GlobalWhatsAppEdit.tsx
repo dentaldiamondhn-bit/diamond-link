@@ -73,7 +73,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
   const loadTemplates = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/whatsapp-templates');
+      const res = await fetch('/api/whatsapp-templates?t=' + Date.now(), { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setTemplates({
@@ -93,7 +93,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     if (history[tipo].length > 0) return;
     setLoadingHistory(prev => ({ ...prev, [tipo]: true }));
     try {
-      const res = await fetch(`/api/whatsapp-templates?tipo=${tipo}`);
+      const res = await fetch(`/api/whatsapp-templates?tipo=${tipo}&t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setHistory(prev => ({ ...prev, [tipo]: data }));
@@ -117,12 +117,17 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/whatsapp-templates', {
+      const res = await fetch('/api/whatsapp-templates?t=' + Date.now(), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(templates),
+        cache: 'no-store',
       });
       if (!res.ok) throw new Error('Failed to save templates');
+      
+      // Clear history so it reloads on tab switch
+      setHistory({ limpieza: [], ortodoncia: [], otro: [] });
+      
       onSaved?.();
       onClose();
     } catch {
@@ -139,8 +144,9 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
   const deleteHistoryItem = async (id: string, tipo: TemplateKey) => {
     if (!confirm('¿Eliminar esta entrada del historial?')) return;
     try {
-      const res = await fetch(`/api/whatsapp-templates?id=${id}`, {
+      const res = await fetch(`/api/whatsapp-templates?id=${id}&t=${Date.now()}`, {
         method: 'DELETE',
+        cache: 'no-store',
       });
       if (!res.ok) {
         const err = await res.json();

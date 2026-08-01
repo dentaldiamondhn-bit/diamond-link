@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_message_history (
   message_text TEXT NOT NULL,
   sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   sent_by TEXT NOT NULL,
+  sent_by_name TEXT DEFAULT '',
+  sent_by_image TEXT DEFAULT '',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
@@ -24,5 +26,11 @@ CREATE POLICY "Users can view whatsapp message history" ON public.whatsapp_messa
 -- Policy: authenticated users can insert message history
 CREATE POLICY "Users can insert whatsapp message history" ON public.whatsapp_message_history
   FOR INSERT WITH CHECK (
+    auth.role() = 'authenticated'
+  );
+
+-- Policy: authenticated users can delete message history
+CREATE POLICY "Users can delete whatsapp message history" ON public.whatsapp_message_history
+  FOR DELETE USING (
     auth.role() = 'authenticated'
   );

@@ -10,16 +10,17 @@ const supabase = createClient(
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
-async function getCurrentUser(): Promise<{ userId: string; name: string; image: string } | null> {
+async function getCurrentUser(): Promise<{ userId: string; role: string; name: string; image: string } | null> {
   try {
     const { userId } = await auth();
     if (!userId) return null;
 
     if (!process.env.CLERK_SECRET_KEY) return null;
     const user = await clerk.users.getUser(userId);
+    const role = (user.publicMetadata?.role || user.privateMetadata?.role || 'staff') as string;
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || user.emailAddresses[0]?.emailAddress || 'Usuario';
     const image = user.profileImageUrl || user.imageUrl || '';
-    return { userId, name, image };
+    return { userId, role: role.toLowerCase(), name, image };
   } catch {
     return null;
   }
@@ -130,7 +131,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
     }
 
-    if (message.sent_by !== user.userId && user.role !== 'admin') {
+    if (message.sent_by !== user.userId && user.role !== 'admin' && user.role !== 'tech-support') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

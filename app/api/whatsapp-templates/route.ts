@@ -136,7 +136,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.role !== 'admin' && user.role !== 'doctor') {
+    if (user.role !== 'admin' && user.role !== 'doctor' && user.role !== 'tech-support') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -146,13 +146,6 @@ export async function PUT(request: NextRequest) {
     if (!templates || typeof templates !== 'object') {
       return NextResponse.json({ error: 'Invalid templates payload' }, { status: 400 });
     }
-
-    // Get current templates to compare
-    const { data: currentTemplates } = await supabase
-      .from('whatsapp_templates')
-      .select('tipo, message_text');
-
-    const currentMap = new Map(currentTemplates?.map(t => [t.tipo, t.message_text]) || []);
 
     const updates = Object.entries(templates).map(([tipo, message_text]) => ({
       tipo,
@@ -169,25 +162,22 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Save history for changed templates
-    const historyEntries = Object.entries(templates)
-      .filter(([tipo, message_text]) => currentMap.get(tipo) !== message_text)
-      .map(([tipo, message_text]) => ({
-        tipo,
-        message_text,
-        changed_by: user.userId,
-        changed_by_name: user.name,
-        changed_by_image: user.image,
-      }));
+    // Save history for all template updates
+    const entriesToInsert = Object.entries(templates).map(([tipo, message_text]) => ({
+      tipo,
+      message_text,
+      changed_by: user.userId,
+      changed_by_name: user.name,
+      changed_by_image: user.image,
+    }));
 
-    if (historyEntries.length > 0) {
+    if (entriesToInsert.length > 0) {
       const { error: historyError } = await supabase
         .from('whatsapp_templates_history')
-        .insert(historyEntries);
+        .insert(entriesToInsert);
 
       if (historyError) {
         console.error('Error saving whatsapp templates history:', historyError);
-        // Don't fail the request, just log
       }
     }
 
@@ -204,7 +194,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (user.role !== 'admin' && user.role !== 'doctor') {
+    if (user.role !== 'admin' && user.role !== 'doctor' && user.role !== 'tech-support') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -213,21 +203,6 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
-    }
-
-    // Verify the history entry belongs to the current user (or user is admin)
-    const { data: historyEntry } = await supabase
-      .from('whatsapp_templates_history')
-      .select('changed_by')
-      .eq('id', id)
-      .single();
-
-    if (!historyEntry) {
-      return NextResponse.json({ error: 'History entry not found' }, { status: 404 });
-    }
-
-    if (historyEntry.changed_by !== user.userId && user.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { error } = await supabase

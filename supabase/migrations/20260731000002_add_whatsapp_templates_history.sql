@@ -5,12 +5,16 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_templates_history (
   message_text TEXT NOT NULL,
   changed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   changed_by TEXT NOT NULL,
-  changed_by_name TEXT,
-  changed_by_image TEXT
+  changed_by_name TEXT DEFAULT '',
+  changed_by_image TEXT DEFAULT ''
 );
 
 -- Create index for faster lookups by tipo
 CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_history_tipo ON public.whatsapp_templates_history(tipo);
+
+-- Ensure columns have defaults (for safety if table was created differently)
+ALTER TABLE public.whatsapp_templates_history ALTER COLUMN changed_by_name SET DEFAULT '';
+ALTER TABLE public.whatsapp_templates_history ALTER COLUMN changed_by_image SET DEFAULT '';
 
 -- Enable RLS
 ALTER TABLE public.whatsapp_templates_history ENABLE ROW LEVEL SECURITY;
@@ -24,5 +28,11 @@ CREATE POLICY "Users can view whatsapp templates history" ON public.whatsapp_tem
 -- Policy: authenticated users can insert template history
 CREATE POLICY "Users can insert whatsapp templates history" ON public.whatsapp_templates_history
   FOR INSERT WITH CHECK (
+    auth.role() = 'authenticated'
+  );
+
+-- Policy: authenticated users can delete template history
+CREATE POLICY "Users can delete whatsapp templates history" ON public.whatsapp_templates_history
+  FOR DELETE USING (
     auth.role() = 'authenticated'
   );
