@@ -7,7 +7,7 @@ import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useUser } from '@clerk/nextjs';
 import PatientOverviewModal from '@/components/PatientOverviewModal';
 import GlobalWhatsAppEdit from '@/components/GlobalWhatsAppEdit';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -234,7 +234,9 @@ export default function PatientFollowUpPage() {
   useEffect(() => {
     if (!user) return;
 
-    const statusChannel = supabase
+    const client = getSupabaseClient();
+
+    const statusChannel = client
       .channel('public:patient_follow_up_status')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'patient_follow_up_status' }, (payload) => {
         const updatedStatus = payload.new as any;
@@ -252,7 +254,7 @@ export default function PatientFollowUpPage() {
         }));
       });
 
-    const messageChannel = supabase
+    const messageChannel = client
       .channel('public:whatsapp_message_history')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_message_history' }, (payload) => {
         const newMessage = payload.new as any;
@@ -263,7 +265,7 @@ export default function PatientFollowUpPage() {
         }));
       });
 
-    const templateChannel = supabase
+    const templateChannel = client
       .channel('public:whatsapp_templates')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_templates' }, (payload) => {
         const updatedTemplate = payload.new as any;
@@ -273,7 +275,7 @@ export default function PatientFollowUpPage() {
         }));
       });
 
-    const templateHistoryChannel = supabase
+    const templateHistoryChannel = client
       .channel('public:whatsapp_templates_history')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, (payload: any) => {
         const newEntry = payload.new as any;
@@ -283,21 +285,21 @@ export default function PatientFollowUpPage() {
         }
       });
 
-    const templateHistoryDeleteChannel = supabase
+    const templateHistoryDeleteChannel = client
       .channel('public:whatsapp_templates_history_delete')
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'whatsapp_templates_history' }, () => {
         loadGlobalTemplates();
       });
 
     const cleanup = () => {
-      supabase.removeChannel(statusChannel);
-      supabase.removeChannel(messageChannel);
-      supabase.removeChannel(templateChannel);
-      supabase.removeChannel(templateHistoryChannel);
-      supabase.removeChannel(templateHistoryDeleteChannel);
+      client.removeChannel(statusChannel);
+      client.removeChannel(messageChannel);
+      client.removeChannel(templateChannel);
+      client.removeChannel(templateHistoryChannel);
+      client.removeChannel(templateHistoryDeleteChannel);
     };
 
-    supabase.subscribe(statusChannel)
+    client.subscribe(statusChannel)
       .subscribe(messageChannel)
       .subscribe(templateChannel)
       .subscribe(templateHistoryChannel)
