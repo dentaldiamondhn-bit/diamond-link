@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Smile, Bold, Italic, Striethrough, Code, List } from 'lucide-react';
+import { Smile, Bold, Italic, Code, List } from 'lucide-react';
 
 const EMOJIS = ['🦷', '😁', '💎', '✨', '📞', '📍', '💙', '😍', '😉', '🔥', '🎉', '👍', '❤️', '🌟', '💪'];
 
@@ -32,7 +32,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
     }, 0);
   };
 
-  const applyFormat = (prefix: string, suffix: string) => {
+  const applyFormat = (prefix: string, suffix: string, formatType?: string) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
     
@@ -42,7 +42,13 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
     const selectedText = currentValue.slice(start, end);
     
     if (selectedText) {
-      const newValue = currentValue.slice(0, start) + prefix + selectedText + suffix + currentValue.slice(end);
+      let formattedText = selectedText;
+      if (formatType === 'strikethrough') {
+        formattedText = `~${selectedText}~`;
+      } else {
+        formattedText = prefix + selectedText + suffix;
+      }
+      const newValue = currentValue.slice(0, start) + formattedText + currentValue.slice(end);
       onChange(newValue);
       setTimeout(() => {
         textarea.focus();
@@ -79,14 +85,14 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
         >
           <Italic size={14} />
         </button>
-        
+
         <button
           type="button"
-          onClick={() => applyFormat('~', '~')}
+          onClick={() => applyFormat('', '', 'strikethrough')}
           className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700"
           title="Tachado (~texto~)"
         >
-          <Strikethrough size={14} />
+          ~~
         </button>
         
         <button
