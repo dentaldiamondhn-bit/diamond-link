@@ -96,15 +96,27 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
       const res = await fetch(`/api/whatsapp-templates?tipo=${tipo}&t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        const typedData = Array.isArray(data) ? data as HistoryItem[] : [];
+        if (!Array.isArray(data)) return;
+        
+        // CRITICAL: Only keep items with EXACTLY matching tipo
+        const filtered = data.filter((item: any) => item.tipo === tipo);
+        
+        // Update ONLY the specific tipo, clearing potential cross-contamination
         setHistory(prev => {
-          const newHistory = { ...prev };
-          newHistory[tipo] = typedData.filter((item): item is HistoryItem => item.tipo === tipo);
-          return newHistory;
+          const newHist = {};
+          // Copy other tabs' history unchanged
+          Object.keys(prev).forEach(key => {
+            if (key !== tipo) {
+              newHist[key] = prev[key as TemplateKey];
+            }
+          });
+          // Set ONLY this tab's history
+          newHist[tipo] = filtered as HistoryItem[];
+          return newHist as Record<TemplateKey, HistoryItem[]>;
         });
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error('loadHistory error:', e);
     } finally {
       setLoadingHistory(prev => ({ ...prev, [tipo]: false }));
     }
