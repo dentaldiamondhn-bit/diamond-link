@@ -244,6 +244,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
                     value={templates[activeTab]}
                     onChange={(text) => setTemplates({ ...templates, [activeTab]: text })}
                     onEmojiSelect={(emoji) => setTemplates({ ...templates, [activeTab]: templates[activeTab] + emoji })}
+                    rows={10}
                   />
                 </div>
 

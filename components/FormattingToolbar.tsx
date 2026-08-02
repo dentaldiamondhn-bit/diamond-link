@@ -9,9 +9,10 @@ interface FormattingToolbarProps {
   value: string;
   onChange: (value: string) => void;
   onEmojiSelect: (emoji: string) => void;
+  rows?: number;
 }
 
-export function FormattingToolbar({ value, onChange, onEmojiSelect }: FormattingToolbarProps) {
+export function FormattingToolbar({ value, onChange, onEmojiSelect, rows = 10 }: FormattingToolbarProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -59,11 +60,11 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
 
   return (
     <div className="mb-2">
-      <div className="flex flex-wrap gap-1 mb-2">
+      <div className="flex flex-wrap gap-1 mb-2 flex-wrap">
         <button
           type="button"
           onClick={() => applyFormat('*', '*')}
-          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
           title="Negrita (*texto*)"
         >
           <Bold size={14} />
@@ -72,7 +73,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
         <button
           type="button"
           onClick={() => applyFormat('_', '_')}
-          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
           title="Cursiva (_texto_)"
         >
           <Italic size={14} />
@@ -81,7 +82,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
         <button
           type="button"
           onClick={() => applyFormat('', '', 'strikethrough')}
-          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
           title="Tachado (~texto~)"
         >
           ~~
@@ -90,7 +91,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
         <button
           type="button"
           onClick={() => applyFormat('`', '`')}
-          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
           title="Monoespaciado (`texto`)"
         >
           <Code size={14} />
@@ -99,7 +100,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
         <button
           type="button"
           onClick={() => insertAtCursor('\n• ')}
-          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
           title="Lista con viñetas"
         >
           <List size={14} />
@@ -109,7 +110,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-400 hover:text-white rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
             title="Emojis"
           >
             <Smile size={14} />
@@ -117,7 +118,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
           
           {showEmojiPicker && (
             <div className="absolute bottom-full mb-2 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-2 z-50">
-              <div className="grid grid-cols-5 gap-1">
+              <div className="grid grid-cols-6 gap-1">
                 {EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
@@ -126,7 +127,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
                       onEmojiSelect(emoji);
                       setShowEmojiPicker(false);
                     }}
-                    className="text-xl w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center"
+                    className="text-xl w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center"
                   >
                     {emoji}
                   </button>
@@ -141,7 +142,8 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+        rows={rows}
+        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none min-h-[120px]"
         placeholder="Escribe tu mensaje..."
       />
     </div>

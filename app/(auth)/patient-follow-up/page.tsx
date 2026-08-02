@@ -755,6 +755,7 @@ export default function PatientFollowUpPage() {
                         value={messageDraft}
                         onChange={setMessageDraft}
                         onEmojiSelect={(emoji) => setMessageDraft(messageDraft + emoji)}
+                        rows={6}
                       />
                       <div className="flex gap-2 mt-2">
                         <button
@@ -765,6 +766,14 @@ export default function PatientFollowUpPage() {
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                           </svg>
                           Enviar
+                        </button>
+                        <button
+                          onClick={() => setEditingMessage(null)}
+                          className="px-4 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 text-sm font-medium transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                         </button>
                         <button
                           onClick={() => setEditingMessage(null)}
