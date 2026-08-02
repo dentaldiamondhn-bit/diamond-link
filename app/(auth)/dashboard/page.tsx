@@ -1,10 +1,26 @@
 // app/dashboard/page.tsx
 'use client';
 
-import { UserButton, useUser } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Users,
+  Activity,
+  Sparkles,
+  CalendarClock,
+  DollarSign,
+  TrendingUp,
+  ListChecks,
+  MessageSquare,
+  FileText,
+  CalendarDays,
+  Clock,
+  MapPin,
+  ArrowUpRight,
+  User,
+} from 'lucide-react';
 import { PatientService } from '../../../services/patientService';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
@@ -15,6 +31,69 @@ import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 const formatHNL = (amount: number) => {
   return `L ${amount.toLocaleString('es-HN', { minimumFractionDigits: 2 })}`;
 };
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrador',
+  doctor: 'Doctor',
+  staff: 'Personal',
+  'tech-support': 'Soporte Técnico',
+  tech_support: 'Soporte Técnico',
+};
+
+type AccentKey = 'blue' | 'purple' | 'teal' | 'green' | 'red' | 'orange' | 'indigo' | 'yellow' | 'cyan' | 'gray';
+
+const ACCENTS: Record<AccentKey, { icon: string; wash: string }> = {
+  blue: { icon: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400', wash: 'bg-blue-500' },
+  purple: { icon: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400', wash: 'bg-purple-500' },
+  teal: { icon: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400', wash: 'bg-teal-500' },
+  green: { icon: 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400', wash: 'bg-green-500' },
+  red: { icon: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400', wash: 'bg-red-500' },
+  orange: { icon: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400', wash: 'bg-orange-500' },
+  indigo: { icon: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', wash: 'bg-indigo-500' },
+  yellow: { icon: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400', wash: 'bg-yellow-500' },
+  cyan: { icon: 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-400', wash: 'bg-cyan-500' },
+  gray: { icon: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', wash: 'bg-gray-500' },
+};
+
+interface StatTileProps {
+  icon: React.ReactNode;
+  title: string;
+  value: React.ReactNode;
+  subtitle?: React.ReactNode;
+  accent: AccentKey;
+  loading?: boolean;
+  onClick?: () => void;
+}
+
+function StatTile({ icon, title, value, subtitle, accent, loading, onClick }: StatTileProps) {
+  const a = ACCENTS[accent];
+  const Wrapper = onClick ? 'button' : 'div';
+  return (
+    <Wrapper
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm transition-all duration-200 ${
+        onClick
+          ? 'cursor-pointer text-left hover:-translate-y-1 hover:border-teal-300 hover:shadow-lg dark:hover:border-teal-600'
+          : 'hover:shadow-md'
+      }`}
+    >
+      <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-10 blur-2xl ${a.wash}`} />
+      <div className="flex items-start justify-between">
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${a.icon}`}>{icon}</div>
+        {onClick && (
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-50 text-gray-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:bg-gray-700 dark:text-gray-500">
+            <ArrowUpRight size={14} />
+          </span>
+        )}
+      </div>
+      <div className="mt-4 text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+        {loading ? <span className="text-gray-300 dark:text-gray-600">...</span> : value}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</div>
+      {subtitle && <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{subtitle}</div>}
+    </Wrapper>
+  );
+}
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -217,226 +296,240 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, [user?.fullName, userRole, user?.id]);
 
+  const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'Usuario';
+  const roleLabel = ROLE_LABELS[userRole] || userRole;
+  const todayLabel = new Date().toLocaleDateString('es-HN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
   return (
     <>
       {/* Contenido Principal */}
       <div className="py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Sección de Bienvenida */}
-          <div className="bg-white overflow-hidden shadow rounded-lg mb-8">
-            <div className="px-4 py-5 sm:p-6">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                ¡Bienvenido de nuevo, {user?.fullName || 'Usuario'}!
-              </h2>
-              <p className="mt-2 text-gray-600">
-                Esto es lo que está pasando con tu cuenta hoy.
-              </p>
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 via-teal-500 to-cyan-500 dark:from-teal-800 dark:via-teal-700 dark:to-cyan-700 p-6 sm:p-8 shadow-lg mb-6">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+            <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-teal-100 capitalize">{todayLabel}</p>
+                <h2 className="mt-1 text-2xl font-bold text-white sm:text-3xl">
+                  ¡Bienvenido de nuevo, {firstName}!
+                </h2>
+                <p className="mt-2 text-teal-50">
+                  Esto es lo que está pasando con tu cuenta hoy.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 self-start rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm sm:self-auto">
+                <UserAvatar
+                  user={{
+                    first_name: user?.firstName,
+                    last_name: user?.lastName,
+                    profileImageUrl: user?.imageUrl,
+                  }}
+                  size="lg"
+                />
+                <div>
+                  <div className="text-sm font-semibold text-white">{user?.fullName || 'Usuario'}</div>
+                  <div className="text-xs text-teal-100 capitalize">{roleLabel}</div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Estadísticas - Role Specific */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-5 mb-6">
             {userRole === 'doctor' ? (
               <>
                 {/* Doctor-specific stats */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Mis Pacientes</h3>
-                  <button
-                    onClick={openPatientsModal}
-                    className="text-3xl font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
-                  >
-                    {loading ? '...' : patientCount}
-                  </button>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {patientStats.newPatients} nuevos, {patientStats.returningPatients} recurrentes
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Completados</h3>
-                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                    {loading ? '...' : treatmentCount}
-                  </p>
-                  <p className="text-sm text-green-600 dark:text-green-400">
-                    {averageRevenue > 0 ? 
-                      `Promedio: ${formatHNL(averageRevenue)}` : 
-                      'Sin datos'
-                    }
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Individuales</h3>
-                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-                    {loading ? '...' : individualTreatmentCount}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Este mes (1 al 1)
-                  </p>
-                </div>
-                <button
+                <StatTile
+                  icon={<Users size={20} />}
+                  title="Mis Pacientes"
+                  value={patientCount}
+                  subtitle={`${patientStats.newPatients} nuevos · ${patientStats.returningPatients} recurrentes`}
+                  accent="blue"
+                  loading={loading}
+                  onClick={openPatientsModal}
+                />
+                <StatTile
+                  icon={<Activity size={20} />}
+                  title="Tratamientos Completados"
+                  value={treatmentCount}
+                  subtitle={averageRevenue > 0 ? `Promedio: ${formatHNL(averageRevenue)}` : 'Sin datos'}
+                  accent="purple"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<Sparkles size={20} />}
+                  title="Tratamientos Individuales"
+                  value={individualTreatmentCount}
+                  subtitle="Este mes"
+                  accent="teal"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<CalendarClock size={20} />}
+                  title="Seguimiento Pacientes"
+                  value={followUpCount}
+                  subtitle="Pacientes con más de 5 meses sin tratamiento"
+                  accent="green"
+                  loading={loading}
                   onClick={() => router.push('/patient-follow-up')}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-600 transition-all text-left cursor-pointer"
-                >
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Seguimiento Pacientes</h3>
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {loading ? '...' : followUpCount}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Pacientes con &gt;5 meses sin tratamiento
-                  </p>
-                </button>
+                />
               </>
             ) : userRole === 'admin' ? (
               <>
                 {/* Admin-specific stats */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Total de Pacientes</h3>
-                  <p className="text-3xl font-bold text-red-600 dark:text-red-400">
-                    {loading ? '...' : patientCount}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Todos los roles
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Totales</h3>
-                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                    {loading ? '...' : treatmentCount}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Todos los tratamientos
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Ingresos Hoy</h3>
-                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-                    {loading ? '...' : '12'}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Nuevos ingresos
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tasa de Actividad</h3>
-                  <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-                    {loading ? '...' : '87%'}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Usuarios activos
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tratamientos Individuales</h3>
-                  <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-                    {loading ? '...' : individualTreatmentCount}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Este mes
-                  </p>
-                </div>
-                <button
+                <StatTile
+                  icon={<Users size={20} />}
+                  title="Total de Pacientes"
+                  value={patientCount}
+                  subtitle="Todos los roles"
+                  accent="red"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<Activity size={20} />}
+                  title="Tratamientos Totales"
+                  value={treatmentCount}
+                  subtitle="Todos los tratamientos"
+                  accent="orange"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<DollarSign size={20} />}
+                  title="Ingresos Hoy"
+                  value="12"
+                  subtitle="Nuevos ingresos"
+                  accent="teal"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<TrendingUp size={20} />}
+                  title="Tasa de Actividad"
+                  value="87%"
+                  subtitle="Usuarios activos"
+                  accent="indigo"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<Sparkles size={20} />}
+                  title="Tratamientos Individuales"
+                  value={individualTreatmentCount}
+                  subtitle="Este mes"
+                  accent="cyan"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<CalendarClock size={20} />}
+                  title="Seguimiento Pacientes"
+                  value={followUpCount}
+                  subtitle="Pacientes con más de 5 meses sin tratamiento"
+                  accent="green"
+                  loading={loading}
                   onClick={() => router.push('/patient-follow-up')}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-600 transition-all text-left cursor-pointer"
-                >
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Seguimiento Pacientes</h3>
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {loading ? '...' : followUpCount}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Pacientes con &gt;5 meses sin tratamiento
-                  </p>
-                </button>
+                />
               </>
             ) : userRole === 'staff' ? (
               <>
                 {/* Staff-specific stats */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Tareas Pendientes</h3>
-                  <p className="text-3xl font-bold text-gray-600 dark:text-gray-400">
-                    {loading ? '...' : '5'}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Por completar
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Mensajes Hoy</h3>
-                  <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                    {loading ? '...' : '3'}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Sin responder
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Documentos</h3>
-                  <p className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">
-                    {loading ? '...' : '8'}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Por procesar
-                  </p>
-                </div>
+                <StatTile
+                  icon={<ListChecks size={20} />}
+                  title="Tareas Pendientes"
+                  value="5"
+                  subtitle="Por completar"
+                  accent="gray"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<MessageSquare size={20} />}
+                  title="Mensajes Hoy"
+                  value="3"
+                  subtitle="Sin responder"
+                  accent="yellow"
+                  loading={loading}
+                />
+                <StatTile
+                  icon={<FileText size={20} />}
+                  title="Documentos"
+                  value="8"
+                  subtitle="Por procesar"
+                  accent="cyan"
+                  loading={loading}
+                />
               </>
             ) : (
               <>
                 {/* Default/Fallback stats */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Total de Pacientes</h3>
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                    {loading ? '...' : patientCount}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    En el sistema
-                  </p>
+                <div className="sm:col-span-2 lg:col-span-3 xl:col-span-4">
+                  <StatTile
+                    icon={<Users size={20} />}
+                    title="Total de Pacientes"
+                    value={patientCount}
+                    subtitle="En el sistema"
+                    accent="blue"
+                    loading={loading}
+                  />
                 </div>
               </>
             )}
           </div>
 
           {/* Próximos Eventos Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Próximos Eventos
-              </h3>
+          <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-700 px-5 py-4 sm:px-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400">
+                  <CalendarDays size={18} />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Próximos Eventos
+                </h3>
+              </div>
               <Link
                 href="/calendario"
-                className="text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal300 text-sm font-medium"
+                className="inline-flex items-center gap-1 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
               >
-                Ver Calendario →
+                Ver Calendario
+                <ArrowUpRight size={14} />
               </Link>
             </div>
-            
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando eventos...</span>
-              </div>
-            ) : upcomingEvents.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-gray-400 mb-4">
-                  <i className="fas fa-calendar-alt text-4xl"></i>
+
+            <div className="p-5 sm:p-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                  <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando eventos...</span>
                 </div>
-                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No hay eventos próximos
-                </h4>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  No tienes eventos programados para hoy o mañana.
-                </p>
-                <Link
-                  href="/calendario"
-                  className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors duration-200"
-                >
-                  <i className="fas fa-plus mr-2"></i>
+              ) : upcomingEvents.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500">
+                    <CalendarDays size={24} />
+                  </div>
+                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    No hay eventos próximos
+                  </h4>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    No tienes eventos programados para hoy o mañana.
+                  </p>
+                  <Link
+                    href="/calendario"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors duration-200"
+                  >
+                    <CalendarDays size={16} />
                   Crear Evento
                 </Link>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {upcomingEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
+                    className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-700/40 p-4 transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-600/60"
                   >
                     {/* Status Badge and Participants Row */}
                     <div className="flex items-center justify-between mb-2">
@@ -498,7 +591,7 @@ export default function DashboardPage() {
                     
                     {/* Date Row */}
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      <i className="fas fa-calendar-alt mr-2"></i>
+                      <CalendarDays size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
                       {event.date ? new Date(event.date).toLocaleDateString('es-HN', { day: 'numeric', month: 'long', year: 'numeric' }) : SimpleTimezoneFix.formatDisplayDate(event.start_date)}
                       {event.start_time && ` - ${event.start_time}`}
                       {event.end_time && ` - ${event.end_time}`}
@@ -507,7 +600,7 @@ export default function DashboardPage() {
                     {/* Patient Row */}
                     {(event.patient_name || event.patient?.nombre_completo) && (
                       <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        <i className="fas fa-user mr-2"></i>
+                        <User size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
                         {event.patient_name || event.patient?.nombre_completo}
                       </div>
                     )}
@@ -515,7 +608,7 @@ export default function DashboardPage() {
                     {/* Location */}
                     {event.location && (
                       <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        <i className="fas fa-map-marker-alt mr-2"></i>
+                        <MapPin size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
                         {event.location}
                       </div>
                     )}
@@ -530,6 +623,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
+            </div>
           </div>
         </div>
       </div>
