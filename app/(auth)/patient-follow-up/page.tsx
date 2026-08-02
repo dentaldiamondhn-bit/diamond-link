@@ -7,7 +7,6 @@ import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useUser } from '@clerk/nextjs';
 import PatientOverviewModal from '@/components/PatientOverviewModal';
 import GlobalWhatsAppEdit from '@/components/GlobalWhatsAppEdit';
-import { getSupabaseClient } from '@/lib/supabaseClient';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -230,83 +229,8 @@ export default function PatientFollowUpPage() {
     loadPatients();
   }, [loadPatients]);
 
-  /* ---- real-time subscriptions ---------------------------------- */
-  useEffect(() => {
-    if (!user) return;
-
-    const client = getSupabaseClient();
-
-    const statusChannel = client
-      .channel('public:patient_follow_up_status')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'patient_follow_up_status' }, (payload) => {
-        const updatedStatus = payload.new as any;
-        setPatients(prev => prev.map(p => {
-          if (p.follow_up_status?.id === updatedStatus.id) {
-            return {
-              ...p,
-              follow_up_status: {
-                ...p.follow_up_status!,
-                ...updatedStatus,
-              },
-            };
-          }
-          return p;
-        }));
-      });
-
-    const messageChannel = client
-      .channel('public:whatsapp_message_history')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_message_history' }, (payload) => {
-        const newMessage = payload.new as any;
-        const pacienteId = newMessage.paciente_id;
-        setMessageHistory(prev => ({
-          ...prev,
-          [pacienteId]: [...(prev[pacienteId] || []), newMessage],
-        }));
-      });
-
-    const templateChannel = client
-      .channel('public:whatsapp_templates')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_templates' }, (payload) => {
-        const updatedTemplate = payload.new as any;
-        setGlobalTemplates(prev => ({
-          ...prev,
-          [updatedTemplate.tipo]: updatedTemplate.message_text,
-        }));
-      });
-
-    const templateHistoryChannel = client
-      .channel('public:whatsapp_templates_history')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, (payload: any) => {
-        const newEntry = payload.new as any;
-        if (newEntry?.tipo) {
-          loadGlobalTemplates();
-          setShowGlobalEditor(true);
-        }
-      });
-
-    const templateHistoryDeleteChannel = client
-      .channel('public:whatsapp_templates_history_delete')
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'whatsapp_templates_history' }, () => {
-        loadGlobalTemplates();
-      });
-
-    const cleanup = () => {
-      client.removeChannel(statusChannel);
-      client.removeChannel(messageChannel);
-      client.removeChannel(templateChannel);
-      client.removeChannel(templateHistoryChannel);
-      client.removeChannel(templateHistoryDeleteChannel);
-    };
-
-    client.subscribe(statusChannel)
-      .subscribe(messageChannel)
-      .subscribe(templateChannel)
-      .subscribe(templateHistoryChannel)
-      .subscribe(templateHistoryDeleteChannel);
-
-    return cleanup;
-  }, [user, loadPatients, loadGlobalTemplates]);
+  /* ---- real-time subscriptions removed (client-side env issue) ---- */
+  /* Use page refresh or onSave callbacks to update data */
 
   /* ---- computed stats & sorted list ------------------------------ */
   const stats = useMemo(() => {

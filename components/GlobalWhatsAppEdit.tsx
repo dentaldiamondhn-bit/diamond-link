@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Clock, Trash2 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
 
 interface Props {
   isOpen: boolean;
@@ -115,48 +114,8 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     loadHistory(activeTab);
   }, [activeTab]);
 
-  /* ---- real-time subscriptions for template history -------------- */
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const templatesChannel = supabase
-      .channel('public:whatsapp_templates')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_templates' }, (payload: any) => {
-        const updatedTemplate = payload.new as any;
-        setTemplates(prev => ({
-          ...prev,
-          [updatedTemplate.tipo]: updatedTemplate.message_text,
-        }));
-      });
-
-    const historyChannel = supabase
-      .channel('public:whatsapp_templates_history')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_templates_history' }, (payload: any) => {
-        const newEntry = payload.new as any;
-        if (newEntry?.tipo) {
-          loadHistory(newEntry.tipo as TemplateKey, true);
-        }
-      });
-
-    const deleteChannel = supabase
-      .channel('public:whatsapp_templates_history_delete')
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'whatsapp_templates_history' }, (payload: any) => {
-        const oldEntry = payload.old as any;
-        if (oldEntry?.tipo) {
-          loadHistory(oldEntry.tipo as TemplateKey, true);
-        }
-      });
-
-    const cleanup = () => {
-      supabase.removeChannel(templatesChannel);
-      supabase.removeChannel(historyChannel);
-      supabase.removeChannel(deleteChannel);
-    };
-
-    supabase.subscribe(templatesChannel).subscribe(historyChannel).subscribe(deleteChannel);
-
-    return cleanup;
-  }, [isOpen, activeTab, loadTemplates, loadHistory]);
+  /* ---- Real-time subscriptions disabled (client-side env issue) ---- */
+  /* History refreshes on tab switch or after save */
 
   const handleSave = async () => {
     setSaving(true);
