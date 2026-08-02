@@ -59,15 +59,7 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
 
   return (
     <div className="mb-2">
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-        placeholder="Escribe tu mensaje..."
-      />
-      
-      <div className="flex flex-wrap gap-1 mt-2">
+      <div className="flex flex-wrap gap-1 mb-2">
         <button
           type="button"
           onClick={() => applyFormat('*', '*')}
@@ -144,6 +136,14 @@ export function FormattingToolbar({ value, onChange, onEmojiSelect }: Formatting
           )}
         </div>
       </div>
+      
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+        placeholder="Escribe tu mensaje..."
+      />
     </div>
   );
 }
