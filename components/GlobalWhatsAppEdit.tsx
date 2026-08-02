@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Clock, Trash2 } from 'lucide-react';
+import { FormattingToolbar } from '@/components/FormattingToolbar';
 
 interface Props {
   isOpen: boolean;
@@ -222,12 +223,10 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Mensaje global para {TEMPLATE_LABELS[activeTab]}
                   </label>
-                  <textarea
+                  <FormattingToolbar
                     value={templates[activeTab]}
-                    onChange={(e) => setTemplates({ ...templates, [activeTab]: e.target.value })}
-                    rows={10}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                    placeholder="Escribe el mensaje global de WhatsApp..."
+                    onChange={(text) => setTemplates({ ...templates, [activeTab]: text })}
+                    onEmojiSelect={(emoji) => setTemplates({ ...templates, [activeTab]: templates[activeTab] + emoji })}
                   />
                 </div>
 

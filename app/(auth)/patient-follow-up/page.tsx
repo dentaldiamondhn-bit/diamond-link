@@ -7,6 +7,7 @@ import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useUser } from '@clerk/nextjs';
 import PatientOverviewModal from '@/components/PatientOverviewModal';
 import GlobalWhatsAppEdit from '@/components/GlobalWhatsAppEdit';
+import { FormattingToolbar } from '@/components/FormattingToolbar';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -750,11 +751,10 @@ export default function PatientFollowUpPage() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Mensaje de WhatsApp para {patient.paciente_nombre}
                       </label>
-                      <textarea
+                      <FormattingToolbar
                         value={messageDraft}
-                        onChange={e => setMessageDraft(e.target.value)}
-                        rows={8}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                        onChange={setMessageDraft}
+                        onEmojiSelect={(emoji) => setMessageDraft(messageDraft + emoji)}
                       />
                       <div className="flex gap-2 mt-2">
                         <button
