@@ -78,19 +78,21 @@ function StatTile({ icon, title, value, subtitle, accent, loading, onClick }: St
       }`}
     >
       <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-10 blur-2xl ${a.wash}`} />
-      <div className="flex items-start justify-between">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${a.icon}`}>{icon}</div>
+      <div className="relative flex items-center gap-4">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${a.icon}`}>{icon}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+            {loading ? <span className="text-gray-300 dark:text-gray-600">...</span> : value}
+          </div>
+          <div className="truncate text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</div>
+          {subtitle && <div className="truncate text-xs text-gray-400 dark:text-gray-500">{subtitle}</div>}
+        </div>
         {onClick && (
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-50 text-gray-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:bg-gray-700 dark:text-gray-500">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:bg-gray-700 dark:text-gray-500">
             <ArrowUpRight size={14} />
           </span>
         )}
       </div>
-      <div className="mt-4 text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-        {loading ? <span className="text-gray-300 dark:text-gray-600">...</span> : value}
-      </div>
-      <div className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</div>
-      {subtitle && <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{subtitle}</div>}
     </Wrapper>
   );
 }
