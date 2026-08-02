@@ -97,10 +97,11 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
       if (res.ok) {
         const data = await res.json();
         const typedData = Array.isArray(data) ? data as HistoryItem[] : [];
-        setHistory(prev => ({
-          ...prev,
-          [tipo]: typedData.filter((item): item is HistoryItem => item.tipo === tipo)
-        }));
+        setHistory(prev => {
+          const newHistory = { ...prev };
+          newHistory[tipo] = typedData.filter((item): item is HistoryItem => item.tipo === tipo);
+          return newHistory;
+        });
       }
     } catch {
       // ignore
