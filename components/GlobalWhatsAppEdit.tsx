@@ -89,14 +89,17 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     }
   };
 
-  const loadHistory = async (tipo: TemplateKey, forceReload = false) => {
-    if (history[tipo].length > 0 && !forceReload) return;
+  const loadHistory = async (tipo: TemplateKey) => {
     setLoadingHistory(prev => ({ ...prev, [tipo]: true }));
     try {
       const res = await fetch(`/api/whatsapp-templates?tipo=${tipo}&t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        setHistory(prev => ({ ...prev, [tipo]: data }));
+        const typedData = Array.isArray(data) ? data as HistoryItem[] : [];
+        setHistory(prev => ({
+          ...prev,
+          [tipo]: typedData.filter((item): item is HistoryItem => item.tipo === tipo)
+        }));
       }
     } catch {
       // ignore
@@ -128,7 +131,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
       });
       if (!res.ok) throw new Error('Failed to save templates');
       
-      // Clear history so it reloads on tab switch
+      // Clear all history - will reload when tabs are viewed
       setHistory({ limpieza: [], ortodoncia: [], otro: [] });
       
       onSaved?.();
@@ -157,7 +160,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
       }
       setHistory(prev => ({
         ...prev,
-        [tipo]: prev[tipo].filter(item => item.id !== id),
+        [tipo]: prev[tipo].filter(item => item.id !== id && item.tipo === tipo),
       }));
     } catch (err) {
       console.error('Error deleting history item:', err);
