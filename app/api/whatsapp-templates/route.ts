@@ -10,6 +10,12 @@ const supabase = createClient(
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
+const VALID_TIPOS: Record<string, boolean> = {
+  limpieza: true,
+  ortodoncia: true,
+  otro: true,
+};
+
 const DEFAULT_TEMPLATES: Record<string, string> = {
   limpieza: `💎 ¡Hola! Somos Clínica Dental Diamond 🦷
 
@@ -141,10 +147,20 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const templates: Record<string, string> = body;
-
-    if (!templates || typeof templates !== 'object') {
+    if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid templates payload' }, { status: 400 });
+    }
+
+    // Only accept known template types so saving one tab never touches others
+    const templates: Record<string, string> = {};
+    for (const [tipo, message_text] of Object.entries(body)) {
+      if (VALID_TIPOS[tipo] && typeof message_text === 'string') {
+        templates[tipo] = message_text;
+      }
+    }
+
+    if (Object.keys(templates).length === 0) {
+      return NextResponse.json({ error: 'No valid templates to save' }, { status: 400 });
     }
 
     const updates = Object.entries(templates).map(([tipo, message_text]) => ({

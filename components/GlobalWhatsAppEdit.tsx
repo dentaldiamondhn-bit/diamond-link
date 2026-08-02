@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Clock, Trash2 } from 'lucide-react';
 import { FormattingToolbar } from '@/components/FormattingToolbar';
+import { supabase } from '@/lib/supabase';
 
 interface Props {
   isOpen: boolean;
@@ -70,6 +71,13 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     ortodoncia: false,
     otro: false,
   });
+  const [dirtyTabs, setDirtyTabs] = useState<Set<TemplateKey>>(new Set());
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const dirtyTabsRef = useRef<Set<TemplateKey>>(new Set());
+
+  useEffect(() => {
+    dirtyTabsRef.current = dirtyTabs;
+  }, [dirtyTabs]);
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -82,6 +90,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
           ortodoncia: data.ortodoncia || '',
           otro: data.otro || '',
         });
+        setDirtyTabs(new Set());
       }
     } catch {
       // ignore
@@ -127,6 +136,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     loadTemplates();
     // Clear all history when modal opens to ensure clean state
     setHistory({ limpieza: [], ortodoncia: [], otro: [] });
+    setDirtyTabs(new Set());
   }, [isOpen]);
 
   useEffect(() => {
@@ -135,25 +145,89 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
     }
   }, [activeTab, isOpen]);
 
+  /* ---- Realtime subscriptions -------------------------------------- */
+  /* Keep history and saved templates in sync across sessions.          */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const channel = supabase
+      .channel('whatsapp-global-templates-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'whatsapp_templates_history' },
+        (payload: any) => {
+          const tipo = payload.new?.tipo || payload.old?.tipo;
+          if (tipo && TEMPLATE_LABELS[tipo as TemplateKey]) {
+            loadHistory(tipo as TemplateKey);
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'whatsapp_templates' },
+        (payload: any) => {
+          const tipo = payload.new?.tipo || payload.old?.tipo;
+          if (!tipo || !TEMPLATE_LABELS[tipo as TemplateKey]) return;
+          const tk = tipo as TemplateKey;
+          // Do not clobber a tab the user is currently editing
+          if (!dirtyTabsRef.current.has(tk)) {
+            setTemplates(prev => ({
+              ...prev,
+              [tk]: payload.new?.message_text ?? prev[tk],
+            }));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen]);
+
   /* ---- Real-time subscriptions disabled (client-side env issue) ---- */
   /* History refreshes on tab switch or after save */
 
   const handleSave = async () => {
+    // Only persist tabs that were actually modified so each tab stays isolated
+    if (dirtyTabs.size === 0) {
+      setSaveSuccess(false);
+      return;
+    }
+
+    const toSave: Record<string, string> = {};
+    dirtyTabs.forEach((tab) => {
+      toSave[tab] = templates[tab];
+    });
+
     setSaving(true);
+    setSaveSuccess(false);
     try {
       const res = await fetch('/api/whatsapp-templates?t=' + Date.now(), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(templates),
+        body: JSON.stringify(toSave),
         cache: 'no-store',
       });
       if (!res.ok) throw new Error('Failed to save templates');
-      
-      // Clear all history - will reload when tabs are viewed
-      setHistory({ limpieza: [], ortodoncia: [], otro: [] });
-      
+
+      const savedTabs = Array.from(dirtyTabs);
+
+      // Clear history for saved tabs and let them reload with the new entries
+      setHistory(prev => {
+        const next = { ...prev };
+        savedTabs.forEach((tab) => {
+          next[tab] = [];
+        });
+        return next;
+      });
+      setDirtyTabs(new Set());
+      setSaveSuccess(true);
+      window.setTimeout(() => setSaveSuccess(false), 3000);
+
+      savedTabs.forEach((tab) => loadHistory(tab));
+
       onSaved?.();
-      onClose();
     } catch {
       alert('Failed to save global WhatsApp templates');
     } finally {
@@ -163,6 +237,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
 
   const loadHistoryMessage = (messageText: string) => {
     setTemplates(prev => ({ ...prev, [activeTab]: messageText }));
+    setDirtyTabs(prev => new Set(prev).add(activeTab));
   };
 
   const deleteHistoryItem = async (id: string, tipo: TemplateKey) => {
@@ -242,10 +317,38 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
                   </label>
                   <FormattingToolbar
                     value={templates[activeTab]}
-                    onChange={(text) => setTemplates({ ...templates, [activeTab]: text })}
-                    onEmojiSelect={(emoji) => setTemplates({ ...templates, [activeTab]: templates[activeTab] + emoji })}
+                    onChange={(text) => {
+                      setTemplates(prev => ({ ...prev, [activeTab]: text }));
+                      setDirtyTabs(prev => new Set(prev).add(activeTab));
+                    }}
+                    onEmojiSelect={(emoji) => {
+                      setTemplates(prev => ({ ...prev, [activeTab]: (prev[activeTab] || '') + emoji }));
+                      setDirtyTabs(prev => new Set(prev).add(activeTab));
+                    }}
                     rows={10}
                   />
+                </div>
+
+                <div className="flex justify-end gap-2 items-center">
+                  {saveSuccess && (
+                    <span className="text-sm text-green-600 dark:text-green-400 font-medium mr-2">
+                      ✓ Cambios guardados
+                    </span>
+                  )}
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-medium text-sm"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {saving && <Loader2 className="animate-spin" size={16} />}
+                    Guardar Cambios Globales
+                  </button>
                 </div>
 
                 {/* History Section - Comment-like style */}
@@ -316,23 +419,6 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
                       ))}
                     </div>
                   )}
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={onClose}
-                    className="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-medium text-sm"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {saving && <Loader2 className="animate-spin" size={16} />}
-                    Guardar Cambios Globales
-                  </button>
                 </div>
               </div>
             )}

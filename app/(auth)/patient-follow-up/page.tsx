@@ -774,8 +774,6 @@ export default function PatientFollowUpPage() {
                           Cancelar
                         </button>
                       </div>
-</button>
-                      </div>
 
                       {/* Message History Panel */}
                       {loadingHistory ? (
