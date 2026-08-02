@@ -125,11 +125,15 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
   useEffect(() => {
     if (!isOpen) return;
     loadTemplates();
+    // Clear all history when modal opens to ensure clean state
+    setHistory({ limpieza: [], ortodoncia: [], otro: [] });
   }, [isOpen]);
 
   useEffect(() => {
-    loadHistory(activeTab);
-  }, [activeTab]);
+    if (isOpen) {
+      loadHistory(activeTab);
+    }
+  }, [activeTab, isOpen]);
 
   /* ---- Real-time subscriptions disabled (client-side env issue) ---- */
   /* History refreshes on tab switch or after save */
