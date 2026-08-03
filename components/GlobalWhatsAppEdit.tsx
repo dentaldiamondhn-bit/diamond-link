@@ -279,7 +279,7 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
             className="bg-white dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-bold text-gray-800 dark:text-white">
                 Editar Mensajes Globales de WhatsApp
               </h2>
@@ -295,12 +295,12 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
               </div>
             ) : (
               <div className="p-5 space-y-4">
-                <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
                   {(Object.keys(TEMPLATE_LABELS) as TemplateKey[]).map((key) => (
                     <button
                       key={key}
                       onClick={() => setActiveTab(key)}
-                      className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      className={`px-4 py-1.5 text-sm font-medium transition-colors ${
                         activeTab === key
                           ? 'border-b-2 border-teal-500 text-teal-600 dark:text-teal-400'
                           : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -316,13 +316,10 @@ export default function GlobalWhatsAppEdit({ isOpen, onClose, onSaved }: Props) 
                     Mensaje global para {TEMPLATE_LABELS[activeTab]}
                   </label>
                   <FormattingToolbar
+                    key={activeTab}
                     value={templates[activeTab]}
                     onChange={(text) => {
                       setTemplates(prev => ({ ...prev, [activeTab]: text }));
-                      setDirtyTabs(prev => new Set(prev).add(activeTab));
-                    }}
-                    onEmojiSelect={(emoji) => {
-                      setTemplates(prev => ({ ...prev, [activeTab]: (prev[activeTab] || '') + emoji }));
                       setDirtyTabs(prev => new Set(prev).add(activeTab));
                     }}
                     rows={10}

@@ -5,6 +5,7 @@ import { formatPhoneDisplay, createWhatsAppUrl } from '@/utils/phoneUtils';
 import { PatientFollowUpStatusService } from '@/services/patientFollowUpStatusService';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useUser } from '@clerk/nextjs';
+import { StickyNote } from 'lucide-react';
 import PatientOverviewModal from '@/components/PatientOverviewModal';
 import GlobalWhatsAppEdit from '@/components/GlobalWhatsAppEdit';
 import { FormattingToolbar } from '@/components/FormattingToolbar';
@@ -624,6 +625,15 @@ export default function PatientFollowUpPage() {
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${urg.color} bg-white/80 dark:bg-gray-700 border ${urg.border}`}>
                           {urg.label}
                         </span>
+                        {patient.follow_up_status?.notes && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border border-yellow-300 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-700"
+                            title="Notas guardadas"
+                          >
+                            <StickyNote size={12} />
+                            Nota
+                          </span>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
@@ -754,7 +764,6 @@ export default function PatientFollowUpPage() {
                       <FormattingToolbar
                         value={messageDraft}
                         onChange={setMessageDraft}
-                        onEmojiSelect={(emoji) => setMessageDraft(messageDraft + emoji)}
                         rows={6}
                       />
                       <div className="flex gap-2 mt-2">
