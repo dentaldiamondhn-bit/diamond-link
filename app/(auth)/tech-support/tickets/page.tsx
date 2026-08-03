@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, X, RefreshCw, TicketIcon, Calendar, Paperclip, FileText, Wrench, Bug, Lightbulb, User, Bell, Plus, ChevronRight, AlertCircle, Activity, CheckCircle, Filter, Settings, TrendingUp, ChevronDown, MessageSquare, AlertTriangle, Send, Clock } from 'lucide-react';
+import { Search, X, RefreshCw, TicketIcon, Calendar, Paperclip, FileText, Wrench, Bug, Lightbulb, User, Bell, Plus, ChevronRight, AlertCircle, Activity, CheckCircle, Filter, Settings, TrendingUp, ChevronDown, MessageSquare, AlertTriangle, Clock } from 'lucide-react';
 import AccessDenied from '@/components/AccessDenied';
 import { TicketService } from '@/services/ticketService';
 import { Ticket, TicketStatus, TicketPriority, TicketType, CreateTicketData, CreateTicketAttachmentData, UserRole, ActivityType } from '@/types/ticket';
@@ -1351,7 +1351,7 @@ function CreateTicketModal({
                 disabled={modalLoading}
                 className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {modalLoading ? 'Creando...' : 'Crear Ticket'}
+                {modalLoading ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </form>
@@ -1532,20 +1532,29 @@ function TicketDetailModal({
   const { theme } = useTheme();
   const { user } = useUser();
   const [comment, setComment] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [draftStatus, setDraftStatus] = useState<TicketStatus>(ticket.status);
+  const [saving, setSaving] = useState(false);
+  const hasChanges = draftStatus !== ticket.status || comment.trim() !== '';
 
-  const handleAddComment = async (ticketId?: string) => {
-    if (!comment.trim() || !user?.id) return;
+  const handleSave = async () => {
+    if (!user?.id) return;
+    if (!hasChanges) return;
 
+    setSaving(true);
     try {
-      setLoading(true);
-      await TicketService.addComment(ticketId || ticket.id, user.id, comment);
-      setComment('');
+      // Status change and note are saved as separate log entries
+      if (draftStatus !== ticket.status) {
+        await TicketService.updateTicket(ticket.id, { status: draftStatus }, user.id);
+      }
+      if (comment.trim()) {
+        await TicketService.addComment(ticket.id, user.id, comment);
+      }
       onUpdate();
+      onClose();
     } catch (error) {
-      console.error('Error adding comment:', error);
+      console.error('Error saving ticket changes:', error);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -1581,30 +1590,22 @@ function TicketDetailModal({
                   {ticket.title}
                 </h2>
                 <div className="flex gap-2 mt-2">
-                  {/* Status Selector for Admin and Tech Support */}
+                  {/* Status Selector for Admin and Tech Support (saved on Guardar) */}
                   {userRole === UserRole.ADMIN || userRole === 'tech_support' ? (
                     <div className="relative">
                       <select
-                        value={ticket.status}
-                        onChange={async (e) => {
-                          const newStatus = e.target.value as TicketStatus;
-                          try {
-                            await TicketService.updateTicket(ticket.id, { status: newStatus }, user?.id || '');
-                            onUpdate();
-                          } catch (error) {
-                            console.error('Error updating status:', error);
-                          }
-                        }}
+                        value={draftStatus}
+                        onChange={(e) => setDraftStatus(e.target.value as TicketStatus)}
                         className={`appearance-none px-3 py-1.5 pr-8 rounded-lg text-sm font-medium cursor-pointer transition-all border ${
-                          ticket.status === TicketStatus.OPEN 
+                          draftStatus === TicketStatus.OPEN 
                             ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/50' 
-                            : ticket.status === TicketStatus.IN_PROGRESS
+                            : draftStatus === TicketStatus.IN_PROGRESS
                             ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700 hover:bg-violet-200 dark:hover:bg-violet-900/50'
-                            : ticket.status === TicketStatus.PENDING_REVIEW
+                            : draftStatus === TicketStatus.PENDING_REVIEW
                             ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/50'
-                            : ticket.status === TicketStatus.RESOLVED
+                            : draftStatus === TicketStatus.RESOLVED
                             ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
-                            : ticket.status === TicketStatus.CLOSED
+                            : draftStatus === TicketStatus.CLOSED
                             ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                             : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                         }`}
@@ -1617,11 +1618,11 @@ function TicketDetailModal({
                       </select>
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
                         <ChevronDown className={`w-4 h-4 ${
-                          ticket.status === TicketStatus.OPEN ? 'text-blue-500' 
-                          : ticket.status === TicketStatus.IN_PROGRESS ? 'text-violet-500'
-                          : ticket.status === TicketStatus.PENDING_REVIEW ? 'text-amber-500'
-                          : ticket.status === TicketStatus.RESOLVED ? 'text-emerald-500'
-                          : ticket.status === TicketStatus.CLOSED ? 'text-slate-500'
+                          draftStatus === TicketStatus.OPEN ? 'text-blue-500' 
+                          : draftStatus === TicketStatus.IN_PROGRESS ? 'text-violet-500'
+                          : draftStatus === TicketStatus.PENDING_REVIEW ? 'text-amber-500'
+                          : draftStatus === TicketStatus.RESOLVED ? 'text-emerald-500'
+                          : draftStatus === TicketStatus.CLOSED ? 'text-slate-500'
                           : 'text-slate-500'
                         }`} />
                       </div>
@@ -1657,7 +1658,7 @@ function TicketDetailModal({
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-220px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-290px)]">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-6">
@@ -1790,25 +1791,17 @@ function TicketDetailModal({
                 )}
               </div>
 
-              {/* Add Comment */}
+              {/* Add Note */}
               <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-5">
-                <h3 className="font-semibold text-slate-800 dark:text-white mb-3">Agregar Comentario</h3>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="Escribe tu comentario..."
-                    className="flex-1 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddComment(ticket.id)}
-                  />
-                  <button
-                    onClick={() => handleAddComment(ticket.id)}
-                    className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
+                <h3 className="font-semibold text-slate-800 dark:text-white mb-3">Agregar Nota</h3>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Escribe tu nota..."
+                  rows={2}
+                  className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+                <p className="text-xs text-slate-400 mt-1.5">La nota se guardará al presionar Guardar.</p>
               </div>
             </div>
 
@@ -1901,6 +1894,25 @@ function TicketDetailModal({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex justify-end gap-3 p-4 border-t border-slate-200 dark:border-slate-700">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !hasChanges}
+            className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {saving ? 'Guardando...' : 'Guardar'}
+          </button>
         </div>
       </div>
     </div>

@@ -50,14 +50,18 @@ interface HistorialCambio {
 }
 
 const ESTADOS = [
+  { key: "abfraccion", label: "Abfracción", color: "#BA68C8" },
+  { key: "abrasion", label: "Abrasión", color: "#4FC3F7" },
   { key: "amalgama", label: "Restauración Amalgama", color: "#607D8B" },
   { key: "apilado", label: "Apiñamiento", color: "#455A64" },
+  { key: "atricion", label: "Atrición", color: "#FFD54F" },
   { key: "ausente", label: "Ausente", color: "#9E9E9E" },
   { key: "carilla", label: "Carilla", color: "#00BCD4" },
   { key: "cariado", label: "Cariado", color: "#FF5722" },
   { key: "caries-restauracion", label: "Restauración con Caries", color: "#FFC107" },
   { key: "corona", label: "Corona", color: "#795548" },
   { key: "endodoncia", label: "Endodoncia", color: "#5D4037" },
+  { key: "erosion", label: "Erosión", color: "#FF8A65" },
   { key: "erupcion", label: "En Erupción", color: "#FF7043" },
   { key: "extraccionind", label: "Extracción indicada", color: "#E91E63" },
   { key: "fistula", label: "Fístula", color: "#7E57C2" },
