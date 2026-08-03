@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { UserSelect } from '@/components/calendar/UserSelect';
 import { UserAvatar } from '@/components/calendar/UserComponents';
+import { CalendarInviteesService } from '@/services/calendarInviteesService';
 import DocumentDisplay from '@/components/DocumentDisplay';
 
 export default function TicketsPage() {
@@ -963,6 +964,21 @@ function CreateTicketModal({
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+
+  // Default the assignment to tech-support users so most tickets can be created without selecting assignees
+  useEffect(() => {
+    let cancelled = false;
+    CalendarInviteesService.getAllUsers()
+      .then((users) => {
+        if (cancelled) return;
+        const techSupportUsers = users.filter((u: any) => (u.role || '').toLowerCase() === 'tech_support');
+        if (techSupportUsers.length > 0) {
+          setSelectedUsers(techSupportUsers);
+        }
+      })
+      .catch((error) => console.error('Error pre-loading tech-support users:', error));
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
