@@ -53,7 +53,7 @@ interface Skill {
 }
 
 export default function ClaudeCodePage() {
-  const { userRole } = useRoleBasedAccess();
+  const { userRole, isLoaded } = useRoleBasedAccess();
   const { userId } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
@@ -463,6 +463,14 @@ const [input, setInput] = useState('');
       sendMessage();
     }
   };
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+  }
 
   if (!allowedRoles.includes(userRole)) {
     return (

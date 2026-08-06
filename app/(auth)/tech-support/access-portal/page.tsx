@@ -6,9 +6,17 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 
 export default function TechSupportAccessPortal() {
-  const { userRole } = useRoleBasedAccess();
+  const { userRole, isLoaded } = useRoleBasedAccess();
 
   // Check if user is tech support
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+  }
+
   if (userRole !== 'tech_support') {
     return (
       <AccessDenied

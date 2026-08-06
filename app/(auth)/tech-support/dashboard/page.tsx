@@ -57,7 +57,7 @@ interface RecentActivity {
 }
 
 export default function TechSupportDashboard() {
-  const { userRole } = useRoleBasedAccess();
+  const { userRole, isLoaded } = useRoleBasedAccess();
   const { resolvedTheme } = useTheme();
   const { user } = useUser();
   
@@ -310,6 +310,14 @@ export default function TechSupportDashboard() {
     { href: '/tech-support/system-settings', label: 'Configuración', icon: Settings, color: 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-700' },
     { href: '/tech-support/access-portal', label: 'Portal de Acceso', icon: LayoutGrid, color: 'bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700' }
   ];
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+  }
 
   if (userRole !== 'tech_support') {
     return (

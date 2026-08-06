@@ -23,7 +23,7 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 
 export default function TratamientosPage() {
-  const { userRole } = useRoleBasedAccess();
+  const { userRole, isLoaded } = useRoleBasedAccess();
   const { resolvedTheme } = useTheme();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -1073,6 +1073,14 @@ export default function TratamientosPage() {
       // You could show a toast notification here
     }
   };
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+  }
 
   if (!userRole || (userRole !== 'admin' && userRole !== 'doctor' && userRole !== 'tech_support')) {
     return (

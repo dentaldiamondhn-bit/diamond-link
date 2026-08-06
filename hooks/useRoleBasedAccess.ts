@@ -136,6 +136,7 @@ export function useRoleBasedAccess() {
   if (!isLoaded || !user) {
     return {
       userRole: 'staff',
+      isLoaded: isLoaded && !!user,
       permissions: rolePermissions.staff,
       hasPermission: () => false,
     };
@@ -148,6 +149,7 @@ export function useRoleBasedAccess() {
   
   return {
     userRole,
+    isLoaded: true,
     permissions,
     hasPermission: (permission: keyof RolePermissions) => permissions[permission],
   };

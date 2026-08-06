@@ -9,7 +9,7 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 
 export default function TechSupportUsersPage() {
-  const { userRole, hasPermission } = useRoleBasedAccess();
+  const { userRole, hasPermission, isLoaded } = useRoleBasedAccess();
   const router = useRouter();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -341,6 +341,14 @@ export default function TechSupportUsersPage() {
             Reintentar
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
       </div>
     );
   }

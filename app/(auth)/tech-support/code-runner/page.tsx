@@ -16,7 +16,7 @@ interface CodeExecution {
 }
 
 export default function CodeRunner() {
-  const { userRole } = useRoleBasedAccess();
+  const { userRole, isLoaded } = useRoleBasedAccess();
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [error, setError] = useState('');
@@ -202,6 +202,14 @@ console.log(\`Average backup size: \${avgSize} MB\`);`
   };
 
   // Check if user is tech support
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+  }
+
   if (userRole !== 'tech_support') {
     return (
       <AccessDenied

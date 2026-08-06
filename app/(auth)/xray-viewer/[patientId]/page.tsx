@@ -10,7 +10,7 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 
 export default function PatientXrayViewPage() {
-  const { userRole } = useRoleBasedAccess();
+  const { userRole, isLoaded } = useRoleBasedAccess();
 
   const [studies, setStudies] = useState<DentalStudy[]>([]);
   const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
@@ -222,6 +222,14 @@ export default function PatientXrayViewPage() {
   }
   
   const patient = studies[0]?.patient;
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+  }
 
   if (!userRole || (userRole !== 'admin' && userRole !== 'doctor' && userRole !== 'tech_support')) {
     return (

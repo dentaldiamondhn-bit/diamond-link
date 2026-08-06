@@ -12,7 +12,7 @@ import { formatCurrency, getCurrencySymbol, getAvailableCurrencies } from '@/uti
 import { formatDateForDisplay } from '@/utils/dateUtils';
 
 export default function InventarioPage() {
-  const { userRole } = useRoleBasedAccess();
+  const { userRole, isLoaded } = useRoleBasedAccess();
 
   const getAccionLabel = (mov: MovimientoInventario) => {
     if (mov.accion) {
@@ -167,6 +167,14 @@ export default function InventarioPage() {
   }, [activeTab, loadMovimientos, loadValorTotal]);
 
   // Access control
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      </div>
+    );
+  }
+
   if (userRole !== 'admin' && userRole !== 'tech_support') {
     return (
       <AccessDenied

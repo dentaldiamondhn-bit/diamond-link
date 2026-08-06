@@ -12,7 +12,7 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 
 export default function XrayViewerPage() {
-  const { userRole } = useRoleBasedAccess();
+  const { userRole, isLoaded } = useRoleBasedAccess();
 
   const [patients, setPatients] = useState<PatientXraySummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,6 +163,14 @@ export default function XrayViewerPage() {
             Reintentar
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
       </div>
     );
   }

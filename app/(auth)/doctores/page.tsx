@@ -113,7 +113,7 @@ export default function DoctorsPage() {
   }, [sortOrder, prefsLoading, pagePrefs?.sortOrder, updatePagePrefs]);
 
   // Check if user has proper access (only tech_support and admin)
-  const { userRole, permissions } = useRoleBasedAccess();
+  const { userRole, permissions, isLoaded } = useRoleBasedAccess();
 
   // Check if user can manage doctors
   const canManageDoctores = permissions?.canManageDoctores || false;
@@ -291,6 +291,14 @@ export default function DoctorsPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Cargando...</div>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
       </div>
     );
   }
