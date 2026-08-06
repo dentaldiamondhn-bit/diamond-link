@@ -24,19 +24,6 @@ export default function CodeRunner() {
   const [history, setHistory] = useState<CodeExecution[]>([]);
   const outputRef = useRef<HTMLDivElement>(null);
 
-  // Check if user is tech support
-  if (userRole !== 'tech_support') {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permiso para acceder a esta página."
-        explanation="Esta área es exclusiva para el personal de soporte técnico."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
-
   const [codeState, setCodeState] = useState(`// Welcome to Diamond Link Dental Code Runner
 // You can execute JavaScript code here
 
@@ -213,6 +200,19 @@ console.log(\`Average backup size: \${avgSize} MB\`);`
     
     setCode(examples[example as keyof typeof examples] || '');
   };
+
+  // Check if user is tech support
+  if (userRole !== 'tech_support') {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permiso para acceder a esta página."
+        explanation="Esta área es exclusiva para el personal de soporte técnico."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
 
   return (
     <div className="p-6">

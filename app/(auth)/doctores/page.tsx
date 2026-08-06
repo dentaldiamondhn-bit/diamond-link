@@ -118,19 +118,6 @@ export default function DoctorsPage() {
   // Check if user can manage doctors
   const canManageDoctores = permissions?.canManageDoctores || false;
 
-  // Access control: only tech_support and admin can access
-  if (!userRole || (userRole !== 'tech_support' && userRole !== 'admin')) {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permisos para acceder a la gestión de doctores."
-        explanation="Esta área es exclusiva para administradores y personal de soporte técnico que pueden gestionar doctores."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
-
   // Filter doctors based on search and specialty
   const filteredDoctors = doctors.filter(doctor => {
     const matchesSearch = doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -305,6 +292,18 @@ export default function DoctorsPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Cargando...</div>
       </div>
+    );
+  }
+
+  if (!userRole || (userRole !== 'tech_support' && userRole !== 'admin')) {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permisos para acceder a la gestión de doctores."
+        explanation="Esta área es exclusiva para administradores y personal de soporte técnico que pueden gestionar doctores."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
     );
   }
 

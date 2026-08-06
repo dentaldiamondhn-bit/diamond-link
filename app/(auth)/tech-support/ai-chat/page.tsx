@@ -78,18 +78,6 @@ export default function AIChatPage() {
   ];
 
   const allowedRoles = ['tech_support', 'admin', 'doctor', 'staff'];
-  if (!allowedRoles.includes(userRole)) {
-    return (
-      <AccessDenied
-        title="Access Denied"
-        message="You don't have permission to access this page."
-        explanation="This area is exclusive for authorized personnel."
-        contactInfo="If you need access, contact an administrator."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
-
   const hasLimitedAccess = ['admin', 'doctor', 'staff'].includes(userRole);
 
   // Role badge colors and styles
@@ -400,6 +388,18 @@ const createNewSession = async () => {
       sendMessage();
     }
   };
+
+  if (!allowedRoles.includes(userRole)) {
+    return (
+      <AccessDenied
+        title="Access Denied"
+        message="You don't have permission to access this page."
+        explanation="This area is exclusive for authorized personnel."
+        contactInfo="If you need access, contact an administrator."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
 
 return (
     <div className="h-screen bg-gray-50 dark:bg-gray-950 flex">

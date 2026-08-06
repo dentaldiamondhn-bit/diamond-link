@@ -12,19 +12,6 @@ export default function TechSupportTerminal() {
   const [isConnected, setIsConnected] = useState(false);
   const [currentDirectory, setCurrentDirectory] = useState('/home/techsupport');
 
-  // Check if user is tech support
-  if (userRole !== 'tech_support') {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permiso para acceder a esta página."
-        explanation="Esta área es exclusiva para el personal de soporte técnico."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
-
   useEffect(() => {
     if (!terminalRef.current) return;
 
@@ -85,6 +72,18 @@ export default function TechSupportTerminal() {
       }
     };
   }, []);
+
+  if (userRole !== 'tech_support') {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permiso para acceder a esta página."
+        explanation="Esta área es exclusiva para el personal de soporte técnico."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black p-4">

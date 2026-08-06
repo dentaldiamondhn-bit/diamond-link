@@ -110,17 +110,6 @@ const [input, setInput] = useState('');
 
   // Check if user has access to AI assistant
   const allowedRoles = ['tech_support', 'admin', 'doctor', 'staff'];
-  if (!allowedRoles.includes(userRole)) {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permiso para acceder a esta página."
-        explanation="Esta área es exclusiva para el personal autorizado."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
 
   // Determine if user has full tech support access
   const isTechSupport = userRole === 'tech_support';
@@ -474,6 +463,18 @@ const [input, setInput] = useState('');
       sendMessage();
     }
   };
+
+  if (!allowedRoles.includes(userRole)) {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permiso para acceder a esta página."
+        explanation="Esta área es exclusiva para el personal autorizado."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full">

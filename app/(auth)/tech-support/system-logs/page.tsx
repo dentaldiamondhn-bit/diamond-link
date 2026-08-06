@@ -49,19 +49,6 @@ export default function SystemLogs() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 
-  // Check if user is tech support
-  if (userRole !== 'tech_support') {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permiso para acceder a esta página."
-        explanation="Esta área es exclusiva para el personal de soporte técnico."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
-
   // Fetch real system logs from API
   useEffect(() => {
     fetchSystemLogs();
@@ -192,6 +179,18 @@ export default function SystemLogs() {
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
       </div>
+    );
+  }
+
+  if (userRole !== 'tech_support') {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permiso para acceder a esta página."
+        explanation="Esta área es exclusiva para el personal de soporte técnico."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
     );
   }
 

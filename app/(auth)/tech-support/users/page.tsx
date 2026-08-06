@@ -25,19 +25,6 @@ export default function TechSupportUsersPage() {
   const [newRole, setNewRole] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Check if user has permission to access tech support users page
-  if (!userRole || userRole !== 'tech_support') {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permisos para acceder a la gestión de usuarios."
-        explanation="Esta área es exclusiva para personal de soporte técnico que puede administrar usuarios del sistema."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => router.back()}
-      />
-    );
-  }
-
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -355,6 +342,18 @@ export default function TechSupportUsersPage() {
           </button>
         </div>
       </div>
+    );
+  }
+
+  if (!userRole || userRole !== 'tech_support') {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permisos para acceder a la gestión de usuarios."
+        explanation="Esta área es exclusiva para personal de soporte técnico que puede administrar usuarios del sistema."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => router.back()}
+      />
     );
   }
 

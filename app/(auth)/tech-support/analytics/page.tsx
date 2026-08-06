@@ -39,18 +39,6 @@ export default function TechSupportAnalyticsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
 
-  if (userRole !== 'tech_support') {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permiso para acceder a las analíticas del sistema."
-        explanation="Las analíticas y métricas del sistema son exclusivas para el personal de soporte técnico autorizado."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
-
   const fetchAnalyticsData = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
@@ -185,6 +173,18 @@ export default function TechSupportAnalyticsPage() {
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
       </div>
+    );
+  }
+
+  if (userRole !== 'tech_support') {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permiso para acceder a las analíticas del sistema."
+        explanation="Las analíticas y métricas del sistema son exclusivas para el personal de soporte técnico autorizado."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
     );
   }
 

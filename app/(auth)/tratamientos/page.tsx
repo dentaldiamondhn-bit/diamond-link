@@ -24,20 +24,6 @@ import AccessDenied from '@/components/AccessDenied';
 
 export default function TratamientosPage() {
   const { userRole } = useRoleBasedAccess();
-  
-  // Check if user has permission to access treatments
-  if (!userRole || (userRole !== 'admin' && userRole !== 'doctor' && userRole !== 'tech_support')) {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permisos para acceder a la gestión de tratamientos."
-        explanation="Esta área es exclusiva para administradores, doctores y personal de soporte técnico que pueden gestionar tratamientos activos."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
-
   const { resolvedTheme } = useTheme();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -1087,6 +1073,18 @@ export default function TratamientosPage() {
       // You could show a toast notification here
     }
   };
+
+  if (!userRole || (userRole !== 'admin' && userRole !== 'doctor' && userRole !== 'tech_support')) {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permisos para acceder a la gestión de tratamientos."
+        explanation="Esta área es exclusiva para administradores, doctores y personal de soporte técnico que pueden gestionar tratamientos activos."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

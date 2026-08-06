@@ -68,19 +68,6 @@ export default function TechSupportDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [apiStatus, setApiStatus] = useState<ApiHealthStatus[]>([]);
 
-  // Check if user is tech support
-  if (userRole !== 'tech_support') {
-    return (
-      <AccessDenied
-        title="Acceso Denegado"
-        message="No tienes permiso para acceder a esta página."
-        explanation="Esta área es exclusiva para el personal de soporte técnico."
-        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
-        onGoBack={() => window.history.back()}
-      />
-    );
-  }
-
   const loadDashboardData = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
@@ -323,6 +310,18 @@ export default function TechSupportDashboard() {
     { href: '/tech-support/system-settings', label: 'Configuración', icon: Settings, color: 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-700' },
     { href: '/tech-support/access-portal', label: 'Portal de Acceso', icon: LayoutGrid, color: 'bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700' }
   ];
+
+  if (userRole !== 'tech_support') {
+    return (
+      <AccessDenied
+        title="Acceso Denegado"
+        message="No tienes permiso para acceder a esta página."
+        explanation="Esta área es exclusiva para el personal de soporte técnico."
+        contactInfo="Si necesitas acceso, contacta a un administrador del sistema."
+        onGoBack={() => window.history.back()}
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
