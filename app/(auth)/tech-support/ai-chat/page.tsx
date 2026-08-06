@@ -4,7 +4,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
 import { conversationService } from '@/services/conversation.service';
-import { useAuth, useUser, UserButton } from '@clerk/nextjs';
+import { useAuth, useUser } from '@clerk/nextjs';
+import HydratedUserButton from '@/components/HydratedUserButton';
 import { Menu, Plus, Send, Bot, User, Loader2, MessageSquare, Settings, Zap, Brain, Code2, Sparkles, ChevronDown } from 'lucide-react';
 import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
@@ -541,7 +542,7 @@ return (
         {sidebarOpen && (
           <div className="p-4 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center gap-3">
-              <UserButton
+              <HydratedUserButton
                 appearance={{
                   elements: {
                     avatarBox: "w-8 h-8",
@@ -679,7 +680,9 @@ return (
 
                 {/* Clerk User Avatar */}
                 <div className="relative flex-shrink-0">
-                  <UserButton
+                  <HydratedUserButton
+                    showOnlineDot
+                    placeholderClassName="w-8 h-8 lg:w-10 lg:h-10"
                     appearance={{
                       elements: {
                         avatarBox: "w-8 h-8 lg:w-10 lg:h-10 shadow-md",
@@ -687,8 +690,6 @@ return (
                       }
                     }}
                   />
-                  {/* Online indicator */}
-                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
                 </div>
               </div>
             </div>

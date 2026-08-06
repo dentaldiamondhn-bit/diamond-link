@@ -3,8 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserButton } from '@clerk/nextjs';
 import { useUser } from '@clerk/nextjs';
+import HydratedUserButton from './HydratedUserButton';
 import { TutorialButton } from './TutorialButton';
 
 const techSupportNavItems = [
@@ -122,7 +122,8 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
             </div>
           </div>
           <div className="relative">
-            <UserButton 
+            <HydratedUserButton
+              showOnlineDot
               appearance={{
                 elements: {
                   avatarBox: "w-8 h-8",
@@ -130,8 +131,6 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
                 }
               }}
             />
-            {/* Online indicator */}
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
           </div>
         </div>
       </div>

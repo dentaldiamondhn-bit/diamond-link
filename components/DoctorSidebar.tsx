@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserButton } from '@clerk/nextjs';
 import { useUser } from '@clerk/nextjs';
+import HydratedUserButton from './HydratedUserButton';
 import { TutorialButton } from './TutorialButton';
 import AnimatedReport from './AnimatedReport';
 import AnimatedUser from './AnimatedUser';
@@ -336,11 +336,10 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
             </div>
           </div>
           <div className="relative">
-            <UserButton 
+            <HydratedUserButton
+              showOnlineDot
               appearance={userButtonClasses}
             />
-            {/* Online indicator */}
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
           </div>
         </div>
       </div>

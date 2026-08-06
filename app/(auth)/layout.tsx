@@ -3,7 +3,7 @@
 import React from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
-import { UserButton } from '@clerk/nextjs';
+import HydratedUserButton from '@/components/HydratedUserButton';
 import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import AdminSidebar from '@/components/AdminSidebar';
@@ -405,7 +405,9 @@ export default function AuthLayout({
                           
                           {/* Clerk User Avatar */}
                           <div className="relative flex-shrink-0">
-                            <UserButton 
+                            <HydratedUserButton
+                              placeholderClassName="w-8 h-8 lg:w-10 lg:h-10"
+                              showOnlineDot
                               appearance={{
                                 elements: {
                                   avatarBox: "w-8 h-8 lg:w-10 lg:h-10 shadow-md",
@@ -413,8 +415,6 @@ export default function AuthLayout({
                                 }
                               }}
                             />
-                            {/* Online indicator */}
-                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
                           </div>
                         </div>
                       </div>

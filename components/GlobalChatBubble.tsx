@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
-import { UserButton, useUser } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
+import HydratedUserButton from './HydratedUserButton';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -174,7 +175,7 @@ export default function GlobalChatBubble() {
               <div className="flex items-center gap-2">
                 {/* Clerk User Avatar */}
                 <div className="relative flex-shrink-0">
-                  <UserButton 
+                  <HydratedUserButton
                     appearance={{
                       elements: {
                         avatarBox: "w-8 h-8 shadow-md",

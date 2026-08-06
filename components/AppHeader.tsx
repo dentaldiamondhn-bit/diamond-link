@@ -1,7 +1,7 @@
 'use client';
 
-import { UserButton } from "@clerk/nextjs";
 import { useUser } from "@clerk/nextjs";
+import HydratedUserButton from "./HydratedUserButton";
 import { DarkModeToggle } from "./DarkModeToggle";
 import { RoleBadge } from "./RoleBadge";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -53,7 +53,7 @@ export function AppHeader({
           </div>
           <DarkModeToggle />
           <div className="relative">
-            <UserButton afterSignOutUrl="/sign-in" />
+            <HydratedUserButton afterSignOutUrl="/sign-in" />
           </div>
         </div>
       </div>
