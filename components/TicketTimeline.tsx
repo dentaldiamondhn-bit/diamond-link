@@ -74,7 +74,7 @@ export default function TicketTimeline({ activities, className = '' }: TicketTim
 }
 
 function ActivityIcon({ type }: { type: string }) {
-  const baseClasses = "flex h-10 w-10 items-center justify-center rounded-full ring-8 ring-white dark:ring-gray-900";
+  const baseClasses = "flex h-10 w-10 items-center justify-center rounded-full ring-8 ring-white dark:ring-white";
   
   switch (type) {
     case "STATUS_CHANGE":

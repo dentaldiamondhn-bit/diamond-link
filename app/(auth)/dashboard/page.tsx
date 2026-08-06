@@ -622,7 +622,7 @@ export default function DashboardPage() {
                           <div className="flex -space-x-2">
                             {eventParticipants[event.id].slice(0, 4).map((participant, index) => (
                               <div key={participant.id} className="relative" title={`${participant.first_name} ${participant.last_name} (${participant.role === 'owner' ? 'Organizador' : participant.role === 'invitee_accepted' ? 'Invitado' : 'Pendiente'})`}>
-                                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-600">
+                                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white dark:border-white bg-gray-200 dark:bg-gray-600">
                                   {participant.profile_image_url ? (
                                     <img 
                                       src={participant.profile_image_url} 
@@ -643,14 +643,14 @@ export default function DashboardPage() {
                                   )}
                                 </div>
                                 {participant.role === 'owner' && (
-                                  <div className="absolute -left-1 -top-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                                  <div className="absolute -left-1 -top-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-white flex items-center justify-center">
                                     <i className="fas fa-crown text-white text-xs"></i>
                                   </div>
                                 )}
                               </div>
                             ))}
                             {eventParticipants[event.id].length > 4 && (
-                              <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-700 dark:text-gray-300 border-2 border-white dark:border-gray-800">
+                              <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-700 dark:text-gray-300 border-2 border-white dark:border-white">
                                 +{eventParticipants[event.id].length - 4}
                               </div>
                             )}

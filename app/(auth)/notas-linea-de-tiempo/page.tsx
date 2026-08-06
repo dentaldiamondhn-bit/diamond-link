@@ -922,7 +922,7 @@ setNoteBlocks(prev => prev.map((b, i) => i === activeBlockIdx ? { ...b, formats:
                 return (
                   <div key={event.id} className="relative pl-16">
                     {/* Timeline dot */}
-                    <div className={`absolute left-4 w-5 h-5 rounded-full ${config.bgColor} border-2 border-white dark:border-gray-900 flex items-center justify-center z-10`}>
+                    <div className={`absolute left-4 w-5 h-5 rounded-full ${config.bgColor} border-2 border-white dark:border-white flex items-center justify-center z-10`}>
                       <div className={`w-2 h-2 rounded-full ${config.color.replace('text-', 'bg-')}`}></div>
                     </div>
 

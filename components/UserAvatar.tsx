@@ -71,7 +71,7 @@ export function UserAvatar({
       <div className="flex-shrink-0 mr-2">
         {profileImageUrl ? (
           <img
-            className={`${sizeClasses[size]} rounded-full object-cover border-2 border-white dark:border-gray-800 shadow-sm`}
+            className={`${sizeClasses[size]} rounded-full object-cover border-2 border-white dark:border-white shadow-sm`}
             src={profileImageUrl}
             alt={displayName}
             onError={(e) => {

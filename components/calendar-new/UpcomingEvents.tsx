@@ -223,7 +223,7 @@ export default function UpcomingEvents({ events, onAddEvent, onEditEvent }: Prop
                                 : 'Pendiente'
                             })`}
                           >
-                            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-600">
+                            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white dark:border-white bg-gray-200 dark:bg-gray-600">
                               {participant.profileImageUrl ? (
                                 <img
                                   src={participant.profileImageUrl}
@@ -244,14 +244,14 @@ export default function UpcomingEvents({ events, onAddEvent, onEditEvent }: Prop
                               )}
                             </div>
                             {participant.role === 'owner' && (
-                              <div className="absolute -left-1 -top-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
+                              <div className="absolute -left-1 -top-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-white flex items-center justify-center">
                                 <span className="text-white text-xs">👑</span>
                               </div>
                             )}
                           </div>
                         ))}
                         {eventParticipants.length > 4 && (
-                          <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-700 dark:text-gray-300 border-2 border-white dark:border-gray-800">
+                          <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-700 dark:text-gray-300 border-2 border-white dark:border-white">
                             +{eventParticipants.length - 4}
                           </div>
                         )}
