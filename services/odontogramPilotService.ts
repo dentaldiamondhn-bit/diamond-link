@@ -174,8 +174,82 @@ export class OdontogramPilotService {
     }
   }
 
-  static async getOdontogramHistory(pacienteId: string): Promise<OdontogramHistory[]> {
+  static async getProspectOrtoCount(): Promise<number> {
     try {
+      const { data, error } = await supabase
+        .from('odontogram_pilots')
+        .select('paciente_id')
+        .eq('activo', true)
+        .contains('datos_odontograma', { prospecto_orto: true });
+
+      if (error) {
+        console.error('Error fetching prospect orto count:', error);
+        throw error;
+      }
+
+      const distinctPatients = new Set((data || []).map((row: any) => row.paciente_id));
+      return distinctPatients.size;
+    } catch (error) {
+      console.error('Unexpected error fetching prospect orto count:', error);
+      throw error;
+    }
+  }
+
+  static async getProspectOrtoPatients(): Promise<any[]> {
+    try {
+      const { data: rows, error } = await supabase
+        .from('odontogram_pilots')
+        .select('paciente_id')
+        .eq('activo', true)
+        .contains('datos_odontograma', { prospecto_orto: true });
+
+      if (error) {
+        console.error('Error fetching prospect orto patients:', error);
+        throw error;
+      }
+
+      const distinctPatientIds = [...new Set((rows || []).map((row: any) => row.paciente_id))];
+
+      if (distinctPatientIds.length === 0) {
+        return [];
+      }
+
+      const { data: patients, error: patientsError } = await supabase
+        .from('patients')
+        .select('*')
+        .in('paciente_id', distinctPatientIds)
+        .order('fecha_inicio', { ascending: false });
+
+      if (patientsError) {
+        console.error('Error fetching prospect orto patient details:', patientsError);
+        throw patientsError;
+      }
+
+      const { data: allTreatments } = await supabase
+        .from('tratamientos_completados')
+        .select('paciente_id, monto_pagado')
+        .in('paciente_id', distinctPatientIds);
+
+      const perPatient: Record<string, { count: number; total: number }> = {};
+      if (allTreatments) {
+        for (const t of allTreatments) {
+          if (!perPatient[t.paciente_id]) perPatient[t.paciente_id] = { count: 0, total: 0 };
+          perPatient[t.paciente_id].count++;
+          perPatient[t.paciente_id].total += t.monto_pagado || 0;
+        }
+      }
+
+      return (patients || []).map((patient: any) => {
+        const agg = perPatient[patient.paciente_id] || { count: 0, total: 0 };
+        return { ...patient, completedTreatmentsCount: agg.count, totalPaid: agg.total };
+      });
+    } catch (error) {
+      console.error('Unexpected error fetching prospect orto patients:', error);
+      throw error;
+    }
+  }
+
+  static async getOdontogramHistory(pacienteId: string): Promise<OdontogramHistory[]> {    try {
       const { data, error } = await supabase
         .from('odontogram_pilots')
         .select('*')

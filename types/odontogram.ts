@@ -32,6 +32,8 @@ export interface OdontogramData {
   mordidas?: string[];
   // Gingivitis/periodontitis conditions
   gingivitis?: GingivitisEntry[];
+  // Flag marking patient as orthodontic prospect
+  prospecto_orto?: boolean;
 }
 
 export interface DienteData {

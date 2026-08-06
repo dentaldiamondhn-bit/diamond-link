@@ -321,6 +321,7 @@ function OdontogramPilotPageContent() {
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [mordidas, setMordidas] = useState<string[]>([]);
   const [gingivitis, setGingivitis] = useState<{ tipo: string; detalle?: string }[]>([]);
+  const [prospectoOrto, setProspectoOrto] = useState(false);
   const [popupState, setPopupState] = useState<{ show: boolean; toothNumber: number; noteText: string }>({
     show: false,
     toothNumber: 0,
@@ -512,6 +513,7 @@ function OdontogramPilotPageContent() {
     setDientesData(datos);
     setNotasGenerales(oleary.notas || '');
     setFechaOdontograma(olearyData.fecha);
+    setProspectoOrto(olearyData.prospecto_orto !== undefined ? !!olearyData.prospecto_orto : false);
   };
 
   const loadOdontogramData = (odontogram: any) => {
@@ -591,6 +593,12 @@ function OdontogramPilotPageContent() {
       setGingivitis([]);
     }
 
+    if (odontogramData?.prospecto_orto !== undefined) {
+      setProspectoOrto(!!odontogramData.prospecto_orto);
+    } else {
+      setProspectoOrto(false);
+    }
+
     setDientesData(datos);
     setNotasGenerales(notasData || '');
   };
@@ -625,6 +633,7 @@ function OdontogramPilotPageContent() {
     setNotasGenerales('');
     setMordidas([]);
     setGingivitis([]);
+    setProspectoOrto(false);
   };
 
   const handleCuadranteChange = (numero: number, cuadrante: Cuadrante, nuevoEstado: string) => {
@@ -831,7 +840,8 @@ function OdontogramPilotPageContent() {
          dientes,
          fecha: fechaOdontograma,
          mordidas,
-         gingivitis
+         gingivitis,
+         prospecto_orto: prospectoOrto
        };
     };
 
@@ -1216,7 +1226,7 @@ function OdontogramPilotPageContent() {
               />
             </div>
             
-            <div className="form-group flex-1 min-w-[220px]">
+            <div className="form-group w-[260px] shrink-0">
               <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Identidad:</label>
               <input
                 type="text"
@@ -1228,16 +1238,27 @@ function OdontogramPilotPageContent() {
             
             <div className="form-group flex-1 min-w-[220px]">
               <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Fecha del Odontograma:</label>
-              <input
-                type="date"
-                value={fechaOdontograma}
-                onChange={(e) => {
-                  if (!editParam || editParam !== 'true') {
-                    setFechaOdontograma(e.target.value);
-                  }
-                }}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-              />
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
+                <input
+                  type="date"
+                  value={fechaOdontograma}
+                  onChange={(e) => {
+                    if (!editParam || editParam !== 'true') {
+                      setFechaOdontograma(e.target.value);
+                    }
+                  }}
+                  className="min-w-0 flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={prospectoOrto}
+                    onChange={(e) => setProspectoOrto(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm font-medium text-black dark:text-gray-100">Prospecto para Orto</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
