@@ -321,7 +321,7 @@ export default function AuthLayout({
                          {pathname.startsWith('/odontogram-pilot') && (
                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                              <i className="fas fa-circle-notch mr-2 text-teal-600"></i>
-                             Odontograma Pilot
+                             Odontograma
                            </h1>
                          )}
                           {pathname === '/dental-ai-vision' && (
