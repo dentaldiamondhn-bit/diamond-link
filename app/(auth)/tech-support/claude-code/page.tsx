@@ -909,7 +909,7 @@ const [input, setInput] = useState('');
 
             {/* Input Area */}
             <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-t border-gray-200/50 dark:border-gray-700/50 p-6">
-              <div className="max-w-4xl mx-auto">
+              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-4 items-end">
                   <div className="flex-1 relative">
                     <div className="flex items-center gap-2 mb-3">

@@ -309,7 +309,7 @@ export default function DoctorsPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
           {/* Title moved to main header */}

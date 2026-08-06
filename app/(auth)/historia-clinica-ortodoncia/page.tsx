@@ -577,7 +577,7 @@ function HistoriaClinicaOrtodonciaContent() {
   }
 
   return (
-    <div key={`historia-page-${patientId}`} className="max-w-7xl mx-auto">
+    <div key={`historia-page-${patientId}`} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Historical Mode Banner */}
       <HistoricalBanner
         isHistorical={recordCategoryInfo?.isHistorical}

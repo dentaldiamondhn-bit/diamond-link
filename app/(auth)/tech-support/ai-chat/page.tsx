@@ -699,7 +699,7 @@ return (
           <>
             {/* Messages - Centered content like Claude */}
             <div className="flex-1 overflow-y-auto">
-              <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+              <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
                 {currentSession.messages.length === 0 && !isLoading && (
                   <div className="text-center py-20">
                     <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -780,7 +780,7 @@ return (
 
             {/* Input Area - Clean and centered */}
             <div className="border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50">
-              <div className="max-w-3xl mx-auto p-6">
+              <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 {!isApiConfigured && (
                   <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
                     <p className="text-sm text-amber-800 dark:text-amber-300">

@@ -58,9 +58,9 @@ export default function TicketsPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([]);
 
-  // User role from metadata - handle both role formats
-  const userRole = user?.publicMetadata?.role as UserRole || UserRole.STAFF;
-  const normalizedUserRole = userRole?.replace('-', '_')?.toUpperCase() as any;
+  // User role from metadata - normalize to uppercase enum to handle both formats
+  const userRole = (user?.publicMetadata?.role as string || 'STAFF').replace('-', '_').toUpperCase() as UserRole;
+  const normalizedUserRole = userRole;
 
   useEffect(() => {
     loadTickets();
@@ -462,7 +462,7 @@ export default function TicketsPage() {
   return (
     <>
       <div className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Modern Header */}
         <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600 rounded-2xl shadow-xl mb-6">
           <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
