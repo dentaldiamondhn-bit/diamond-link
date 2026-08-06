@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 
@@ -15,22 +15,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-    if (!serviceRoleKey) {
-      return NextResponse.json(
-        { error: 'Service role key not available' },
-        { status: 500 }
-      );
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const adminClient = createClient();
 
     // First, try to delete from orthodontic storage
     console.log('Attempting to delete from orthodontic storage:', filePath);

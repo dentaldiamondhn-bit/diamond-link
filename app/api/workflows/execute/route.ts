@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient();
 
 // POST /api/workflows/execute - Execute a workflow
 export async function POST(request: NextRequest) {
@@ -80,10 +77,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function executeWorkflowSteps(workflow: any, executionId: string, triggerData: any, userId: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = createClient();
 
   try {
     const steps = workflow.steps || [];

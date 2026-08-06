@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
 import { Patient } from '../types/patient';
 import { DoctorValidator } from '../utils/doctorValidator';
 
@@ -184,18 +183,7 @@ export class PatientService {
         })
       };
 
-      // Use admin client for updates
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      
-      const supabaseClient = serviceRoleKey 
-        ? createClient(supabaseUrl, serviceRoleKey, {
-            auth: {
-              autoRefreshToken: false,
-              persistSession: false,
-            },
-          })
-        : supabase;
+      const supabaseClient = supabase;
 
       const { data, error } = await supabaseClient
         .from('patients')

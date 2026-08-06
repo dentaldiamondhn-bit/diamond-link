@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
     console.log('GET patient-follow-up-status', { pacienteId });
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     let query = supabase
       .from('patient_follow_up_status')
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { paciente_id, treatment_date, notes } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     const { data, error } = await supabase
       .from('patient_follow_up_status')
@@ -67,7 +67,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { id, whatsapp_sent, patient_responded, appointment_scheduled, custom_whatsapp_message } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     const updateData: Record<string, any> = {
       updated_at: new Date().toISOString()

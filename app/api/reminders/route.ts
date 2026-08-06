@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   if (error) return new Response(JSON.stringify({ error }), { status: 401 });
 
   try {
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error: dbError } = await supabase
       .from('reminders')
       .select('*')
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { message, remind_at } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error: dbError } = await supabase
       .from('reminders')
       .insert({
@@ -62,7 +62,7 @@ export async function PUT(req: Request) {
     const body = await req.json();
     const { id, ...updates } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error: dbError } = await supabase
       .from('reminders')
       .update(updates)
@@ -86,7 +86,7 @@ export async function DELETE(req: Request) {
     const body = await req.json();
     const { id } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { error: dbError } = await supabase
       .from('reminders')
       .delete()

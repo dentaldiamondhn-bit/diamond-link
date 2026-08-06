@@ -4,7 +4,7 @@ import { PatientService } from '@/services/patientService';
 import { StorageService } from '@/services/storageService';
 import { Patient } from '@/types/patient';
 import { redirect } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
 // Helper function to calculate age at moment of consultation
@@ -62,9 +62,7 @@ async function getExistingDocuments(patientId: string): Promise<string[]> {
 }
 
 // Server-side Supabase client for updates
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseServer = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseServer = createClient();
 
 // Server-only update function
 async function updatePatientServer(id: string, updates: Partial<Patient>): Promise<Patient> {

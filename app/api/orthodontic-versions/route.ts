@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 import { extractMonthsFromDuration } from '@/utils/progressUtils';
 
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient();
 
 function calculateProgressPercentage(completedAppointments: number, totalEstimatedAppointments: number): number {
   if (totalEstimatedAppointments <= 0) return 0;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 import { conversationService } from '@/services/conversation.service';
 
 export const dynamic = 'force-dynamic';
@@ -13,10 +13,7 @@ const groq = new Groq({
 
 // Initialize Supabase client
 const getSupabaseClient = () => {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-  );
+  return createClient();
 };
 
 const BASE_SYSTEM_PROMPT = `You are a personal AI assistant for Dental Diamond Link, a dental clinic management application.`;

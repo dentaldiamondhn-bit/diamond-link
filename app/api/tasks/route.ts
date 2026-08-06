@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   if (error) return new Response(JSON.stringify({ error }), { status: 401 });
 
   try {
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error: dbError } = await supabase
       .from('tasks')
       .select('*')
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { title, priority, due_date } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error: dbError } = await supabase
       .from('tasks')
       .insert({
@@ -64,7 +64,7 @@ export async function PUT(req: Request) {
     const body = await req.json();
     const { id, ...updates } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error: dbError } = await supabase
       .from('tasks')
       .update(updates)
@@ -88,7 +88,7 @@ export async function DELETE(req: Request) {
     const body = await req.json();
     const { id } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { error: dbError } = await supabase
       .from('tasks')
       .delete()

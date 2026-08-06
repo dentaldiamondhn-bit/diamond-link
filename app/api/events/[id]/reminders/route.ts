@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const eventId = params.id;
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from('event_reminders')
       .select('*')
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // This is just for compatibility; actual reminder_time is derived in save logic.
     const isoReminderTime = reminderTime.toISOString();
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from('event_reminders')
       .insert({
@@ -78,7 +78,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     const body = await req.json();
     const { reminder_id } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     if (reminder_id) {
       const { error } = await supabase

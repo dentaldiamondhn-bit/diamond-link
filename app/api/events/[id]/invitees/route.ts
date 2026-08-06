@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const eventId = params.id;
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from('event_invitees')
       .select('*')
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
       .from('event_invitees')
       .insert({
@@ -80,7 +80,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     const body = await req.json();
     const { user_id } = body;
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     if (user_id) {
       const { error } = await supabase

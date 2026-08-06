@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const eventId = params.id;
-    const supabase = createServiceClient();
+    const supabase = await createClient();
     const participants: any[] = [];
 
     const { data: eventData, error: eventError } = await supabase

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -9,11 +9,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Patient ID is required' }, { status: 400 });
     }
 
-    // Use service role to bypass RLS
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = await createClient();
 
     const { data, error } = await supabase
       .from('historia_clinica_ortodoncia')
