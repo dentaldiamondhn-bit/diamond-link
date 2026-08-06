@@ -126,13 +126,13 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
     if (forceOdontopediatria) {
       return {
         background: 'linear-gradient(135deg, #ec4899 0%, #3b82f6 100%)', // Pink to Blue
-        borderClass: 'border-white/20',
+        borderClass: 'border-white/40',
         textClass: 'text-white/80',
         subTextClass: 'text-white/70',
         activeBg: 'bg-white/20',
         hoverBg: 'hover:bg-white/10',
         buttonHover: 'hover:bg-white/10',
-        badgeClass: 'bg-white/20 text-white border border-white/30',
+        badgeClass: 'bg-white/20 text-white border border-white/60',
         roleText: 'Odontopediatra'
       };
     }
@@ -140,13 +140,13 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
     if (forceOdontologiaGeneral) {
       return {
         background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)', // Purple Haze
-        borderClass: 'border-white/20',
+        borderClass: 'border-white/40',
         textClass: 'text-white/80',
         subTextClass: 'text-white/70',
         activeBg: 'bg-white/20',
         hoverBg: 'hover:bg-white/10',
         buttonHover: 'hover:bg-white/10',
-        badgeClass: 'bg-white/20 text-white border border-white/30',
+        badgeClass: 'bg-white/20 text-white border border-white/60',
         roleText: 'Doctor General'
       };
     }
@@ -154,13 +154,13 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
     if (forceOrtodoncia) {
       return {
         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Emerald Green
-        borderClass: 'border-white/20',
+        borderClass: 'border-white/40',
         textClass: 'text-white/80',
         subTextClass: 'text-white/70',
         activeBg: 'bg-white/20',
         hoverBg: 'hover:bg-white/10',
         buttonHover: 'hover:bg-white/10',
-        badgeClass: 'bg-white/20 text-white border border-white/30',
+        badgeClass: 'bg-white/20 text-white border border-white/60',
         roleText: 'Ortodoncista'
       };
     }
@@ -168,13 +168,13 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
     if (forceEndodoncia) {
       return {
         background: 'linear-gradient(135deg, #92400e 0%, #78350f 100%)', // Brown Gradient
-        borderClass: 'border-white/20',
+        borderClass: 'border-white/40',
         textClass: 'text-white/80',
         subTextClass: 'text-white/70',
         activeBg: 'bg-white/20',
         hoverBg: 'hover:bg-white/10',
         buttonHover: 'hover:bg-white/10',
-        badgeClass: 'bg-white/20 text-white border border-white/30',
+        badgeClass: 'bg-white/20 text-white border border-white/60',
         roleText: 'Endodoncista'
       };
     }
@@ -182,13 +182,13 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
     if (forcePeriodoncia) {
       return {
         background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', // Orange Gradient
-        borderClass: 'border-white/20',
+        borderClass: 'border-white/40',
         textClass: 'text-white/80',
         subTextClass: 'text-white/70',
         activeBg: 'bg-white/20',
         hoverBg: 'hover:bg-white/10',
         buttonHover: 'hover:bg-white/10',
-        badgeClass: 'bg-white/20 text-white border border-white/30',
+        badgeClass: 'bg-white/20 text-white border border-white/60',
         roleText: 'Periodoncista'
       };
     }
@@ -196,7 +196,7 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
     // Default blue theme
     return {
       background: '',
-      borderClass: 'border-blue-700',
+      borderClass: 'border-white/40',
       textClass: 'text-blue-200',
       subTextClass: 'text-blue-200',
       activeBg: 'bg-blue-600',
@@ -220,7 +220,7 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
 
   const headerClasses = hasCustomGradient
     ? `p-6 border-b ${specialtyStyle.borderClass}`
-    : "p-6 border-b border-blue-700";
+    : "p-6 border-b border-white/40";
 
   const navItemClasses = (isActive: boolean) => {
     const baseClasses = "flex items-center px-4 py-3 rounded-lg transition-all duration-200";
@@ -236,7 +236,7 @@ export default function DoctorSidebar({ sidebarOpen, setSidebarOpen }: DoctorSid
 
   const userSectionClasses = hasCustomGradient
     ? `p-4 border-t ${specialtyStyle.borderClass}`
-    : "p-4 border-t border-blue-700";
+    : "p-4 border-t border-white/40";
 
   const userButtonClasses = hasCustomGradient
     ? { 

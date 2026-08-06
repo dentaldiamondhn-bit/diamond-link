@@ -41,7 +41,7 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
   return (
     <div className="w-64 text-white flex flex-col h-screen overflow-y-auto" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #b91c1c 100%)' }}>
       {/* Logo Section */}
-      <div className="p-6 border-b border-white/20">
+      <div className="p-6 border-b border-white/40">
         <div className="flex items-center space-x-3">
           <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10" />
           <div>
@@ -100,7 +100,7 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
       </nav>
 
       {/* User Section */}
-      <div className="p-4 border-t border-white/20">
+      <div className="p-4 border-t border-white/40">
         <div className="flex items-center space-x-3 px-4 py-3">
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-1">
@@ -108,7 +108,7 @@ export default function TechSupportSidebar({ sidebarOpen, setSidebarOpen }: Tech
                 {user?.firstName || 'Usuario'} {user?.lastName || ''}
               </p>
               {/* Tech Support Role Badge */}
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white border border-white/30">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white border border-white/60">
                 <i className="fas fa-tools mr-1"></i>
                 Tech Support
               </span>

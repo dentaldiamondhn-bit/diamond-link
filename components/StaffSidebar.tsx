@@ -37,7 +37,7 @@ export default function StaffSidebar({ sidebarOpen, setSidebarOpen }: StaffSideb
   return (
     <div className="w-64 bg-green-900 text-white flex flex-col h-screen overflow-y-auto">
       {/* Logo Section */}
-      <div className="p-6 border-b border-green-700">
+      <div className="p-6 border-b border-white/40">
         <div className="flex items-center space-x-3">
           <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10" />
           <div>
@@ -95,7 +95,7 @@ export default function StaffSidebar({ sidebarOpen, setSidebarOpen }: StaffSideb
       </nav>
 
       {/* User Section */}
-      <div className="p-4 border-t border-green-700">
+      <div className="p-4 border-t border-white/40">
         <div className="flex items-center space-x-3 px-4 py-3">
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-1">

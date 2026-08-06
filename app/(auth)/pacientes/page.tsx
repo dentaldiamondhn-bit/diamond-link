@@ -628,7 +628,7 @@ export default function PacientesPage() {
                           }}
                         >
                           <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white font-bold border border-white/30">
+                            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white font-bold border border-white/30 dark:border-white/60">
                               {displayPatient.nombre_completo?.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1">
