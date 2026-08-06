@@ -1091,8 +1091,21 @@ function OdontogramPilotPageContent() {
            flex-direction: column;
            align-items: center;
            gap: 15px;
-           padding: 0 20px 20px 20px;
-           margin-top: -10px;
+           padding: 16px;
+         }
+         
+         @media (min-width: 640px) {
+           .odontogram-container {
+             padding-left: 24px;
+             padding-right: 24px;
+           }
+         }
+         
+         @media (min-width: 1024px) {
+           .odontogram-container {
+             padding-left: 32px;
+             padding-right: 32px;
+           }
          }
         
         .odontogram-circle {
