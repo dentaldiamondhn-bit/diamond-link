@@ -1068,7 +1068,7 @@ function MenuNavegacionContent() {
                 <div className="flex items-center space-x-3">
                   <span className="text-teal-100 text-sm">Paciente actual:</span>
                   <div className="flex items-center space-x-2">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white font-bold text-lg border border-white/30">
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white font-bold text-lg border border-white/30 dark:border-white/60">
                       {patient?.nombre_completo?.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-base font-medium text-white">{patient?.nombre_completo}</span>
@@ -1176,7 +1176,7 @@ function MenuNavegacionContent() {
             >
               <div className={`bg-gradient-to-r ${item.id === 'odontograma-pilot' ? getOdontogramHeaderGradient() : 'from-teal-500 to-cyan-500'} p-6 text-white`}>
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white border border-white/30">
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white border border-white/30 dark:border-white/60">
                     {typeof item.icon === 'string' ? (
                       <i className={`${item.icon} text-xl`}></i>
                     ) : (
@@ -1184,7 +1184,7 @@ function MenuNavegacionContent() {
                     )}
                   </div>
                   <div className="flex flex-col gap-1 items-end">
-                    <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-semibold border border-white/30">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-semibold border border-white/30 dark:border-white/60">
                       Módulo
                     </div>
                     {item.id === 'odontograma-pilot' && odontogramPilotStats?.mordidas?.length > 0 && (
