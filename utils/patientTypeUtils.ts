@@ -30,11 +30,11 @@ export function getPatientType(patient: any): PatientTypeInfo {
       colors: gender === 'femenino' ? {
         header: 'from-pink-500 to-pink-700',
         badge: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
-        badgeText: 'border-pink-200 text-pink-700 dark:text-pink-300'
+        badgeText: 'border-pink-200 text-pink-700 dark:border-pink-200 dark:text-pink-300'
       } : {
         header: 'from-blue-400 to-blue-600',
         badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-        badgeText: 'border-blue-200 text-blue-700 dark:text-blue-300'
+        badgeText: 'border-blue-200 text-blue-700 dark:border-blue-200 dark:text-blue-300'
       }
     }
     return result;
@@ -46,11 +46,11 @@ export function getPatientType(patient: any): PatientTypeInfo {
       colors: gender === 'femenino' ? {
         header: 'from-purple-500 to-purple-700',
         badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-        badgeText: 'border-purple-200 text-purple-700 dark:text-purple-300'
+        badgeText: 'border-purple-200 text-purple-700 dark:border-purple-200 dark:text-purple-300'
       } : {
         header: 'from-gray-500 to-gray-700',
         badge: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-        badgeText: 'border-gray-200 text-gray-700 dark:text-gray-300'
+        badgeText: 'border-gray-200 text-gray-700 dark:border-gray-200 dark:text-gray-300'
       }
     }
     return result;
@@ -62,11 +62,11 @@ export function getPatientType(patient: any): PatientTypeInfo {
       colors: gender === 'femenino' ? {
         header: 'from-red-400 to-red-600',
         badge: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-        badgeText: 'border-red-200 text-red-700 dark:text-red-300'
+        badgeText: 'border-red-200 text-red-700 dark:border-red-200 dark:text-red-300'
       } : {
         header: 'from-yellow-500 to-yellow-700',
         badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-        badgeText: 'border-yellow-200 text-yellow-700 dark:text-yellow-300'
+        badgeText: 'border-yellow-200 text-yellow-700 dark:border-yellow-200 dark:text-yellow-300'
       }
     };
   } else {
@@ -77,7 +77,7 @@ export function getPatientType(patient: any): PatientTypeInfo {
       colors: {
         header: 'from-teal-500 to-cyan-500',
         badge: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
-        badgeText: 'border-teal-200 text-teal-700 dark:text-teal-300'
+        badgeText: 'border-teal-200 text-teal-700 dark:border-teal-200 dark:text-teal-300'
       }
     };
   }

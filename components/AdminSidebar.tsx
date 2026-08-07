@@ -45,7 +45,7 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSideb
   return (
     <div className="w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
       {/* Logo Section */}
-      <div className="p-6 border-b border-white/40">
+      <div className="p-6 border-b border-white/40 dark:border-white/40">
         <div className="flex items-center space-x-3">
           <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10" />
           <div>
@@ -103,7 +103,7 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }: AdminSideb
       </nav>
 
       {/* User Section */}
-      <div className="p-4 border-t border-white/40">
+      <div className="p-4 border-t border-white/40 dark:border-white/40">
         <div className="flex items-center space-x-3 px-4 py-3">
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-1">

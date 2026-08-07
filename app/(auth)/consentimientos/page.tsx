@@ -75,7 +75,7 @@ function ConsentimientosContent() {
                 colors: {
                   header: 'from-pink-400 to-blue-400',
                   badge: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
-                  badgeText: 'border-pink-200 text-pink-700 dark:text-pink-300'
+                  badgeText: 'border-pink-200 text-pink-700 dark:border-pink-200 dark:text-pink-300'
                 }
               };
             }
