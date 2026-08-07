@@ -1226,6 +1226,88 @@ export default function TratamientosPage() {
           <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-xl rounded-2xl border border-gray-200 dark:border-gray-700">
             <div className="overflow-x-auto">
               {activeTab === 'tratamientos' ? (
+                viewMode === 'grid' ? (
+                  <div className="p-4">
+                    {loading ? (
+                      <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                      </div>
+                    ) : filteredTreatments.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <i className="fas fa-inbox text-4xl mb-4"></i>
+                        <p className="text-lg">No se encontraron tratamientos</p>
+                        <p className="text-sm mt-2">
+                          {searchTerm ? 'Intenta con otra búsqueda' : 'Agrega tu primer tratamiento para comenzar'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {paginatedData.map((treatment) => (
+                          <div key={treatment.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col gap-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{treatment.codigo}</span>
+                                  {treatment.notas && (
+                                    <i className="fas fa-sticky-note text-amber-500 text-sm cursor-help" title={`Notas: ${treatment.notas}`}></i>
+                                  )}
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{treatment.nombre}</h3>
+                              </div>
+                              <span className={`shrink-0 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                treatment.activo
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}>
+                                {treatment.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </div>
+                            <span className="self-start px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                              {treatment.especialidad}
+                            </span>
+                            <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">
+                              {formatCurrency(treatment.precio, treatment.moneda)}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                              <span className="font-medium">{treatment.veces_realizado}</span>
+                              <span className="text-xs text-gray-500">veces realizado</span>
+                              {treatment.veces_realizado > 0 && (
+                                <button
+                                  onClick={() => openUsageModal(treatment)}
+                                  className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                  title="Ver uso del tratamiento"
+                                >
+                                  <i className="fas fa-chart-line text-xs"></i>
+                                  <span className="text-xs">Ver uso</span>
+                                </button>
+                              )}
+                            </div>
+                            <div className="mt-auto flex items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
+                              <button
+                                onClick={() => handleEditTreatment(treatment)}
+                                className="flex-1 text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+                                title="Editar tratamiento"
+                              >
+                                <i className="fas fa-edit"></i>
+                                <span className="text-xs">Editar</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTreatment(treatment)}
+                                className="flex-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Eliminar tratamiento"
+                              >
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <AnimatedRubish />
+                                </div>
+                                <span className="text-xs">Eliminar</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -1347,7 +1429,80 @@ export default function TratamientosPage() {
                     )}
                   </tbody>
                 </table>
+                )
               ) : activeTab === 'promociones' ? (
+                viewMode === 'grid' ? (
+                  <div className="p-4">
+                    {loading ? (
+                      <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                      </div>
+                    ) : filteredPromotions.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <i className="fas fa-inbox text-4xl mb-4"></i>
+                        <p className="text-lg">No se encontraron promociones</p>
+                        <p className="text-sm mt-2">
+                          {searchTerm ? 'Intenta con otra búsqueda' : 'Agrega tu primera promoción para comenzar'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {paginatedData.map((promotion) => (
+                          <div key={promotion.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col gap-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{promotion.codigo}</span>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{promotion.nombre}</h3>
+                              </div>
+                              <span className={`shrink-0 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                promotion.activo
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}>
+                                {promotion.activo ? 'Activa' : 'Inactiva'}
+                              </span>
+                            </div>
+                            <span className="self-start px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              {promotion.descuento}% OFF
+                            </span>
+                            <div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 line-through">{formatCurrency(promotion.precio_original, promotion.moneda)}</div>
+                              <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">{formatCurrency(promotion.precio_promocional, promotion.moneda)}</div>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
+                              <span className="font-medium">{promotion.veces_realizado}</span>
+                              <span className="text-xs text-gray-500">veces</span>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              <div>Desde: {promotion.fecha_inicio}</div>
+                              <div>Hasta: {promotion.fecha_fin}</div>
+                            </div>
+                            <div className="mt-auto flex items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
+                              <button
+                                onClick={() => handleEditPromotion(promotion)}
+                                className="flex-1 text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+                                title="Editar promoción"
+                              >
+                                <i className="fas fa-edit"></i>
+                                <span className="text-xs">Editar</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeletePromotion(promotion)}
+                                className="flex-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Eliminar promoción"
+                              >
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <AnimatedRubish />
+                                </div>
+                                <span className="text-xs">Eliminar</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -1466,7 +1621,80 @@ export default function TratamientosPage() {
                     )}
                   </tbody>
                 </table>
+                )
               ) : activeTab === 'paquetes' ? (
+                viewMode === 'grid' ? (
+                  <div className="p-4">
+                    {loading ? (
+                      <div className="flex justify-center py-12">
+                        <LoadingAnimation />
+                      </div>
+                    ) : filteredPaquetes.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <i className="fas fa-inbox text-4xl mb-4"></i>
+                        <p className="text-lg">No se encontraron paquetes</p>
+                        <p className="text-sm mt-2">
+                          {searchTerm ? 'Intenta con otra búsqueda' : 'Agrega tu primer paquete para comenzar'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {paginatedData.map((paquete) => (
+                          <div key={paquete.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col gap-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{paquete.codigo}</span>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{paquete.nombre}</h3>
+                                {paquete.descripcion && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{paquete.descripcion}</div>
+                                )}
+                              </div>
+                              <span className={`shrink-0 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                paquete.activo
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}>
+                                {paquete.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </div>
+                            <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">{formatCurrency(paquete.precio_total, paquete.moneda)}</div>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+                              <div className="flex items-center">
+                                <i className="fas fa-users text-blue-500 mr-2"></i>
+                                <span className="font-medium">{paquete.max_pacientes}</span>
+                                <span className="ml-1 text-xs text-gray-500">máx</span>
+                              </div>
+                              <div className="flex items-center">
+                                <span className="font-medium">{paquete.veces_vendido}</span>
+                                <span className="ml-1 text-xs text-gray-500">vendidos</span>
+                              </div>
+                            </div>
+                            <div className="mt-auto flex items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
+                              <button
+                                onClick={() => handleEditPaquete(paquete)}
+                                className="flex-1 text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+                                title="Editar paquete"
+                              >
+                                <i className="fas fa-edit"></i>
+                                <span className="text-xs">Editar</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeletePaquete(paquete)}
+                                className="flex-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Eliminar paquete"
+                              >
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <AnimatedRubish />
+                                </div>
+                                <span className="text-xs">Eliminar</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-800">
@@ -1577,7 +1805,69 @@ export default function TratamientosPage() {
                     </tbody>
                   </table>
                 </div>
+                )
               ) : activeTab === 'insumos' ? (
+                viewMode === 'grid' ? (
+                  <div className="p-4">
+                    {loading ? (
+                      <div className="flex justify-center py-12">
+                        <LoadingAnimation />
+                      </div>
+                    ) : filteredInsumos.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <i className="fas fa-inbox text-4xl mb-4"></i>
+                        <p className="text-lg">No se encontraron insumos</p>
+                        <p className="text-sm mt-2">
+                          {searchTerm ? 'Intenta con otra búsqueda' : 'Agrega tu primer insumo para comenzar'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {paginatedData.map((insumo) => (
+                          <div key={insumo.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col gap-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{insumo.codigo}</span>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{insumo.nombre}</h3>
+                                {insumo.descripcion && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{insumo.descripcion}</div>
+                                )}
+                              </div>
+                              <span className={`shrink-0 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                insumo.activo
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                              }`}>
+                                {insumo.activo ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </div>
+                            <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">{formatCurrency(insumo.precio, insumo.moneda)}</div>
+                            <div className="mt-auto flex items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
+                              <button
+                                onClick={() => handleEditInsumo(insumo)}
+                                className="flex-1 text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+                                title="Editar insumo"
+                              >
+                                <i className="fas fa-edit"></i>
+                                <span className="text-xs">Editar</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteInsumo(insumo)}
+                                className="flex-1 text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Eliminar insumo"
+                              >
+                                <div className="w-4 h-4 flex items-center justify-center">
+                                  <AnimatedRubish />
+                                </div>
+                                <span className="text-xs">Eliminar</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-800">
@@ -1648,6 +1938,7 @@ export default function TratamientosPage() {
                     </tbody>
                   </table>
                 </div>
+                )
               ) : null}
             </div>
           </div>
