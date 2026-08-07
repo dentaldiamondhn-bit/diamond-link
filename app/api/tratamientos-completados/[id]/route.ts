@@ -145,15 +145,14 @@ export async function DELETE(
     // Step 4: Remove related signature files from storage
     console.log('Removing signature files...');
     
-    if (completedTreatment.firma_paciente_url) {
+    if (completedTreatment.firma_paciente_url && completedTreatment.firma_paciente_url.includes('tratamientos_firmas')) {
       try {
-        // Extract file path from URL
-        const urlParts = completedTreatment.firma_paciente_url.split('/');
-        const fileName = urlParts[urlParts.length - 1];
-        const filePath = `signatures/${fileName}`;
+        // Extract the object path from the public storage URL
+        const urlParts = completedTreatment.firma_paciente_url.split('/object/public/tratamientos_firmas/');
+        const filePath = urlParts[urlParts.length - 1];
         
         const { error: storageError } = await supabase.storage
-          .from('treatment-signatures')
+          .from('tratamientos_firmas')
           .remove([filePath]);
         
         if (storageError) {

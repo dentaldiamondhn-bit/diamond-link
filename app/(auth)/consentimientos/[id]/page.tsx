@@ -207,6 +207,7 @@ export default function ConsentimientoDocument() {
     }
 
     setSaving(true);
+    let createdConsentimientoId: string | null = null;
     
     try {
       // Create consentimiento record first
@@ -222,6 +223,7 @@ export default function ConsentimientoDocument() {
       };
 
       const savedConsentimiento = await consentimientoService.createConsentimiento(consentimientoData);
+      createdConsentimientoId = savedConsentimiento.id;
 
       // Handle signatures based on record category and bypass mode
       let patientSignatureUrl = null;
@@ -250,6 +252,16 @@ export default function ConsentimientoDocument() {
       router.push(`/consentimientos/${savedConsentimiento.id}/preview`);
     } catch (error) {
       console.error('Error saving consentimiento:', error);
+      // Rollback: remove the record if it was created without signatures so a
+      // broken "firmado" consentimiento is not left behind with missing URLs.
+      if (createdConsentimientoId) {
+        try {
+          await consentimientoService.deleteConsentimiento(createdConsentimientoId);
+          console.log('Rolled back consentimiento without signatures:', createdConsentimientoId);
+        } catch (rollbackError) {
+          console.error('Error rolling back consentimiento:', rollbackError);
+        }
+      }
       alert('Error al guardar el consentimiento. Por favor, intente nuevamente.');
     } finally {
       setSaving(false);
