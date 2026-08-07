@@ -197,9 +197,11 @@ export default function TratamientosPage() {
   // Initialize preferences from pagePrefs
   useEffect(() => {
     if (pagePrefs && !prefsLoading) {
-      // Only set if different from current value to avoid unnecessary re-renders
-      if (pagePrefs.viewMode && pagePrefs.viewMode !== viewMode) {
-        setViewMode(pagePrefs.viewMode);
+      // Apply per-tab view mode (falls back to legacy global viewMode)
+      const tabViewModes = pagePrefs.tabViewModes || {};
+      const savedViewMode = tabViewModes[activeTab] || pagePrefs.viewMode;
+      if (savedViewMode && savedViewMode !== viewMode) {
+        setViewMode(savedViewMode);
       }
       if (pagePrefs.recordsPerPage && pagePrefs.recordsPerPage !== recordsPerPagePref) {
         setRecordsPerPagePref(pagePrefs.recordsPerPage);
@@ -211,15 +213,20 @@ export default function TratamientosPage() {
         setSortOrder(pagePrefs.sortOrder);
       }
     }
-  }, [pagePrefs, prefsLoading]); // Remove state variables from dependencies
+  }, [pagePrefs, prefsLoading, activeTab]); // Remove state variables from dependencies
 
-  // Save preferences with debouncing
+  // Save view mode per tab with debouncing (like tabDateRanges in reports)
   useEffect(() => {
-    if (!prefsLoading && pagePrefs?.viewMode !== viewMode) {
-      const timeoutId = setTimeout(() => updatePagePrefs({ viewMode }), 500);
-      return () => clearTimeout(timeoutId);
+    if (!prefsLoading) {
+      const tabViewModes = pagePrefs?.tabViewModes || {};
+      if (tabViewModes[activeTab] !== viewMode) {
+        const timeoutId = setTimeout(() => {
+          updatePagePrefs({ tabViewModes: { ...tabViewModes, [activeTab]: viewMode } });
+        }, 500);
+        return () => clearTimeout(timeoutId);
+      }
     }
-  }, [viewMode, prefsLoading, updatePagePrefs]);
+  }, [viewMode, activeTab, prefsLoading, updatePagePrefs, pagePrefs?.tabViewModes]);
 
   useEffect(() => {
     if (!prefsLoading && recordsPerPagePref) {
