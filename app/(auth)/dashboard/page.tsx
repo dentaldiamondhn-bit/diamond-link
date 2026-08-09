@@ -28,9 +28,37 @@ import { UserAvatar } from '../../../components/calendar/UserComponents';
 import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import PatientsTableModal from '../../../components/PatientsTableModal';
 
+// Safe locale formatters: some mobile browsers (Android WebView / in-app
+// browsers) ship reduced ICU data and throw `RangeError: Incorrect locale
+// information provided` for region-specific locales like `es-HN`. Fall back
+// to `en-US` so the dashboard never crashes on render.
+const safeLocaleDate = (date: Date, options?: Intl.DateTimeFormatOptions) => {
+  try {
+    return date.toLocaleDateString('es-HN', options);
+  } catch {
+    try {
+      return date.toLocaleDateString('en-US', options);
+    } catch {
+      return date.toLocaleDateString();
+    }
+  }
+};
+
+const safeLocaleNumber = (amount: number) => {
+  try {
+    return amount.toLocaleString('es-HN', { minimumFractionDigits: 2 });
+  } catch {
+    try {
+      return amount.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    } catch {
+      return amount.toFixed(2);
+    }
+  }
+};
+
 // Currency formatting utility for HNL
 const formatHNL = (amount: number) => {
-  return `L ${amount.toLocaleString('es-HN', { minimumFractionDigits: 2 })}`;
+  return `L ${safeLocaleNumber(amount)}`;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -337,7 +365,7 @@ export default function DashboardPage() {
 
   const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'Usuario';
   const roleLabel = ROLE_LABELS[userRole] || userRole;
-  const todayLabel = new Date().toLocaleDateString('es-HN', {
+  const todayLabel = safeLocaleDate(new Date(), {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -667,7 +695,7 @@ export default function DashboardPage() {
                     {/* Date Row */}
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
                       <CalendarDays size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
-                      {event.date ? new Date(event.date).toLocaleDateString('es-HN', { day: 'numeric', month: 'long', year: 'numeric' }) : SimpleTimezoneFix.formatDisplayDate(event.start_date)}
+                      {event.date ? safeLocaleDate(new Date(event.date), { day: 'numeric', month: 'long', year: 'numeric' }) : SimpleTimezoneFix.formatDisplayDate(event.start_date)}
                       {event.start_time && ` - ${event.start_time}`}
                       {event.end_time && ` - ${event.end_time}`}
                     </div>
