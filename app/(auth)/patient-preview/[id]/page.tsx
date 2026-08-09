@@ -5,6 +5,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
 import { ExportService } from '@/services/exportService';
+import { consentimientoService, Consentimiento } from '@/services/consentimientoService';
+import { OdontogramPilotService } from '@/services/odontogramPilotService';
+import { Odontogram } from '@/types/odontogram';
 import { Patient } from '@/types/patient';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
 import { getRecordCategoryInfoSync } from '@/utils/recordCategoryUtils';
@@ -18,6 +21,7 @@ import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedUser from '@/components/AnimatedUser';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import MedicalWarningModal from '@/components/MedicalWarningModal';
+import OdontogramPreview from '@/components/OdontogramPreview';
 import { 
   User, Phone, Mail, MapPin, Heart, Activity, Coffee, 
   FileText, Edit3, ArrowLeft, Download, Printer, 
@@ -62,6 +66,9 @@ export default function PatientPreviewPage() {
   const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
   const [patientType, setPatientType] = useState<any>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [consentimientos, setConsentimientos] = useState<Consentimiento[]>([]);
+  const [consentimientosLoading, setConsentimientosLoading] = useState(false);
+  const [odontogram, setOdontogram] = useState<Odontogram | null>(null);
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
 
   // Function to load historical mode setting from Supabase
@@ -140,6 +147,18 @@ export default function PatientPreviewPage() {
       // Check record category (historical, active, archived)
       const categoryInfo = getRecordCategoryInfoSync(patientData.fecha_inicio || patientData.fecha_inicio_consulta);
       setRecordCategoryInfo(categoryInfo);
+
+      // Load consentimientos for this patient
+      loadConsentimientos(patientData.paciente_id);
+
+      // Load active odontogram for this patient
+      try {
+        const odontogramData = await OdontogramPilotService.getActiveOdontogram(patientData.paciente_id);
+        setOdontogram(odontogramData);
+      } catch (err) {
+        console.error('Error loading odontogram:', err);
+        setOdontogram(null);
+      }
       
       // Show warning modal using improved algorithm - only if significant conditions exist
       const hasSignificantConditions = 
@@ -162,9 +181,40 @@ export default function PatientPreviewPage() {
     }
   };
 
+  const loadConsentimientos = async (pacienteId: string) => {
+    setConsentimientosLoading(true);
+    try {
+      const data = await consentimientoService.getConsentimientosByPaciente(pacienteId);
+      setConsentimientos(data);
+    } catch (err) {
+      console.error('Error loading consentimientos:', err);
+      setConsentimientos([]);
+    } finally {
+      setConsentimientosLoading(false);
+    }
+  };
+
+  const processTemplateContent = (content: string) => {
+    if (!content || !patient) return content;
+
+    const field = (value: string) =>
+      `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${value || ''}</span>`;
+
+    return content
+      .replace(/\{\{PATIENT_NAME\}\}/g, field(patient.nombre_completo || '_________________________'))
+      .replace(/\{\{PATIENT_ID\}\}/g, field(patient.numero_identidad || '_____________________'))
+      .replace(/\{\{PATIENT_ADDRESS\}\}/g, field(patient.direccion || '__________________________________________'))
+      .replace(/\{\{DOCTOR_NAME\}\}/g, field(patient.doctor || '_________________________'))
+      .replace(/\{\{CURRENT_DATE\}\}/g, field(`San Pedro Sula, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`))
+      .replace(/\{\{REPRESENTANTE_LEGAL\}\}/g, field(patient.representante_legal || '_________________________________________'))
+      .replace(/\{\{REP_NUMERO_IDENTIDAD\}\}/g, field(patient.rep_numero_identidad || '_________________________'))
+      .replace(/\{\{CLINIC_NAME\}\}/g, 'Clínica Dental Diamond HN')
+      .replace(/\n/g, '<br>');
+  };
+
   const handlePrint = () => {
     if (patient) {
-      ExportService.exportToPDF(patient);
+      ExportService.exportToPDF(patient, consentimientos, odontogram);
     }
   };
 
@@ -173,7 +223,7 @@ export default function PatientPreviewPage() {
     
     switch (format) {
       case 'pdf':
-        ExportService.exportToPDF(patient);
+        ExportService.exportToPDF(patient, consentimientos, odontogram);
         break;
       case 'html':
         ExportService.exportToHTML(patient);
@@ -365,14 +415,14 @@ export default function PatientPreviewPage() {
       />
 
       {/* Patient Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Personal Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+      <div className="grid grid-cols-1 gap-6 lg:block lg:columns-2 lg:gap-x-6 lg:[&>*]:mb-6">
+        {/* Datos Personales */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 break-inside-avoid">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
             <div className="w-5 h-5 mr-2 flex items-center justify-center">
               <AnimatedUser />
             </div>
-            Información Personal
+            Datos Personales
           </h3>
           <div className="space-y-3">
             <div>
@@ -418,68 +468,6 @@ export default function PatientPreviewPage() {
               <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de Sangre:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.tipo_sangre}</p>
             </div>
-            {/* Legal Representative Information - Show if under 18 or if representative data exists */}
-            {((patient.edad && patient.edad < 18) || patient.representante_legal) && (
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                <h4 className="text-md font-semibold text-gray-800 dark:text-white mb-3">
-                  <div className="w-5 h-5 mr-2 flex items-center justify-center">
-                    <AnimatedUser />
-                  </div>
-                  Representante Legal
-                </h4>
-                <div className="space-y-2">
-                  {patient.representante_legal && (
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">Nombre del Representante:</span>
-                      <p className="text-gray-600 dark:text-gray-400">{patient.representante_legal}</p>
-                    </div>
-                  )}
-                  {patient.parentesco && (
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">Parentesco:</span>
-                      <p className="text-gray-600 dark:text-gray-400">{patient.parentesco}</p>
-                    </div>
-                  )}
-                  {patient.rep_celular && (
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">Teléfono del Representante:</span>
-                      <div className="flex items-center space-x-2">
-                        <a
-                          href={createWhatsAppUrl(patient.rep_celular, patient.rep_pais_codigo || '504')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-                          title="Enviar mensaje de WhatsApp"
-                        >
-                          <div className="w-5 h-5 flex items-center justify-center">
-                            <AnimatedWhatsApp />
-                          </div>
-                        </a>
-                        <a
-                          href={createWhatsAppUrl(patient.rep_celular, patient.rep_pais_codigo || '504')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                          title="Enviar mensaje de WhatsApp"
-                        >
-                          {formatPhoneDisplay(patient.rep_celular, patient.rep_pais_codigo || '504')}
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Contact Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i className="fas fa-address-book mr-2"></i>
-            Información de Contacto
-          </h3>
-          <div className="space-y-3">
             {patient.telefono && (
               <div>
                 <span className="font-medium text-gray-700 dark:text-gray-300">Teléfono:</span>
@@ -550,14 +538,90 @@ export default function PatientPreviewPage() {
                 </div>
               </div>
             )}
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Doctor:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.doctor}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Fecha de Inicio:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.fecha_inicio}</p>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Seguro:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.seguro}</p>
+            </div>
+            {patient.poliza && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Póliza:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.poliza}</p>
+              </div>
+            )}
+            {patient.contacto && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Contacto del seguro:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.contacto}</p>
+              </div>
+            )}
+            {/* Legal Representative Information - Show if under 18 or if representative data exists */}
+            {((patient.edad && patient.edad < 18) || patient.representante_legal) && (
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                <h4 className="text-md font-semibold text-gray-800 dark:text-white mb-3">
+                  <div className="w-5 h-5 mr-2 flex items-center justify-center">
+                    <AnimatedUser />
+                  </div>
+                  Representante Legal
+                </h4>
+                <div className="space-y-2">
+                  {patient.representante_legal && (
+                    <div>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Nombre del Representante:</span>
+                      <p className="text-gray-600 dark:text-gray-400">{patient.representante_legal}</p>
+                    </div>
+                  )}
+                  {patient.parentesco && (
+                    <div>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Parentesco:</span>
+                      <p className="text-gray-600 dark:text-gray-400">{patient.parentesco}</p>
+                    </div>
+                  )}
+                  {patient.rep_celular && (
+                    <div>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Teléfono del Representante:</span>
+                      <div className="flex items-center space-x-2">
+                        <a
+                          href={createWhatsAppUrl(patient.rep_celular, patient.rep_pais_codigo || '504')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                          title="Enviar mensaje de WhatsApp"
+                        >
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            <AnimatedWhatsApp />
+                          </div>
+                        </a>
+                        <a
+                          href={createWhatsAppUrl(patient.rep_celular, patient.rep_pais_codigo || '504')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                          title="Enviar mensaje de WhatsApp"
+                        >
+                          {formatPhoneDisplay(patient.rep_celular, patient.rep_pais_codigo || '504')}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Medical Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        {/* Antecedentes Médicos */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 break-inside-avoid">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
             <i className="fas fa-heartbeat mr-2"></i>
-            Información Médica
+            Antecedentes Médicos
           </h3>
           <div className="space-y-3">
             <div>
@@ -605,54 +669,8 @@ export default function PatientPreviewPage() {
           </div>
         </div>
 
-        {/* Dental Evaluation Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i className="fas fa-tooth mr-2"></i>
-            Evaluación Odontológica
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Reacción adversa al anestésico:</span>
-              <p className="text-gray-600 dark:text-gray-400">
-                {patient.reaccion_adversa_anestesico === 'no' ? 'No' : 
-                 patient.reaccion_adversa_anestesico === 'si' ? 'Sí' : 
-                 patient.reaccion_adversa_anestesico === 'no_aplicada' ? 'No Aplicada' : 
-                 'No especificado'}
-              </p>
-            </div>
-            {patient.tipo_reaccion && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de reacción:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_reaccion}</p>
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Ha tenido experiencia odontológica traumática:</span>
-              <p className="text-gray-600 dark:text-gray-400">
-                {patient.experiencia_traumatica === 'no' ? 'No' : 
-                 patient.experiencia_traumatica === 'si' ? 'Sí' : 
-                 patient.experiencia_traumatica === 'es_1ra_consulta' ? 'Es 1ra Consulta' : 
-                 'No especificado'}
-              </p>
-            </div>
-            {patient.que_sucedio && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">¿Qué sucedió?:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.que_sucedio}</p>
-              </div>
-            )}
-            {patient.observaciones_generales && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones Generales:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.observaciones_generales}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Habits Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        {/* Hábitos */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 break-inside-avoid">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
             <i className="fas fa-smoking mr-2"></i>
             Hábitos
@@ -717,26 +735,6 @@ export default function PatientPreviewPage() {
               </div>
             )}
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Bruxismo:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.bruxismo}</p>
-            </div>
-            {patient.tipo_bruxismo && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de bruxismo:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_bruxismo}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Diet Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i className="fas fa-utensils mr-2"></i>
-            Dieta y Hábitos Alimenticios
-          </h3>
-          <div className="space-y-3">
-            <div>
               <span className="font-medium text-gray-700 dark:text-gray-300">Objetos duros:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.objetos}</p>
             </div>
@@ -747,144 +745,30 @@ export default function PatientPreviewPage() {
               </div>
             )}
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Prótesis:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.protesis}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Prótesis tipo:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.protesis_tipo}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Uso nocturno de protesis:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.protesis_nocturno}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Sensibilidad:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.sensibilidad}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de sensibilidad:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.tipo_sensibilidad}</p>
-            </div>
-            <div>
               <span className="font-medium text-gray-700 dark:text-gray-300">Bruxismo:</span>
               <p className="text-gray-600 dark:text-gray-400">{patient.bruxismo}</p>
             </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de bruxismo:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.tipo_bruxismo}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Higiene Oral - Cepillado:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.f_cepillado} veces al día</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Higiene Oral - Hilo Dental:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.hilo_dental}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Enjuague bucal:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.enjuague_bucal}</p>
-            </div>
-            {patient.enjuague_bucal === 'si' && patient.tipo_enjuague_bucal && (
+            {patient.tipo_bruxismo && (
               <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo enjuague bucal:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_enjuague_bucal}</p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de bruxismo:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_bruxismo}</p>
               </div>
             )}
             <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Dolor de cabeza:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_cabeza}</p>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Visitas al dentista:</span>
+              <p className="text-gray-600 dark:text-gray-400">{patient.visitas_dentista || 'No especificado'}</p>
             </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Detalles del dolor de cabeza:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_cabeza_detalle}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Chasquidos mandibulares:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.chasquidos_mandibulares}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Dolor de oído frecuente:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_oido}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Detalles del dolor de oído:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_oido_detalle}</p>
-            </div>
-              <p className="text-gray-600 dark:text-gray-400">{patient.pastadental}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Cambio de cepillo:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.cambio_cepillo}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Hilo dental:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.hilo_dental}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Enjuague bucal:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.enjuague_bucal}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Dental Examination */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i className="fas fa-search mr-2"></i>
-            Examen Dental
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Dolor de cabeza:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_cabeza}</p>
-            </div>
-            {patient.dolor_cabeza_detalle && (
+            {patient.obsgen && (
               <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Detalles del dolor de cabeza:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.dolor_cabeza_detalle}</p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones generales:</span>
+                <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">{patient.obsgen}</p>
               </div>
             )}
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Chasquidos:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.chasquidos}</p>
-            </div>
-            {patient.chasquidos_mandibulares && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Chasquidos mandibulares:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.chasquidos_mandibulares}</p>
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Dolor de oído:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.dolor_oido}</p>
-            </div>
-            {patient.dolor_oido_detalle && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Detalles del dolor de oído:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.dolor_oido_detalle}</p>
-              </div>
-            )}
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Succión digital:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.suction_digital}</p>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-              <i className="fas fa-notes-medical mr-2"></i>
-              Plan de Tratamiento
-            </h3>
-          
-          <div className="space-y-3">
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones:</span>
-              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">{patient.observaciones_plan}</p>
-            </div>
           </div>
         </div>
 
         {/* Evaluación Odontológica */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 break-inside-avoid">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
             <i className="fas fa-tooth mr-2"></i>
             Evaluación Odontológica
@@ -970,6 +854,36 @@ export default function PatientPreviewPage() {
                 <p className="text-gray-600 dark:text-gray-400">{patient.orto_motivo_no_finalizado}</p>
               </div>
             )}
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Reacción adversa al anestésico:</span>
+              <p className="text-gray-600 dark:text-gray-400">
+                {patient.reaccion_adversa_anestesico === 'no' ? 'No' :
+                 patient.reaccion_adversa_anestesico === 'si' ? 'Sí' :
+                 patient.reaccion_adversa_anestesico === 'no_aplicada' ? 'No Aplicada' :
+                 'No especificado'}
+              </p>
+            </div>
+            {patient.tipo_reaccion && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Tipo de reacción:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.tipo_reaccion}</p>
+              </div>
+            )}
+            <div>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Ha tenido experiencia odontológica traumática:</span>
+              <p className="text-gray-600 dark:text-gray-400">
+                {patient.experiencia_traumatica === 'no' ? 'No' :
+                 patient.experiencia_traumatica === 'si' ? 'Sí' :
+                 patient.experiencia_traumatica === 'es_1ra_consulta' ? 'Es 1ra Consulta' :
+                 'No especificado'}
+              </p>
+            </div>
+            {patient.que_sucedio && (
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">¿Qué sucedió?:</span>
+                <p className="text-gray-600 dark:text-gray-400">{patient.que_sucedio}</p>
+              </div>
+            )}
             {patient.protesis && (
               <div>
                 <span className="font-medium text-gray-700 dark:text-gray-300">Prótesis:</span>
@@ -1006,7 +920,7 @@ export default function PatientPreviewPage() {
             )}
             <div>
               <span className="font-medium text-gray-700 dark:text-gray-300">Frecuencia de cepillado diario:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.f_cepillado}</p>
+              <p className="text-gray-600 dark:text-gray-400">{patient.f_cepillado} veces al día</p>
             </div>
             {patient.tipocepillo && (
               <div>
@@ -1039,40 +953,21 @@ export default function PatientPreviewPage() {
           </div>
         </div>
 
-        {/* Dental Information */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        {/* Observaciones Generales */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 break-inside-avoid">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-            <i className="fas fa-tooth mr-2"></i>
-            Información Dental General
+            <i className="fas fa-comment-dots mr-2"></i>
+            Observaciones Generales
           </h3>
           <div className="space-y-3">
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Motivo de Consulta:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.motivo}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Doctor:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.doctor}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Fecha de Inicio:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.fecha_inicio}</p>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Seguro:</span>
-              <p className="text-gray-600 dark:text-gray-400">{patient.seguro}</p>
-            </div>
-            {patient.poliza && (
+            {patient.observaciones_generales && (
               <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Póliza:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.poliza}</p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Observaciones Generales:</span>
+                <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">{patient.observaciones_generales}</p>
               </div>
             )}
-            {patient.contacto && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Contacto del seguro:</span>
-                <p className="text-gray-600 dark:text-gray-400">{patient.contacto}</p>
-              </div>
+            {!patient.observaciones_generales && (
+              <p className="text-gray-500 dark:text-gray-400">Sin observaciones generales registradas.</p>
             )}
           </div>
         </div>
@@ -1138,6 +1033,146 @@ export default function PatientPreviewPage() {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Consentimientos */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+          <i className="fas fa-file-signature mr-2"></i>
+          Consentimientos
+        </h3>
+
+        {consentimientosLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+        ) : consentimientos.length > 0 ? (
+          <div className="space-y-8">
+            {consentimientos.map((consentimiento, index) => (
+              <div key={consentimiento.id} className="border border-gray-200 dark:border-gray-700 rounded-xl">
+                {/* Consent Header */}
+                <div className="flex items-start justify-between gap-4 px-6 pt-6">
+                  <div className="flex items-center space-x-3">
+                    <img 
+                      src="/Logo.svg" 
+                      alt="Clínica Dental Diamond" 
+                      className="w-10 h-10"
+                    />
+                    <div>
+                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                        CLINICA DENTAL DIAMOND
+                      </h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {consentimiento.nombre_consentimiento}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full ${
+                    consentimiento.estado === 'firmado'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : consentimiento.estado === 'cancelado'
+                      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                  }`}>
+                    {consentimiento.estado === 'firmado'
+                      ? 'Firmado'
+                      : consentimiento.estado === 'cancelado'
+                      ? 'Cancelado'
+                      : 'Activo'}
+                  </span>
+                </div>
+
+                {/* Consent Document */}
+                <div className="px-6 py-4">
+                  <h5 className="text-base font-bold text-center mb-6 text-gray-900 dark:text-white">
+                    CONSENTIMIENTO INFORMADO
+                  </h5>
+
+                  <div 
+                    className="space-y-6 text-base leading-relaxed text-gray-800 dark:text-gray-200"
+                    dangerouslySetInnerHTML={{ 
+                      __html: processTemplateContent(consentimiento.contenido) || 
+                        '<p>El contenido del consentimiento no está disponible.</p>' 
+                    }}
+                  />
+
+                  <div className="mt-4 text-center text-gray-800 dark:text-white">
+                    <p className="text-base font-semibold">
+                      <strong>Fecha:</strong> {consentimiento.fecha_consentimiento}
+                    </p>
+                  </div>
+
+                  {/* Signatures Section */}
+                  <div className="mt-16 flex justify-between items-start">
+                    <div className="flex-1 mr-4">
+                      <div className="bg-transparent p-2 min-h-[80px] flex items-end justify-center">
+                        {consentimiento.firma_paciente_url ? (
+                          <img 
+                            src={consentimiento.firma_paciente_url} 
+                            alt="Firma del paciente" 
+                            className="max-h-16 max-w-full"
+                          />
+                        ) : (
+                          <div className="w-full border-b-2 border-gray-400"></div>
+                        )}
+                      </div>
+                      <div className="w-full border-b-2 border-gray-400 mt-2"></div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mt-4 text-center">
+                        Firma de paciente:
+                      </label>
+                    </div>
+
+                    <div className="flex-1 ml-4">
+                      <div className="bg-transparent p-2 min-h-[80px] flex items-end justify-center">
+                        {consentimiento.firma_doctor_url ? (
+                          <img 
+                            src={consentimiento.firma_doctor_url} 
+                            alt="Firma del doctor" 
+                            className="max-h-16 max-w-full"
+                          />
+                        ) : (
+                          <div className="w-full border-b-2 border-gray-400"></div>
+                        )}
+                      </div>
+                      <div className="w-full border-b-2 border-gray-400 mt-2"></div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mt-4 text-center">
+                        Firma de doctor/a:
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 pb-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <p>Este es un consentimiento informado firmado digitalmente.</p>
+                  <p>
+                    Generado el {new Date(consentimiento.creado_en || consentimiento.fecha_consentimiento).toLocaleDateString('es-ES', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <i className="fas fa-file-signature text-gray-300 text-4xl mb-3"></i>
+            <p className="text-gray-600 dark:text-gray-400">
+              No hay consentimientos registrados para este paciente
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Odontograma */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+          <i className="fas fa-tooth mr-2"></i>
+          Odontograma
+        </h3>
+        <OdontogramPreview pacienteId={patient.paciente_id} />
       </div>
 
       {/* Export Modal */}

@@ -328,47 +328,9 @@ export default function ConsentimientoPreview() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-      {/* Aggressive global print styles */}
+      {/* Print styles: let the document flow naturally across pages */}
       <style jsx global>{`
         @media print {
-          /* Hide absolutely everything except our content */
-          body * {
-            visibility: hidden;
-          }
-          
-          /* Show only our document container and its children */
-          .bg-white, .bg-white * {
-            visibility: visible;
-          }
-          
-          /* Force the document to be the only thing visible */
-          .bg-white {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            background: white !important;
-            box-shadow: none !important;
-            border: none !important;
-            margin: 0 !important;
-            padding: 20px !important;
-            border-radius: 0 !important;
-          }
-          
-          /* Override all colors for print */
-          .bg-white * {
-            color: black !important;
-            background: white !important;
-            border-color: #ccc !important;
-          }
-          
-          /* Remove all styling */
-          .bg-white * {
-            box-shadow: none !important;
-            text-shadow: none !important;
-          }
-          
-          /* Page setup */
           @page {
             margin: 0.5in;
             size: A4;
@@ -376,13 +338,19 @@ export default function ConsentimientoPreview() {
           
           body {
             background: white !important;
-            margin: 0 !important;
+          }
+          
+          /* Only the document container prints; chrome is hidden via print:hidden */
+          .consent-doc {
+            max-width: none !important;
             padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: white !important;
+            border-radius: 0 !important;
           }
         }
       `}</style>
-
-      {/* Header */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 mb-8 print:hidden">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center space-x-4">
@@ -428,7 +396,7 @@ export default function ConsentimientoPreview() {
         </div>
 
         {/* Consent Document Preview */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 print:shadow-none print:border-none print:bg-white print:rounded-none">
+        <div className="consent-doc bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 print:shadow-none print:border-none print:bg-white print:rounded-none">
           {/* Logo and Clinic Header */}
           <div className="flex items-center space-x-4 mb-8">
             <img 
@@ -503,7 +471,7 @@ export default function ConsentimientoPreview() {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400 print:hidden">
           <p>Este es un consentimiento informado firmado digitalmente.</p>
           <p>Generado el {new Date().toLocaleDateString('es-ES', { 
             year: 'numeric', 

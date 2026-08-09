@@ -52,12 +52,12 @@ export function TutorialModal() {
       {/* Overlay */}
       <div 
         ref={overlayRef}
-        className="fixed inset-0 bg-black bg-opacity-50 z-50"
+        className="fixed inset-0 bg-black bg-opacity-50 z-50 print:hidden"
         onClick={skipTutorial}
       />
 
       {/* Tutorial Modal */}
-      <div className={`${getModalPosition()} z-50 max-w-md mx-4`}>
+      <div className={`${getModalPosition()} z-50 max-w-md mx-4 print:hidden`}>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">

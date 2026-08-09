@@ -18,6 +18,8 @@ export interface GingivitisEntry {
 export interface OdontogramData {
   // Estructura de dientes - cada diente puede tener múltiples caras
   dientes: Record<string, DienteData>;
+  // Tipo de odontograma: adulto | nino | oleary_adulto
+  tipo?: string;
   // Información general del odontograma
   informacion_general?: {
     fecha: string;
