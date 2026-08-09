@@ -97,26 +97,48 @@ const odontPieSlicePath = (startAngle: number, endAngle: number, r: number): str
 
 export class ExportService {
   static async exportToPDF(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null): Promise<void> {
-    // Create a new window with print-friendly content
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Por favor, permite las ventanas emergentes para exportar a PDF');
+    const printContent = this.generatePrintContent(patient, consentimientos || [], odontogram);
+
+    // Use a hidden iframe instead of window.open for PWA/mobile browser compatibility
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      alert('No se pudo generar el documento para imprimir');
       return;
     }
 
-    const printContent = this.generatePrintContent(patient, consentimientos || [], odontogram);
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    
-    // Wait for content to load, then print
-    printWindow.onload = () => {
-      printWindow.print();
-      printWindow.close();
+    doc.open();
+    doc.write(printContent);
+    doc.close();
+
+    const doPrint = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
     };
+
+    // Some mobile browsers fire load immediately; fall back to a timeout to ensure content is ready
+    iframe.onload = doPrint;
+    setTimeout(doPrint, 600);
+
+    // Remove the iframe after the print dialog is handled
+    setTimeout(() => {
+      if (iframe.parentNode) document.body.removeChild(iframe);
+    }, 5000);
   }
 
-  static exportToHTML(patient: Patient): void {
-    const htmlContent = this.generateHTMLContent(patient);
+  static exportToHTML(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null): void {
+    const htmlContent = this.generatePrintContent(patient, consentimientos || [], odontogram);
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     
@@ -814,171 +836,4 @@ export class ExportService {
     </div>`;
   }
 
-  private static generateHTMLContent(patient: Patient): string {
-    return `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historia Clínica - ${patient.nombre_completo}</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-            color: #333;
-        }
-        .header {
-            text-align: center;
-            border-bottom: 2px solid #0a4d4a;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-        .section {
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background: #f9f9f9;
-        }
-        .section h2 {
-            color: #0a4d4a;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 5px;
-        }
-        .field {
-            margin-bottom: 10px;
-        }
-        .field-label {
-            font-weight: bold;
-            color: #555;
-        }
-        .field-value {
-            margin-left: 10px;
-        }
-        .signature {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-top: 10px;
-            text-align: center;
-        }
-        .signature img {
-            max-width: 300px;
-            max-height: 150px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Historia Clínica Odontológica</h1>
-        <h2>${patient.nombre_completo}</h2>
-        <p>ID: ${patient.paciente_id} | Fecha: ${new Date().toLocaleDateString('es-ES')}</p>
-    </div>
-
-    <div class="section">
-        <h2>Información Personal</h2>
-        <div class="field">
-            <span class="field-label">Nombre Completo:</span>
-            <span class="field-value">${patient.nombre_completo}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Tipo de Identificación:</span>
-            <span class="field-value">${patient.tipo_identificacion}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Número de Identidad:</span>
-            <span class="field-value">${patient.numero_identidad || 'N/A'}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Fecha de Nacimiento:</span>
-            <span class="field-value">${patient.fecha_nacimiento || 'N/A'}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Edad:</span>
-            <span class="field-value">${patient.edad || 'N/A'} años</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Sexo:</span>
-            <span class="field-value">${patient.sexo}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Tipo de Sangre:</span>
-            <span class="field-value">${patient.tipo_sangre}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Dirección:</span>
-            <span class="field-value">${patient.direccion}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Teléfono:</span>
-            <span class="field-value">${patient.telefono || 'N/A'}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Email:</span>
-            <span class="field-value">${patient.email || 'N/A'}</span>
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>Información Médica</h2>
-        <div class="field">
-            <span class="field-label">Enfermedades:</span>
-            <span class="field-value">${patient.enfermedades || 'Ninguna'}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Alergias:</span>
-            <span class="field-value">${patient.alergias || 'Ninguna'}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Medicamentos:</span>
-            <span class="field-value">${patient.medicamentos || 'Ninguno'}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Antecedentes Familiares:</span>
-            <span class="field-value">${patient.antecedentes_familiares || 'Ninguno'}</span>
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>Información Dental</h2>
-        <div class="field">
-            <span class="field-label">Motivo de Consulta:</span>
-            <span class="field-value">${patient.motivo}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Doctor:</span>
-            <span class="field-value">${patient.doctor}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Fecha de Inicio:</span>
-            <span class="field-value">${patient.fecha_inicio}</span>
-        </div>
-        <div class="field">
-            <span class="field-label">Seguro:</span>
-            <span class="field-value">${patient.seguro}</span>
-        </div>
-    </div>
-
-    ${patient.firma_digital ? `
-    <div class="section">
-        <h2>Firma Digital</h2>
-        <div class="signature">
-            <img src="${patient.firma_digital}" alt="Firma del paciente" />
-            <p>Firma digital registrada el ${patient.fecha_inicio}</p>
-        </div>
-    </div>
-    ` : ''}
-
-    <div class="section">
-        <p><strong>Generado el:</strong> ${new Date().toLocaleString('es-ES')}</p>
-        <p><strong>Sistema de Gestión Dental - Clínica Diamond</strong></p>
-    </div>
-</body>
-</html>
-    `;
-  }
 }

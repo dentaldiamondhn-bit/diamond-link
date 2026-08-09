@@ -226,7 +226,7 @@ export default function PatientPreviewPage() {
         ExportService.exportToPDF(patient, consentimientos, odontogram);
         break;
       case 'html':
-        ExportService.exportToHTML(patient);
+        ExportService.exportToHTML(patient, consentimientos, odontogram);
         break;
       case 'json':
         ExportService.exportToJSON(patient);

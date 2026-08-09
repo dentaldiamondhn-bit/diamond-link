@@ -330,7 +330,7 @@ export default function OdontogramPreview({ pacienteId }: OdontogramPreviewProps
       </p>
 
       {/* Tooth chart */}
-      <div style={{ background: 'white', borderRadius: '12px', padding: '16px', width: '100%' }}>
+      <div className="bg-white dark:bg-gray-800" style={{ borderRadius: '12px', padding: '16px', width: '100%' }}>
         <div className="teeth-row" style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'nowrap' }}>
           {upperTeeth.map(num => {
             const tooth = getTooth(num);
