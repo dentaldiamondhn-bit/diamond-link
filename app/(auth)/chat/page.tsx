@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useNotification } from '@/contexts/NotificationContext';
 import { supabase } from '@/lib/supabase';
 import { ChatService } from '@/services/chatService';
+import { showBrowserNotification, requestNotificationPermission } from '@/lib/browserNotification';
 
 const UserButton = dynamic(() => import('@clerk/nextjs').then(m => m.UserButton), { ssr: false });
 import {
@@ -177,7 +178,7 @@ export default function ChatPage() {
   }, [conversations, dbUserId]);
 
   useEffect(() => {
-    requestNotificationPermission();
+    handlePermissionRequest();
   }, []);
 
   // Realtime: messages in the currently selected conversation
@@ -332,41 +333,32 @@ export default function ChatPage() {
   const allUsersRef = useRef(allUsers);
   allUsersRef.current = allUsers;
 
-  const requestNotificationPermission = async () => {
+  const handlePermissionRequest = async () => {
     if (!('Notification' in window) || permissionRequested.current) return;
     permissionRequested.current = true;
     if (Notification.permission === 'default') {
-      await Notification.requestPermission();
-      setPermission(Notification.permission);
+      const result = await requestNotificationPermission();
+      if (result !== 'unsupported') setPermission(result);
     }
   };
 
   // Request notification permission on first user click
   useEffect(() => {
-    const handler = () => { requestNotificationPermission(); document.removeEventListener('click', handler); };
+    const handler = () => { handlePermissionRequest(); document.removeEventListener('click', handler); };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, []);
 
   const showChatNotification = (title: string, body: string, convId?: string) => {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    try {
-      const n = new Notification(title, {
-        body,
-        icon: '/favicon-192.png',
-        tag: convId || 'chat',
-      });
-      n.onclick = () => {
-        window.focus();
-        if (convId) {
-          const conv = conversationsRef.current.find(c => c.id === convId);
-          if (conv) setSelectedConversation(conv);
-        }
-        n.close();
-      };
-    } catch (e) {
-      console.error('Notification error:', e);
-    }
+    showBrowserNotification({
+      title,
+      body,
+      icon: '/favicon-192.png',
+      tag: convId || 'chat',
+      data: convId ? { conversationId: convId } : {},
+      onClickUrl: convId ? `/chat?conv=${convId}` : undefined,
+    });
   };
 
   const getUserName = (userId: string) => {

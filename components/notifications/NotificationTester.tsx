@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import { useBellNotifications } from '@/contexts/BellNotificationContext';
+import {
+  showBrowserNotification,
+  requestNotificationPermission,
+} from '@/lib/browserNotification';
 
 export function NotificationTester() {
   const { addNotification } = useBellNotifications();
@@ -29,13 +33,14 @@ export function NotificationTester() {
     }
   };
 
-  const testBrowserNotification = () => {
+  const testBrowserNotification = async () => {
     if ('Notification' in window) {
       if (Notification.permission === 'granted') {
-        const notification = new Notification('Test Browser Notification', {
+        await showBrowserNotification({
+          title: 'Test Browser Notification',
+          body: 'This is a test browser notification with Logo.svg',
           icon: '/Logo.svg',
           badge: '/Logo.svg',
-          body: 'This is a test browser notification with Logo.svg',
           tag: 'test-notification',
           requireInteraction: true,
           data: {
@@ -43,12 +48,12 @@ export function NotificationTester() {
             eventTime: new Date().toISOString()
           }
         });
-
-        setTimeout(() => {
-          notification.close();
-        }, 5000);
-
         console.log('✅ Browser notification test sent');
+      } else if (Notification.permission === 'default') {
+        const result = await requestNotificationPermission();
+        if (result === 'granted') {
+          testBrowserNotification();
+        }
       } else {
         console.log('❌ Browser notification permission not granted');
       }

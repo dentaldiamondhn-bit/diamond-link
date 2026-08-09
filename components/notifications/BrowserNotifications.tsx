@@ -1,6 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import {
+  showBrowserNotification,
+  requestNotificationPermission,
+  getNotificationPermission,
+} from '@/lib/browserNotification';
 
 interface NotificationSettings {
   enabled: boolean;
@@ -16,12 +21,10 @@ export function BrowserNotifications() {
 
   // Request notification permission
   const requestPermission = useCallback(async () => {
-    if ('Notification' in window) {
-      const result = await Notification.requestPermission();
-      setPermission(result);
-      return result === 'granted';
-    }
-    return false;
+    const result = await requestNotificationPermission();
+    if (result === 'unsupported') return false;
+    setPermission(result);
+    return result === 'granted';
   }, []);
 
   // Show browser notification
@@ -53,31 +56,21 @@ export function BrowserNotifications() {
     }
 
     // Create notification that works in both mobile and desktop modes
-    const notification = new Notification(title, {
-      icon: '/Logo.svg', // Use the proper logo
-      badge: '/Logo.svg', // Use the proper logo for badge
-      tag: options.data?.type || 'general',
-      requireInteraction: options.requireInteraction || false, // Changed to false for better mobile experience
-      body: body,
-      data: options.data,
-      ...options,
-    });
+    let onClickUrl = '';
+    if (options.data?.type === 'calendar_event' || options.data?.type === 'calendar_task') {
+      onClickUrl = '/calendario';
+    }
 
-    // Handle notification click
-    notification.onclick = () => {
-      console.log('🖱️ Browser notification clicked');
-      notification.close();
-      
-      // Focus the window if possible
-      if (window.focus) {
-        window.focus();
-      }
-      
-      // Navigate based on notification type
-      if (options.data?.type === 'calendar_event' || options.data?.type === 'calendar_task') {
-        window.location.href = '/calendario';
-      }
-    };
+    showBrowserNotification({
+      title,
+      body,
+      icon: '/Logo.svg',
+      badge: '/Logo.svg',
+      tag: (options.data?.type as string) || 'general',
+      requireInteraction: options.requireInteraction || false,
+      data: options.data,
+      onClickUrl,
+    });
 
     // Play sound if enabled
     if (settings.soundEnabled) {
@@ -91,20 +84,14 @@ export function BrowserNotifications() {
       }
     }
 
-    // Auto-close after 8 seconds unless requireInteraction is true
-    if (!options.requireInteraction) {
-      setTimeout(() => {
-        notification.close();
-      }, 8000);
-    }
-
     console.log(`✅ Browser notification shown: ${title}`);
   }, [permission, settings]);
 
   // Check notification permission on mount
   useEffect(() => {
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
+    const p = getNotificationPermission();
+    if (p !== 'unsupported') {
+      setPermission(p);
     }
   }, []);
 

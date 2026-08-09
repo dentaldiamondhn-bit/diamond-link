@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useBellNotifications, BellNotification } from '../contexts/BellNotificationContext';
+import { showBrowserNotification as showNotification, requestNotificationPermission } from '../lib/browserNotification';
 
 export function useNotificationListener() {
   const { notifications } = useBellNotifications();
@@ -28,7 +29,7 @@ export function useNotificationListener() {
 function showBrowserNotification(n: BellNotification) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
+      requestNotificationPermission();
     }
     return;
   }
@@ -45,24 +46,21 @@ function showBrowserNotification(n: BellNotification) {
     }
   }
 
-  const bn = new Notification(n.title, {
+  let onClickUrl = '/';
+  if (n.type === 'calendar_event' || n.type === 'calendar_reminder') {
+    onClickUrl = '/calendario';
+  } else if (meta.patientId) {
+    onClickUrl = `/menu-navegacion?id=${meta.patientId}`;
+  }
+
+  showNotification({
+    title: n.title,
     body,
     icon: '/Logo.svg',
     badge: '/Logo.svg',
     tag: n.type || 'general',
     requireInteraction: false,
     data: meta,
+    onClickUrl,
   });
-
-  bn.onclick = () => {
-    bn.close();
-    window.focus?.();
-    if (n.type === 'calendar_event' || n.type === 'calendar_reminder') {
-      window.location.href = '/calendario';
-    } else if (meta.patientId) {
-      window.location.href = `/menu-navegacion?id=${meta.patientId}`;
-    }
-  };
-
-  setTimeout(() => bn.close(), 8000);
 }

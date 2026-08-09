@@ -7,6 +7,7 @@ import calendarRealtimeService, { CalendarRealtimeNotification } from '../../ser
 import { CalendarService } from '../../services/calendarService';
 import { CalendarTaskService } from '../../services/calendarTaskService';
 import { useBellNotifications } from '../../contexts/BellNotificationContext';
+import { showBrowserNotification, requestNotificationPermission } from '../../lib/browserNotification';
 import { EventModal } from './EventModal';
 import { TaskModal } from './TaskModal';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, parseISO, getHours, getMinutes } from 'date-fns';
@@ -60,7 +61,7 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
   useEffect(() => {
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+      requestNotificationPermission();
     }
 
     // Subscribe to real-time notifications
@@ -78,31 +79,23 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
       
       // Show browser notification with better permission handling
       if (Notification.permission === 'granted') {
-        const notificationOptions: NotificationOptions = {
-          body: notification.message,
-          icon: '/Logo.svg', // Use proper logo
-          badge: '/Logo.svg', // Use proper logo for badge
-          tag: notification.type,
-          requireInteraction: true, // Require interaction for calendar notifications
-          silent: false
-        };
-
-        // Add timestamp for events/tasks
-        if (notification.data.start_date || notification.data.due_date) {
-          const eventDate = notification.data.start_date || notification.data.due_date;
-          if (eventDate) {
-            (notificationOptions as any).timestamp = new Date(eventDate).getTime();
-          }
-        }
-
         // Create browser notification
         try {
-          const browserNotification = new Notification(notification.title, notificationOptions);
-          
-          // Auto-close notification after 8 seconds
-          setTimeout(() => {
-            browserNotification.close();
-          }, 8000);
+          showBrowserNotification({
+            title: notification.title,
+            body: notification.message,
+            icon: '/Logo.svg',
+            badge: '/Logo.svg',
+            tag: notification.type,
+            requireInteraction: true,
+            silent: false,
+            data: {
+              eventId: notification.data.item_id,
+              start_date: notification.data.start_date,
+              due_date: notification.data.due_date,
+            },
+            onClickUrl: '/calendario',
+          });
           
           console.log('✅ Browser notification created for invitee:', {
             title: notification.title,
@@ -135,20 +128,24 @@ export const Calendar: React.FC<CalendarProps> = ({ userId, userRole }) => {
         }
       } else if (Notification.permission === 'default') {
         // Request permission if not yet granted
-        Notification.requestPermission().then(permission => {
+        requestNotificationPermission().then(permission => {
           if (permission === 'granted') {
             console.log('🔔 Notification permission granted for invitee notifications');
             // Retry notification creation
             setTimeout(() => {
-              const retryOptions: NotificationOptions = {
+              showBrowserNotification({
+                title: notification.title,
                 body: notification.message,
                 icon: '/Logo.svg',
                 badge: '/Logo.svg',
                 tag: notification.type,
                 requireInteraction: true,
-                silent: false
-              };
-              new Notification(notification.title, retryOptions);
+                silent: false,
+                data: {
+                  eventId: notification.data.item_id,
+                },
+                onClickUrl: '/calendario',
+              });
             }, 500);
           }
         });
