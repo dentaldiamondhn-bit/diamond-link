@@ -8,9 +8,11 @@ import { ExportService } from '@/services/exportService';
 import { consentimientoService, Consentimiento } from '@/services/consentimientoService';
 import { CompletedTreatmentService, CompletedTreatment } from '@/services/completedTreatmentService';
 import { Presupuesto, extractConteoPorEstado } from '@/services/presupuestoService';
+import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult } from '@/services/pdfAssets';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { Odontogram } from '@/types/odontogram';
 import { formatCurrency } from '@/utils/currencyUtils';
+import jsPDF from 'jspdf';
 import { Patient } from '@/types/patient';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
 import { getRecordCategoryInfoSync } from '@/utils/recordCategoryUtils';
@@ -76,6 +78,7 @@ export default function PatientPreviewPage() {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [presupuestosLoading, setPresupuestosLoading] = useState(false);
   const [presupuestosCurrencyMap, setPresupuestosCurrencyMap] = useState<Record<string, string>>({});
+  const [sharingQuoteId, setSharingQuoteId] = useState<string | null>(null);
   const [odontogram, setOdontogram] = useState<Odontogram | null>(null);
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
 
@@ -315,6 +318,265 @@ export default function PatientPreviewPage() {
     const month = monthNames[date.getUTCMonth()];
     const year = date.getUTCFullYear();
     return `${day} de ${month} ${year}`;
+  };
+
+  const generateQuotePdf = async (quote: Presupuesto): Promise<jsPDF> => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 20;
+    let y = 30;
+
+    const ensureSpace = (needed: number) => {
+      if (y + needed > 278) {
+        pdf.addPage();
+        y = 25;
+      }
+    };
+
+    // Header
+    let headerY = 30;
+    try {
+      const logoPng = await getClinicLogoPng();
+      const logoSize = 24;
+      pdf.addImage(logoPng.dataUrl, 'PNG', pageWidth / 2 - logoSize / 2, 8, logoSize, logoSize);
+      headerY = 44;
+    } catch (error) {
+      console.error('Error cargando el logo para el PDF:', error);
+    }
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('CLINICA DENTAL DIAMOND', pageWidth / 2, headerY, { align: 'center' });
+    pdf.setFontSize(14);
+    pdf.text('DETALLES DEL PRESUPUESTO', pageWidth / 2, headerY + 10, { align: 'center' });
+    pdf.setDrawColor(10, 77, 74);
+    pdf.setLineWidth(0.8);
+    pdf.line(margin, headerY + 15, pageWidth - margin, headerY + 15);
+    y = headerY + 25;
+
+    const label = (text: string) => {
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(120);
+      pdf.text(text, margin, y);
+    };
+    const value = (text: string) => {
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(20);
+      pdf.text(text, margin + 60, y);
+    };
+    const fieldRow = (l: string, v: string) => {
+      ensureSpace(12);
+      label(l);
+      value(v);
+      y += 12;
+    };
+
+    fieldRow('Paciente:', quote.patient_name || 'N/A');
+    fieldRow('Doctor:', quote.doctor_name || 'N/A');
+    fieldRow('Fecha:', formatPresupuestoDate(quote.quote_date || quote.created_at));
+    fieldRow('Expira:', formatPresupuestoDate(quote.expires_at));
+
+    // Description
+    ensureSpace(20);
+    y += 4;
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(120);
+    pdf.text('Descripcion del Tratamiento:', margin, y);
+    y += 6;
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(20);
+    const descLines = pdf.splitTextToSize(quote.treatment_description || 'Sin descripcion', pageWidth - margin * 2);
+    ensureSpace(descLines.length * 5 + 8);
+    pdf.text(descLines, margin, y);
+    y += descLines.length * 5 + 8;
+
+    // Items
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(120);
+    pdf.text('Items:', margin, y);
+    y += 5;
+
+    const items = (quote.items || []).filter((item: any) => !item.isExample);
+    if (items.length === 0) {
+      ensureSpace(10);
+      pdf.setTextColor(150);
+      pdf.text('Sin items registrados.', margin, y);
+      y += 10;
+    } else {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(90);
+      pdf.text('Descripcion', margin + 4, y);
+      pdf.text('P. Unit.', pageWidth - margin - 60, y, { align: 'right' });
+      pdf.text('P. Total', pageWidth - margin - 20, y, { align: 'right' });
+      y += 5;
+      pdf.setDrawColor(220);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 7;
+
+      items.forEach((item: any) => {
+        const qty = item.quantity ? ` x${item.quantity}` : '';
+        const currencyPrefix = getPresupuestoItemCurrency(item) === 'HNL' ? 'L ' : '$';
+        const descLines = pdf.splitTextToSize(`${item.description}${qty}`, pageWidth - margin * 2 - 90);
+        const unitPrice = `${currencyPrefix}${formatPresupuestoNumber(item.unit_price)}`;
+        const totalPrice = `${currencyPrefix}${formatPresupuestoNumber(item.total_price)}`;
+        ensureSpace(descLines.length * 5 + 4);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(30);
+        pdf.text(descLines, margin + 4, y);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(unitPrice, pageWidth - margin - 60, y, { align: 'right' });
+        pdf.text(totalPrice, pageWidth - margin - 20, y, { align: 'right' });
+        y += descLines.length * 5 + 4;
+      });
+
+      const { hnlTotal, usdTotal, hasUSD } = analyzePresupuestoCurrencies(quote);
+      ensureSpace(20);
+      y += 4;
+      pdf.setDrawColor(200);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 7;
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(20);
+      pdf.text('Total:', margin, y);
+      pdf.text(`L ${formatPresupuestoNumber(hnlTotal)}`, pageWidth - margin - 20, y, { align: 'right' });
+      y += 6;
+      if (hasUSD) {
+        pdf.text(`$${formatPresupuestoNumber(usdTotal)}`, pageWidth - margin - 20, y, { align: 'right' });
+        y += 6;
+      }
+    }
+
+    // Notas (conteo por estado only)
+    const conteoNotas = extractConteoPorEstado(quote.notes);
+    if (conteoNotas) {
+      ensureSpace(20);
+      y += 6;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(120);
+      pdf.text('Notas:', margin, y);
+      y += 6;
+      pdf.setTextColor(60);
+      const noteLines = pdf.splitTextToSize(conteoNotas, pageWidth - margin * 2);
+      noteLines.forEach((line: string, index: number) => {
+        ensureSpace(5);
+        pdf.text(line, margin, y + index * 5);
+      });
+      y += noteLines.length * 5;
+    }
+
+    // Footer
+    let whatsappPng: SvgPngResult | null = null;
+    try {
+      whatsappPng = await getWhatsappIconPng();
+    } catch (error) {
+      console.error('Error cargando el icono de WhatsApp para el PDF:', error);
+    }
+    const footerLegend = (pdf: jsPDF, y: number) => {
+      const fontSize = 9;
+      const boldPart = 'Sistema de Gestion Diamond Link';
+      const midPart = ' - Clinica Dental Diamond - app.dentaldiamondhn.com - ';
+      const phonePart = ' +504 9498-5346';
+      const iconSize = 4.25;
+      const gap = 1;
+      pdf.setFontSize(fontSize);
+      pdf.setFont('helvetica', 'bold');
+      const boldW = pdf.getTextWidth(boldPart);
+      pdf.setFont('helvetica', 'normal');
+      const midW = pdf.getTextWidth(midPart);
+      const phoneW = pdf.getTextWidth(phonePart);
+      const iconW = whatsappPng ? iconSize + gap : 0;
+      const totalW = boldW + midW + phoneW + iconW + gap;
+      let x = (pageWidth - totalW) / 2;
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(boldPart, x, y);
+      x += boldW;
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(midPart, x, y);
+      x += midW + gap;
+      if (whatsappPng) {
+        const iconH = (whatsappPng.height / whatsappPng.width) * iconSize;
+        pdf.addImage(whatsappPng.dataUrl, 'PNG', x, y - iconH + 1.5, iconSize, iconH);
+        x += iconSize + gap;
+      }
+      pdf.text(phonePart, x, y);
+    };
+    const totalPages = pdf.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'italic');
+      pdf.setTextColor(150);
+      pdf.text(`Generado el: ${new Date().toLocaleString('es-ES')}`, pageWidth / 2, 286, { align: 'center' });
+      pdf.setTextColor(140);
+      footerLegend(pdf, 292);
+    }
+
+    return pdf;
+  };
+
+  const handleShareQuote = async (quote: Presupuesto) => {
+    if (!quote) return;
+    setSharingQuoteId(quote.id || null);
+    try {
+      const pdf = await generateQuotePdf(quote);
+      const filename = `presupuesto_${(quote.patient_name || 'paciente').replace(/\s+/g, '_')}.pdf`;
+      const pdfBlob = pdf.output('blob');
+
+      const { hnlTotal, usdTotal, hasUSD } = analyzePresupuestoCurrencies(quote);
+      const totals = hasUSD && hnlTotal > 0
+        ? `L ${formatPresupuestoNumber(hnlTotal)} / $${formatPresupuestoNumber(usdTotal)}`
+        : hasUSD ? `$${formatPresupuestoNumber(usdTotal)}` : `L ${formatPresupuestoNumber(hnlTotal)}`;
+
+      const statusText = getPresupuestoStatusInfo(quote.status).text;
+      const message = `Hola ${(quote.patient_name || '').split(' ')[0]}, le comparto su presupuesto de la Clinica Dental Diamond:\n\nFecha: ${formatPresupuestoDate(quote.quote_date || quote.created_at)}\n${quote.treatment_description ? `Tratamiento: ${quote.treatment_description}\n` : ''}Total: ${totals}\nEstado: ${statusText}\n\nQuedamos a su disposicion.`;
+
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+      const nav = navigator as any;
+
+      // Mobile: share the PDF file directly to WhatsApp via the Web Share API
+      if (nav.share && nav.canShare && nav.canShare({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title: 'Presupuesto - Clinica Dental Diamond', text: message });
+          return;
+        } catch (shareError: any) {
+          if (shareError?.name === 'AbortError') return;
+          // Fall through to wa.me fallback if share failed for another reason
+        }
+      }
+
+      // Fallback: download the PDF so the user can attach it manually, and open WhatsApp with the summary
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      const phone = patient?.telefono;
+      const countryCode = patient?.codigopais || patient?.pais_codigo;
+      if (phone) {
+        const waNumber = countryCode && countryCode !== '+504'
+          ? `${countryCode.replace('+', '')}${phone}`
+          : `504${phone}`;
+        window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`, '_blank');
+      } else {
+        alert('No se encontro el numero de telefono del paciente. El PDF se descargo para que pueda compartirlo manualmente.');
+      }
+    } catch (error) {
+      console.error('Error sharing quote:', error);
+      alert('No se pudo generar el PDF del presupuesto');
+    } finally {
+      setSharingQuoteId(null);
+    }
   };
 
   const getTreatmentPaymentStatus = (treatment: CompletedTreatment) => {
@@ -1549,7 +1811,15 @@ export default function PatientPreviewPage() {
                     )}
 
                     {/* View Link */}
-                    <div className="text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => handleShareQuote(quote)}
+                        disabled={sharingQuoteId !== null}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        <i className={`fab fa-whatsapp ${sharingQuoteId === quote.id ? 'animate-pulse' : ''}`}></i>
+                        {sharingQuoteId === quote.id ? 'Generando PDF...' : 'Compartir'}
+                      </button>
                       <button
                         onClick={() => router.push(`/presupuestos?id=${patient.paciente_id}`)}
                         className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300"
