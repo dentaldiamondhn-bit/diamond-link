@@ -6,8 +6,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
 import { ExportService } from '@/services/exportService';
 import { consentimientoService, Consentimiento } from '@/services/consentimientoService';
+import { CompletedTreatmentService, CompletedTreatment } from '@/services/completedTreatmentService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { Odontogram } from '@/types/odontogram';
+import { formatCurrency } from '@/utils/currencyUtils';
 import { Patient } from '@/types/patient';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
 import { getRecordCategoryInfoSync } from '@/utils/recordCategoryUtils';
@@ -68,6 +70,8 @@ export default function PatientPreviewPage() {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [consentimientos, setConsentimientos] = useState<Consentimiento[]>([]);
   const [consentimientosLoading, setConsentimientosLoading] = useState(false);
+  const [tratamientosCompletados, setTratamientosCompletados] = useState<CompletedTreatment[]>([]);
+  const [tratamientosCompletadosLoading, setTratamientosCompletadosLoading] = useState(false);
   const [odontogram, setOdontogram] = useState<Odontogram | null>(null);
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
 
@@ -151,6 +155,9 @@ export default function PatientPreviewPage() {
       // Load consentimientos for this patient
       loadConsentimientos(patientData.paciente_id);
 
+      // Load completed treatments for this patient
+      loadTratamientosCompletados(patientData.paciente_id);
+
       // Load active odontogram for this patient
       try {
         const odontogramData = await OdontogramPilotService.getActiveOdontogram(patientData.paciente_id);
@@ -191,6 +198,38 @@ export default function PatientPreviewPage() {
       setConsentimientos([]);
     } finally {
       setConsentimientosLoading(false);
+    }
+  };
+
+  const loadTratamientosCompletados = async (pacienteId: string) => {
+    setTratamientosCompletadosLoading(true);
+    try {
+      const data = await CompletedTreatmentService.getCompletedTreatmentsByPatientId(pacienteId);
+      setTratamientosCompletados(data);
+    } catch (err) {
+      console.error('Error loading tratamientos completados:', err);
+      setTratamientosCompletados([]);
+    } finally {
+      setTratamientosCompletadosLoading(false);
+    }
+  };
+
+  const getTreatmentPaymentStatus = (treatment: CompletedTreatment) => {
+    const totalPaid = treatment.monto_pagado || 0;
+    const totalFinal = treatment.total_final || 0;
+    if (totalFinal <= 0 || totalPaid >= totalFinal) return 'pagado';
+    if (totalPaid > 0) return 'parcialmente_pagado';
+    return 'pendiente';
+  };
+
+  const getTreatmentPaymentStatusInfo = (status: string) => {
+    switch (status) {
+      case 'pagado':
+        return { badge: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', text: 'Pagado' };
+      case 'parcialmente_pagado':
+        return { badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', text: 'Parcialmente Pagado' };
+      default:
+        return { badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', text: 'Pendiente' };
     }
   };
 
@@ -1173,6 +1212,140 @@ export default function PatientPreviewPage() {
           Odontograma
         </h3>
         <OdontogramPreview pacienteId={patient.paciente_id} />
+      </div>
+
+      {/* Tratamientos Completados */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+          <i className="fas fa-check-circle mr-2"></i>
+          Tratamientos Completados
+        </h3>
+
+        {tratamientosCompletadosLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+        ) : tratamientosCompletados.length > 0 ? (
+          <div className="space-y-4">
+            {tratamientosCompletados.map((treatment) => {
+              const paymentStatus = getTreatmentPaymentStatus(treatment);
+              const paymentInfo = getTreatmentPaymentStatusInfo(paymentStatus);
+              return (
+                <div key={treatment.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                  {/* Treatment Header */}
+                  <div className="flex items-start justify-between gap-4 px-6 py-4 bg-gradient-to-r from-teal-500 to-cyan-500">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i className="fas fa-tooth text-white"></i>
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold">
+                          {SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}
+                        </p>
+                        <p className="text-white/80 text-sm">
+                          {(treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0)} tratamiento(s)
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full ${paymentInfo.badge}`}>
+                      {paymentInfo.text}
+                    </span>
+                  </div>
+
+                  {/* Treatment Items */}
+                  <div className="px-6 py-4">
+                    {treatment.tratamientos_realizados?.map((tr) => (
+                      <div key={tr.id} className="flex items-center justify-between py-1">
+                        <div className="flex-1">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {tr.cantidad}x {tr.nombre_tratamiento}
+                          </span>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {tr.codigo_tratamiento}
+                            {tr.doctor_name && (
+                              <span className="text-teal-600 dark:text-teal-400">
+                                {' '}· Tratado por: {tr.doctor_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm font-semibold text-teal-600 dark:text-teal-400">
+                          {formatCurrency(tr.precio_final * tr.cantidad, tr.moneda)}
+                        </span>
+                      </div>
+                    ))}
+                    {treatment.tratamientos_inventario?.map((item) => (
+                      <div key={`inv-${item.id}`} className="flex items-center justify-between py-1 pl-4 border-l-2 border-amber-300 dark:border-amber-700">
+                        <div className="flex-1">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {item.cantidad}x {item.nombre}
+                          </span>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {item.codigo} <span className="text-amber-600 dark:text-amber-400">(Inventario)</span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-semibold text-teal-600 dark:text-teal-400">
+                          {formatCurrency(item.precio * item.cantidad, item.moneda)}
+                        </span>
+                      </div>
+                    ))}
+                    {(treatment.tratamientos_realizados?.length === 0) && (treatment.tratamientos_inventario?.length === 0) && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Sin tratamientos registrados.</p>
+                    )}
+
+                    {/* Pricing Summary */}
+                    <div className="border-t border-gray-200 dark:border-gray-700 mt-3 pt-3 space-y-1">
+                      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                        <span>Total Original</span>
+                        <span>{formatCurrency(treatment.total_original, treatment.moneda)}</span>
+                      </div>
+                      {treatment.total_descuento > 0 && (
+                        <div className="flex justify-between text-sm text-red-600 dark:text-red-400">
+                          <span>Descuento</span>
+                          <span>- {formatCurrency(treatment.total_descuento, treatment.moneda)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-semibold text-gray-900 dark:text-white">
+                        <span>Total Final</span>
+                        <span>{formatCurrency(treatment.total_final, treatment.moneda)}</span>
+                      </div>
+                      {treatment.monto_pagado > 0 && (
+                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                          <span>Monto Pagado</span>
+                          <span>{formatCurrency(treatment.monto_pagado, treatment.moneda)}</span>
+                        </div>
+                      )}
+                      {treatment.saldo_pendiente > 0 && (
+                        <div className="flex justify-between text-sm text-yellow-600 dark:text-yellow-400">
+                          <span>Saldo Pendiente</span>
+                          <span>{formatCurrency(treatment.saldo_pendiente, treatment.moneda)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* View Link */}
+                    <div className="mt-4 text-right">
+                      <button
+                        onClick={() => router.push(`/tratamientos-completados/${treatment.id}/view`)}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300"
+                      >
+                        <i className="fas fa-eye mr-1"></i>
+                        Ver detalle
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <i className="fas fa-check-circle text-gray-300 text-4xl mb-3"></i>
+            <p className="text-gray-600 dark:text-gray-400">
+              No hay tratamientos completados registrados para este paciente
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Export Modal */}

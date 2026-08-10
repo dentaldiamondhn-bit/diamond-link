@@ -128,6 +128,7 @@ function EstudioPeriodontalContent() {
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: '5',
+        ...(pacienteId && { paciente_id: pacienteId }),
         ...(searchTerm && { search: searchTerm }),
         ...(dateFilter && { date: dateFilter })
       });

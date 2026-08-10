@@ -21,13 +21,6 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('estudios_periodontales')
       .select('*')
-      .eq('paciente_id', pacienteId)
-      .eq('paciente_id', (await supabase
-        .from('patients')
-        .select('paciente_id')
-        .eq('clerk_user_id', userId)
-        .limit(1)
-      ).data?.[0]?.paciente_id || '')
       .order('fecha_estudio', { ascending: false });
 
     // Apply filters
@@ -36,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`observaciones_generales.ilike.%${search}%,fecha_estudio.ilike.%${search}%`);
+      query = query.or(`observaciones_generales.ilike.%${search}%`);
     }
 
     if (dateFilter) {
@@ -44,16 +37,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total count for pagination
-    const { count } = await supabase
+    let countQuery = supabase
       .from('estudios_periodontales')
-      .select('*', { count: 'exact', head: true })
-      .eq('paciente_id', pacienteId)
-      .eq('paciente_id', (await supabase
-        .from('patients')
-        .select('paciente_id')
-        .eq('clerk_user_id', userId)
-        .limit(1)
-      ).data?.[0]?.paciente_id || '');
+      .select('*', { count: 'exact', head: true });
+
+    if (pacienteId) {
+      countQuery = countQuery.eq('paciente_id', pacienteId);
+    }
+
+    if (dateFilter) {
+      countQuery = countQuery.eq('fecha_estudio', dateFilter);
+    }
+
+    const { count } = await countQuery;
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -125,7 +121,6 @@ export async function POST(request: NextRequest) {
         furcaciones: body.furcaciones || 'no-evaluado',
         observaciones_generales: body.observaciones_generales || null,
         plan_tratamiento: body.plan_tratamiento || {},
-        creado_por: userId
       })
       .select()
       .single();
