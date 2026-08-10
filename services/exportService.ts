@@ -1,6 +1,7 @@
 import { Patient } from '../types/patient';
 import { Consentimiento } from './consentimientoService';
 import { CompletedTreatment } from './completedTreatmentService';
+import { Presupuesto } from './presupuestoService';
 import { Odontogram, OdontogramData } from '../types/odontogram';
 import { SimpleTimezoneFix } from './simpleTimezoneFix';
 import { formatCurrency } from '../utils/currencyUtils';
@@ -99,8 +100,8 @@ const odontPieSlicePath = (startAngle: number, endAngle: number, r: number): str
 };
 
 export class ExportService {
-  static async exportToPDF(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[]): Promise<void> {
-    const printContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || []);
+  static async exportToPDF(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[], presupuestos?: Presupuesto[], presupuestoCurrencyMap?: Record<string, string>): Promise<void> {
+    const printContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || [], presupuestos || [], presupuestoCurrencyMap || {});
 
     // Use a hidden iframe instead of window.open for PWA/mobile browser compatibility
     const iframe = document.createElement('iframe');
@@ -144,8 +145,8 @@ export class ExportService {
     }, 5000);
   }
 
-  static exportToHTML(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[]): void {
-    const htmlContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || []);
+  static exportToHTML(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[], presupuestos?: Presupuesto[], presupuestoCurrencyMap?: Record<string, string>): void {
+    const htmlContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || [], presupuestos || [], presupuestoCurrencyMap || {});
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     
@@ -172,7 +173,7 @@ export class ExportService {
     URL.revokeObjectURL(url);
   }
 
-  private static generatePrintContent(patient: Patient, consentimientos: Consentimiento[] = [], odontogram?: Odontogram | null, tratamientosCompletados: CompletedTreatment[] = []): string {
+  private static generatePrintContent(patient: Patient, consentimientos: Consentimiento[] = [], odontogram?: Odontogram | null, tratamientosCompletados: CompletedTreatment[] = [], presupuestos: Presupuesto[] = [], presupuestoCurrencyMap: Record<string, string> = {}): string {
     const field = (label: string, value: string | number | null | undefined, fallback = 'N/A') => `
         <div class="field">
             <span class="field-label">${label}:</span>
@@ -182,6 +183,7 @@ export class ExportService {
     const consentPages = this.generateConsentPages(consentimientos, patient);
     const odontogramSection = this.generateOdontogramSection(odontogram);
     const tratamientosSection = this.generateCompletedTreatmentsSection(tratamientosCompletados);
+    const presupuestosSection = this.generatePresupuestosSection(presupuestos, presupuestoCurrencyMap);
 
     return `
 <!DOCTYPE html>
@@ -551,6 +553,143 @@ export class ExportService {
             color: #6b7280;
             margin-top: 4px;
         }
+        .quote-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            page-break-inside: avoid;
+        }
+        .quote-header {
+            background: linear-gradient(to right, #7c3aed, #6366f1);
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .quote-header h3 {
+            color: #fff;
+            font-size: 14px;
+            margin: 0;
+        }
+        .quote-header p {
+            color: rgba(255,255,255,0.85);
+            font-size: 12px;
+            margin: 2px 0 0;
+        }
+        .quote-badge {
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .quote-badge-pending {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+        .quote-badge-accepted {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .quote-badge-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .quote-badge-expired {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        .quote-body {
+            padding: 10px 14px;
+            font-size: 13px;
+        }
+        .quote-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            margin: 10px 0 4px;
+        }
+        .quote-value {
+            font-size: 13px;
+            color: #222;
+            margin: 0;
+        }
+        .quote-items-box {
+            background: #f9f9f9;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 10px;
+        }
+        .quote-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .quote-item:last-of-type {
+            border-bottom: none;
+        }
+        .quote-item-left {
+            flex: 1;
+        }
+        .quote-item-name {
+            font-weight: 500;
+            color: #222;
+        }
+        .quote-item-sub {
+            color: #666;
+            font-size: 11px;
+            margin-left: 6px;
+        }
+        .quote-item-right {
+            text-align: right;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+        .quote-item-unit {
+            font-weight: 600;
+            color: #6d28d9;
+        }
+        .quote-item-total {
+            font-size: 11px;
+            color: #666;
+        }
+        .quote-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 8px;
+            margin-top: 8px;
+            border-top: 2px solid #d1d5db;
+        }
+        .quote-total-label {
+            font-size: 16px;
+            font-weight: 700;
+            color: #222;
+        }
+        .quote-total-amounts {
+            text-align: right;
+            font-size: 16px;
+            font-weight: 700;
+            color: #222;
+        }
+        .quote-empty {
+            font-size: 12px;
+            color: #6b7280;
+            margin: 4px 0;
+        }
+        .quote-notes {
+            margin-top: 6px;
+            padding: 8px 10px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #4b5563;
+            white-space: pre-wrap;
+        }
         .footer {
             text-align: center;
             color: #888;
@@ -719,6 +858,8 @@ export class ExportService {
     ${odontogramSection}
 
     ${tratamientosSection}
+
+    ${presupuestosSection}
 
     <div class="footer">
         <p>Generado el: ${new Date().toLocaleString('es-ES')}</p>
@@ -1020,6 +1161,127 @@ export class ExportService {
         <h2>Tratamientos Completados</h2>
         ${treatmentCards}
     </div>`;
+  }
+
+  private static generatePresupuestosSection(presupuestos: Presupuesto[] = [], currencyMap: Record<string, string> = {}): string {
+    if (!presupuestos || presupuestos.length === 0) return '';
+
+    const itemCurrency = (item: any) => (item && item.id !== undefined && currencyMap[item.id] === 'USD') ? 'USD' : 'HNL';
+
+    const statusBadge = (status: string) => {
+      switch (status) {
+        case 'accepted': return '<span class="quote-badge quote-badge-accepted">Aceptado</span>';
+        case 'rejected': return '<span class="quote-badge quote-badge-rejected">Rechazado</span>';
+        case 'expired': return '<span class="quote-badge quote-badge-expired">Expirado</span>';
+        default: return '<span class="quote-badge quote-badge-pending">Pendiente</span>';
+      }
+    };
+
+    const formatDate = (dateString: string) => {
+      if (!dateString) return 'Fecha no disponible';
+      let date: Date;
+      if (dateString.includes('T') && dateString.includes('Z')) {
+        date = new Date(dateString);
+      } else if (dateString.includes('T')) {
+        const dateWithoutOffset = dateString.split(/[+-]\d{2}:\d{2}$/)[0];
+        date = new Date(dateWithoutOffset + 'Z');
+      } else {
+        date = new Date(dateString);
+      }
+      if (isNaN(date.getTime())) return 'Fecha no disponible';
+      const day = date.getUTCDate();
+      const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      return `${day} de ${monthNames[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+    };
+
+    const quoteCards = presupuestos.map((quote) => {
+      const items = (quote.items || []).filter((item: any) => item && item.id !== undefined && !item.isExample);
+
+      const itemRows = items.map((item: any) => `
+        <div class="quote-item">
+            <div class="quote-item-left">
+                <span class="quote-item-name">${item.description}</span>
+                <span class="quote-item-sub">x${item.quantity}</span>
+            </div>
+            <div class="quote-item-right">
+                <div class="quote-item-unit">${formatCurrency(item.unit_price || 0, itemCurrency(item))}</div>
+                <div class="quote-item-total">${formatCurrency(item.total_price || 0, itemCurrency(item))}</div>
+            </div>
+        </div>`).join('');
+
+      const hnlTotal = items
+        .filter((item: any) => itemCurrency(item) === 'HNL')
+        .reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+      const usdTotal = items
+        .filter((item: any) => itemCurrency(item) === 'USD')
+        .reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+
+      const totalRows = `
+        <div class="quote-total-row">
+            <span class="quote-total-label">Total:</span>
+            <div class="quote-total-amounts">
+                <div>${formatCurrency(hnlTotal, 'HNL')}</div>
+                ${usdTotal > 0 ? `<div>${formatCurrency(usdTotal, 'USD')}</div>` : ''}
+            </div>
+        </div>`;
+
+      const conteoNotas = this.extractConteoPorEstado(quote.notes);
+
+      return `
+    <div class="quote-card">
+        <div class="quote-header">
+            <h3>Detalles del Presupuesto</h3>
+            ${statusBadge(quote.status)}
+        </div>
+        <div class="quote-body">
+            <div class="grid-2">
+                <div>
+                    ${this.quoteField('Paciente', quote.patient_name)}
+                    ${this.quoteField('Fecha', formatDate(quote.quote_date || quote.created_at))}
+                </div>
+                <div>
+                    ${this.quoteField('Doctor', quote.doctor_name)}
+                    ${this.quoteField('Expira', formatDate(quote.expires_at))}
+                </div>
+            </div>
+            <p class="quote-label">Descripción del Tratamiento:</p>
+            <p class="quote-value">${quote.treatment_description || 'Sin descripción'}</p>
+            <p class="quote-label">Ítems:</p>
+            <div class="quote-items-box">
+                ${itemRows || '<p class="quote-empty">Sin ítems registrados.</p>'}
+                ${totalRows}
+            </div>
+            ${conteoNotas ? `
+            <p class="quote-label">Notas:</p>
+            <div class="quote-notes">${conteoNotas}</div>` : ''}
+        </div>
+    </div>`;
+    }).join('\n');
+
+    return `
+    <div class="section">
+        <h2>Presupuestos</h2>
+        ${quoteCards}
+    </div>`;
+  }
+
+  private static quoteField(label: string, value?: string | null): string {
+    return `
+        <div class="field">
+            <span class="field-label">${label}:</span>
+            <span class="field-value">${value || 'N/A'}</span>
+        </div>`;
+  }
+
+  private static extractConteoPorEstado(notes?: string | null): string {
+    if (!notes) return '';
+    const marker = '=== CONTEO POR ESTADO ===';
+    const idx = notes.indexOf(marker);
+    if (idx === -1) return '';
+    const rest = notes.slice(idx);
+    const nextSection = rest.indexOf('\n===');
+    const section = nextSection === -1 ? rest : rest.slice(0, nextSection);
+    return section.trim();
   }
 
 }

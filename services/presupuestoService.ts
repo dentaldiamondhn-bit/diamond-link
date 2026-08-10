@@ -14,6 +14,17 @@ export interface Presupuesto {
   acceptd_at?: string;
 }
 
+export function extractConteoPorEstado(notes?: string | null): string {
+  if (!notes) return '';
+  const marker = '=== CONTEO POR ESTADO ===';
+  const idx = notes.indexOf(marker);
+  if (idx === -1) return '';
+  const rest = notes.slice(idx);
+  const nextSection = rest.indexOf('\n===');
+  const section = nextSection === -1 ? rest : rest.slice(0, nextSection);
+  return section.trim();
+}
+
 class PresupuestoService {
   async getPatientPresupuestoStatistics(pacienteId: string): Promise<{
     total_presupuestos: number;

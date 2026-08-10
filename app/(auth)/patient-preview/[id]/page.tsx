@@ -7,6 +7,7 @@ import { PatientService } from '@/services/patientService';
 import { ExportService } from '@/services/exportService';
 import { consentimientoService, Consentimiento } from '@/services/consentimientoService';
 import { CompletedTreatmentService, CompletedTreatment } from '@/services/completedTreatmentService';
+import { Presupuesto, extractConteoPorEstado } from '@/services/presupuestoService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { Odontogram } from '@/types/odontogram';
 import { formatCurrency } from '@/utils/currencyUtils';
@@ -72,6 +73,9 @@ export default function PatientPreviewPage() {
   const [consentimientosLoading, setConsentimientosLoading] = useState(false);
   const [tratamientosCompletados, setTratamientosCompletados] = useState<CompletedTreatment[]>([]);
   const [tratamientosCompletadosLoading, setTratamientosCompletadosLoading] = useState(false);
+  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
+  const [presupuestosLoading, setPresupuestosLoading] = useState(false);
+  const [presupuestosCurrencyMap, setPresupuestosCurrencyMap] = useState<Record<string, string>>({});
   const [odontogram, setOdontogram] = useState<Odontogram | null>(null);
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
 
@@ -158,6 +162,9 @@ export default function PatientPreviewPage() {
       // Load completed treatments for this patient
       loadTratamientosCompletados(patientData.paciente_id);
 
+      // Load presupuestos for this patient
+      loadPresupuestos(patientData.paciente_id);
+
       // Load active odontogram for this patient
       try {
         const odontogramData = await OdontogramPilotService.getActiveOdontogram(patientData.paciente_id);
@@ -214,6 +221,102 @@ export default function PatientPreviewPage() {
     }
   };
 
+  const loadPresupuestos = async (pacienteId: string) => {
+    setPresupuestosLoading(true);
+    try {
+      const response = await fetch(`/api/presupuestos?patient_id=${pacienteId}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Failed to fetch presupuestos');
+      const data = await response.json();
+      const quotes: Presupuesto[] = data.quotes || [];
+
+      // Load catalogs to detect item currencies (HNL/USD)
+      const [treatmentsRes, paquetesRes, insumosRes] = await Promise.all([
+        fetch('/api/tratamientos/quotes', { cache: 'no-store' }),
+        fetch('/api/paquetes', { cache: 'no-store' }),
+        fetch('/api/insumos', { cache: 'no-store' })
+      ]);
+      const treatmentsData = treatmentsRes.ok ? await treatmentsRes.json() : { treatments: [] };
+      const paquetes = paquetesRes.ok ? await paquetesRes.json() : [];
+      const insumos = insumosRes.ok ? await insumosRes.json() : [];
+      const treatments = treatmentsData.treatments || [];
+
+      const currencyMap: Record<string, string> = {};
+      quotes.forEach((quote) => {
+        (quote.items || []).forEach((item: any) => {
+          if (!item || item.id === undefined || item.isExample) return;
+          const treatment = treatments.find((t: any) => item.description?.includes(`${t.codigo} - ${t.nombre}`));
+          if (treatment) { currencyMap[item.id] = treatment.moneda === 'USD' ? 'USD' : 'HNL'; return; }
+          const paquete = paquetes.find((p: any) => item.description?.includes(`${p.codigo} - ${p.nombre}`));
+          if (paquete) { currencyMap[item.id] = paquete.moneda === 'USD' ? 'USD' : 'HNL'; return; }
+          const insumo = insumos.find((i: any) => item.description?.includes(`${i.codigo} - ${i.nombre}`));
+          currencyMap[item.id] = insumo ? (insumo.moneda === 'USD' ? 'USD' : 'HNL') : 'HNL';
+        });
+      });
+
+      setPresupuestos(quotes);
+      setPresupuestosCurrencyMap(currencyMap);
+    } catch (err) {
+      console.error('Error loading presupuestos:', err);
+      setPresupuestos([]);
+    } finally {
+      setPresupuestosLoading(false);
+    }
+  };
+
+  const getPresupuestoItemCurrency = (item: any) => {
+    if (item && item.id !== undefined && presupuestosCurrencyMap[item.id] === 'USD') return 'USD';
+    return 'HNL';
+  };
+
+  const formatPresupuestoNumber = (amount: number) => {
+    return new Intl.NumberFormat('es-CO', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const analyzePresupuestoCurrencies = (quote: Presupuesto) => {
+    const hnlTotal = (quote.items || [])
+      .filter((item: any) => getPresupuestoItemCurrency(item) === 'HNL')
+      .reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+    const usdTotal = (quote.items || [])
+      .filter((item: any) => getPresupuestoItemCurrency(item) === 'USD')
+      .reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+    return { hnlTotal, usdTotal, hasUSD: usdTotal > 0 };
+  };
+
+  const getPresupuestoStatusInfo = (status: string) => {
+    switch (status) {
+      case 'accepted':
+        return { badge: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', text: 'Aceptado' };
+      case 'rejected':
+        return { badge: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', text: 'Rechazado' };
+      case 'expired':
+        return { badge: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', text: 'Expirado' };
+      default:
+        return { badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', text: 'Pendiente' };
+    }
+  };
+
+  const formatPresupuestoDate = (dateString: string) => {
+    if (!dateString) return 'Fecha no disponible';
+    let date: Date;
+    if (dateString.includes('T') && dateString.includes('Z')) {
+      date = new Date(dateString);
+    } else if (dateString.includes('T')) {
+      const dateWithoutOffset = dateString.split(/[+-]\d{2}:\d{2}$/)[0];
+      date = new Date(dateWithoutOffset + 'Z');
+    } else {
+      date = new Date(dateString);
+    }
+    if (isNaN(date.getTime())) return 'Fecha no disponible';
+    const day = date.getUTCDate();
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const month = monthNames[date.getUTCMonth()];
+    const year = date.getUTCFullYear();
+    return `${day} de ${month} ${year}`;
+  };
+
   const getTreatmentPaymentStatus = (treatment: CompletedTreatment) => {
     const totalPaid = treatment.monto_pagado || 0;
     const totalFinal = treatment.total_final || 0;
@@ -253,7 +356,7 @@ export default function PatientPreviewPage() {
 
   const handlePrint = () => {
     if (patient) {
-      ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados);
+      ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap);
     }
   };
 
@@ -262,10 +365,10 @@ export default function PatientPreviewPage() {
     
     switch (format) {
       case 'pdf':
-        ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados);
+        ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap);
         break;
       case 'html':
-        ExportService.exportToHTML(patient, consentimientos, odontogram, tratamientosCompletados);
+        ExportService.exportToHTML(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap);
         break;
       case 'json':
         ExportService.exportToJSON(patient);
@@ -1343,6 +1446,128 @@ export default function PatientPreviewPage() {
             <i className="fas fa-check-circle text-gray-300 text-4xl mb-3"></i>
             <p className="text-gray-600 dark:text-gray-400">
               No hay tratamientos completados registrados para este paciente
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Presupuestos */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+          <i className="fas fa-file-invoice-dollar mr-2"></i>
+          Presupuestos
+        </h3>
+
+        {presupuestosLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+        ) : presupuestos.length > 0 ? (
+          <div className="space-y-4">
+            {presupuestos.map((quote) => {
+              const statusInfo = getPresupuestoStatusInfo(quote.status);
+              const { hnlTotal, usdTotal, hasUSD } = analyzePresupuestoCurrencies(quote);
+              const items = (quote.items || []).filter((item: any) => !item.isExample);
+              const conteoNotas = extractConteoPorEstado(quote.notes);
+              const isExpired = quote.expires_at && new Date(quote.expires_at) < new Date();
+              return (
+                <div key={quote.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r from-violet-500 to-indigo-500">
+                    <h4 className="text-base font-bold text-white">Detalles del Presupuesto</h4>
+                    <span className={`flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full ${statusInfo.badge}`}>
+                      {statusInfo.text}
+                    </span>
+                  </div>
+
+                  {/* Body */}
+                  <div className="px-6 py-4">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Paciente:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{quote.patient_name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Doctor:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{quote.doctor_name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Fecha:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{formatPresupuestoDate(quote.quote_date || quote.created_at)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Expira:</p>
+                        <p className={`font-medium ${isExpired ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
+                          {formatPresupuestoDate(quote.expires_at)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Descripción del Tratamiento:</p>
+                      <p className="text-gray-900 dark:text-white">{quote.treatment_description || 'Sin descripción'}</p>
+                    </div>
+
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Ítems:</p>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        {items.length > 0 ? items.map((item: any) => (
+                          <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600 last:border-0">
+                            <div className="flex-1">
+                              <span className="font-medium text-gray-900 dark:text-white">{item.description}</span>
+                              <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">x{item.quantity}</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium text-gray-900 dark:text-white">
+                                {getPresupuestoItemCurrency(item) === 'HNL' ? 'L ' : '$'}{formatPresupuestoNumber(item.unit_price)}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {getPresupuestoItemCurrency(item) === 'HNL' ? 'L ' : '$'}{formatPresupuestoNumber(item.total_price)}
+                              </div>
+                            </div>
+                          </div>
+                        )) : (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Sin ítems registrados.</p>
+                        )}
+                        <div className="flex justify-between items-center pt-4 mt-4 border-t-2 border-gray-300 dark:border-gray-600">
+                          <div>
+                            <span className="text-lg font-bold text-gray-900 dark:text-white">Total:</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-gray-900 dark:text-white">L {formatPresupuestoNumber(hnlTotal)}</div>
+                            {hasUSD && <div className="text-lg font-bold text-gray-900 dark:text-white">${formatPresupuestoNumber(usdTotal)}</div>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {conteoNotas && (
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Notas:</p>
+                        <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{conteoNotas}</p>
+                      </div>
+                    )}
+
+                    {/* View Link */}
+                    <div className="text-right">
+                      <button
+                        onClick={() => router.push(`/presupuestos?id=${patient.paciente_id}`)}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300"
+                      >
+                        <i className="fas fa-eye mr-1"></i>
+                        Ver detalle
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <i className="fas fa-file-invoice-dollar text-gray-300 text-4xl mb-3"></i>
+            <p className="text-gray-600 dark:text-gray-400">
+              No hay presupuestos registrados para este paciente
             </p>
           </div>
         )}
