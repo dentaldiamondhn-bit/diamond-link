@@ -39,7 +39,7 @@ class PresupuestoService {
     valor_promedio: number;
   }> {
     try {
-      const response = await fetch(`/api/presupuestos/statistics?patient_id=${pacienteId}`);
+      const response = await fetch(`/api/presupuestos/statistics?patient_id=${pacienteId}`, { cache: 'no-store' });
       
       if (!response.ok) {
         const errorData = await response.json();

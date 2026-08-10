@@ -8,6 +8,8 @@ import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
 import { Patient } from '@/types/patient';
 import { Quote, QuoteItem } from '@/types/quote';
 import { Treatment } from '@/types/treatment';
+import { Paquete } from '@/types/paquete';
+import { Insumo } from '@/types/insumo';
 import { Odontogram, DienteData } from '@/types/odontogram';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedRubish from '@/components/AnimatedRubish';
@@ -64,7 +66,9 @@ function PresupuestosPageContent() {
   
   // Promotions state
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones'>('tratamientos');
+  const [paquetes, setPaquetes] = useState<Paquete[]>([]);
+  const [insumos, setInsumos] = useState<Insumo[]>([]);
+  const [activeTab, setActiveTab] = useState<'tratamientos' | 'promociones' | 'paquetes' | 'insumos'>('tratamientos');
 
   // Load treatments from database
   const loadTreatments = async () => {
@@ -113,10 +117,62 @@ function PresupuestosPageContent() {
     }
   }, [activeTab]);
 
+  // Load paquetes
+  const loadPaquetes = async () => {
+    try {
+      const response = await fetch('/api/paquetes');
+      if (response.ok) {
+        const data = await response.json();
+        setPaquetes(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setPaquetes([]);
+    };
+  };
+
+  // Load paquetes when tab changes
+  useEffect(() => {
+    if (activeTab === 'paquetes') {
+      loadPaquetes();
+    }
+  }, [activeTab]);
+
+  // Load insumos
+  const loadInsumos = async () => {
+    try {
+      const response = await fetch('/api/insumos');
+      if (response.ok) {
+        const data = await response.json();
+        setInsumos(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setInsumos([]);
+    };
+  };
+
+  // Load insumos when tab changes
+  useEffect(() => {
+    if (activeTab === 'insumos') {
+      loadInsumos();
+    }
+  }, [activeTab]);
+
   // Filter promotions based on search
   const filteredPromotions = promotions.filter(promotion =>
     promotion.nombre.toLowerCase().includes(treatmentSearch.toLowerCase()) ||
     promotion.codigo.toLowerCase().includes(treatmentSearch.toLowerCase())
+  );
+
+  // Filter paquetes based on search
+  const filteredPaquetes = paquetes.filter(paquete =>
+    paquete.nombre.toLowerCase().includes(treatmentSearch.toLowerCase()) ||
+    paquete.codigo.toLowerCase().includes(treatmentSearch.toLowerCase())
+  );
+
+  // Filter insumos based on search
+  const filteredInsumos = insumos.filter(insumo =>
+    insumo.nombre.toLowerCase().includes(treatmentSearch.toLowerCase()) ||
+    insumo.codigo.toLowerCase().includes(treatmentSearch.toLowerCase())
   );
 
   // Load odontogram-pilot data
@@ -125,7 +181,7 @@ function PresupuestosPageContent() {
     
     setLoadingOdontogramPilot(true);
     try {
-      const response = await fetch(`/api/odontogram-pilot/active?patient_id=${pacienteId}`);
+      const response = await fetch(`/api/odontogram-pilot/active?patient_id=${pacienteId}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         if (data.odontogram) {
@@ -196,6 +252,7 @@ function PresupuestosPageContent() {
     };
 
     const allTeeth = teethToCount;
+    const statusPriority: { [key: string]: number } = { 'cariado': 1, 'obturado': 2, 'resina': 3, 'amalgama': 4, 'fracturado': 5, 'endodoncia': 6, 'extraccionind': 7, 'corona': 8, 'implante': 9, 'protesis': 10, 'caries-restauracion': 11, 'sellante': 12, 'txpulpar': 13, 'ausente': 14, 'atricion': 15, 'erosion': 16, 'abfraccion': 17, 'abrasion': 18, 'erupcion': 19, 'apilado': 20, 'movilidad': 21, 'fistula': 22, 'odontopatia': 23, 'carilla': 24, 'temporal': 25, 'raiz': 26, 'sano': 27 };
     allTeeth.forEach((toothNumber) => {
       const toothKey = toothNumber.toString();
       const diente = datos_odontograma.dientes[toothKey];
@@ -208,42 +265,27 @@ function PresupuestosPageContent() {
         uniqueNonSano.forEach(status => {
           statusCount[status] = (statusCount[status] || 0) + 1;
         });
-      }
 
-      const primaryStatus = statuses.find(s => s !== 'sano') || 'sano';
-
-      if (primaryStatus !== 'sano') {
-        let toothInfo = `Diente ${toothKey}: ${primaryStatus}`;
-
+        // Display the tooth once per unique status (if multiple quadrants share
+        // the same status it is only shown once), sorted by prominence
         const observations = diente?.observaciones || diente?.nota;
-        if (observations) {
-          toothInfo += ` - ${observations}`;
-        }
+        const tratamiento = diente?.tratamiento;
 
-        if (diente?.tratamiento) {
-          toothInfo += ` - Tratamiento: ${diente.tratamiento}`;
-        }
+        Array.from(uniqueNonSano)
+          .sort((a, b) => (statusPriority[b] || 99) - (statusPriority[a] || 99))
+          .forEach(status => {
+            let toothInfo = `Diente ${toothKey}: ${status}`;
 
-        if (diente?.caras) {
-          const facesWithIssues: string[] = [];
-          Object.entries(diente.caras).forEach(([faceName, face]) => {
-            if (face && face.estado !== 'sano') {
-              let faceInfo = `${faceName}: ${face.estado}`;
-              if (face.tratamiento) {
-                faceInfo += ` - ${face.tratamiento}`;
-              }
-              if (face.observaciones) {
-                faceInfo += ` (${face.observaciones})`;
-              }
-              facesWithIssues.push(faceInfo);
+            if (observations) {
+              toothInfo += ` - ${observations}`;
             }
-          });
-          if (facesWithIssues.length > 0) {
-            toothInfo += ` - Caras: ${facesWithIssues.join(', ')}`;
-          }
-        }
 
-        teethWithIssues.push(toothInfo);
+            if (tratamiento) {
+              toothInfo += ` - Tratamiento: ${tratamiento}`;
+            }
+
+            teethWithIssues.push(toothInfo);
+          });
       }
 
       const toothNote = diente?.observaciones || diente?.nota;
@@ -258,10 +300,7 @@ function PresupuestosPageContent() {
     if (Object.keys(statusCount).length > 0) {
       result += '=== CONTEO POR ESTADO ===\n';
       Object.entries(statusCount)
-        .sort(([a], [b]) => {
-          const priority = { 'cariado': 1, 'obturado': 2, 'resina': 3, 'amalgama': 4, 'fracturado': 5, 'endodoncia': 6, 'extraccionind': 7, 'corona': 8, 'implante': 9, 'protesis': 10, 'caries-restauracion': 11, 'sellante': 12, 'txpulpar': 13, 'ausente': 14, 'atricion': 15, 'erosion': 16, 'abfraccion': 17, 'abrasion': 18, 'erupcion': 19, 'apilado': 20, 'movilidad': 21, 'fistula': 22, 'odontopatia': 23, 'carilla': 24, 'temporal': 25, 'raiz': 26, 'sano': 27 };
-          return (priority[a as keyof typeof priority] || 99) - (priority[b as keyof typeof priority] || 99);
-        })
+        .sort(([a], [b]) => (statusPriority[a] || 99) - (statusPriority[b] || 99))
         .forEach(([status, count]) => {
           result += `${status.charAt(0).toUpperCase() + status.slice(1)}: ${count} diente(s)\n`;
         });
@@ -325,14 +364,22 @@ function PresupuestosPageContent() {
     }
   };
 
+  // Example item shown as a hint when the quote has no items yet
+  const createExampleItem = (): QuoteItem => ({
+    id: 'example-item',
+    description: 'Ejemplo: Profilaxis dental',
+    quantity: 1,
+    unit_price: 500,
+    total_price: 500,
+    isExample: true
+  });
+
   // Form state for new quote
   const [newQuote, setNewQuote] = useState({
     treatment_description: '',
     notes: '',
     quote_date: '',
-    items: [
-      { id: '1', description: '', quantity: 1, unit_price: 0, total_price: 0 }
-    ]
+    items: [createExampleItem()]
   });
 
   useEffect(() => {
@@ -387,7 +434,7 @@ function PresupuestosPageContent() {
   const loadQuotes = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/presupuestos?patient_id=${pacienteId}`);
+      const response = await fetch(`/api/presupuestos?patient_id=${pacienteId}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setQuotes(data.quotes || []);
@@ -406,7 +453,7 @@ function PresupuestosPageContent() {
     }
 
     // Validate items
-    const validItems = newQuote.items.filter(item => item.description && item.unit_price > 0);
+    const validItems = newQuote.items.filter(item => !item.isExample && item.description && item.unit_price > 0);
     if (validItems.length === 0) {
       alert('Por favor agregue al menos un ítem válido al presupuesto');
       return;
@@ -445,7 +492,7 @@ function PresupuestosPageContent() {
           treatment_description: '',
           notes: '',
           quote_date: '',
-          items: [{ id: Date.now().toString(), description: '', quantity: 1, unit_price: 0, total_price: 0 }]
+          items: [createExampleItem()]
         });
         await loadQuotes();
         alert('Presupuesto creado exitosamente');
@@ -484,6 +531,17 @@ function PresupuestosPageContent() {
     };
   };
 
+  // Add an item to the quote, replacing the example item if it is still present
+  const addItemToQuote = (newItem: QuoteItem) => {
+    setNewQuote(prev => {
+      const hasExample = prev.items.some(item => item.isExample);
+      if (hasExample) {
+        return { ...prev, items: [newItem] };
+      }
+      return { ...prev, items: [...prev.items, newItem] };
+    });
+  };
+
   // Add treatment to quote
   const addTreatmentToQuote = (treatment: Treatment) => {
     const newItem: QuoteItem = {
@@ -494,10 +552,7 @@ function PresupuestosPageContent() {
       total_price: treatment.precio
     };
 
-    setNewQuote(prev => ({
-      ...prev,
-      items: [...prev.items, newItem]
-    }));
+    addItemToQuote(newItem);
   };
 
   // Add promotion to quote
@@ -510,17 +565,37 @@ function PresupuestosPageContent() {
       total_price: promotion.precio_promocional
     };
 
-    setNewQuote(prev => ({
-      ...prev,
-      items: [...prev.items, newItem]
-    }));
+    addItemToQuote(newItem);
+  };
+
+  // Add paquete to quote
+  const addPaqueteToQuote = (paquete: Paquete) => {
+    const newItem: QuoteItem = {
+      id: Date.now().toString(),
+      description: `${paquete.codigo} - ${paquete.nombre} (PAQUETE)`,
+      quantity: 1,
+      unit_price: paquete.precio_total,
+      total_price: paquete.precio_total
+    };
+
+    addItemToQuote(newItem);
+  };
+
+  // Add insumo to quote
+  const addInsumoToQuote = (insumo: Insumo) => {
+    const newItem: QuoteItem = {
+      id: Date.now().toString(),
+      description: `${insumo.codigo} - ${insumo.nombre} (INSUMO)`,
+      quantity: 1,
+      unit_price: insumo.precio,
+      total_price: insumo.precio
+    };
+
+    addItemToQuote(newItem);
   };
 
   const addItem = () => {
-    setNewQuote(prev => ({
-      ...prev,
-      items: [...prev.items, { id: Date.now().toString(), description: '', quantity: 1, unit_price: 0, total_price: 0 }]
-    }));
+    addItemToQuote({ id: Date.now().toString(), description: '', quantity: 1, unit_price: 0, total_price: 0 });
   };
 
   const updateItem = (index: number, field: string, value: any) => {
@@ -536,12 +611,13 @@ function PresupuestosPageContent() {
   };
 
   const removeItem = (index: number) => {
-    if (newQuote.items.length > 1) {
-      setNewQuote(prev => ({
-        ...prev,
-        items: prev.items.filter((_, i) => i !== index)
-      }));
-    }
+    setNewQuote(prev => {
+      const items = prev.items.filter((_, i) => i !== index);
+      if (items.length === 0) {
+        return { ...prev, items: [createExampleItem()] };
+      }
+      return { ...prev, items };
+    });
   };
 
   const getStatusBadge = (status: Quote['status']) => {
@@ -640,59 +716,47 @@ function PresupuestosPageContent() {
     }).format(amount);
   };
 
+  // Get currency for an item
+  const getItemCurrency = (item: QuoteItem) => {
+    const treatment = treatments.find(t => 
+      item.description.includes(`${t.codigo} - ${t.nombre}`)
+    );
+    if (treatment) return treatment.moneda;
+    const paquete = paquetes.find(p => 
+      item.description.includes(`${p.codigo} - ${p.nombre}`)
+    );
+    if (paquete) return paquete.moneda;
+    const insumo = insumos.find(i => 
+      item.description.includes(`${i.codigo} - ${i.nombre}`)
+    );
+    if (insumo) return insumo.moneda;
+    return 'HNL'; // Default to HNL for custom items
+  };
+
   // Calculate total by currency
   const calculateTotalByCurrency = (currency: string) => {
     return newQuote.items
-      .filter(item => {
-        // For items from treatments, we need to check the original treatment
-        const treatment = treatments.find(t => 
-          item.description.includes(`${t.codigo} - ${t.nombre}`)
-        );
-        if (treatment) {
-          return treatment.moneda === currency;
-        }
-        // For custom items, assume HNL by default
-        return currency === 'HNL';
-      })
+      .filter(item => !item.isExample)
+      .filter(item => getItemCurrency(item) === currency)
       .reduce((sum, item) => sum + item.total_price, 0);
   };
 
   // Check if quote has USD items
   const hasUSDCurrency = () => {
     return newQuote.items.some(item => {
-      const treatment = treatments.find(t => 
-        item.description.includes(`${t.codigo} - ${t.nombre}`)
-      );
-      return treatment ? treatment.moneda === 'USD' : false;
+      if (item.isExample) return false;
+      return getItemCurrency(item) === 'USD';
     });
-  };
-
-  // Get currency for an item
-  const getItemCurrency = (item: QuoteItem) => {
-    const treatment = treatments.find(t => 
-      item.description.includes(`${t.codigo} - ${t.nombre}`)
-    );
-    return treatment ? treatment.moneda : 'HNL'; // Default to HNL for custom items
   };
 
   // Analyze quote items to determine currencies
   const analyzeQuoteCurrencies = (quote: Quote) => {
     const hnlTotal = quote.items
-      .filter(item => {
-        const treatment = treatments.find(t => 
-          item.description.includes(`${t.codigo} - ${t.nombre}`)
-        );
-        return (!treatment || treatment.moneda === 'HNL');
-      })
+      .filter(item => getItemCurrency(item) === 'HNL')
       .reduce((sum, item) => sum + item.total_price, 0);
 
     const usdTotal = quote.items
-      .filter(item => {
-        const treatment = treatments.find(t => 
-          item.description.includes(`${t.codigo} - ${t.nombre}`)
-        );
-        return treatment && treatment.moneda === 'USD';
-      })
+      .filter(item => getItemCurrency(item) === 'USD')
       .reduce((sum, item) => sum + item.total_price, 0);
 
     return { hnlTotal, usdTotal, hasUSD: usdTotal > 0 };
@@ -830,7 +894,7 @@ function PresupuestosPageContent() {
                 </label>
                 
                 {/* Tabs */}
-                <div className="flex space-x-1 mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                <div className="flex flex-wrap space-x-1 mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                   <button
                     onClick={() => setActiveTab('tratamientos')}
                     className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -850,6 +914,26 @@ function PresupuestosPageContent() {
                     }`}
                   >
                     Promociones
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('paquetes')}
+                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'paquetes'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Paquetes
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('insumos')}
+                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'insumos'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Insumos
                   </button>
                 </div>
                 
@@ -958,6 +1042,98 @@ function PresupuestosPageContent() {
                     </div>
                   </div>
                 )}
+
+                {/* Paquetes Tab */}
+                {activeTab === 'paquetes' && (
+                  <div>
+                    {/* Filters */}
+                    <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                      <input
+                        type="text"
+                        value={treatmentSearch}
+                        onChange={(e) => setTreatmentSearch(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        placeholder="Buscar paquete..."
+                      />
+                    </div>
+
+                    {/* Paquetes List */}
+                    <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                      {filteredPaquetes.length > 0 ? (
+                        filteredPaquetes.map(paquete => (
+                          <div
+                            key={paquete.id}
+                            onClick={() => addPaqueteToQuote(paquete)}
+                            className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                {paquete.codigo} - {paquete.nombre}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {paquete.descripcion || `Paquete de ${paquete.max_pacientes || 1} paciente(s)`}
+                              </div>
+                            </div>
+                            <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
+                              {paquete.moneda === 'HNL' ? 'L ' : '$'}{formatNumber(paquete.precio_total)}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                          No se encontraron paquetes
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Insumos Tab */}
+                {activeTab === 'insumos' && (
+                  <div>
+                    {/* Filters */}
+                    <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                      <input
+                        type="text"
+                        value={treatmentSearch}
+                        onChange={(e) => setTreatmentSearch(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        placeholder="Buscar insumo..."
+                      />
+                    </div>
+
+                    {/* Insumos List */}
+                    <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                      {filteredInsumos.length > 0 ? (
+                        filteredInsumos.map(insumo => (
+                          <div
+                            key={insumo.id}
+                            onClick={() => addInsumoToQuote(insumo)}
+                            className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                {insumo.codigo} - {insumo.nombre}
+                              </div>
+                              {insumo.descripcion && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {insumo.descripcion}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
+                              {insumo.moneda === 'HNL' ? 'L ' : '$'}{formatNumber(insumo.precio)}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                          No se encontraron insumos
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -965,8 +1141,26 @@ function PresupuestosPageContent() {
                   Ítems del Presupuesto
                 </label>
                 <div className="space-y-2">
-                  {newQuote.items.map((item, index) => (
-                    <div key={index} className="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  {newQuote.items.map((item, index) => item.isExample ? (
+                    <div key={item.id} className="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <div className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500">
+                        {item.description}
+                      </div>
+                      <div className="w-20 px-3 py-2 bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500 text-center">
+                        {item.quantity}
+                      </div>
+                      <div className="w-32 px-3 py-2 bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-400 dark:text-gray-500">
+                        {getItemCurrency(item) === 'HNL' ? 'L ' : '$'}{formatNumber(item.unit_price)}
+                      </div>
+                      <div className="w-32 px-3 py-2 bg-gray-100 dark:bg-gray-600 rounded-lg text-sm font-medium">
+                        {getItemCurrency(item) === 'HNL' ? 'L ' : '$'}{formatNumber(item.total_price)}
+                      </div>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full px-2 py-1">
+                        Ejemplo
+                      </span>
+                    </div>
+                  ) : (
+                    <div key={item.id} className="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                       <input
                         type="text"
                         value={item.description}
@@ -1069,7 +1263,7 @@ function PresupuestosPageContent() {
                     treatment_description: '',
                     notes: '',
                     quote_date: '',
-                    items: [{ id: Date.now().toString(), description: '', quantity: 1, unit_price: 0, total_price: 0 }]
+                    items: [createExampleItem()]
                   });
                 }}
                 className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"

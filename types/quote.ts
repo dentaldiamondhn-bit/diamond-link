@@ -20,4 +20,5 @@ export interface QuoteItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  isExample?: boolean;
 }

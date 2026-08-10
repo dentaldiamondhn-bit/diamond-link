@@ -2,6 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+// Prevent static generation for this API route
+export const revalidate = 0;
+
 const supabase = createClient();
 
 // Helper function to format currency
