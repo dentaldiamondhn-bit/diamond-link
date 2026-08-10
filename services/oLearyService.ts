@@ -245,7 +245,7 @@ export class OlearyService {
       Object.values(teeth).forEach(diente => {
         Object.values(diente.cuadrantes).forEach(status => {
           // Exclude ausente teeth from plaque index calculations
-          if (status !== 'ausente') {
+          if (status !== 'ausente' && typeof status === 'string') {
             totalSurfaces++;
             if (status === 'placa') {
               plaqueSurfaces++;

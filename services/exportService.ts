@@ -697,8 +697,8 @@ export class ExportService {
 
     if (diente.cuadrantes) {
       return {
-        cuadrantes: diente.cuadrantes,
-        central: diente.central || 'sano',
+        cuadrantes: { ...odontDefaultCuadrantes(), ...Object.fromEntries(Object.entries(diente.cuadrantes).filter(([, v]) => typeof v === 'string')) },
+        central: typeof diente.central === 'string' ? (diente.central || 'sano') : 'sano',
         nota: diente.nota
       };
     }
@@ -775,18 +775,23 @@ export class ExportService {
 
     [...upperTeeth, ...lowerTeeth].forEach(num => {
       const tooth = this.getOdontTooth(datos, num);
-      if (isOleary) {
-        const quadrantValues = Object.values(tooth.cuadrantes || {});
-        const firstNonSano = quadrantValues.find(q => q !== 'sano');
-        contador[firstNonSano || 'sano']++;
-      } else {
-        if (tooth.central && tooth.central !== 'sano') {
-          contador[tooth.central]++;
-        } else {
-          const quadrantValues = Object.values(tooth.cuadrantes || {});
-          const firstNonSano = quadrantValues.find(q => q !== 'sano');
-          contador[firstNonSano || 'sano']++;
+      // Collect all non-sano statuses across quadrants and center
+      const allStatuses: string[] = [];
+      if (!isOleary) {
+        if (tooth.central && typeof tooth.central === 'string') {
+          allStatuses.push(tooth.central);
         }
+      }
+      const quadrantValues = Object.values(tooth.cuadrantes || {}).filter((q) => typeof q === 'string');
+      allStatuses.push(...quadrantValues);
+
+      const uniqueNonSano = new Set(allStatuses.filter(s => s !== 'sano'));
+      if (uniqueNonSano.size === 0) {
+        contador['sano']++;
+      } else {
+        uniqueNonSano.forEach(status => {
+          contador[status] = (contador[status] || 0) + 1;
+        });
       }
     });
 

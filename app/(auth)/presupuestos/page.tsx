@@ -159,46 +159,61 @@ function PresupuestosPageContent() {
 
     const teethToCount = datos_odontograma.tipo === 'nino' ? childToothNumbers : adultToothNumbers;
 
-    const getToothState = (diente: any, odontogramType: string | undefined) => {
+    // Collect all statuses (quadrants + central + individual faces) from a tooth
+    const getToothStatuses = (diente: any): string[] => {
       if (!diente || typeof diente !== 'object') {
-        return 'sano';
+        return ['sano'];
       }
 
-      if (diente.estado !== undefined) {
-        return diente.estado || 'sano';
+      const allStatuses: string[] = [];
+
+      if (diente.estado && typeof diente.estado === 'string') {
+        allStatuses.push(diente.estado);
       }
 
       if (diente.cuadrantes && typeof diente.cuadrantes === 'object') {
-        const quadrantValues = Object.values(diente.cuadrantes).filter((value) => typeof value === 'string') as string[];
-        const firstNonSano = quadrantValues.find((value) => value !== 'sano');
-
-        if (odontogramType === 'oleary_adulto') {
-          return firstNonSano || 'sano';
-        }
-
-        if (diente.central && typeof diente.central === 'string' && diente.central !== 'sano') {
-          return diente.central;
-        }
-
-        return firstNonSano || 'sano';
+        const quadrantValues = Object.values(diente.cuadrantes).filter((v) => typeof v === 'string') as string[];
+        allStatuses.push(...quadrantValues);
       }
 
       if (diente.central && typeof diente.central === 'string') {
-        return diente.central || 'sano';
+        allStatuses.push(diente.central);
       }
 
-      return 'sano';
+      if (diente.caras && typeof diente.caras === 'object') {
+        Object.values(diente.caras).forEach((face: any) => {
+          if (face && typeof face === 'object' && face.estado && typeof face.estado === 'string') {
+            allStatuses.push(face.estado);
+          }
+        });
+      }
+
+      if (allStatuses.length === 0) {
+        return ['sano'];
+      }
+
+      return allStatuses;
     };
 
     const allTeeth = teethToCount;
     allTeeth.forEach((toothNumber) => {
       const toothKey = toothNumber.toString();
       const diente = datos_odontograma.dientes[toothKey];
-      const status = getToothState(diente, datos_odontograma.tipo);
-      statusCount[status] = (statusCount[status] || 0) + 1;
+      const statuses = getToothStatuses(diente);
 
-      if (status !== 'sano') {
-        let toothInfo = `Diente ${toothKey}: ${status}`;
+      const uniqueNonSano = new Set(statuses.filter(s => s !== 'sano'));
+      if (uniqueNonSano.size === 0) {
+        statusCount['sano'] = (statusCount['sano'] || 0) + 1;
+      } else {
+        uniqueNonSano.forEach(status => {
+          statusCount[status] = (statusCount[status] || 0) + 1;
+        });
+      }
+
+      const primaryStatus = statuses.find(s => s !== 'sano') || 'sano';
+
+      if (primaryStatus !== 'sano') {
+        let toothInfo = `Diente ${toothKey}: ${primaryStatus}`;
 
         const observations = diente?.observaciones || diente?.nota;
         if (observations) {
@@ -244,9 +259,8 @@ function PresupuestosPageContent() {
       result += '=== CONTEO POR ESTADO ===\n';
       Object.entries(statusCount)
         .sort(([a], [b]) => {
-          // Sort by status priority: put problematic statuses first
-          const priority = { 'caries': 1, 'obturado': 2, 'fracturado': 3, 'endodoncia': 4, 'extraccion': 5, 'corona': 6, 'implante': 7, 'puente': 8, 'sellante': 9, 'sano': 10, 'ausente': 11 };
-          return (priority[a] || 99) - (priority[b] || 99);
+          const priority = { 'cariado': 1, 'obturado': 2, 'resina': 3, 'amalgama': 4, 'fracturado': 5, 'endodoncia': 6, 'extraccionind': 7, 'corona': 8, 'implante': 9, 'protesis': 10, 'caries-restauracion': 11, 'sellante': 12, 'txpulpar': 13, 'ausente': 14, 'atricion': 15, 'erosion': 16, 'abfraccion': 17, 'abrasion': 18, 'erupcion': 19, 'apilado': 20, 'movilidad': 21, 'fistula': 22, 'odontopatia': 23, 'carilla': 24, 'temporal': 25, 'raiz': 26, 'sano': 27 };
+          return (priority[a as keyof typeof priority] || 99) - (priority[b as keyof typeof priority] || 99);
         })
         .forEach(([status, count]) => {
           result += `${status.charAt(0).toUpperCase() + status.slice(1)}: ${count} diente(s)\n`;

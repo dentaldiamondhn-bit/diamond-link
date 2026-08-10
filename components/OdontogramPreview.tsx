@@ -254,9 +254,14 @@ export default function OdontogramPreview({ pacienteId }: OdontogramPreviewProps
     if (!diente) return { cuadrantes: { mesial: 'sano', distal: 'sano', buccal: 'sano', lingual: 'sano' } };
 
     if ((diente as any).cuadrantes) {
+      const defaultCuadrantes = { mesial: 'sano', distal: 'sano', buccal: 'sano', lingual: 'sano' };
+      const rawCuadrantes = (diente as any).cuadrantes;
+      const sanitizedCuadrantes = Object.fromEntries(
+        Object.entries(rawCuadrantes).filter(([, v]) => typeof v === 'string')
+      );
       return {
-        cuadrantes: (diente as any).cuadrantes,
-        central: (diente as any).central || 'sano',
+        cuadrantes: { ...defaultCuadrantes, ...sanitizedCuadrantes },
+        central: typeof (diente as any).central === 'string' ? ((diente as any).central || 'sano') : 'sano',
         nota: (diente as any).nota
       };
     }
@@ -278,18 +283,23 @@ export default function OdontogramPreview({ pacienteId }: OdontogramPreviewProps
 
     [...upperTeeth, ...lowerTeeth].forEach(num => {
       const tooth = getTooth(num);
-      if (isOleary) {
-        const quadrantValues = Object.values(tooth.cuadrantes || {});
-        const firstNonSano = quadrantValues.find(q => q !== 'sano');
-        contador[firstNonSano || 'sano']++;
-      } else {
-        if (tooth.central && tooth.central !== 'sano') {
-          contador[tooth.central]++;
-        } else {
-          const quadrantValues = Object.values(tooth.cuadrantes || {});
-          const firstNonSano = quadrantValues.find(q => q !== 'sano');
-          contador[firstNonSano || 'sano']++;
+      // Collect all non-sano statuses across quadrants and center
+      const allStatuses: string[] = [];
+      if (!isOleary) {
+        if (tooth.central && typeof tooth.central === 'string') {
+          allStatuses.push(tooth.central);
         }
+      }
+      const quadrantValues = Object.values(tooth.cuadrantes || {}).filter((q) => typeof q === 'string');
+      allStatuses.push(...quadrantValues);
+
+      const uniqueNonSano = new Set(allStatuses.filter(s => s !== 'sano'));
+      if (uniqueNonSano.size === 0) {
+        contador['sano']++;
+      } else {
+        uniqueNonSano.forEach(status => {
+          contador[status] = (contador[status] || 0) + 1;
+        });
       }
     });
 

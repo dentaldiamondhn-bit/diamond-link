@@ -105,13 +105,15 @@ export class OdontogramPilotService {
       const childToothNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65,
         85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
 
-      const getToothState = (diente: any, odontogramType?: string) => {
+      const getToothStatuses = (diente: any, odontogramType?: string): string[] => {
         if (!diente || typeof diente !== 'object') {
-          return 'sano';
+          return ['sano'];
         }
 
+        const allStatuses: string[] = [];
+
         if (diente.estado !== undefined) {
-          return diente.estado || 'sano';
+          allStatuses.push(diente.estado || 'sano');
         }
 
         const cuadrantes = diente.cuadrantes;
@@ -119,24 +121,18 @@ export class OdontogramPilotService {
 
         if (cuadrantes && typeof cuadrantes === 'object') {
           const quadrantValues = Object.values(cuadrantes).filter((value) => typeof value === 'string') as string[];
-          const firstNonSano = quadrantValues.find((value) => value !== 'sano');
-
-          if (odontogramType === 'oleary_adulto') {
-            return firstNonSano || 'sano';
-          }
-
-          if (central && typeof central === 'string' && central !== 'sano') {
-            return central;
-          }
-
-          return firstNonSano || 'sano';
+          allStatuses.push(...quadrantValues);
         }
 
         if (central && typeof central === 'string') {
-          return central || 'sano';
+          allStatuses.push(central);
         }
 
-        return 'sano';
+        if (allStatuses.length === 0) {
+          return ['sano'];
+        }
+
+        return allStatuses;
       };
 
       const toothKeys = latestVersion?.datos_odontograma?.tipo === 'nino'
@@ -147,8 +143,16 @@ export class OdontogramPilotService {
         toothKeys.forEach((toothNumber) => {
           const key = toothNumber.toString();
           const diente = latestVersion.datos_odontograma.dientes[key];
-          const toothState = getToothState(diente, latestVersion.datos_odontograma?.tipo);
-          statusCounts[toothState] = (statusCounts[toothState] || 0) + 1;
+          const statuses = getToothStatuses(diente, latestVersion.datos_odontograma?.tipo);
+
+          const uniqueNonSano = new Set(statuses.filter(s => s !== 'sano'));
+          if (uniqueNonSano.size === 0) {
+            statusCounts['sano'] = (statusCounts['sano'] || 0) + 1;
+          } else {
+            uniqueNonSano.forEach(status => {
+              statusCounts[status] = (statusCounts[status] || 0) + 1;
+            });
+          }
         });
       } else {
         // If there is no tooth data, count all teeth as sano

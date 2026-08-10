@@ -107,6 +107,7 @@ interface ToothData {
   cuadrantes: Record<Cuadrante, string>;
   central?: string;
   nota?: string;
+  estado?: string;
 }
 
 interface ToothProps {
@@ -810,14 +811,21 @@ function OdontogramPilotPageContent() {
 
      // Preserve every tooth currently stored in state, even if it belongs to the other layout.
      Object.keys(dientesData).forEach(key => {
-       const numero = parseInt(key);
-       const tooth = dientesData[numero];
+        const numero = parseInt(key);
+        const tooth = dientesData[numero];
 
-       dientes[key] = {
-         cuadrantes: { ...defaultCuudrantes, ...tooth.cuadrantes },
-         ...(tooth.central !== undefined ? { central: tooth.central || 'sano' } : {}),
-         ...(tooth.nota ? { nota: tooth.nota } : {})
-       };
+        dientes[key] = {
+          cuadrantes: {
+            ...defaultCuudrantes,
+            ...Object.fromEntries(
+              Object.entries(tooth.cuadrantes || {})
+                .filter(([, v]) => typeof v === 'string')
+                .map(([k, v]) => [k, v as string])
+            )
+          },
+          ...(tooth.central !== undefined ? { central: (typeof tooth.central === 'string' && tooth.central) || 'sano' } : {}),
+          ...(tooth.nota ? { nota: tooth.nota } : {})
+        };
      });
 
      // Ensure all teeth for the current type exist with defaults.
@@ -1019,26 +1027,40 @@ function OdontogramPilotPageContent() {
         contador['sano'] = (contador['sano'] || 0) + 1;
         return;
       }
-      
-      let toothState: string;
-      
+
+      // Collect all non-sano statuses across quadrants and center
+      const allStatuses: string[] = [];
+
       if (tipoOdontograma === 'oleary_adulto') {
-        // O'Leary mode: no central section, use first non-sano quadrant
-        const quadrantValues = Object.values(tooth.cuadrantes || {});
-        const firstNonSano = quadrantValues.find(q => q !== 'sano');
-        toothState = firstNonSano || 'sano';
-      } else {
-        // Regular mode: priority to central state (if non-sano), else first non-sano quadrant
-        if (tooth.central && tooth.central !== 'sano') {
-          toothState = tooth.central;
+        // O'Leary mode: no central section, check only quadrants
+        if (tooth.estado !== undefined) {
+          allStatuses.push(tooth.estado || 'sano');
         } else {
-          const quadrantValues = Object.values(tooth.cuadrantes || {});
-          const firstNonSano = quadrantValues.find(q => q !== 'sano');
-          toothState = firstNonSano || 'sano';
+          const quadrantValues = Object.values(tooth.cuadrantes || {}).filter((q) => typeof q === 'string');
+          allStatuses.push(...quadrantValues);
+        }
+      } else {
+        // Regular mode: check central AND all quadrants
+        if (tooth.estado !== undefined) {
+          allStatuses.push(tooth.estado || 'sano');
+        } else {
+          if (tooth.central && typeof tooth.central === 'string') {
+            allStatuses.push(tooth.central);
+          }
+          const quadrantValues = Object.values(tooth.cuadrantes || {}).filter((q) => typeof q === 'string');
+          allStatuses.push(...quadrantValues);
         }
       }
-      
-      contador[toothState] = (contador[toothState] || 0) + 1;
+
+      // Count each unique non-sano status found on this tooth
+      const uniqueNonSano = new Set(allStatuses.filter(s => s !== 'sano'));
+      if (uniqueNonSano.size === 0) {
+        contador['sano'] = (contador['sano'] || 0) + 1;
+      } else {
+        uniqueNonSano.forEach(status => {
+          contador[status] = (contador[status] || 0) + 1;
+        });
+      }
     });
     
     return contador;

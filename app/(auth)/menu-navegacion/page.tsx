@@ -467,7 +467,7 @@ function MenuNavegacionContent() {
     const allStates = Object.entries(status_counts)
       .filter(([_, count]: [string, number]) => count > 0)
       .sort(([stateA, countA]: [string, number], [stateB, countB]: [string, number]) => {
-        const sortOrder = ['sano', 'ausente', 'caries', 'obturado', 'resina', 'extraccion', 'corona', 'puente', 'implante', 'endodoncia', 'fracturado', 'sellante'];
+        const sortOrder = ['sano', 'ausente', 'cariado', 'obturado', 'resina', 'amalgama', 'extraccionind', 'corona', 'protesis', 'implante', 'endodoncia', 'fracturado', 'sellante', 'txpulpar', 'atricion', 'erosion', 'abfraccion', 'abrasion', 'erupcion', 'apilado', 'movilidad', 'fistula', 'odontopatia', 'carilla', 'temporal', 'raiz', 'caries-restauracion'];
         const aIndex = sortOrder.indexOf(stateA);
         const bIndex = sortOrder.indexOf(stateB);
         if (aIndex === -1 && bIndex === -1) return stateA.localeCompare(stateB);
@@ -479,17 +479,35 @@ function MenuNavegacionContent() {
     const getStateLabel = (state: string) => {
       const labels: Record<string, string> = {
         sano: 'Sano',
-        caries: 'Cariado',
+        cariado: 'Cariado',
         obturado: 'Obturado',
         resina: 'Restauración Resina',
-        extraccion: 'Extracción indicada',
+        amalgama: 'Restauración Amalgama',
+        extraccionind: 'Extracción indicada',
         ausente: 'Ausente',
         corona: 'Corona',
+        protesis: 'Prótesis',
         puente: 'Puente',
         implante: 'Implante',
         endodoncia: 'Endodoncia',
         fracturado: 'Fracturado',
-        sellante: 'Sellante'
+        sellante: 'Sellante',
+        txpulpar: 'Trat. pulpar',
+        atricion: 'Atrición',
+        erosion: 'Erosión',
+        abfraccion: 'Abfracción',
+        abrasion: 'Abrasión',
+        erupcion: 'En Erupción',
+        apilado: 'Apiñamiento',
+        movilidad: 'Movilidad',
+        fistula: 'Fístula',
+        odontopatia: 'Odontopatía',
+        carilla: 'Carilla',
+        temporal: 'Restauración Temporal',
+        raiz: 'Raíz Residual',
+        'caries-restauracion': 'Restauración con Caries',
+        caries: 'Cariado',
+        extraccion: 'Extracción indicada'
       };
       return labels[state] || state.charAt(0).toUpperCase() + state.slice(1);
     };
