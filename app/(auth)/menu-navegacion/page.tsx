@@ -1259,6 +1259,15 @@ function MenuNavegacionContent() {
                       Ver Historia
                     </Link>
                   )}
+                  {item.id === 'editar-datos-btn' && (
+                    <Link
+                      href={`/patient-preview/${validPacienteId}`}
+                      className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl font-medium text-sm transform hover:scale-105"
+                    >
+                      <i className="fas fa-eye mr-2"></i>
+                      Ver
+                    </Link>
+                  )}
                   {item.id === 'consentimientos' && (
                     <Link
                       href={`/consentimientos/new?id=${validPacienteId}`}
