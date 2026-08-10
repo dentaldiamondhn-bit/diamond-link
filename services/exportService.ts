@@ -1,6 +1,9 @@
 import { Patient } from '../types/patient';
 import { Consentimiento } from './consentimientoService';
+import { CompletedTreatment } from './completedTreatmentService';
 import { Odontogram, OdontogramData } from '../types/odontogram';
+import { SimpleTimezoneFix } from './simpleTimezoneFix';
+import { formatCurrency } from '../utils/currencyUtils';
 
 const ODONT_CUADRANTES = ['mesial', 'distal', 'buccal', 'lingual'] as const;
 type OdontCuadrante = typeof ODONT_CUADRANTES[number];
@@ -96,8 +99,8 @@ const odontPieSlicePath = (startAngle: number, endAngle: number, r: number): str
 };
 
 export class ExportService {
-  static async exportToPDF(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null): Promise<void> {
-    const printContent = this.generatePrintContent(patient, consentimientos || [], odontogram);
+  static async exportToPDF(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[]): Promise<void> {
+    const printContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || []);
 
     // Use a hidden iframe instead of window.open for PWA/mobile browser compatibility
     const iframe = document.createElement('iframe');
@@ -122,12 +125,16 @@ export class ExportService {
     doc.write(printContent);
     doc.close();
 
+    // Some mobile browsers fire load immediately; fall back to a timeout to ensure content is ready.
+    // Guard ensures print() is only triggered once even if both onload and the timeout fire (desktop).
+    let printed = false;
     const doPrint = () => {
+      if (printed) return;
+      printed = true;
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
     };
 
-    // Some mobile browsers fire load immediately; fall back to a timeout to ensure content is ready
     iframe.onload = doPrint;
     setTimeout(doPrint, 600);
 
@@ -137,8 +144,8 @@ export class ExportService {
     }, 5000);
   }
 
-  static exportToHTML(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null): void {
-    const htmlContent = this.generatePrintContent(patient, consentimientos || [], odontogram);
+  static exportToHTML(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[]): void {
+    const htmlContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || []);
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     
@@ -165,7 +172,7 @@ export class ExportService {
     URL.revokeObjectURL(url);
   }
 
-  private static generatePrintContent(patient: Patient, consentimientos: Consentimiento[] = [], odontogram?: Odontogram | null): string {
+  private static generatePrintContent(patient: Patient, consentimientos: Consentimiento[] = [], odontogram?: Odontogram | null, tratamientosCompletados: CompletedTreatment[] = []): string {
     const field = (label: string, value: string | number | null | undefined, fallback = 'N/A') => `
         <div class="field">
             <span class="field-label">${label}:</span>
@@ -174,6 +181,7 @@ export class ExportService {
 
     const consentPages = this.generateConsentPages(consentimientos, patient);
     const odontogramSection = this.generateOdontogramSection(odontogram);
+    const tratamientosSection = this.generateCompletedTreatmentsSection(tratamientosCompletados);
 
     return `
 <!DOCTYPE html>
@@ -452,6 +460,97 @@ export class ExportService {
             font-size: 12px;
             color: #6b7280;
         }
+        .treatment-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            page-break-inside: avoid;
+        }
+        .treatment-header {
+            background: linear-gradient(to right, #0d9488, #06b6d4);
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .treatment-header h3 {
+            color: #fff;
+            font-size: 14px;
+            margin: 0;
+        }
+        .treatment-header p {
+            color: rgba(255,255,255,0.85);
+            font-size: 12px;
+            margin: 2px 0 0;
+        }
+        .treatment-badge {
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .treatment-badge-pagado {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .treatment-badge-parcial {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .treatment-badge-pendiente {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+        .treatment-body {
+            padding: 10px 14px;
+            font-size: 13px;
+        }
+        .treatment-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+        .treatment-item-sub {
+            color: #666;
+            font-size: 11px;
+        }
+        .treatment-item-price {
+            font-weight: 600;
+            color: #0d9488;
+            white-space: nowrap;
+            margin-left: 10px;
+        }
+        .treatment-inv-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            margin-left: 12px;
+            padding-left: 8px;
+            border-left: 2px solid #f59e0b;
+        }
+        .treatment-inv-tag {
+            color: #b45309;
+        }
+        .treatment-summary {
+            border-top: 1px solid #ddd;
+            margin-top: 8px;
+            padding-top: 8px;
+        }
+        .treatment-summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 1px 0;
+        }
+        .treatment-summary-total {
+            font-weight: 700;
+        }
+        .treatment-empty {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
         .footer {
             text-align: center;
             color: #888;
@@ -618,6 +717,8 @@ export class ExportService {
     ${consentPages}
 
     ${odontogramSection}
+
+    ${tratamientosSection}
 
     <div class="footer">
         <p>Generado el: ${new Date().toLocaleString('es-ES')}</p>
@@ -838,6 +939,86 @@ export class ExportService {
         ${gingivitis ? `<div class="odontogram-section"><h4>Gingivitis / Periodontitis</h4><div class="odontogram-chips">${gingivitis}</div></div>` : ''}
         ${odontogram.notas ? `<div class="odontogram-notas"><h4>Notas generales</h4><p>${odontogram.notas}</p></div>` : ''}
         ${notaToothCount > 0 ? `<p class="odontogram-nota-count">${notaToothCount} diente(s) con nota</p>` : ''}
+    </div>`;
+  }
+
+  private static generateCompletedTreatmentsSection(tratamientos: CompletedTreatment[] = []): string {
+    if (!tratamientos || tratamientos.length === 0) return '';
+
+    const paymentStatus = (t: CompletedTreatment) => {
+      const totalPaid = t.monto_pagado || 0;
+      const totalFinal = t.total_final || 0;
+      if (totalFinal <= 0 || totalPaid >= totalFinal) return 'pagado';
+      if (totalPaid > 0) return 'parcialmente_pagado';
+      return 'pendiente';
+    };
+
+    const statusBadge = (t: CompletedTreatment) => {
+      const status = paymentStatus(t);
+      if (status === 'pagado') return '<span class="treatment-badge treatment-badge-pagado">Pagado</span>';
+      if (status === 'parcialmente_pagado') return '<span class="treatment-badge treatment-badge-parcial">Parcialmente Pagado</span>';
+      return '<span class="treatment-badge treatment-badge-pendiente">Pendiente</span>';
+    };
+
+    const treatmentCards = tratamientos.map((treatment) => {
+      const realizedItems = (treatment.tratamientos_realizados || []).map((tr) => `
+        <div class="treatment-item">
+            <span>${tr.cantidad}x ${tr.nombre_tratamiento}
+                <span class="treatment-item-sub">${tr.codigo_tratamiento}${tr.doctor_name ? ` · Tratado por: ${tr.doctor_name}` : ''}</span>
+            </span>
+            <span class="treatment-item-price">${formatCurrency(tr.precio_final * tr.cantidad, tr.moneda)}</span>
+        </div>`).join('');
+
+      const inventoryItems = (treatment.tratamientos_inventario || []).map((item) => `
+        <div class="treatment-inv-item">
+            <span>${item.cantidad}x ${item.nombre}
+                <span class="treatment-item-sub">${item.codigo ? `${item.codigo} ` : ''}<span class="treatment-inv-tag">(Inventario)</span></span>
+            </span>
+            <span class="treatment-item-price">${formatCurrency(item.precio * item.cantidad, item.moneda)}</span>
+        </div>`).join('');
+
+      const itemCount = (treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0);
+
+      const discountRow = treatment.total_descuento > 0
+        ? `<div class="treatment-summary-row"><span>Descuento</span><span>- ${formatCurrency(treatment.total_descuento, treatment.moneda)}</span></div>`
+        : '';
+
+      const paidRow = treatment.monto_pagado > 0
+        ? `<div class="treatment-summary-row"><span>Monto Pagado</span><span>${formatCurrency(treatment.monto_pagado, treatment.moneda)}</span></div>`
+        : '';
+
+      const balanceRow = treatment.saldo_pendiente > 0
+        ? `<div class="treatment-summary-row"><span>Saldo Pendiente</span><span>${formatCurrency(treatment.saldo_pendiente, treatment.moneda)}</span></div>`
+        : '';
+
+      return `
+    <div class="treatment-card">
+        <div class="treatment-header">
+            <div>
+                <h3>Tratamiento del ${SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}</h3>
+                <p>${itemCount} tratamiento(s)${treatment.especialidad ? ` · ${treatment.especialidad}` : ''}</p>
+            </div>
+            ${statusBadge(treatment)}
+        </div>
+        <div class="treatment-body">
+            ${realizedItems}
+            ${inventoryItems}
+            ${itemCount === 0 ? '<p class="treatment-empty">Sin tratamientos registrados.</p>' : ''}
+            <div class="treatment-summary">
+                <div class="treatment-summary-row"><span>Total Original</span><span>${formatCurrency(treatment.total_original, treatment.moneda)}</span></div>
+                ${discountRow}
+                <div class="treatment-summary-row treatment-summary-total"><span>Total Final</span><span>${formatCurrency(treatment.total_final, treatment.moneda)}</span></div>
+                ${paidRow}
+                ${balanceRow}
+            </div>
+        </div>
+    </div>`;
+    }).join('\n');
+
+    return `
+    <div class="section">
+        <h2>Tratamientos Completados</h2>
+        ${treatmentCards}
     </div>`;
   }
 

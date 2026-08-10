@@ -253,7 +253,7 @@ export default function PatientPreviewPage() {
 
   const handlePrint = () => {
     if (patient) {
-      ExportService.exportToPDF(patient, consentimientos, odontogram);
+      ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados);
     }
   };
 
@@ -262,10 +262,10 @@ export default function PatientPreviewPage() {
     
     switch (format) {
       case 'pdf':
-        ExportService.exportToPDF(patient, consentimientos, odontogram);
+        ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados);
         break;
       case 'html':
-        ExportService.exportToHTML(patient, consentimientos, odontogram);
+        ExportService.exportToHTML(patient, consentimientos, odontogram, tratamientosCompletados);
         break;
       case 'json':
         ExportService.exportToJSON(patient);
