@@ -389,7 +389,7 @@ export default function OdontogramPreview({ pacienteId }: OdontogramPreviewProps
             .filter(estado => contador[estado.key] > 0)
             .map(estado => (
               <div key={estado.key} className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                <span className="w-3 h-3 rounded-full" style={{ background: estado.color, border: estado.color === '#FFFFFF' ? '1px solid #ccc' : 'none' }} />
+                <span className="w-3 h-3 rounded-full inline-block" style={{ background: estado.color, border: estado.color === '#FFFFFF' ? '1px solid #ccc' : 'none' }} />
                 <span className="text-xs font-semibold">{estado.label}</span>
                 <span className="text-xs font-semibold">{contador[estado.key]}</span>
               </div>

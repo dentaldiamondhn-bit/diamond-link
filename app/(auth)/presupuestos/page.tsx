@@ -11,8 +11,8 @@ import { Treatment } from '@/types/treatment';
 import { Paquete } from '@/types/paquete';
 import { Insumo } from '@/types/insumo';
 import { Odontogram, DienteData } from '@/types/odontogram';
-import { extractConteoPorEstado } from '@/services/presupuestoService';
-import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult } from '@/services/pdfAssets';
+import { parseConteoPorEstado } from '@/services/presupuestoService';
+import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult, drawConteoBadges } from '@/services/pdfAssets';
 import jsPDF from 'jspdf';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedRubish from '@/components/AnimatedRubish';
@@ -913,23 +913,17 @@ function PresupuestosPageContent() {
       }
     }
 
-    // Notas (conteo por estado only)
-    const conteoNotas = extractConteoPorEstado(quote.notes);
-    if (conteoNotas) {
+    // Notas (conteo por estado badges)
+    const conteoEntries = parseConteoPorEstado(quote.notes);
+    if (conteoEntries.length > 0) {
       ensureSpace(20);
-      y += 6;
+      y += 4;
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(120);
       pdf.text('Notas:', margin, y);
-      y += 6;
-      pdf.setTextColor(60);
-      const noteLines = pdf.splitTextToSize(conteoNotas, pageWidth - margin * 2);
-      noteLines.forEach((line: string, index: number) => {
-        ensureSpace(5);
-        pdf.text(line, margin, y + index * 5);
-      });
-      y += noteLines.length * 5;
+      y += 7;
+      y = drawConteoBadges(pdf, conteoEntries, margin, y, pageWidth - margin, ensureSpace);
     }
 
     // Footer
@@ -975,9 +969,16 @@ function PresupuestosPageContent() {
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'italic');
       pdf.setTextColor(150);
-      pdf.text(`Generado el: ${new Date().toLocaleString('es-ES')}`, pageWidth / 2, 286, { align: 'center' });
+      pdf.text(`Generado el: ${new Date().toLocaleString('es-ES')}`, pageWidth / 2, 284, { align: 'center' });
       pdf.setTextColor(140);
-      footerLegend(pdf, 292);
+      footerLegend(pdf, 288);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(
+        'SPS, Barrio Guamilito 6 calle entre 9 y 10 avenida, Plaza Insolh, media cuadra arriba del mercado guamilito',
+        pageWidth / 2,
+        292,
+        { align: 'center' }
+      );
     }
 
     return pdf;

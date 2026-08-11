@@ -7,8 +7,8 @@ import { PatientService } from '@/services/patientService';
 import { ExportService } from '@/services/exportService';
 import { consentimientoService, Consentimiento } from '@/services/consentimientoService';
 import { CompletedTreatmentService, CompletedTreatment } from '@/services/completedTreatmentService';
-import { Presupuesto, extractConteoPorEstado } from '@/services/presupuestoService';
-import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult } from '@/services/pdfAssets';
+import { Presupuesto, parseConteoPorEstado } from '@/services/presupuestoService';
+import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult, drawConteoBadges } from '@/services/pdfAssets';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { Odontogram } from '@/types/odontogram';
 import { formatCurrency } from '@/utils/currencyUtils';
@@ -452,23 +452,17 @@ export default function PatientPreviewPage() {
       }
     }
 
-    // Notas (conteo por estado only)
-    const conteoNotas = extractConteoPorEstado(quote.notes);
-    if (conteoNotas) {
+    // Notas (conteo por estado badges)
+    const conteoEntries = parseConteoPorEstado(quote.notes);
+    if (conteoEntries.length > 0) {
       ensureSpace(20);
-      y += 6;
+      y += 4;
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(120);
       pdf.text('Notas:', margin, y);
-      y += 6;
-      pdf.setTextColor(60);
-      const noteLines = pdf.splitTextToSize(conteoNotas, pageWidth - margin * 2);
-      noteLines.forEach((line: string, index: number) => {
-        ensureSpace(5);
-        pdf.text(line, margin, y + index * 5);
-      });
-      y += noteLines.length * 5;
+      y += 7;
+      y = drawConteoBadges(pdf, conteoEntries, margin, y, pageWidth - margin, ensureSpace);
     }
 
     // Footer
@@ -513,9 +507,16 @@ export default function PatientPreviewPage() {
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'italic');
       pdf.setTextColor(150);
-      pdf.text(`Generado el: ${new Date().toLocaleString('es-ES')}`, pageWidth / 2, 286, { align: 'center' });
+      pdf.text(`Generado el: ${new Date().toLocaleString('es-ES')}`, pageWidth / 2, 284, { align: 'center' });
       pdf.setTextColor(140);
-      footerLegend(pdf, 292);
+      footerLegend(pdf, 288);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(
+        'SPS, Barrio Guamilito 6 calle entre 9 y 10 avenida, Plaza Insolh, Local A3',
+        pageWidth / 2,
+        292,
+        { align: 'center' }
+      );
     }
 
     return pdf;
@@ -1730,7 +1731,7 @@ export default function PatientPreviewPage() {
               const statusInfo = getPresupuestoStatusInfo(quote.status);
               const { hnlTotal, usdTotal, hasUSD } = analyzePresupuestoCurrencies(quote);
               const items = (quote.items || []).filter((item: any) => !item.isExample);
-              const conteoNotas = extractConteoPorEstado(quote.notes);
+              const conteoEntries = parseConteoPorEstado(quote.notes);
               const isExpired = quote.expires_at && new Date(quote.expires_at) < new Date();
               return (
                 <div key={quote.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
@@ -1803,10 +1804,21 @@ export default function PatientPreviewPage() {
                       </div>
                     </div>
 
-                    {conteoNotas && (
+                    {conteoEntries.length > 0 && (
                       <div className="mb-4">
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Notas:</p>
-                        <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{conteoNotas}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {conteoEntries.map((entry) => (
+                            <div key={entry.key} className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                              <span
+                                className="w-3 h-3 rounded-full inline-block"
+                                style={{ background: entry.color, border: entry.color === '#FFFFFF' ? '1px solid #ccc' : 'none' }}
+                              />
+                              <span className="text-xs font-semibold">{entry.label}</span>
+                              <span className="text-xs font-semibold">{entry.count}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -1842,6 +1854,14 @@ export default function PatientPreviewPage() {
           </div>
         )}
       </div>
+
+      <footer className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 text-center text-xs text-gray-500 dark:text-gray-400 space-y-1">
+        <p>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">Sistema de Gestion Diamond Link</span>
+          {' - '}Clinica Dental Diamond - app.dentaldiamondhn.com - +504 9498-5346
+        </p>
+        <p>SPS, Barrio Guamilito 6 calle entre 9 y 10 avenida, Plaza Insolh, Local A3</p>
+      </footer>
 
       {/* Export Modal */}
       {showExportModal && (

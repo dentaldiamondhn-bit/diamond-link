@@ -25,6 +25,65 @@ export function extractConteoPorEstado(notes?: string | null): string {
   return section.trim();
 }
 
+const ESTADO_COLORS: { [key: string]: { label: string; color: string } } = {
+  abfraccion: { label: 'Abfracción', color: '#BA68C8' },
+  abrasion: { label: 'Abrasión', color: '#4FC3F7' },
+  amalgama: { label: 'Restauración Amalgama', color: '#607D8B' },
+  apilado: { label: 'Apiñamiento', color: '#455A64' },
+  atricion: { label: 'Atrición', color: '#FFD54F' },
+  ausente: { label: 'Ausente', color: '#9E9E9E' },
+  carilla: { label: 'Carilla', color: '#00BCD4' },
+  cariado: { label: 'Cariado', color: '#FF5722' },
+  'caries-restauracion': { label: 'Restauración con Caries', color: '#FFC107' },
+  corona: { label: 'Corona', color: '#795548' },
+  endodoncia: { label: 'Endodoncia', color: '#5D4037' },
+  erosion: { label: 'Erosión', color: '#FF8A65' },
+  erupcion: { label: 'En Erupción', color: '#FF7043' },
+  extraccionind: { label: 'Extracción indicada', color: '#E91E63' },
+  fistula: { label: 'Fístula', color: '#7E57C2' },
+  fracturado: { label: 'Fracturado', color: '#FF9800' },
+  implante: { label: 'Implante', color: '#3F51B5' },
+  movilidad: { label: 'Movilidad', color: '#FDD835' },
+  obturado: { label: 'Obturado', color: '#2196F3' },
+  odontopatia: { label: 'Odontopatía', color: '#CDDC39' },
+  protesis: { label: 'Prótesis', color: '#8D6E63' },
+  raiz: { label: 'Raíz Residual', color: '#5E35B1' },
+  resina: { label: 'Restauración Resina', color: '#8BC34A' },
+  sano: { label: 'Sano', color: '#FFFFFF' },
+  sellante: { label: 'Sellante', color: '#26C6DA' },
+  temporal: { label: 'Restauración Temporal', color: '#9C27B0' },
+  txpulpar: { label: 'Trat. pulpar', color: '#1976D2' },
+};
+
+export interface ConteoEstadoEntry {
+  key: string;
+  label: string;
+  count: number;
+  color: string;
+}
+
+export function parseConteoPorEstado(notes?: string | null): ConteoEstadoEntry[] {
+  const section = extractConteoPorEstado(notes);
+  if (!section) return [];
+  const entries: ConteoEstadoEntry[] = [];
+  section.split(/\r?\n|·/).forEach((line) => {
+    const trimmed = line.trim();
+    const match = trimmed.match(/^(.+?):\s*(\d+)/);
+    if (!match) return;
+    const count = parseInt(match[2], 10);
+    if (isNaN(count)) return;
+    const key = match[1].trim().toLowerCase();
+    const known = ESTADO_COLORS[key];
+    entries.push({
+      key,
+      label: known?.label || match[1].trim(),
+      count,
+      color: known?.color || '#9CA3AF',
+    });
+  });
+  return entries;
+}
+
 class PresupuestoService {
   async getPatientPresupuestoStatistics(pacienteId: string): Promise<{
     total_presupuestos: number;

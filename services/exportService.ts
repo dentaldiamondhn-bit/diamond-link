@@ -1,7 +1,7 @@
 import { Patient } from '../types/patient';
 import { Consentimiento } from './consentimientoService';
 import { CompletedTreatment } from './completedTreatmentService';
-import { Presupuesto } from './presupuestoService';
+import { Presupuesto, parseConteoPorEstado } from './presupuestoService';
 import { Odontogram, OdontogramData } from '../types/odontogram';
 import { SimpleTimezoneFix } from './simpleTimezoneFix';
 import { formatCurrency } from '../utils/currencyUtils';
@@ -196,6 +196,10 @@ export class ExportService {
         @page {
             size: Letter;
             margin: 16mm 14mm;
+        }
+        * {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
         body {
             font-family: 'Arial', sans-serif;
@@ -690,6 +694,30 @@ export class ExportService {
             color: #4b5563;
             white-space: pre-wrap;
         }
+        .quote-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .quote-badge-entry {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            background: #f3f4f6;
+            color: #111827;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .quote-badge-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            display: inline-block;
+        }
         .footer {
             text-align: center;
             color: #888;
@@ -698,9 +726,13 @@ export class ExportService {
             border-top: 1px solid #ddd;
             padding-top: 10px;
         }
+        .footer p {
+            margin: 3px 0;
+        }
         @media print {
-            body { margin: 0; }
+            body { margin: 0; padding-bottom: 90px; }
             .section { page-break-inside: avoid; }
+            .footer { position: fixed; bottom: 0; left: 0; right: 0; margin: 0; }
         }
     </style>
 </head>
@@ -863,7 +895,8 @@ export class ExportService {
 
     <div class="footer">
         <p>Generado el: ${new Date().toLocaleString('es-ES')}</p>
-        <p>Sistema de Gestión Dental - Clínica Diamond</p>
+        <p><strong>Sistema de Gestion Diamond Link</strong> - Clinica Dental Diamond - app.dentaldiamondhn.com - +504 9498-5346</p>
+        <p>SPS, Barrio Guamilito 6 calle entre 9 y 10 avenida, Plaza Insolh, Local A3</p>
     </div>
 </body>
 </html>
@@ -1225,7 +1258,7 @@ export class ExportService {
             </div>
         </div>`;
 
-      const conteoNotas = this.extractConteoPorEstado(quote.notes);
+      const conteoEntries = parseConteoPorEstado(quote.notes);
 
       return `
     <div class="quote-card">
@@ -1251,9 +1284,16 @@ export class ExportService {
                 ${itemRows || '<p class="quote-empty">Sin ítems registrados.</p>'}
                 ${totalRows}
             </div>
-            ${conteoNotas ? `
+            ${conteoEntries.length > 0 ? `
             <p class="quote-label">Notas:</p>
-            <div class="quote-notes">${conteoNotas}</div>` : ''}
+            <div class="quote-badges">
+                ${conteoEntries.map((entry) => `
+                <div class="quote-badge-entry">
+                    <span class="quote-badge-dot" style="background:${entry.color};${entry.color === '#FFFFFF' ? 'border:1px solid #ccc;' : ''}"></span>
+                    <span class="quote-badge-label">${entry.label}</span>
+                    <span class="quote-badge-count">${entry.count}</span>
+                </div>`).join('')}
+            </div>` : ''}
         </div>
     </div>`;
     }).join('\n');
@@ -1271,17 +1311,6 @@ export class ExportService {
             <span class="field-label">${label}:</span>
             <span class="field-value">${value || 'N/A'}</span>
         </div>`;
-  }
-
-  private static extractConteoPorEstado(notes?: string | null): string {
-    if (!notes) return '';
-    const marker = '=== CONTEO POR ESTADO ===';
-    const idx = notes.indexOf(marker);
-    if (idx === -1) return '';
-    const rest = notes.slice(idx);
-    const nextSection = rest.indexOf('\n===');
-    const section = nextSection === -1 ? rest : rest.slice(0, nextSection);
-    return section.trim();
   }
 
 }
