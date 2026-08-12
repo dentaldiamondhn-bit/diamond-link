@@ -19,7 +19,7 @@ export interface VersionManagementData {
   actions: {
     loadVersions: () => Promise<void>;
     selectVersion: (version: OrthodonticVersion) => void;
-    createNewVersion: (recordDate: Date, notes: string) => Promise<void>;
+    createNewVersion: (recordDate: Date, notes: string, overrides?: Partial<OrthodonticVersion>) => Promise<void>;
     updateCurrentVersion: (versionData: Partial<OrthodonticVersion>) => Promise<void>;
     makeVersionCurrent: (versionId: string) => Promise<void>;
     refreshVersions: () => Promise<void>;
@@ -43,10 +43,11 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
       const sortedVersions = sortVersionsByDate(fetchedVersions);
       setVersions(sortedVersions);
       
-      // Auto-select current version
-      const current = getCurrentVersion(sortedVersions);
-      if (current && !selectedVersion) {
-        setSelectedVersion(current);
+      // Auto-select the earliest version by default
+      // (sortedVersions is sorted by version number descending, so earliest is last)
+      const earliest = sortedVersions[sortedVersions.length - 1];
+      if (earliest && !selectedVersion) {
+        setSelectedVersion(earliest);
       }
     } catch (err) {
       console.error('Error loading versions:', err);
@@ -60,7 +61,7 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
     setSelectedVersion(version);
   };
 
-  const createNewVersion = async (recordDate: Date, notes: string) => {
+  const createNewVersion = async (recordDate: Date, notes: string, overrides: Partial<OrthodonticVersion> = {}) => {
     if (!patientId) return;
     
     setLoading(true);
@@ -101,9 +102,11 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
         firmaDigitalOrtodoncia: latestVersion.firmaDigitalOrtodoncia,
         // Auto-increment completed appointments
         completedAppointments: newCompleted,
-        totalEstimatedAppointments: latestVersion.totalEstimatedAppointments || 12
+        totalEstimatedAppointments: latestVersion.totalEstimatedAppointments || 12,
+        ...overrides
       } : {
-        // First version - start with 1 completed appointment
+        // First version - copy overrides so freshly uploaded data is preserved
+        ...overrides,
         pacienteId: patientId,
         completedAppointments: 1,
         totalEstimatedAppointments: 12

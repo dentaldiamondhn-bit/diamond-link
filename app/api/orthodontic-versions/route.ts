@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { extractMonthsFromDuration } from '@/utils/progressUtils';
+import { normalizeRadiografias } from '@/utils/versionUtils';
 
 
 const supabase = createClient();
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
       fechaInicioTratamiento: version.fecha_inicio_tratamiento,
       fechaFinTratamiento: version.fecha_fin_tratamiento,
       observacionesOrtodoncia: version.observaciones_ortodoncia,
-      radiografiasRealizadas: version.radiografias_realizadas,
+      radiografiasRealizadas: version.radiografias_realizadas ? normalizeRadiografias(version.radiografias_realizadas) : version.radiografias_realizadas,
       modelosEstudio: version.modelos_estudio,
       analisisCefalometrico: version.analisis_cefalometrico,
       extraccionesRealizadas: version.extracciones_realizadas,
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
     }
     if (observacionesOrtodoncia) insertData.observaciones_ortodoncia = observacionesOrtodoncia;
     if (radiografiasRealizadas) {
-      insertData.radiografias_realizadas = Array.isArray(radiografiasRealizadas) ? radiografiasRealizadas : [radiografiasRealizadas];
+      insertData.radiografias_realizadas = normalizeRadiografias(radiografiasRealizadas);
     }
     if (modelosEstudio) insertData.modelos_estudio = modelosEstudio;
     if (analisisCefalometrico) insertData.analisis_cefalometrico = analisisCefalometrico;
@@ -345,7 +346,7 @@ export async function PUT(request: NextRequest) {
     }
     if (observacionesOrtodoncia !== undefined) updateData.observaciones_ortodoncia = observacionesOrtodoncia;
     if (radiografiasRealizadas !== undefined) {
-      updateData.radiografias_realizadas = Array.isArray(radiografiasRealizadas) ? radiografiasRealizadas : [radiografiasRealizadas];
+      updateData.radiografias_realizadas = normalizeRadiografias(radiografiasRealizadas);
     }
     if (modelosEstudio !== undefined) updateData.modelos_estudio = modelosEstudio;
     if (analisisCefalometrico !== undefined) updateData.analisis_cefalometrico = analisisCefalometrico;

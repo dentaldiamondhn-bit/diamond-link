@@ -4,21 +4,27 @@ import React, { useState } from 'react';
 import { formatVersionDisplay, OrthodonticVersion } from '@/utils/versionUtils';
 import { getProgressColor } from '@/utils/progressUtils';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
+import DocumentDisplay from './DocumentDisplay';
 
 interface TimelineProps {
   versions: OrthodonticVersion[];
   onVersionSelect: (version: OrthodonticVersion) => void;
   selectedVersionId?: string;
   loading?: boolean;
+  onMakeCurrent?: (version: OrthodonticVersion) => void;
+  onCreateNewVersion?: () => void;
 }
 
 const Timeline: React.FC<TimelineProps> = ({
   versions,
   onVersionSelect,
   selectedVersionId,
-  loading = false
+  loading = false,
+  onMakeCurrent,
+  onCreateNewVersion
 }) => {
   const [hoveredVersion, setHoveredVersion] = useState<string | null>(null);
+  const [detailsVersion, setDetailsVersion] = useState<OrthodonticVersion | null>(null);
 
   if (loading) {
     return (
@@ -36,6 +42,11 @@ const Timeline: React.FC<TimelineProps> = ({
       </div>
     );
   }
+
+  const maxVersionNumber = versions.reduce(
+    (max, version) => Math.max(max, version.versionNumber),
+    0
+  );
 
   return (
     <div className="space-y-2">
@@ -57,8 +68,8 @@ const Timeline: React.FC<TimelineProps> = ({
         {versions.map((version, index) => {
           const isSelected = selectedVersionId === version.id;
           const isHovered = hoveredVersion === version.id;
-          // Show "Actual" badge on the most recent version (first in the list)
-          const isCurrent = index === 0;
+          // The "Actual" badge goes to the highest version number
+          const isCurrent = version.versionNumber === maxVersionNumber;
           
           return (
             <div
@@ -214,10 +225,11 @@ const Timeline: React.FC<TimelineProps> = ({
                     
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 mt-4">
-                      {!isCurrent && (
+                      {!isCurrent && onMakeCurrent && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            onMakeCurrent(version);
                           }}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
                             isSelected
@@ -233,7 +245,7 @@ const Timeline: React.FC<TimelineProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onVersionSelect(version);
+                          setDetailsVersion(version);
                         }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
                           isSelected
@@ -258,8 +270,372 @@ const Timeline: React.FC<TimelineProps> = ({
           );
         })}
       </div>
+
+      {/* Version Details Modal */}
+      {detailsVersion && (() => {
+        const isCurrent = detailsVersion.versionNumber === maxVersionNumber;
+        const progress = detailsVersion.progressPercentage || 0;
+        const hasTreatment = detailsVersion.tipoMordida || detailsVersion.tipoAparato || detailsVersion.duracionTratamiento || detailsVersion.fechaInicioTratamiento || detailsVersion.fechaFinTratamiento;
+        const hasStudies = detailsVersion.radiografiasRealizadas || detailsVersion.modelosEstudio || detailsVersion.analisisCefalometrico || detailsVersion.extraccionesRealizadas;
+        const hasRetainers = detailsVersion.retenedorTipo || detailsVersion.retenedorInferiorTipo;
+        const hasObservations = detailsVersion.observacionesOrtodoncia || detailsVersion.seguimientoPostTratamiento;
+        const hasNotes = detailsVersion.notes || (detailsVersion.documentosOrtodoncia && detailsVersion.documentosOrtodoncia.length > 0);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className={`px-6 py-5 border-b ${isCurrent ? 'bg-blue-50/60 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-900/40 border-gray-100 dark:border-gray-700'}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-lg font-extrabold text-white flex-shrink-0 shadow-lg ${
+                      isCurrent ? 'bg-blue-600 shadow-blue-600/30' : 'bg-teal-600 shadow-teal-600/30'
+                    }`}>
+                      V{detailsVersion.versionNumber}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                          Versión {detailsVersion.versionNumber}
+                        </h3>
+                        {isCurrent ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>
+                            Actual
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                            Anterior
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {detailsVersion.recordDate
+                          ? `Registro del ${SimpleTimezoneFix.formatDisplayDate(detailsVersion.recordDate)}`
+                          : `Creada el ${SimpleTimezoneFix.formatDisplayDate(detailsVersion.createdAt)}`}
+                        {detailsVersion.createdBy && ` · por ${detailsVersion.createdBy}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setDetailsVersion(null)}
+                    className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                    aria-label="Cerrar"
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+
+                {/* Progress */}
+                <div className="mt-5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Progreso del tratamiento
+                    </span>
+                    <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                      {progress}%
+                    </span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${getProgressColor(progress)}`}
+                      style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-6">
+                {/* General info */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {detailsVersion.recordDate && (
+                    <InfoCard label="Fecha del Registro" value={SimpleTimezoneFix.formatDisplayDate(detailsVersion.recordDate)} />
+                  )}
+                  <InfoCard
+                    label="Creado"
+                    value={`${SimpleTimezoneFix.formatDisplayDate(detailsVersion.createdAt)} · ${SimpleTimezoneFix.formatTime(detailsVersion.createdAt)}`}
+                  />
+                  {detailsVersion.doctorId && (
+                    <InfoCard label="Doctor Tratante" value={detailsVersion.doctorId} />
+                  )}
+                </div>
+
+                {/* Consulta y diagnóstico */}
+                {(detailsVersion.motivoConsultaOrtodoncia || detailsVersion.diagnosticoOrtodoncia || detailsVersion.planTratamientoOrtodoncia) && (
+                  <section>
+                    <SectionHeader icon="fa-stethoscope" title="Consulta y Diagnóstico" />
+                    <div className="mt-2 divide-y divide-gray-100 dark:divide-gray-700 border border-gray-100 dark:border-gray-700 rounded-xl">
+                      {detailsVersion.motivoConsultaOrtodoncia && (
+                        <InfoRow label="Motivo de consulta" value={detailsVersion.motivoConsultaOrtodoncia} />
+                      )}
+                      {detailsVersion.diagnosticoOrtodoncia && (
+                        <InfoRow label="Diagnóstico" value={detailsVersion.diagnosticoOrtodoncia} />
+                      )}
+                      {detailsVersion.planTratamientoOrtodoncia && (
+                        <InfoRow label="Plan de tratamiento" value={detailsVersion.planTratamientoOrtodoncia} />
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Tratamiento */}
+                {hasTreatment && (
+                  <section>
+                    <SectionHeader icon="fa-braces" title="Tratamiento" />
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-8 divide-y divide-gray-100 dark:divide-gray-700 border border-gray-100 dark:border-gray-700 rounded-xl px-4">
+                      {detailsVersion.tipoMordida && (
+                        <InfoRow label="Tipo de mordida" value={translateMordida(detailsVersion.tipoMordida)} />
+                      )}
+                      {detailsVersion.tipoAparato && (
+                        <InfoRow label="Tipo de aparato" value={translateAparato(detailsVersion.tipoAparato)} />
+                      )}
+                      {detailsVersion.duracionTratamiento && (
+                        <InfoRow label="Duración" value={detailsVersion.duracionTratamiento} />
+                      )}
+                      {detailsVersion.fechaInicioTratamiento && (
+                        <InfoRow label="Fecha de inicio" value={SimpleTimezoneFix.formatDisplayDate(detailsVersion.fechaInicioTratamiento)} />
+                      )}
+                      {detailsVersion.fechaFinTratamiento && (
+                        <InfoRow label="Fecha de fin" value={SimpleTimezoneFix.formatDisplayDate(detailsVersion.fechaFinTratamiento)} />
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Estudios y procedimientos */}
+                {hasStudies && (
+                  <section>
+                    <SectionHeader icon="fa-x-ray" title="Estudios y Procedimientos" />
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-8 divide-y divide-gray-100 dark:divide-gray-700 border border-gray-100 dark:border-gray-700 rounded-xl px-4">
+                      {detailsVersion.radiografiasRealizadas && (
+                        <InfoRow label="Radiografías" value={translateRadiografias(detailsVersion.radiografiasRealizadas)} />
+                      )}
+                      {detailsVersion.modelosEstudio && (
+                        <InfoRow label="Modelos de estudio" value={translateModelos(detailsVersion.modelosEstudio)} />
+                      )}
+                      {detailsVersion.analisisCefalometrico && (
+                        <InfoRow label="Análisis cefalométrico" value={detailsVersion.analisisCefalometrico} />
+                      )}
+                      {detailsVersion.extraccionesRealizadas && (
+                        <InfoRow label="Extracciones" value={detailsVersion.extraccionesRealizadas} />
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Retenedores */}
+                {hasRetainers && (
+                  <section>
+                    <SectionHeader icon="fa-align-left" title="Retenedores" />
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-8 divide-y divide-gray-100 dark:divide-gray-700 border border-gray-100 dark:border-gray-700 rounded-xl px-4">
+                      {detailsVersion.retenedorTipo && (
+                        <InfoRow
+                          label="Retenedor superior"
+                          value={formatRetainer(detailsVersion.retenedorTipo, detailsVersion.retenedorUso)}
+                        />
+                      )}
+                      {detailsVersion.retenedorInferiorTipo && (
+                        <InfoRow
+                          label="Retenedor inferior"
+                          value={formatRetainer(detailsVersion.retenedorInferiorTipo, detailsVersion.retenedorInferiorUso)}
+                        />
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Observaciones */}
+                {hasObservations && (
+                  <section>
+                    <SectionHeader icon="fa-comment-dots" title="Observaciones" />
+                    <div className="mt-2 divide-y divide-gray-100 dark:divide-gray-700 border border-gray-100 dark:border-gray-700 rounded-xl">
+                      {detailsVersion.observacionesOrtodoncia && (
+                        <InfoRow label="Observaciones del tratamiento" value={detailsVersion.observacionesOrtodoncia} />
+                      )}
+                      {detailsVersion.seguimientoPostTratamiento && (
+                        <InfoRow label="Seguimiento post tratamiento" value={detailsVersion.seguimientoPostTratamiento} />
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Notas y documentos */}
+                {hasNotes && (
+                  <div className="space-y-3">
+                    {detailsVersion.notes && (
+                      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
+                        <h4 className="flex items-center gap-2 text-sm font-bold text-amber-800 dark:text-amber-300">
+                          <i className="fas fa-sticky-note text-amber-500"></i>
+                          Notas de la Versión
+                        </h4>
+                        <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {detailsVersion.notes}
+                        </p>
+                      </div>
+                    )}
+
+                    {detailsVersion.documentosOrtodoncia && detailsVersion.documentosOrtodoncia.length > 0 && (
+                      <section>
+                        <SectionHeader icon="fa-file-medical" title="Documentos Adjuntos" />
+                        <div className="mt-2">
+                          <DocumentDisplay documents={detailsVersion.documentosOrtodoncia} />
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer actions */}
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex flex-wrap justify-end gap-3 sticky bottom-0">
+                <button
+                  onClick={() => setDetailsVersion(null)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cerrar
+                </button>
+
+                {!isCurrent && onMakeCurrent && (
+                  <button
+                    onClick={() => {
+                      onMakeCurrent(detailsVersion);
+                      setDetailsVersion(null);
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <i className="fas fa-check-circle"></i>
+                    Hacer Actual
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    onVersionSelect(detailsVersion);
+                    setDetailsVersion(null);
+                  }}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2"
+                >
+                  <i className="fas fa-edit"></i>
+                  Cargar en Formulario
+                </button>
+
+                {onCreateNewVersion && (
+                  <button
+                    onClick={() => {
+                      onCreateNewVersion();
+                      setDetailsVersion(null);
+                    }}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-2"
+                  >
+                    <i className="fas fa-plus"></i>
+                    Crear Nueva Versión
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
+};
+
+const SectionHeader: React.FC<{ icon: string; title: string }> = ({ icon, title }) => (
+  <h4 className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+    <i className={`fas ${icon} text-teal-500 dark:text-teal-400`}></i>
+    {title}
+  </h4>
+);
+
+const InfoCard: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
+    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+      {label}
+    </p>
+    <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200 break-words">
+      {value}
+    </p>
+  </div>
+);
+
+const InfoRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="py-3 px-4">
+    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+      {label}
+    </p>
+    <p className="mt-0.5 text-sm text-gray-800 dark:text-gray-200 break-words">
+      {value}
+    </p>
+  </div>
+);
+
+const MORDIDA_LABELS: Record<string, string> = {
+  clase_i: 'Clase I',
+  clase_ii: 'Clase II',
+  clase_iii: 'Clase III',
+  mordida_abierta: 'Mordida abierta',
+  mordida_cruzada: 'Mordida cruzada',
+  mordida_profunda: 'Mordida profunda',
+};
+
+const APARATO_LABELS: Record<string, string> = {
+  brackets_metalicos: 'Brackets metálicos',
+  brackets_ceramicos: 'Brackets cerámicos',
+  brackets_zafiro: 'Brackets de zafiro',
+  invisalign: 'Invisalign',
+  aparato_removible: 'Aparato removible',
+  expansion_palatina: 'Expansión palatina',
+  mantenedor_espacio: 'Mantenedor de espacio',
+};
+
+const RADIOGRAFIAS_LABELS: Record<string, string> = {
+  panoramica: 'Panorámica',
+  periapical: 'Periapical',
+  oclusal: 'Oclusal',
+  lateral_craneo: 'Lateral de cráneo',
+  todas: 'Todas',
+};
+
+const MODELOS_LABELS: Record<string, string> = {
+  si: 'Sí',
+  no: 'No',
+  en_proceso: 'En proceso',
+};
+
+const RETENEDOR_LABELS: Record<string, string> = {
+  fijo: 'Fijo',
+  removible: 'Removible',
+  hawley: 'Hawley',
+  invisible: 'Invisible',
+  sin_retenedor: 'Sin retenedor',
+};
+
+const RETENEDOR_USO_LABELS: Record<string, string> = {
+  tiempo_completo: 'Tiempo completo',
+  noche: 'Noche',
+  ocasional: 'Ocasional',
+  no_usa: 'No lo usa',
+};
+
+const translateLabel = (value: string, labels: Record<string, string>): string =>
+  labels[value] || value;
+
+const translateMordida = (value: string): string => translateLabel(value, MORDIDA_LABELS);
+const translateAparato = (value: string): string => translateLabel(value, APARATO_LABELS);
+const translateRadiografias = (value: unknown): string => {
+  if (value === null || value === undefined || value === '') return '';
+  const parts = Array.isArray(value)
+    ? value.map((item) => String(item))
+    : String(value).split(',').map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) return '';
+  return parts.map((part) => translateLabel(part, RADIOGRAFIAS_LABELS)).join(', ');
+};
+const translateModelos = (value: string): string => translateLabel(value, MODELOS_LABELS);
+
+const formatRetainer = (tipo: string, uso?: string): string => {
+  const tipoLabel = translateLabel(tipo, RETENEDOR_LABELS);
+  return uso ? `${tipoLabel} · ${translateLabel(uso, RETENEDOR_USO_LABELS)}` : tipoLabel;
 };
 
 export default Timeline;

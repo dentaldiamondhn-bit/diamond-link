@@ -89,6 +89,55 @@ export function isValidHistoricalDate(date: Date): boolean {
 }
 
 /**
+ * Normalize radiografias values that may have accumulated JSON-stringify layers
+ * or array wrappers during saves. Returns a clean comma-joined string
+ * (e.g. "panoramica, lateral_craneo").
+ */
+export function normalizeRadiografias(value: unknown): string {
+  const tokens: string[] = [];
+
+  const pushToken = (raw: string): void => {
+    const cleaned = raw.replace(/^["'{]+|["'}]+$/g, '').trim();
+    if (cleaned) tokens.push(cleaned);
+  };
+
+  const visit = (item: unknown): void => {
+    if (Array.isArray(item)) {
+      item.forEach(visit);
+      return;
+    }
+    if (typeof item !== 'string') return;
+
+    let current: string = item.trim();
+    if (!current) return;
+
+    // Peel off accumulated JSON-stringify layers
+    for (let i = 0; i < 10; i++) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(current);
+      } catch {
+        break;
+      }
+      if (Array.isArray(parsed)) {
+        visit(parsed);
+        return;
+      }
+      if (typeof parsed === 'string') {
+        current = parsed;
+        continue;
+      }
+      break;
+    }
+
+    current.split(',').forEach((part) => pushToken(part));
+  };
+
+  visit(value);
+  return tokens.join(', ');
+}
+
+/**
  * Get version change summary
  */
 export function getVersionChanges(

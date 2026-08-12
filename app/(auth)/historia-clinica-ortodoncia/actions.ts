@@ -85,6 +85,11 @@ export async function createOrthodonticHistory(formData: any) {
       throw new Error(`Error al crear historia clínica ortodóncica: ${error.message}`);
     }
 
+    if (!data || data.length === 0) {
+      console.error('Orthodontic history insert did not persist any row');
+      throw new Error('Error al crear historia clínica ortodóncica: el registro no fue guardado. Verifique los permisos de la base de datos.');
+    }
+
     // Automatically create first version in versions table
     const { data: versionData, error: versionError } = await supabaseAdmin
       .from('historia_clinica_ortodoncia_versions')

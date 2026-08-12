@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { isValidHistoricalDate } from '@/utils/versionUtils';
+import React, { useState, useEffect } from 'react';
+import { isValidHistoricalDate, OrthodonticVersion } from '@/utils/versionUtils';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 
 interface VersionManagerProps {
@@ -9,18 +9,38 @@ interface VersionManagerProps {
   onSaveNew: (recordDate: Date, notes: string) => Promise<void>;
   loading?: boolean;
   disabled?: boolean;
+  newVersionSignal?: number;
+  selectedVersion?: OrthodonticVersion | null;
+  versions?: OrthodonticVersion[];
 }
 
 const VersionManager: React.FC<VersionManagerProps> = ({
   onUpdateCurrent,
   onSaveNew,
   loading = false,
-  disabled = false
+  disabled = false,
+  newVersionSignal = 0,
+  selectedVersion = null,
+  versions = []
 }) => {
   const [showNewVersionDialog, setShowNewVersionDialog] = useState(false);
   const [recordDate, setRecordDate] = useState<Date>(new Date());
   const [versionNotes, setVersionNotes] = useState('');
   const [dateError, setDateError] = useState('');
+
+  // The "Actual" version is the one with the highest version number,
+  // matching the badge logic used in the Timeline
+  const latestVersionNumber = versions.reduce(
+    (max, version) => Math.max(max, version.versionNumber),
+    0
+  );
+  const isSelectedLatest = !!selectedVersion && selectedVersion.versionNumber === latestVersionNumber;
+
+  useEffect(() => {
+    if (newVersionSignal > 0) {
+      setShowNewVersionDialog(true);
+    }
+  }, [newVersionSignal]);
 
   const handleSaveNewVersion = async () => {
     // Validate date
@@ -53,8 +73,8 @@ const VersionManager: React.FC<VersionManagerProps> = ({
     <>
       <div className="relative overflow-hidden rounded-xl border border-teal-200 dark:border-teal-800 bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/20 p-5 shadow-md hover:shadow-lg transition-all duration-300">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer"></div>
-        <div className="flex items-center space-x-4 relative z-10">
-        <div className="flex-1">
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
+        <div className="flex-1 min-w-[200px]">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
             <i className="fas fa-code-branch text-teal-600"></i>
             Gestión de Versiones
@@ -64,7 +84,22 @@ const VersionManager: React.FC<VersionManagerProps> = ({
           </p>
         </div>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {selectedVersion && (
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-600/10 dark:bg-teal-500/20 border border-teal-600/30 dark:border-teal-500/30 text-sm text-teal-700 dark:text-teal-300 font-medium">
+              <i className="fas fa-check-circle text-teal-600 dark:text-teal-400"></i>
+              <span>Versión seleccionada:</span>
+              <span className="px-2 py-0.5 rounded-md bg-teal-600 text-white text-xs font-bold">
+                v{selectedVersion.versionNumber}
+              </span>
+              {isSelectedLatest && (
+                <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-xs font-bold">
+                  Actual
+                </span>
+              )}
+            </span>
+          )}
+        
           <button
             onClick={handleUpdateCurrent}
             disabled={disabled || loading}
@@ -114,7 +149,11 @@ const VersionManager: React.FC<VersionManagerProps> = ({
                     type="date"
                     value={SimpleTimezoneFix.toDateString(recordDate)}
                     onChange={(e) => {
-                      const newDate = new Date(e.target.value + 'T00:00:00');
+                      const raw = e.target.value;
+                      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return;
+                      const newDate = new Date(raw + 'T00:00:00');
+                      if (isNaN(newDate.getTime())) return;
+                      if (newDate.getFullYear() < 1900) return;
                       setRecordDate(newDate);
                       if (dateError && isValidHistoricalDate(newDate)) {
                         setDateError('');

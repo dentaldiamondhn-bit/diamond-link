@@ -159,7 +159,7 @@ export class SimpleTimezoneFix {
    * This properly handles the local date without UTC conversion issues
    */
   static toDateString(date: Date): string {
-    if (!date) return '';
+    if (!date || isNaN(date.getTime())) return '';
     
     try {
       const year = date.getFullYear();

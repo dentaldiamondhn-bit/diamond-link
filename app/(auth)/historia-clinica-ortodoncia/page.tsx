@@ -26,7 +26,7 @@ import Timeline from '@/components/Timeline';
 import VersionManager from '@/components/VersionManager';
 import { useProgressCalculation } from '@/hooks/useProgressCalculation';
 import { useVersionManagement } from '@/hooks/useVersionManagement';
-import { OrthodonticVersion } from '@/utils/versionUtils';
+import { OrthodonticVersion, normalizeRadiografias } from '@/utils/versionUtils';
 import { calculateProgress, extractMonthsFromDuration, calculateEstimatedAppointments } from '@/utils/progressUtils';
 import AnimatedLeft from '@/components/AnimatedLeft';
 import AnimatedRight from '@/components/AnimatedRight';
@@ -182,6 +182,9 @@ function HistoriaClinicaOrtodonciaContent() {
     patientId: patientId || '' 
   });
 
+  // Signal to open the "Nueva Versión" dialog from the timeline details modal
+  const [newVersionSignal, setNewVersionSignal] = useState(0);
+
   // Populate form when a version is selected from timeline
   useEffect(() => {
     if (versionManagement.selectedVersion && formData) {
@@ -193,9 +196,14 @@ function HistoriaClinicaOrtodonciaContent() {
         radiografiasValue = radiografias;
       } else if (typeof radiografias === 'string' && radiografias) {
         try {
-          radiografiasValue = JSON.parse(radiografias);
+          const parsed: unknown = JSON.parse(radiografias);
+          if (Array.isArray(parsed)) {
+            radiografiasValue = parsed.filter((item): item is string => typeof item === 'string');
+          } else {
+            radiografiasValue = radiografias.split(',').map((item) => item.trim()).filter(Boolean);
+          }
         } catch {
-          radiografiasValue = [radiografias];
+          radiografiasValue = radiografias.split(',').map((item) => item.trim()).filter(Boolean);
         }
       }
       
@@ -261,21 +269,6 @@ function HistoriaClinicaOrtodonciaContent() {
       setPatient(patientData);
       
       
-      // First test the API endpoint directly
-      try {
-        const testResponse = await fetch('/api/test-orthodontic-history', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ pacienteId: patientId! }),
-        });
-        
-        const testResult = await testResponse.json();
-      } catch (testErr) {
-        console.error('Test API error:', testErr);
-      }
-      
       // Wait for doctors to be loaded before processing orthodontic data
       if (doctors.length === 0) {
         // Wait a bit for doctors to load
@@ -296,12 +289,17 @@ function HistoriaClinicaOrtodonciaContent() {
           
           // More robust doctor matching - case insensitive and trimmed
           const savedDoctor = (orthodonticData.doctor_id || '').trim();
-          const doctorExists = doctors.some((doc: any) => 
+          const matchedDoctor = doctors.find((doc: any) => 
             (doc.name || '').trim().toLowerCase() === savedDoctor.toLowerCase()
           );
+          const doctorExists = !!matchedDoctor;
           
           
-          const doctorIdValue = doctorExists ? savedDoctor : 'otro';
+          // Use the canonical name from the doctors list so the select
+          // option value matches exactly (select value matching is case-sensitive)
+          const doctorIdValue = savedDoctor
+            ? (doctorExists ? matchedDoctor.name : 'otro')
+            : '';
           
           // If doctor doesn't exist in list, set it as "otro" and populate the text field
           if (!doctorExists && savedDoctor) {
@@ -326,7 +324,7 @@ function HistoriaClinicaOrtodonciaContent() {
             fecha_inicio_tratamiento: orthodonticData.fecha_inicio_tratamiento || '',
             fecha_fin_tratamiento: orthodonticData.fecha_fin_tratamiento || '',
             observaciones_ortodoncia: orthodonticData.observaciones_ortodoncia || '',
-            radiografias_realizadas: orthodonticData.radiografias_realizadas || [],
+            radiografias_realizadas: normalizeRadiografias(orthodonticData.radiografias_realizadas).split(',').map((item) => item.trim()).filter(Boolean),
             modelos_estudio: orthodonticData.modelos_estudio || '',
             analisis_cefalometrico: orthodonticData.analisis_cefalometrico || '',
             extracciones_realizadas: orthodonticData.extracciones_realizadas || '',
@@ -639,11 +637,30 @@ function HistoriaClinicaOrtodonciaContent() {
           });
         }}
         onSaveNew={async (recordDate, notes) => {
-          await versionManagement.actions.createNewVersion(recordDate, notes);
+          await versionManagement.actions.createNewVersion(recordDate, notes, {
+            documentosOrtodoncia: formData.documentos_ortodoncia,
+            firmaDigitalOrtodoncia: formData.firma_digital_ortodoncia,
+            radiografiasRealizadas: formData.radiografias_realizadas.join(', ')
+          });
         }}
         loading={versionManagement.loading}
         disabled={!patientId}
+        newVersionSignal={newVersionSignal}
+        selectedVersion={versionManagement.selectedVersion}
+        versions={versionManagement.versions}
       />
+      
+      {/* Timeline Section */}
+      <div className="mt-8">
+        <Timeline
+          versions={versionManagement.versions}
+          onVersionSelect={versionManagement.actions.selectVersion}
+          selectedVersionId={versionManagement.selectedVersion?.id}
+          loading={versionManagement.loading}
+          onMakeCurrent={(version) => versionManagement.actions.makeVersionCurrent(version.id)}
+          onCreateNewVersion={() => setNewVersionSignal((signal) => signal + 1)}
+        />
+      </div>
       
       <form key={`historia-form-${patientId}`} onSubmit={handleSubmit} className="space-y-6" noValidate>
       {/* Hidden field for record ID */}
@@ -1199,15 +1216,6 @@ function HistoriaClinicaOrtodonciaContent() {
                     <div>
                       <h3 className="text-lg font-medium mb-2">Firma Actual:</h3>
                     <SignatureDisplay signatureUrl={formData.firma_digital_ortodoncia} />
-                    {!isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => setSignatureData(null)}
-                        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Modificar Firma
-                      </button>
-                    )}
                   </div>
                 ) : (
                   <SignaturePadComponent 
@@ -1257,16 +1265,6 @@ function HistoriaClinicaOrtodonciaContent() {
               </button>
             </div>
           </form>
-      
-      {/* Timeline Section */}
-      <div className="mt-8">
-        <Timeline
-          versions={versionManagement.versions}
-          onVersionSelect={versionManagement.actions.selectVersion}
-          selectedVersionId={versionManagement.selectedVersion?.id}
-          loading={versionManagement.loading}
-        />
-      </div>
       
       {/* Delete Confirmation Modal */}
       {showDeleteModal && documentToDelete && (
