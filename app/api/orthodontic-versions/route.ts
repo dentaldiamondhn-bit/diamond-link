@@ -1,10 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClerkClient } from '@clerk/backend';
+import { currentUser } from '@clerk/nextjs/server';
 import { extractMonthsFromDuration } from '@/utils/progressUtils';
 import { normalizeRadiografias } from '@/utils/versionUtils';
 
 
 const supabase = createClient();
+
+export const dynamic = 'force-dynamic';
+
+async function getUserFromRequest(req: NextRequest): Promise<{ id: string | null; name: string | null; imageUrl: string | null }> {
+  // Prefer the standard Clerk server helper
+  try {
+    const user = await currentUser();
+    if (user) {
+      return {
+        id: user.id,
+        name: user.firstName || user.lastName || user.primaryEmailAddress?.emailAddress || null,
+        imageUrl: user.imageUrl || null,
+      };
+    }
+  } catch (err) {
+    console.error('Error resolving user with currentUser():', err);
+  }
+  // Fallback: parse the __session cookie JWT (timeline-notes pattern)
+  try {
+    const cookies = req.headers.get('cookie') || '';
+    const sessionMatch = cookies.match(/__session=([^;]+)/);
+    if (!sessionMatch) return { id: null, name: null, imageUrl: null };
+    const token = decodeURIComponent(sessionMatch[1]);
+    const payload = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64').toString());
+    let imageUrl = payload.picture || null;
+    let name = payload.name || payload.first_name || payload.email || null;
+    if (payload.sub) {
+      try {
+        const clerk = createClerkClient({
+          secretKey: process.env.CLERK_SECRET_KEY,
+        });
+        const user = await clerk.users.getUser(payload.sub);
+        imageUrl = imageUrl || user?.imageUrl || null;
+        name = name || getUserName(user);
+      } catch (err) {
+        console.error('Error fetching user from Clerk:', err);
+      }
+    }
+    return {
+      id: payload.sub || null,
+      name: name,
+      imageUrl: imageUrl,
+    };
+  } catch {
+    return { id: null, name: null, imageUrl: null };
+  }
+}
+
+// Enrich version creator data from Clerk when missing
+async function enrichVersionCreator(version: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const createdBy = version.created_by as string | null;
+  const userId = version.user_id as string | null;
+  const createdByImage = version.created_by_image as string | null;
+  if (!userId || ((createdBy && createdBy !== 'current_user') && createdByImage)) {
+    return version;
+  }
+  try {
+    const clerk = createClerkClient({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+    const user = await clerk.users.getUser(userId);
+    const userName = user?.firstName || user?.lastName || user?.primaryEmailAddress?.emailAddress || null;
+    return {
+      ...version,
+      created_by: (createdBy && createdBy !== 'current_user') ? createdBy : getUserName(user),
+      created_by_image: createdByImage || user?.imageUrl || null,
+    };
+  } catch (err) {
+    console.error('Error fetching user from Clerk:', err);
+  }
+  return version;
+}
+
+function getUserName(user: { firstName?: string | null; lastName?: string | null; primaryEmailAddress?: { emailAddress?: string | null } | null }): string | null {
+  return user?.firstName || user?.lastName || user?.primaryEmailAddress?.emailAddress || null;
+}
 
 function calculateProgressPercentage(completedAppointments: number, totalEstimatedAppointments: number): number {
   if (totalEstimatedAppointments <= 0) return 0;
@@ -43,8 +121,11 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    // Enrich creator data from Clerk when missing
+    const enrichedVersions = await Promise.all((versions || []).map(enrichVersionCreator));
+
     // Transform field names to camelCase for frontend
-    const transformedVersions = versions?.map(version => ({
+    const transformedVersions = enrichedVersions?.map(version => ({
       id: version.id,
       patientId: version.patient_id,
       versionNumber: version.version_number,
@@ -54,6 +135,8 @@ export async function GET(request: NextRequest) {
       isCurrent: version.is_current,
       notes: version.notes,
       createdBy: version.created_by,
+      createdByImage: version.created_by_image,
+      userId: version.user_id,
       pacienteId: version.paciente_id,
       doctorId: version.doctor_id,
       motivoConsultaOrtodoncia: version.motivo_consulta_ortodoncia,
@@ -156,9 +239,16 @@ export async function POST(request: NextRequest) {
       patient_id: patientId,
       version_number: versionNumber,
       record_date: finalRecordDate,
-      is_current: isCurrent,
-      created_by: 'current_user'
+      is_current: isCurrent
     };
+
+    // Store the real user who created the version
+    const user = await getUserFromRequest(request);
+    if (user.id) {
+      insertData.user_id = user.id;
+    }
+    insertData.created_by = user.name || null;
+    insertData.created_by_image = user.imageUrl || null;
     
     // Only add optional fields if they have values
     if (notes) insertData.notes = finalNotes;
@@ -241,6 +331,9 @@ export async function POST(request: NextRequest) {
         progressPercentage: version.progress_percentage,
         isCurrent: version.is_current,
         notes: version.notes,
+        createdBy: version.created_by,
+        createdByImage: version.created_by_image,
+        userId: version.user_id,
         pacienteId: version.paciente_id,
         doctorId: version.doctor_id,
         motivoConsultaOrtodoncia: version.motivo_consulta_ortodoncia,

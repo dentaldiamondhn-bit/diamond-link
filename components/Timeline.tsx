@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatVersionDisplay, OrthodonticVersion } from '@/utils/versionUtils';
 import { getProgressColor } from '@/utils/progressUtils';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
@@ -11,7 +11,6 @@ interface TimelineProps {
   onVersionSelect: (version: OrthodonticVersion) => void;
   selectedVersionId?: string;
   loading?: boolean;
-  onMakeCurrent?: (version: OrthodonticVersion) => void;
   onCreateNewVersion?: () => void;
 }
 
@@ -20,11 +19,35 @@ const Timeline: React.FC<TimelineProps> = ({
   onVersionSelect,
   selectedVersionId,
   loading = false,
-  onMakeCurrent,
   onCreateNewVersion
 }) => {
   const [hoveredVersion, setHoveredVersion] = useState<string | null>(null);
   const [detailsVersion, setDetailsVersion] = useState<OrthodonticVersion | null>(null);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const initializedRef = useRef(false);
+
+  // Collapse all version cards by default, except the latest one
+  useEffect(() => {
+    if (versions.length === 0 || initializedRef.current) return;
+    initializedRef.current = true;
+    const latestId = versions.reduce(
+      (max, version) => (version.versionNumber > max.versionNumber ? version : max),
+      versions[0]
+    ).id;
+    setCollapsedIds(new Set(versions.filter((v) => v.id !== latestId).map((v) => v.id)));
+  }, [versions]);
+
+  const toggleCollapsed = (versionId: string) => {
+    setCollapsedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(versionId)) {
+        next.delete(versionId);
+      } else {
+        next.add(versionId);
+      }
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -70,12 +93,23 @@ const Timeline: React.FC<TimelineProps> = ({
           const isHovered = hoveredVersion === version.id;
           // The "Actual" badge goes to the highest version number
           const isCurrent = version.versionNumber === maxVersionNumber;
+          const isExpanded = !collapsedIds.has(version.id);
           
           return (
             <div
               key={version.id}
-              className="relative pb-4 group cursor-pointer"
-              onClick={() => onVersionSelect(version)}
+              className="relative pb-3 group cursor-pointer"
+              onClick={() => {
+                onVersionSelect(version);
+                // Expand the card when selected
+                if (collapsedIds.has(version.id)) {
+                  setCollapsedIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(version.id);
+                    return next;
+                  });
+                }
+              }}
               onMouseEnter={() => setHoveredVersion(version.id)}
               onMouseLeave={() => setHoveredVersion(null)}
             >
@@ -116,8 +150,8 @@ const Timeline: React.FC<TimelineProps> = ({
                   
                   <div className="p-4 relative">
                     {/* Version header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
                         {/* Version badge */}
                         <div className={`px-3 py-1 rounded-full text-xs font-bold ${
                           isCurrent 
@@ -129,20 +163,28 @@ const Timeline: React.FC<TimelineProps> = ({
                           V{version.versionNumber}
                         </div>
                         
-                        <h4 className="font-semibold text-gray-900 dark:text-white">
-                          {formatVersionDisplay(version)}
-                        </h4>
-                        
-                        {isCurrent && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>
-                            Actual
-                          </span>
-                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+                              {formatVersionDisplay(version)}
+                            </h4>
+                            
+                            {isCurrent && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>
+                                Actual
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            {index === 0 ? 'Más reciente' : `Hace ${index} ${index === 1 ? 'versión' : 'versiones'}`}
+                            <CreatorBadge name={version.createdBy} image={version.createdByImage} size="sm" />
+                          </p>
+                        </div>
                       </div>
                       
-                      {/* Progress ring */}
-                      <div className="flex items-center gap-2">
+                      {/* Progress ring and expand toggle */}
+                      <div className="flex items-center gap-3 flex-shrink-0">
                         <div className="relative w-10 h-10">
                           <svg className="w-10 h-10 transform -rotate-90">
                             <circle
@@ -169,11 +211,29 @@ const Timeline: React.FC<TimelineProps> = ({
                             {version.progressPercentage}%
                           </span>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCollapsed(version.id);
+                          }}
+                          aria-label={isExpanded ? 'Colapsar versión' : 'Expandir versión'}
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                            isExpanded
+                              ? 'border-teal-500 text-teal-600 bg-teal-50 dark:bg-teal-900/30 dark:border-teal-600 dark:text-teal-300'
+                              : 'border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-teal-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/30'
+                          }`}
+                        >
+                          <i className={`fas fa-chevron-down text-xs transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}></i>
+                        </button>
                       </div>
                     </div>
                     
+                    {isExpanded && (
+                      <>
                     {/* Timeline date info */}
-                    <div className="flex flex-wrap gap-4 mb-3">
+                    <div className="flex flex-wrap gap-4 mt-3">
                       {version.recordDate && (
                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                           <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-teal-100 dark:bg-teal-800/50' : 'bg-gray-100 dark:bg-gray-700'}`}>
@@ -225,23 +285,6 @@ const Timeline: React.FC<TimelineProps> = ({
                     
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 mt-4">
-                      {!isCurrent && onMakeCurrent && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onMakeCurrent(version);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                            isSelected
-                              ? 'bg-teal-600 text-white hover:bg-teal-700 shadow-md'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-teal-50 dark:hover:bg-teal-900/30 hover:text-teal-600'
-                          }`}
-                        >
-                          <i className="fas fa-check-circle"></i>
-                          Hacer actual
-                        </button>
-                      )}
-                      
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -256,13 +299,9 @@ const Timeline: React.FC<TimelineProps> = ({
                         <i className="fas fa-eye"></i>
                         Ver detalles
                       </button>
-                      
-                      {/* Timestamp badge */}
-                      <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
-                        {index === 0 ? 'Más reciente' : `Hace ${index} ${index === 1 ? 'versión' : 'versiones'}`
-                        }
-                      </span>
                     </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -279,7 +318,6 @@ const Timeline: React.FC<TimelineProps> = ({
         const hasStudies = detailsVersion.radiografiasRealizadas || detailsVersion.modelosEstudio || detailsVersion.analisisCefalometrico || detailsVersion.extraccionesRealizadas;
         const hasRetainers = detailsVersion.retenedorTipo || detailsVersion.retenedorInferiorTipo;
         const hasObservations = detailsVersion.observacionesOrtodoncia || detailsVersion.seguimientoPostTratamiento;
-        const hasNotes = detailsVersion.notes || (detailsVersion.documentosOrtodoncia && detailsVersion.documentosOrtodoncia.length > 0);
 
         return (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -313,8 +351,8 @@ const Timeline: React.FC<TimelineProps> = ({
                         {detailsVersion.recordDate
                           ? `Registro del ${SimpleTimezoneFix.formatDisplayDate(detailsVersion.recordDate)}`
                           : `Creada el ${SimpleTimezoneFix.formatDisplayDate(detailsVersion.createdAt)}`}
-                        {detailsVersion.createdBy && ` · por ${detailsVersion.createdBy}`}
                       </p>
+                      <CreatorBadge name={detailsVersion.createdBy} image={detailsVersion.createdByImage} size="md" />
                     </div>
                   </div>
                   <button
@@ -360,6 +398,19 @@ const Timeline: React.FC<TimelineProps> = ({
                     <InfoCard label="Doctor Tratante" value={detailsVersion.doctorId} />
                   )}
                 </div>
+
+                {/* Notas de la Versión */}
+                {detailsVersion.notes && (
+                  <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
+                    <h4 className="flex items-center gap-2 text-sm font-bold text-amber-800 dark:text-amber-300">
+                      <i className="fas fa-sticky-note text-amber-500"></i>
+                      Notas de la Versión
+                    </h4>
+                    <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {detailsVersion.notes}
+                    </p>
+                  </div>
+                )}
 
                 {/* Consulta y diagnóstico */}
                 {(detailsVersion.motivoConsultaOrtodoncia || detailsVersion.diagnosticoOrtodoncia || detailsVersion.planTratamientoOrtodoncia) && (
@@ -460,30 +511,14 @@ const Timeline: React.FC<TimelineProps> = ({
                   </section>
                 )}
 
-                {/* Notas y documentos */}
-                {hasNotes && (
-                  <div className="space-y-3">
-                    {detailsVersion.notes && (
-                      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
-                        <h4 className="flex items-center gap-2 text-sm font-bold text-amber-800 dark:text-amber-300">
-                          <i className="fas fa-sticky-note text-amber-500"></i>
-                          Notas de la Versión
-                        </h4>
-                        <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                          {detailsVersion.notes}
-                        </p>
-                      </div>
-                    )}
-
-                    {detailsVersion.documentosOrtodoncia && detailsVersion.documentosOrtodoncia.length > 0 && (
-                      <section>
-                        <SectionHeader icon="fa-file-medical" title="Documentos Adjuntos" />
-                        <div className="mt-2">
-                          <DocumentDisplay documents={detailsVersion.documentosOrtodoncia} />
-                        </div>
-                      </section>
-                    )}
-                  </div>
+                {/* Documentos adjuntos */}
+                {detailsVersion.documentosOrtodoncia && detailsVersion.documentosOrtodoncia.length > 0 && (
+                  <section>
+                    <SectionHeader icon="fa-file-medical" title="Documentos Adjuntos" />
+                    <div className="mt-2">
+                      <DocumentDisplay documents={detailsVersion.documentosOrtodoncia} />
+                    </div>
+                  </section>
                 )}
               </div>
 
@@ -495,19 +530,6 @@ const Timeline: React.FC<TimelineProps> = ({
                 >
                   Cerrar
                 </button>
-
-                {!isCurrent && onMakeCurrent && (
-                  <button
-                    onClick={() => {
-                      onMakeCurrent(detailsVersion);
-                      setDetailsVersion(null);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                  >
-                    <i className="fas fa-check-circle"></i>
-                    Hacer Actual
-                  </button>
-                )}
 
                 <button
                   onClick={() => {
@@ -538,6 +560,25 @@ const Timeline: React.FC<TimelineProps> = ({
         );
       })()}
     </div>
+  );
+};
+
+// Shows the user who created a version with their avatar (mirrors notas-linea-de-tiempo)
+const CreatorBadge: React.FC<{ name?: string; image?: string; size?: 'sm' | 'md' }> = ({ name, image, size = 'md' }) => {
+  if (!name || name === 'current_user') return null;
+  const avatarSize = size === 'sm' ? 'w-4 h-4 text-[9px]' : 'w-6 h-6 text-xs';
+  const imageSize = size === 'sm' ? 'w-4 h-4' : 'w-6 h-6';
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 ${size === 'sm' ? 'ml-1' : 'mt-1'}`}>
+      {image ? (
+        <img src={image} alt={name} className={`${imageSize} rounded-full object-cover`} />
+      ) : (
+        <span className={`${avatarSize} rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold flex items-center justify-center`}>
+          {name.charAt(0).toUpperCase()}
+        </span>
+      )}
+      <span className="font-medium">{name}</span>
+    </span>
   );
 };
 

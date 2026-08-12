@@ -657,7 +657,6 @@ function HistoriaClinicaOrtodonciaContent() {
           onVersionSelect={versionManagement.actions.selectVersion}
           selectedVersionId={versionManagement.selectedVersion?.id}
           loading={versionManagement.loading}
-          onMakeCurrent={(version) => versionManagement.actions.makeVersionCurrent(version.id)}
           onCreateNewVersion={() => setNewVersionSignal((signal) => signal + 1)}
         />
       </div>

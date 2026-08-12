@@ -74,20 +74,27 @@ export class OrthodonticVersionService {
 
   async updateCurrentVersion(
     patientId: string,
-    versionData: Partial<OrthodonticVersion>
+    versionData: Partial<OrthodonticVersion>,
+    versionId?: string
   ): Promise<void> {
     try {
-      const currentVersions = await this.getVersionsByPatientId(patientId);
-      const currentVersion = currentVersions.find(v => v.isCurrent);
+      let targetVersionId = versionId;
       
-      if (!currentVersion) {
-        // No current version exists, create first one
-        console.log('No current version found, creating first version...');
-        await this.createVersion(patientId, versionData, true);
-        return;
+      if (!targetVersionId) {
+        const currentVersions = await this.getVersionsByPatientId(patientId);
+        const currentVersion = currentVersions.find(v => v.isCurrent);
+        
+        if (!currentVersion) {
+          // No current version exists, create first one
+          console.log('No current version found, creating first version...');
+          await this.createVersion(patientId, versionData, true);
+          return;
+        }
+        
+        targetVersionId = currentVersion.id;
       }
       
-      // Update existing current version in place
+      // Update the target version in place
       const response = await fetch('/api/orthodontic-versions', {
         method: 'PUT',
         headers: {
@@ -95,7 +102,7 @@ export class OrthodonticVersionService {
         },
         body: JSON.stringify({
           patientId,
-          originalVersionId: currentVersion.id,
+          originalVersionId: targetVersionId,
           ...versionData
         }),
       });

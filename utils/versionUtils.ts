@@ -12,6 +12,8 @@ export interface OrthodonticVersion {
   isCurrent: boolean;
   notes?: string;
   createdBy: string;
+  createdByImage?: string;
+  userId?: string;
   
   // Patient and doctor reference
   pacienteId?: string;

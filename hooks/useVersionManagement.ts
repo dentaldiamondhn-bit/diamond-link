@@ -43,11 +43,11 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
       const sortedVersions = sortVersionsByDate(fetchedVersions);
       setVersions(sortedVersions);
       
-      // Auto-select the earliest version by default
-      // (sortedVersions is sorted by version number descending, so earliest is last)
-      const earliest = sortedVersions[sortedVersions.length - 1];
-      if (earliest && !selectedVersion) {
-        setSelectedVersion(earliest);
+      // Auto-select the latest version by default
+      // (sortedVersions is sorted by version number descending, so latest is first)
+      const latest = sortedVersions[0];
+      if (latest && !selectedVersion) {
+        setSelectedVersion(latest);
       }
     } catch (err) {
       console.error('Error loading versions:', err);
@@ -139,6 +139,35 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
     setError(null);
     
     try {
+      // Calculate progress based on actual treatment data (duration and completed appointments)
+      const duracionTratamiento = versionData.duracionTratamiento || selectedVersion?.duracionTratamiento || '12 meses';
+      const totalEstimatedAppointments = Math.max(extractMonthsFromDuration(duracionTratamiento), 4);
+      const completedAppointments = versionData.completedAppointments !== undefined 
+        ? versionData.completedAppointments 
+        : selectedVersion?.completedAppointments || 0;
+      
+      // Calculate actual progress percentage
+      const progressPercentage = totalEstimatedAppointments > 0 
+        ? Math.min(Math.round((completedAppointments / totalEstimatedAppointments) * 100), 100)
+        : 0;
+      
+      // Update the version currently selected/loaded in the form in place,
+      // mirroring the odontogram behavior where each version is edited independently
+      if (selectedVersion) {
+        await orthodonticVersionService.updateCurrentVersion(patientId, {
+          ...selectedVersion,
+          ...versionData,
+          progressPercentage,
+          completedAppointments,
+          totalEstimatedAppointments
+        }, selectedVersion.id);
+        
+        // Refresh the versions list to reflect the changes
+        await loadVersions();
+        return;
+      }
+      
+      // Fallback: update the current version marked in the database
       const currentVersions = await orthodonticVersionService.getVersionsByPatientId(patientId);
       const currentVersion = currentVersions.find(v => v.isCurrent);
       
@@ -154,26 +183,15 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
         return;
       }
       
-      // Calculate progress based on actual treatment data (duration and completed appointments)
-      const duracionTratamiento = versionData.duracionTratamiento || currentVersion.duracionTratamiento || '12 meses';
-      const totalEstimatedAppointments = Math.max(extractMonthsFromDuration(duracionTratamiento), 4);
-      const completedAppointments = versionData.completedAppointments !== undefined 
-        ? versionData.completedAppointments 
-        : currentVersion.completedAppointments || 0;
-      
-      // Calculate actual progress percentage
-      const progressPercentage = totalEstimatedAppointments > 0 
-        ? Math.min(Math.round((completedAppointments / totalEstimatedAppointments) * 100), 100)
-        : 0;
-      
-      // Update existing current version with calculated progress
       await orthodonticVersionService.updateCurrentVersion(patientId, {
         ...currentVersion,
         ...versionData,
         progressPercentage,
         completedAppointments,
         totalEstimatedAppointments
-      });
+      }, currentVersion.id);
+      
+      await loadVersions();
     } catch (err) {
       console.error('Error updating current version:', err);
       setError(err instanceof Error ? err.message : 'Failed to update current version');
