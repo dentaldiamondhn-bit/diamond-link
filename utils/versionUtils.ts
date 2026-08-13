@@ -82,6 +82,7 @@ export interface NewVersionTemplateData {
 export function emptyVersionTemplate(): NewVersionTemplateData {
   return {
     recordDate: new Date(),
+    notes: '',
     motivoConsultaOrtodoncia: '',
     diagnosticoOrtodoncia: '',
     planTratamientoOrtodoncia: '',
@@ -125,6 +126,7 @@ export function seedVersionTemplate(
   return {
     ...base,
     recordDate,
+    notes: previous.notes || '',
     motivoConsultaOrtodoncia: previous.motivoConsultaOrtodoncia || '',
     diagnosticoOrtodoncia: previous.diagnosticoOrtodoncia || '',
     planTratamientoOrtodoncia: previous.planTratamientoOrtodoncia || '',

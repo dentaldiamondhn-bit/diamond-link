@@ -27,6 +27,9 @@ import AnimatedUser from '@/components/AnimatedUser';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import MedicalWarningModal from '@/components/MedicalWarningModal';
 import OdontogramPreview from '@/components/OdontogramPreview';
+import ProgressBar from '@/components/ProgressBar';
+import { OrthodonticVersion, sortVersionsByDate, formatVersionDisplay } from '@/utils/versionUtils';
+import { orthodonticVersionService } from '@/services/orthodonticVersionService';
 import { 
   User, Phone, Mail, MapPin, Heart, Activity, Coffee, 
   FileText, Edit3, ArrowLeft, Download, Printer, 
@@ -80,6 +83,8 @@ export default function PatientPreviewPage() {
   const [presupuestosCurrencyMap, setPresupuestosCurrencyMap] = useState<Record<string, string>>({});
   const [sharingQuoteId, setSharingQuoteId] = useState<string | null>(null);
   const [odontogram, setOdontogram] = useState<Odontogram | null>(null);
+  const [orthoVersions, setOrthoVersions] = useState<OrthodonticVersion[]>([]);
+  const [orthoVersionsLoading, setOrthoVersionsLoading] = useState(false);
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
 
   // Function to load historical mode setting from Supabase
@@ -176,6 +181,9 @@ export default function PatientPreviewPage() {
         console.error('Error loading odontogram:', err);
         setOdontogram(null);
       }
+
+      // Load orthodontic versions for this patient
+      loadOrthodonticVersions(patientData.paciente_id);
       
       // Show warning modal using improved algorithm - only if significant conditions exist
       const hasSignificantConditions = 
@@ -208,6 +216,19 @@ export default function PatientPreviewPage() {
       setConsentimientos([]);
     } finally {
       setConsentimientosLoading(false);
+    }
+  };
+
+  const loadOrthodonticVersions = async (pacienteId: string) => {
+    setOrthoVersionsLoading(true);
+    try {
+      const versions = await orthodonticVersionService.getVersionsByPatientId(pacienteId);
+      setOrthoVersions(sortVersionsByDate(versions));
+    } catch (err) {
+      console.error('Error loading orthodontic versions:', err);
+      setOrthoVersions([]);
+    } finally {
+      setOrthoVersionsLoading(false);
     }
   };
 
@@ -628,7 +649,7 @@ export default function PatientPreviewPage() {
 
   const handlePrint = () => {
     if (patient) {
-      ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap);
+      ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap, orthoVersions);
     }
   };
 
@@ -637,10 +658,10 @@ export default function PatientPreviewPage() {
     
     switch (format) {
       case 'pdf':
-        ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap);
+        ExportService.exportToPDF(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap, orthoVersions);
         break;
       case 'html':
-        ExportService.exportToHTML(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap);
+        ExportService.exportToHTML(patient, consentimientos, odontogram, tratamientosCompletados, presupuestos, presupuestosCurrencyMap, orthoVersions);
         break;
       case 'json':
         ExportService.exportToJSON(patient);
@@ -1577,6 +1598,125 @@ export default function PatientPreviewPage() {
               No hay consentimientos registrados para este paciente
             </p>
           </div>
+        )}
+      </div>
+
+      {/* Historia Clínica Ortodóncica (latest version) */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+            <i className="fas fa-braces mr-2"></i>
+            Historia Clínica Ortodóncica
+          </h3>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => router.push(`/historia-clinica-ortodoncia?id=${patient.paciente_id}&view=true`)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              <i className="fas fa-eye mr-1"></i>
+              Ver completa
+            </button>
+            <button
+              onClick={() => router.push(`/historia-clinica-ortodoncia?id=${patient.paciente_id}`)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-cyan-600 rounded-lg hover:from-teal-700 hover:to-cyan-700"
+            >
+              <i className="fas fa-edit mr-1"></i>
+              Editar
+            </button>
+          </div>
+        </div>
+
+        {orthoVersionsLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+        ) : orthoVersions.length > 0 ? (() => {
+          const version = orthoVersions[0];
+          const details: { label: string; value?: string | number | null }[] = [
+            { label: 'Doctor Tratante', value: version.doctorId },
+            { label: 'Motivo de Consulta Ortodóncica', value: version.motivoConsultaOrtodoncia },
+            { label: 'Diagnóstico Ortodóncico', value: version.diagnosticoOrtodoncia },
+            { label: 'Plan de Tratamiento Ortodóncico', value: version.planTratamientoOrtodoncia },
+            { label: 'Tipo de Mordida', value: version.tipoMordida },
+            { label: 'Tipo de Aparato', value: version.tipoAparato },
+            { label: 'Duración Estimada', value: version.duracionTratamiento },
+            { label: 'Fecha Inicio Tratamiento', value: version.fechaInicioTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaInicioTratamiento) : null },
+            { label: 'Fecha Fin Tratamiento', value: version.fechaFinTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaFinTratamiento) : null },
+            { label: 'Observaciones Ortodóncicas', value: version.observacionesOrtodoncia },
+          ];
+          if (version.radiografiasRealizadas) details.push({ label: 'Radiografías Realizadas', value: version.radiografiasRealizadas });
+          if (version.modelosEstudio) details.push({ label: 'Modelos de Estudio', value: version.modelosEstudio });
+          if (version.analisisCefalometrico) details.push({ label: 'Análisis Cefalométrico', value: version.analisisCefalometrico });
+          if (version.extraccionesRealizadas) details.push({ label: 'Extracciones Realizadas', value: version.extraccionesRealizadas });
+          if (version.retenedorTipo || version.retenedorUso) details.push({ label: 'Retenedor Superior', value: [version.retenedorTipo, version.retenedorUso].filter(Boolean).join(' · ') });
+          if (version.retenedorInferiorTipo || version.retenedorInferiorUso) details.push({ label: 'Retenedor Inferior', value: [version.retenedorInferiorTipo, version.retenedorInferiorUso].filter(Boolean).join(' · ') });
+          if (version.seguimientoPostTratamiento) details.push({ label: 'Seguimiento Post-Tratamiento', value: version.seguimientoPostTratamiento });
+          if (version.notes) details.push({ label: 'Notas de Versión', value: version.notes });
+
+          return (
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl">
+              <div className="flex items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r from-teal-500 to-cyan-500">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <i className="fas fa-braces text-white"></i>
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold">
+                      {formatVersionDisplay(version)}
+                      {version.isCurrent && (
+                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-white/20">{version.progressPercentage || 0}%</span>
+                      )}
+                    </p>
+                    <p className="text-white/80 text-sm">
+                      {version.createdBy ? `Creado por: ${version.createdBy}` : `Registro: ${version.recordDate ? SimpleTimezoneFix.formatDisplayDate(version.recordDate) : ''}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4">
+                <ProgressBar
+                  percentage={version.progressPercentage || 0}
+                  showLabel={true}
+                  showStatus={true}
+                  size="sm"
+                />
+
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  {details.filter(item => item.value).map((item) => (
+                    <div key={item.label} className={item.label === 'Motivo de Consulta Ortodóncica' || item.label === 'Diagnóstico Ortodóncico' || item.label === 'Plan de Tratamiento Ortodóncico' || item.label === 'Observaciones Ortodóncicas' || item.label === 'Seguimiento Post-Tratamiento' ? 'md:col-span-2' : ''}>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{item.label}</p>
+                      <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {version.documentosOrtodoncia && version.documentosOrtodoncia.length > 0 && (
+                  <div className="mt-6">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Documentos Subidos</p>
+                    <IsolatedDocumentDisplay documents={version.documentosOrtodoncia} patientId={patient.paciente_id} />
+                  </div>
+                )}
+
+                {version.firmaDigitalOrtodoncia && (
+                  <div className="mt-6 flex items-end gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Firma del Paciente</p>
+                      <img
+                        src={version.firmaDigitalOrtodoncia}
+                        alt="Firma del doctor"
+                        className="max-h-20 max-w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })() : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            No hay historia clínica ortodóncica registrada para este paciente.
+          </p>
         )}
       </div>
 

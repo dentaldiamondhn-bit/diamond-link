@@ -5,6 +5,7 @@ import { Presupuesto, parseConteoPorEstado } from './presupuestoService';
 import { Odontogram, OdontogramData } from '../types/odontogram';
 import { SimpleTimezoneFix } from './simpleTimezoneFix';
 import { formatCurrency } from '../utils/currencyUtils';
+import { OrthodonticVersion, formatVersionDisplay, normalizeRadiografias } from '../utils/versionUtils';
 
 const ODONT_CUADRANTES = ['mesial', 'distal', 'buccal', 'lingual'] as const;
 type OdontCuadrante = typeof ODONT_CUADRANTES[number];
@@ -100,8 +101,8 @@ const odontPieSlicePath = (startAngle: number, endAngle: number, r: number): str
 };
 
 export class ExportService {
-  static async exportToPDF(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[], presupuestos?: Presupuesto[], presupuestoCurrencyMap?: Record<string, string>): Promise<void> {
-    const printContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || [], presupuestos || [], presupuestoCurrencyMap || {});
+  static async exportToPDF(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[], presupuestos?: Presupuesto[], presupuestoCurrencyMap?: Record<string, string>, orthoVersions?: OrthodonticVersion[]): Promise<void> {
+    const printContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || [], presupuestos || [], presupuestoCurrencyMap || {}, orthoVersions || []);
 
     // Use a hidden iframe instead of window.open for PWA/mobile browser compatibility
     const iframe = document.createElement('iframe');
@@ -145,8 +146,8 @@ export class ExportService {
     }, 5000);
   }
 
-  static exportToHTML(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[], presupuestos?: Presupuesto[], presupuestoCurrencyMap?: Record<string, string>): void {
-    const htmlContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || [], presupuestos || [], presupuestoCurrencyMap || {});
+  static exportToHTML(patient: Patient, consentimientos?: Consentimiento[], odontogram?: Odontogram | null, tratamientosCompletados?: CompletedTreatment[], presupuestos?: Presupuesto[], presupuestoCurrencyMap?: Record<string, string>, orthoVersions?: OrthodonticVersion[]): void {
+    const htmlContent = this.generatePrintContent(patient, consentimientos || [], odontogram, tratamientosCompletados || [], presupuestos || [], presupuestoCurrencyMap || {}, orthoVersions || []);
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     
@@ -173,7 +174,7 @@ export class ExportService {
     URL.revokeObjectURL(url);
   }
 
-  private static generatePrintContent(patient: Patient, consentimientos: Consentimiento[] = [], odontogram?: Odontogram | null, tratamientosCompletados: CompletedTreatment[] = [], presupuestos: Presupuesto[] = [], presupuestoCurrencyMap: Record<string, string> = {}): string {
+  private static generatePrintContent(patient: Patient, consentimientos: Consentimiento[] = [], odontogram?: Odontogram | null, tratamientosCompletados: CompletedTreatment[] = [], presupuestos: Presupuesto[] = [], presupuestoCurrencyMap: Record<string, string> = {}, orthoVersions: OrthodonticVersion[] = []): string {
     const field = (label: string, value: string | number | null | undefined, fallback = 'N/A') => `
         <div class="field">
             <span class="field-label">${label}:</span>
@@ -181,6 +182,7 @@ export class ExportService {
         </div>`;
 
     const consentPages = this.generateConsentPages(consentimientos, patient);
+    const orthoHistorySection = this.generateOrthoHistorySection(orthoVersions);
     const odontogramSection = this.generateOdontogramSection(odontogram);
     const tratamientosSection = this.generateCompletedTreatmentsSection(tratamientosCompletados);
     const presupuestosSection = this.generatePresupuestosSection(presupuestos, presupuestoCurrencyMap);
@@ -887,6 +889,8 @@ export class ExportService {
 
     ${consentPages}
 
+    ${orthoHistorySection}
+
     ${odontogramSection}
 
     ${tratamientosSection}
@@ -973,6 +977,61 @@ export class ExportService {
         <div class="consent-estado">Estado: ${estadoLabel(consentimiento.estado)}</div>
     </div>
     `).join('\n');
+  }
+
+  // Latest orthodontic history (highest version number) for print/export
+  private static generateOrthoHistorySection(orthoVersions: OrthodonticVersion[] = []): string {
+    if (!orthoVersions || orthoVersions.length === 0) return '';
+    const version = [...orthoVersions].sort((a, b) => b.versionNumber - a.versionNumber)[0];
+
+    const field = (label: string, value: string | number | null | undefined) => {
+      if (!value) return '';
+      return `<div class="field"><span class="field-label">${label}:</span><span class="field-value">${value}</span></div>`;
+    };
+
+    const retenedorSuperior = [version.retenedorTipo, version.retenedorUso].filter(Boolean).join(' · ');
+    const retenedorInferior = [version.retenedorInferiorTipo, version.retenedorInferiorUso].filter(Boolean).join(' · ');
+    const radiografias = version.radiografiasRealizadas ? normalizeRadiografias(version.radiografiasRealizadas) : '';
+
+    const fields =
+      field('Doctor Tratante', version.doctorId) +
+      field('Motivo de Consulta Ortodóncica', version.motivoConsultaOrtodoncia) +
+      field('Diagnóstico Ortodóncico', version.diagnosticoOrtodoncia) +
+      field('Plan de Tratamiento Ortodóncico', version.planTratamientoOrtodoncia) +
+      field('Tipo de Mordida', version.tipoMordida) +
+      field('Tipo de Aparato', version.tipoAparato) +
+      field('Duración Estimada', version.duracionTratamiento) +
+      field('Fecha Inicio Tratamiento', version.fechaInicioTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaInicioTratamiento) : '') +
+      field('Fecha Fin Tratamiento', version.fechaFinTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaFinTratamiento) : '') +
+      field('Observaciones Ortodóncicas', version.observacionesOrtodoncia) +
+      field('Radiografías Realizadas', radiografias) +
+      field('Modelos de Estudio', version.modelosEstudio) +
+      field('Análisis Cefalométrico', version.analisisCefalometrico) +
+      field('Extracciones Realizadas', version.extraccionesRealizadas) +
+      field('Retenedor Superior', retenedorSuperior) +
+      field('Retenedor Inferior', retenedorInferior) +
+      field('Seguimiento Post-Tratamiento', version.seguimientoPostTratamiento) +
+      field('Notas de Versión', version.notes);
+
+    return `
+    <div class="section">
+        <h2>Historia Clínica Ortodóncica</h2>
+        <div style="margin-bottom: 8px; font-size: 12px; color: #0a4d4a; font-weight: bold;">
+            ${formatVersionDisplay(version)}
+            ${version.isCurrent ? ` · Progreso: ${version.progressPercentage || 0}%` : ''}
+            ${version.createdBy ? ` · Creado por: ${version.createdBy}` : ''}
+        </div>
+        <div class="grid-2">
+            ${fields}
+        </div>
+        ${version.firmaDigitalOrtodoncia ? `
+        <div class="subtitle">Firma del Paciente</div>
+        <div class="signature">
+            <img src="${version.firmaDigitalOrtodoncia}" alt="Firma del paciente" />
+        </div>
+        ` : ''}
+    </div>
+    `;
   }
 
   private static getOdontTooth(datos: OdontogramData, num: number): { cuadrantes: Record<OdontCuadrante, string>; central?: string; nota?: string } {
