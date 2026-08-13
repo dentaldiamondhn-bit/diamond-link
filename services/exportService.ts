@@ -903,18 +903,27 @@ export class ExportService {
     `;
   }
 
-  private static processConsentContent(content: string, patient: Patient): string {
+  private static processConsentContent(content: string, patient: Patient, fechaConsentimiento?: string): string {
     if (!content) return content;
 
     const fieldWrap = (value: string) =>
       `<span class="consent-field">${value || ''}</span>`;
+
+    const formatConsentDate = (dateStr: string) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+    const consentDate = fechaConsentimiento
+      ? formatConsentDate(fechaConsentimiento) || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+      : new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
     return content
       .replace(/\{\{PATIENT_NAME\}\}/g, fieldWrap(patient.nombre_completo || '_________________________'))
       .replace(/\{\{PATIENT_ID\}\}/g, fieldWrap(patient.numero_identidad || '_____________________'))
       .replace(/\{\{PATIENT_ADDRESS\}\}/g, fieldWrap(patient.direccion || '__________________________________________'))
       .replace(/\{\{DOCTOR_NAME\}\}/g, fieldWrap(patient.doctor || '_________________________'))
-      .replace(/\{\{CURRENT_DATE\}\}/g, fieldWrap(`San Pedro Sula, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`))
+      .replace(/\{\{CURRENT_DATE\}\}/g, fieldWrap(`San Pedro Sula, ${consentDate}`))
       .replace(/\{\{REPRESENTANTE_LEGAL\}\}/g, fieldWrap(patient.representante_legal || '_________________________________________'))
       .replace(/\{\{REP_NUMERO_IDENTIDAD\}\}/g, fieldWrap(patient.rep_numero_identidad || '_________________________'))
       .replace(/\{\{CLINIC_NAME\}\}/g, 'Clínica Dental Diamond HN')
@@ -936,12 +945,12 @@ export class ExportService {
     <div class="consent-page">
         <div class="header">
             <h1>${consentimiento.nombre_consentimiento}</h1>
-            <h2>Consentimiento Informado</h2>
+            <h2>${consentimiento.tipo_consentimiento === 'pediatrico' ? 'Consentimiento Informado Pediátrico' : 'Consentimiento Informado'}</h2>
             <p>Tipo: ${consentimiento.tipo_consentimiento} | Fecha: ${consentimiento.fecha_consentimiento || ''}</p>
         </div>
 
         <div class="consent-content">
-            ${this.processConsentContent(consentimiento.contenido, patient)}
+            ${this.processConsentContent(consentimiento.contenido, patient, consentimiento.fecha_consentimiento)}
         </div>
 
         ${consentimiento.descripcion ? `<p style="font-size: 12px; color: #666; margin-top: 8px;">${consentimiento.descripcion}</p>` : ''}

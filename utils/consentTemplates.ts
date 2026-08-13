@@ -70,7 +70,7 @@ Yo, {{PATIENT_NAME}} con el documento de identidad{{PATIENT_ID}} y que resido en
     name: 'Consentimiento Informado para Tratamiento Odontopediátrico',
     type: 'pediatrico',
     description: 'Consentimiento informado para tratamientos odontológicos en pacientes menores de edad',
-    content: `CONSENTIMIENTO INFORMADO 
+    content: `CONSENTIMIENTO INFORMADO PEDIATRICO
 
 {{CURRENT_DATE}} 
 Yo, {{REPRESENTANTE_LEGAL}} con DNI {{REP_NUMERO_IDENTIDAD}} y domicilio en {{PATIENT_ADDRESS}}, Padre/Madre/Tutor legal del paciente {{PATIENT_NAME}},

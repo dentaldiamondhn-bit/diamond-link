@@ -30,6 +30,7 @@ export default function ConsentimientoDocument() {
   const [patientType, setPatientType] = useState<any>(null);
   const [selectedTemplate, setSelectedTemplate] = useState('general');
   const [consentimientoContent, setConsentimientoContent] = useState('');
+  const [consentCreationDate, setConsentCreationDate] = useState<string | null>(null);
   
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -115,6 +116,16 @@ export default function ConsentimientoDocument() {
           // This is a consentimiento ID, get patient ID from it
           actualPatientId = consentimiento.paciente_id;
           existingConsentimiento = consentimiento;
+          
+          // Load the existing template and creation date so edits keep the original content
+          const templateByType = CONSENT_TEMPLATES.find(t => t.type === consentimiento.tipo_consentimiento);
+          if (templateByType) {
+            setSelectedTemplate(templateByType.id);
+            setConsentimientoContent(templateByType.content);
+          }
+          if (consentimiento.fecha_consentimiento) {
+            setConsentCreationDate(consentimiento.fecha_consentimiento);
+          }
           
           // Check if consentimiento is signed - if so, redirect to preview
           if (consentimiento.estado === 'firmado') {
@@ -378,7 +389,7 @@ export default function ConsentimientoDocument() {
             </div>
             
             <h2 className={`text-xl font-bold text-center mb-8 bg-gradient-to-r ${patientType?.colors?.header || 'from-teal-500 to-cyan-500'} text-white px-6 py-3 rounded-xl`}>
-            CONSENTIMIENTO INFORMADO
+            {selectedTemplate === 'pediatrico' ? 'CONSENTIMIENTO INFORMADO PEDIATRICO' : 'CONSENTIMIENTO INFORMADO'}
           </h2>
             
             <div className="space-y-6 text-base leading-relaxed">
@@ -411,9 +422,17 @@ export default function ConsentimientoDocument() {
                     );
                     
                     // Replace pediatric consent placeholders
+                    const formatConsentDate = (dateStr: string) => {
+                      const [y, m, d] = dateStr.split('-').map(Number);
+                      if (!y || !m || !d) return null;
+                      return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+                    };
+                    const currentDateDisplay = consentCreationDate
+                      ? formatConsentDate(consentCreationDate) || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+                      : new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
                     content = content.replace(
                       /\{\{CURRENT_DATE\}\}/g, 
-                      `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">San Pedro Sula, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>`
+                      `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">San Pedro Sula, ${currentDateDisplay}</span>`
                     );
                     
                     content = content.replace(

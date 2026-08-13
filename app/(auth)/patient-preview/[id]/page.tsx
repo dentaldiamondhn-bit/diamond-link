@@ -599,18 +599,27 @@ export default function PatientPreviewPage() {
     }
   };
 
-  const processTemplateContent = (content: string) => {
+  const processTemplateContent = (content: string, fechaConsentimiento?: string) => {
     if (!content || !patient) return content;
 
     const field = (value: string) =>
       `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${value || ''}</span>`;
+
+    const formatConsentDate = (dateStr: string) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+    const consentDate = fechaConsentimiento
+      ? formatConsentDate(fechaConsentimiento) || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+      : new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
     return content
       .replace(/\{\{PATIENT_NAME\}\}/g, field(patient.nombre_completo || '_________________________'))
       .replace(/\{\{PATIENT_ID\}\}/g, field(patient.numero_identidad || '_____________________'))
       .replace(/\{\{PATIENT_ADDRESS\}\}/g, field(patient.direccion || '__________________________________________'))
       .replace(/\{\{DOCTOR_NAME\}\}/g, field(patient.doctor || '_________________________'))
-      .replace(/\{\{CURRENT_DATE\}\}/g, field(`San Pedro Sula, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`))
+      .replace(/\{\{CURRENT_DATE\}\}/g, field(`San Pedro Sula, ${consentDate}`))
       .replace(/\{\{REPRESENTANTE_LEGAL\}\}/g, field(patient.representante_legal || '_________________________________________'))
       .replace(/\{\{REP_NUMERO_IDENTIDAD\}\}/g, field(patient.rep_numero_identidad || '_________________________'))
       .replace(/\{\{CLINIC_NAME\}\}/g, 'Clínica Dental Diamond HN')
@@ -1490,13 +1499,13 @@ export default function PatientPreviewPage() {
                 {/* Consent Document */}
                 <div className="px-6 py-4">
                   <h5 className="text-base font-bold text-center mb-6 text-gray-900 dark:text-white">
-                    CONSENTIMIENTO INFORMADO
+                    {consentimiento.tipo_consentimiento === 'pediatrico' ? 'CONSENTIMIENTO INFORMADO PEDIATRICO' : 'CONSENTIMIENTO INFORMADO'}
                   </h5>
 
                   <div 
                     className="space-y-6 text-base leading-relaxed text-gray-800 dark:text-gray-200"
                     dangerouslySetInnerHTML={{ 
-                      __html: processTemplateContent(consentimiento.contenido) || 
+                      __html: processTemplateContent(consentimiento.contenido, consentimiento.fecha_consentimiento) || 
                         '<p>El contenido del consentimiento no está disponible.</p>' 
                     }}
                   />

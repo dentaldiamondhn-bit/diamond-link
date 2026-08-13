@@ -206,15 +206,24 @@ export default function ConsentimientoPreview() {
     }
   };
 
-  const processTemplateContent = (content: string, patient: Patient) => {
+  const processTemplateContent = (content: string, patient: Patient, fechaConsentimiento?: string) => {
     if (!content || !patient) return content;
+
+    const formatConsentDate = (dateStr: string) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+    const consentDate = fechaConsentimiento
+      ? formatConsentDate(fechaConsentimiento) || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+      : new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     
     return content
       .replace(/\{\{PATIENT_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.nombre_completo || '_________________________'}</span>`)
       .replace(/\{\{PATIENT_ID\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.numero_identidad || '_____________________'}</span>`)
       .replace(/\{\{PATIENT_ADDRESS\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.direccion || '__________________________________________'}</span>`)
       .replace(/\{\{DOCTOR_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.doctor || '_________________________'}</span>`)
-      .replace(/\{\{CURRENT_DATE\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">San Pedro Sula, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>`)
+      .replace(/\{\{CURRENT_DATE\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">San Pedro Sula, ${consentDate}</span>`)
       .replace(/\{\{REPRESENTANTE_LEGAL\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.representante_legal || '_________________________________________'}</span>`)
       .replace(/\{\{REP_NUMERO_IDENTIDAD\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.rep_numero_identidad || '_________________________'}</span>`)
       .replace(/\{\{CLINIC_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">Clínica Dental Diamond HN</span>`)
@@ -411,12 +420,12 @@ export default function ConsentimientoPreview() {
             </div>
           </div>
           
-          <h2 className="text-xl font-bold text-center mb-8">CONSENTIMIENTO INFORMADO</h2>
+          <h2 className="text-xl font-bold text-center mb-8">{consentimiento?.tipo_consentimiento === 'pediatrico' ? 'CONSENTIMIENTO INFORMADO PEDIATRICO' : 'CONSENTIMIENTO INFORMADO'}</h2>
           
           <div 
             className="space-y-6 text-base leading-relaxed"
             dangerouslySetInnerHTML={{ 
-              __html: processTemplateContent(consentimiento.contenido, patient) || 
+              __html: processTemplateContent(consentimiento.contenido, patient, consentimiento.fecha_consentimiento) || 
                 '<p>El contenido del consentimiento no está disponible.</p>' 
             }}
           />
