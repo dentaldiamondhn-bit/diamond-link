@@ -26,10 +26,13 @@ import Timeline from '@/components/Timeline';
 import VersionManager from '@/components/VersionManager';
 import { useProgressCalculation } from '@/hooks/useProgressCalculation';
 import { useVersionManagement } from '@/hooks/useVersionManagement';
-import { OrthodonticVersion, normalizeRadiografias } from '@/utils/versionUtils';
+import { OrthodonticVersion, normalizeRadiografias, isVersionLocked } from '@/utils/versionUtils';
 import { calculateProgress, extractMonthsFromDuration, calculateEstimatedAppointments } from '@/utils/progressUtils';
 import AnimatedLeft from '@/components/AnimatedLeft';
 import AnimatedRight from '@/components/AnimatedRight';
+import VersionLockBanner from '@/components/VersionLockBanner';
+import AdminOverrideModal from '@/components/AdminOverrideModal';
+import { useAdminOverride } from '@/contexts/AdminOverrideContext';
 
 // Utility function to extract filename from URL (matches DocumentDisplay logic)
 const getFileName = (url: string): string => {
@@ -184,6 +187,21 @@ function HistoriaClinicaOrtodonciaContent() {
 
   // Signal to open the "Nueva Versión" dialog from the timeline details modal
   const [newVersionSignal, setNewVersionSignal] = useState(0);
+
+  // Admin/Support step-up override state (shared with the global countdown
+  // timer bubble; lives in AdminOverrideContext so it survives navigation).
+  const [showAdminOverrideModal, setShowAdminOverrideModal] = useState(false);
+  const { getOverrideToken, unlockVersion } = useAdminOverride();
+
+  // A version is read-only when it is not the latest (max version_number) or
+  // was hard-locked. An admin/support unlock token overrides this for the session.
+  const selectedIsLocked = isVersionLocked(
+    versionManagement.selectedVersion,
+    versionManagement.versions
+  );
+  const selectedVersionId = versionManagement.selectedVersion?.id;
+  const effectiveLocked =
+    selectedIsLocked && !(selectedVersionId && getOverrideToken(selectedVersionId));
 
   // Populate form when a version is selected from timeline
   useEffect(() => {
@@ -606,11 +624,20 @@ function HistoriaClinicaOrtodonciaContent() {
           size="md"
         />
       </div>
+
+      {/* Version Lock / Read-Only Banner */}
+      <VersionLockBanner
+        isLocked={effectiveLocked}
+        version={versionManagement.selectedVersion}
+        onUnlock={() => setShowAdminOverrideModal(true)}
+        onCreateNewVersion={() => setNewVersionSignal((signal) => signal + 1)}
+      />
       
       {/* Version Management Section */}
       <VersionManager
         onUpdateCurrent={async () => {
-          // Update current version with current form data
+          // Update current version with current form data. Historical versions
+          // carry the admin/support override token from the unlock modal.
           await versionManagement.actions.updateCurrentVersion({
             pacienteId: patientId,
             doctorId: formData.doctor_id,
@@ -634,13 +661,35 @@ function HistoriaClinicaOrtodonciaContent() {
             seguimientoPostTratamiento: formData.seguimiento_post_tratamiento,
             documentosOrtodoncia: formData.documentos_ortodoncia,
             firmaDigitalOrtodoncia: formData.firma_digital_ortodoncia
-          });
+          }, selectedVersionId ? getOverrideToken(selectedVersionId) : null);
         }}
-        onSaveNew={async (recordDate, notes) => {
-          await versionManagement.actions.createNewVersion(recordDate, notes, {
-            documentosOrtodoncia: formData.documentos_ortodoncia,
-            firmaDigitalOrtodoncia: formData.firma_digital_ortodoncia,
-            radiografiasRealizadas: formData.radiografias_realizadas.join(', ')
+        onSaveNew={async (data) => {
+          // The dialog collects the full clinical template (seeded from the
+          // previous version); the page still supplies patient/doctor context,
+          // documents and signature.
+          await versionManagement.actions.createNewVersion(data.recordDate, data.notes || '', {
+            pacienteId: patientId,
+            doctorId: formData.doctor_id,
+            motivoConsultaOrtodoncia: data.motivoConsultaOrtodoncia,
+            diagnosticoOrtodoncia: data.diagnosticoOrtodoncia,
+            planTratamientoOrtodoncia: data.planTratamientoOrtodoncia,
+            tipoMordida: data.tipoMordida,
+            tipoAparato: data.tipoAparato,
+            duracionTratamiento: data.duracionTratamiento,
+            fechaInicioTratamiento: data.fechaInicioTratamiento,
+            fechaFinTratamiento: data.fechaFinTratamiento,
+            observacionesOrtodoncia: data.observacionesOrtodoncia,
+            radiografiasRealizadas: data.radiografiasRealizadas ?? formData.radiografias_realizadas.join(', '),
+            modelosEstudio: data.modelosEstudio,
+            analisisCefalometrico: data.analisisCefalometrico,
+            extraccionesRealizadas: data.extraccionesRealizadas,
+            retenedorTipo: data.retenedorTipo,
+            retenedorUso: data.retenedorUso,
+            retenedorInferiorTipo: data.retenedorInferiorTipo,
+            retenedorInferiorUso: data.retenedorInferiorUso,
+            seguimientoPostTratamiento: data.seguimientoPostTratamiento,
+            documentosOrtodoncia: data.documentosOrtodoncia ?? formData.documentos_ortodoncia,
+            firmaDigitalOrtodoncia: formData.firma_digital_ortodoncia
           });
         }}
         loading={versionManagement.loading}
@@ -648,6 +697,8 @@ function HistoriaClinicaOrtodonciaContent() {
         newVersionSignal={newVersionSignal}
         selectedVersion={versionManagement.selectedVersion}
         versions={versionManagement.versions}
+        isLocked={effectiveLocked}
+        patientId={patientId}
       />
       
       {/* Timeline Section */}
@@ -662,6 +713,9 @@ function HistoriaClinicaOrtodonciaContent() {
       </div>
       
       <form key={`historia-form-${patientId}`} onSubmit={handleSubmit} className="space-y-6" noValidate>
+      {/* Historical versions are read-only: all fields disabled until an
+          admin/support override unlocks the version for this session. */}
+      <fieldset disabled={effectiveLocked} className="space-y-6">
       {/* Hidden field for record ID */}
       <input
         type="hidden"
@@ -1263,7 +1317,22 @@ function HistoriaClinicaOrtodonciaContent() {
                 Cancelar
               </button>
             </div>
+          </fieldset>
           </form>
+      
+      {/* Admin/Support Override Modal (Clerk reverification) */}
+      <AdminOverrideModal
+        open={showAdminOverrideModal}
+        version={effectiveLocked ? versionManagement.selectedVersion : null}
+        onClose={() => setShowAdminOverrideModal(false)}
+        onUnlocked={(token) => {
+          const unlockedVersion = versionManagement.selectedVersion;
+          if (unlockedVersion) {
+            unlockVersion(unlockedVersion.id, unlockedVersion.versionNumber, token);
+          }
+          setShowAdminOverrideModal(false);
+        }}
+      />
       
       {/* Delete Confirmation Modal */}
       {showDeleteModal && documentToDelete && (

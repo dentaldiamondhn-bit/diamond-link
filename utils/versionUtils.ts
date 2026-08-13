@@ -10,6 +10,10 @@ export interface OrthodonticVersion {
   recordDate?: string;
   progressPercentage: number;
   isCurrent: boolean;
+  isLocked?: boolean;
+  lockedAt?: string;
+  lockedBy?: string;
+  parentId?: string | null;
   notes?: string;
   createdBy: string;
   createdByImage?: string;
@@ -45,6 +49,107 @@ export interface OrthodonticVersion {
 }
 
 /**
+ * Full clinical template collected by the "Crear Nueva Versión" dialog,
+ * seeded from the previous (selected/latest) version so a future version can
+ * be completed entirely inside the modal. Mirrors the camelCase fields the
+ * server actions accept as overrides.
+ */
+export interface NewVersionTemplateData {
+  recordDate: Date;
+  notes?: string;
+  motivoConsultaOrtodoncia?: string;
+  diagnosticoOrtodoncia?: string;
+  planTratamientoOrtodoncia?: string;
+  tipoMordida?: string;
+  tipoAparato?: string;
+  duracionTratamiento?: string;
+  fechaInicioTratamiento?: string;
+  fechaFinTratamiento?: string;
+  observacionesOrtodoncia?: string;
+  radiografiasRealizadas?: string;
+  modelosEstudio?: string;
+  analisisCefalometrico?: string;
+  extraccionesRealizadas?: string;
+  retenedorTipo?: string;
+  retenedorUso?: string;
+  retenedorInferiorTipo?: string;
+  retenedorInferiorUso?: string;
+  seguimientoPostTratamiento?: string;
+  documentosOrtodoncia?: string[];
+}
+
+/** Empty template used when no previous version exists to seed from. */
+export function emptyVersionTemplate(): NewVersionTemplateData {
+  return {
+    recordDate: new Date(),
+    motivoConsultaOrtodoncia: '',
+    diagnosticoOrtodoncia: '',
+    planTratamientoOrtodoncia: '',
+    tipoMordida: '',
+    tipoAparato: '',
+    duracionTratamiento: '12 meses',
+    fechaInicioTratamiento: '',
+    fechaFinTratamiento: '',
+    observacionesOrtodoncia: '',
+    radiografiasRealizadas: '',
+    modelosEstudio: '',
+    analisisCefalometrico: '',
+    extraccionesRealizadas: '',
+    retenedorTipo: '',
+    retenedorUso: '',
+    retenedorInferiorTipo: '',
+    retenedorInferiorUso: '',
+    seguimientoPostTratamiento: '',
+    documentosOrtodoncia: [] as string[],
+  };
+}
+
+/**
+ * Seed a new-version template from a previous version (all clinical fields
+ * are copied so the modal can be completed/amended in one place).
+ */
+export function seedVersionTemplate(
+  previous: OrthodonticVersion | null | undefined
+): NewVersionTemplateData {
+  const base = emptyVersionTemplate();
+  if (!previous) return base;
+  const radiografias = previous.radiografiasRealizadas
+    ? normalizeRadiografias(previous.radiografiasRealizadas)
+    : '';
+  const recordDate = previous.recordDate
+    ? (() => {
+        const d = new Date(previous.recordDate + 'T00:00:00');
+        return isNaN(d.getTime()) ? new Date() : d;
+      })()
+    : new Date();
+  return {
+    ...base,
+    recordDate,
+    motivoConsultaOrtodoncia: previous.motivoConsultaOrtodoncia || '',
+    diagnosticoOrtodoncia: previous.diagnosticoOrtodoncia || '',
+    planTratamientoOrtodoncia: previous.planTratamientoOrtodoncia || '',
+    tipoMordida: previous.tipoMordida || '',
+    tipoAparato: previous.tipoAparato || '',
+    duracionTratamiento: previous.duracionTratamiento || '12 meses',
+    fechaInicioTratamiento: previous.fechaInicioTratamiento || '',
+    fechaFinTratamiento: previous.fechaFinTratamiento || '',
+    observacionesOrtodoncia: previous.observacionesOrtodoncia || '',
+    radiografiasRealizadas: radiografias,
+    modelosEstudio: previous.modelosEstudio || '',
+    analisisCefalometrico: previous.analisisCefalometrico || '',
+    extraccionesRealizadas: previous.extraccionesRealizadas || '',
+    retenedorTipo: previous.retenedorTipo || '',
+    retenedorUso: previous.retenedorUso || '',
+    retenedorInferiorTipo: previous.retenedorInferiorTipo || '',
+    retenedorInferiorUso: previous.retenedorInferiorUso || '',
+    seguimientoPostTratamiento: previous.seguimientoPostTratamiento || '',
+    documentosOrtodoncia: previous.documentosOrtodoncia
+      ? [...previous.documentosOrtodoncia]
+      : [],
+  };
+}
+
+/**
  * Sort versions by version number (highest first - newest version on top)
  */
 export function sortVersionsByDate(versions: OrthodonticVersion[]): OrthodonticVersion[] {
@@ -69,6 +174,25 @@ export function getNextVersionNumber(versions: OrthodonticVersion[]): number {
   
   const maxVersion = Math.max(...versions.map(v => v.versionNumber));
   return maxVersion + 1;
+}
+
+/**
+ * A version is read-only (locked) when:
+ *  - it is explicitly hard-locked (isLocked), or
+ *  - it is NOT the highest version number for its patient (historical version).
+ * Matches both the UI lock ("Actual" = max version number) and the DB trigger.
+ */
+export function isVersionLocked(
+  version: OrthodonticVersion | null,
+  versions: OrthodonticVersion[]
+): boolean {
+  if (!version) return false;
+  if (version.isLocked) return true;
+  const maxVersionNumber = versions.reduce(
+    (max, v) => Math.max(max, v.versionNumber),
+    0
+  );
+  return version.versionNumber < maxVersionNumber;
 }
 
 /**

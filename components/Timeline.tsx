@@ -2,9 +2,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { formatVersionDisplay, OrthodonticVersion } from '@/utils/versionUtils';
-import { getProgressColor } from '@/utils/progressUtils';
+import { getProgressColor, extractMonthsFromDuration } from '@/utils/progressUtils';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 import DocumentDisplay from './DocumentDisplay';
+
+// Progress shown in cards/modal must match the top ProgressBar: total
+// appointments = months of treatment (min 4); fall back to stored values.
+const getDisplayProgress = (version: OrthodonticVersion): number => {
+  const completed = version.completedAppointments || 0;
+  const months = extractMonthsFromDuration(version.duracionTratamiento || '');
+  const total = months > 0 ? Math.max(months, 4) : version.totalEstimatedAppointments || 0;
+  if (total > 0) return Math.min(Math.round((completed / total) * 100), 100);
+  return version.progressPercentage || 0;
+};
 
 interface TimelineProps {
   versions: OrthodonticVersion[];
@@ -163,6 +173,13 @@ const Timeline: React.FC<TimelineProps> = ({
                           V{version.versionNumber}
                         </div>
                         
+                        {!isCurrent && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                            <i className="fas fa-lock text-xs"></i>
+                            Histórica
+                          </span>
+                        )}
+                        
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-semibold text-gray-900 dark:text-white truncate">
@@ -203,12 +220,12 @@ const Timeline: React.FC<TimelineProps> = ({
                               stroke="currentColor"
                               strokeWidth="3"
                               fill="none"
-                              strokeDasharray={`${version.progressPercentage} 100`}
-                              className={`${getProgressColor(version.progressPercentage)} transition-all duration-500`}
+                              strokeDasharray={`${getDisplayProgress(version)} 100`}
+                              className={`${getProgressColor(getDisplayProgress(version))} transition-all duration-500`}
                             />
                           </svg>
                           <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-gray-300">
-                            {version.progressPercentage}%
+                            {getDisplayProgress(version)}%
                           </span>
                         </div>
 
@@ -313,7 +330,7 @@ const Timeline: React.FC<TimelineProps> = ({
       {/* Version Details Modal */}
       {detailsVersion && (() => {
         const isCurrent = detailsVersion.versionNumber === maxVersionNumber;
-        const progress = detailsVersion.progressPercentage || 0;
+        const progress = getDisplayProgress(detailsVersion);
         const hasTreatment = detailsVersion.tipoMordida || detailsVersion.tipoAparato || detailsVersion.duracionTratamiento || detailsVersion.fechaInicioTratamiento || detailsVersion.fechaFinTratamiento;
         const hasStudies = detailsVersion.radiografiasRealizadas || detailsVersion.modelosEstudio || detailsVersion.analisisCefalometrico || detailsVersion.extraccionesRealizadas;
         const hasRetainers = detailsVersion.retenedorTipo || detailsVersion.retenedorInferiorTipo;
@@ -343,7 +360,8 @@ const Timeline: React.FC<TimelineProps> = ({
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                            Anterior
+                            <i className="fas fa-lock mr-1 text-xs"></i>
+                            Anterior (Solo Lectura)
                           </span>
                         )}
                       </div>
@@ -614,9 +632,15 @@ const InfoRow: React.FC<{ label: string; value: string }> = ({ label, value }) =
 const MORDIDA_LABELS: Record<string, string> = {
   clase_i: 'Clase I',
   clase_ii: 'Clase II',
+  clase_ii_division_1: 'Clase II División 1',
+  clase_ii_division_2: 'Clase II División 2',
   clase_iii: 'Clase III',
   mordida_abierta: 'Mordida abierta',
+  mordida_abierta_anterior: 'Mordida abierta anterior',
+  mordida_abierta_posterior: 'Mordida abierta posterior',
   mordida_cruzada: 'Mordida cruzada',
+  mordida_cruzada_anterior: 'Mordida cruzada anterior',
+  mordida_cruzada_posterior: 'Mordida cruzada posterior',
   mordida_profunda: 'Mordida profunda',
 };
 

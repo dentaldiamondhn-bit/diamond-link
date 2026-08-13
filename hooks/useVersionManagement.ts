@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { OrthodonticVersion, sortVersionsByDate, getCurrentVersion, getNextVersionNumber } from '@/utils/versionUtils';
+import { OrthodonticVersion, sortVersionsByDate, getCurrentVersion } from '@/utils/versionUtils';
 import { extractMonthsFromDuration } from '@/utils/progressUtils';
 import { orthodonticVersionService } from '@/services/orthodonticVersionService';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
+import { createNewVersion as createNewVersionAction } from '@/actions/version-control';
 
 export interface UseVersionManagementProps {
   patientId: string;
@@ -20,7 +21,7 @@ export interface VersionManagementData {
     loadVersions: () => Promise<void>;
     selectVersion: (version: OrthodonticVersion) => void;
     createNewVersion: (recordDate: Date, notes: string, overrides?: Partial<OrthodonticVersion>) => Promise<void>;
-    updateCurrentVersion: (versionData: Partial<OrthodonticVersion>) => Promise<void>;
+    updateCurrentVersion: (versionData: Partial<OrthodonticVersion>, overrideToken?: string | null) => Promise<void>;
     makeVersionCurrent: (versionId: string) => Promise<void>;
     refreshVersions: () => Promise<void>;
   };
@@ -112,27 +113,32 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
         totalEstimatedAppointments: 12
       };
       
-      const newVersion = await orthodonticVersionService.createVersion(
+      const newVersion = await createNewVersionAction({
         patientId,
-        {
-          ...versionData,
-          recordDate: SimpleTimezoneFix.toDateString(recordDate),
-          notes
-        },
-        false // Don't make new versions current by default
-      );
+        parentVersionId: latestVersion?.id ?? null,
+        recordDate: SimpleTimezoneFix.toDateString(recordDate),
+        notes,
+        isCurrent: false,
+        versionData,
+      });
+
+      if (!newVersion.success) {
+        throw new Error(newVersion.error || 'Failed to create new version');
+      }
       
       // Refresh versions
       await loadVersions();
     } catch (err) {
       console.error('Error creating new version:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create new version');
+      const message = err instanceof Error ? err.message : 'Failed to create new version';
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateCurrentVersion = async (versionData: Partial<OrthodonticVersion>) => {
+  const updateCurrentVersion = async (versionData: Partial<OrthodonticVersion>, overrideToken?: string | null) => {
     if (!patientId) return;
     
     setLoading(true);
@@ -160,7 +166,7 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
           progressPercentage,
           completedAppointments,
           totalEstimatedAppointments
-        }, selectedVersion.id);
+        }, selectedVersion.id, overrideToken);
         
         // Refresh the versions list to reflect the changes
         await loadVersions();
@@ -189,7 +195,7 @@ export const useVersionManagement = ({ patientId }: UseVersionManagementProps): 
         progressPercentage,
         completedAppointments,
         totalEstimatedAppointments
-      }, currentVersion.id);
+      }, currentVersion.id, overrideToken);
       
       await loadVersions();
     } catch (err) {

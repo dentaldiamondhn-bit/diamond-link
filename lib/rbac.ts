@@ -14,6 +14,7 @@ export const PERMISSIONS = {
   ACCESS_TECH_SUPPORT: [UserRole.TECH_SUPPORT, UserRole.ADMIN],
   ACCESS_FINANCIAL_REPORTS: [UserRole.ADMIN],
   MODIFY_SYSTEM_SETTINGS: [UserRole.ADMIN],
+  OVERRIDE_HISTORICAL_EDIT: [UserRole.ADMIN, UserRole.TECH_SUPPORT],
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

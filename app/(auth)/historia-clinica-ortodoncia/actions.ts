@@ -3,6 +3,8 @@
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { redirect } from 'next/navigation';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
+import { normalizeRadiografias } from '@/utils/versionUtils';
+import { calculateEstimatedAppointments } from '@/utils/progressUtils';
 
 export async function createOrthodonticHistory(formData: any) {
   
@@ -67,11 +69,15 @@ export async function createOrthodonticHistory(formData: any) {
       firma_digital_ortodoncia: firma_digital_ortodoncia || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      // Add progress tracking defaults
-      progress_percentage: 8, // 1/12 = 8.33%, rounded to 8
-      current_version: 1,
-      total_estimated_appointments: 12,
+      // Progress tracking based on treatment duration
+      // (total estimated appointments = months of treatment, min 4)
+      total_estimated_appointments: calculateEstimatedAppointments(duracion_tratamiento || '12 meses'),
       completed_appointments: 1, // First version starts with 1 completed appointment
+      progress_percentage: Math.min(
+        Math.round((1 / calculateEstimatedAppointments(duracion_tratamiento || '12 meses')) * 100),
+        100
+      ),
+      current_version: 1,
     };
 
     // Insert orthodontic history
@@ -98,7 +104,10 @@ export async function createOrthodonticHistory(formData: any) {
         original_record_id: data[0].id,
         version_number: 1,
         record_date: SimpleTimezoneFix.toDateString(new Date()),
-        progress_percentage: 8, // 1/12 = 8.33%, rounded to 8
+        progress_percentage: Math.min(
+          Math.round((1 / calculateEstimatedAppointments(duracion_tratamiento || '12 meses')) * 100),
+          100
+        ),
         is_current: true,
         
         // Copy all orthodontic data
@@ -113,7 +122,7 @@ export async function createOrthodonticHistory(formData: any) {
         fecha_inicio_tratamiento: fecha_inicio_tratamiento || null,
         fecha_fin_tratamiento: fecha_fin_tratamiento || null,
         observaciones_ortodoncia: observaciones_ortodoncia || null,
-        radiografias_realizadas: radiografias_realizadas || null,
+        radiografias_realizadas: normalizeRadiografias(radiografias_realizadas) || null,
         modelos_estudio: modelos_estudio || null,
         analisis_cefalometrico: analisis_cefalometrico || null,
         extracciones_realizadas: extracciones_realizadas || null,
@@ -126,7 +135,7 @@ export async function createOrthodonticHistory(formData: any) {
         firma_digital_ortodoncia: firma_digital_ortodoncia || null,
         
         // Progress tracking
-        total_estimated_appointments: 12,
+        total_estimated_appointments: calculateEstimatedAppointments(duracion_tratamiento || '12 meses'),
         completed_appointments: 1, // First version starts with 1 completed appointment
         
         // Metadata

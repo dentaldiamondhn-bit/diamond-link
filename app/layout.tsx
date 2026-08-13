@@ -5,6 +5,8 @@ import VercelAnalytics from '@/components/VercelAnalytics'
 import './globals.css'
 import BannerAlert from '@/components/BannerAlert'
 import GlobalChatBubble from '@/components/GlobalChatBubble'
+import AdminOverrideTimer from '@/components/AdminOverrideTimer'
+import { AdminOverrideProvider } from '@/contexts/AdminOverrideContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -106,11 +108,14 @@ export default function RootLayout({
           />
         </head>
         <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
-          <BannerAlert />
-          {children}
-          <GlobalChatBubble />
-          <Analytics />
-          <VercelAnalytics />
+          <AdminOverrideProvider>
+            <BannerAlert />
+            {children}
+            <AdminOverrideTimer />
+            <GlobalChatBubble />
+            <Analytics />
+            <VercelAnalytics />
+          </AdminOverrideProvider>
         </body>
       </html>
     </ClerkProvider>

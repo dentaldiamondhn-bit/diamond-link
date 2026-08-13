@@ -4,6 +4,7 @@ import { createClerkClient } from '@clerk/backend';
 import { currentUser } from '@clerk/nextjs/server';
 import { extractMonthsFromDuration } from '@/utils/progressUtils';
 import { normalizeRadiografias } from '@/utils/versionUtils';
+import { verifyOverrideToken } from '@/lib/adminAuth';
 
 
 const supabase = createClient();
@@ -133,6 +134,10 @@ export async function GET(request: NextRequest) {
       recordDate: version.record_date,
       progressPercentage: version.progress_percentage,
       isCurrent: version.is_current,
+      isLocked: version.is_locked ?? false,
+      lockedAt: version.locked_at ?? null,
+      lockedBy: version.locked_by ?? null,
+      parentId: version.parent_id ?? null,
       notes: version.notes,
       createdBy: version.created_by,
       createdByImage: version.created_by_image,
@@ -182,6 +187,7 @@ export async function POST(request: NextRequest) {
       recordDate, 
       notes, 
       isCurrent = false,
+      parentId,
       pacienteId,
       doctorId,
       motivoConsultaOrtodoncia,
@@ -241,6 +247,8 @@ export async function POST(request: NextRequest) {
       record_date: finalRecordDate,
       is_current: isCurrent
     };
+
+    if (parentId) insertData.parent_id = parentId;
 
     // Store the real user who created the version
     const user = await getUserFromRequest(request);
@@ -409,6 +417,49 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // ---- Historical version lock enforcement --------------------------------
+    // Editing an existing historical (non-latest or hard-locked) version
+    // requires a valid admin override token, issued only after Clerk
+    // reverification + admin/support role verification (verify-admin-override).
+    const { data: targetVersion, error: targetError } = await supabase
+      .from('historia_clinica_ortodoncia_versions')
+      .select('id, version_number, is_current, is_locked')
+      .eq('id', originalVersionId)
+      .maybeSingle();
+
+    if (targetError || !targetVersion) {
+      return NextResponse.json(
+        { error: 'Versión no encontrada' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch the max version number to decide lock state (same rule as the UI).
+    const { data: maxRow } = await supabase
+      .from('historia_clinica_ortodoncia_versions')
+      .select('version_number')
+      .eq('patient_id', patientId)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const isHistorical = (maxRow?.version_number ?? 0) > targetVersion.version_number || !!targetVersion.is_locked;
+
+    if (isHistorical) {
+      const overrideToken = request.headers.get('x-admin-override');
+      if (!overrideToken || !verifyOverrideToken(overrideToken, { versionId: originalVersionId })) {
+        return NextResponse.json(
+          { error: 'historical_version_locked: Esta versión histórica es de solo lectura. Usa "Admin / Support Unlock" para editarla.' },
+          { status: 403 }
+        );
+      }
+      // NOTE: no requester-role re-check here. The token is only issued by
+      // verify-admin-override AFTER the admin/support account passes server-side
+      // role verification, so a valid token already proves authorization. The
+      // requester's own session account is allowed to be a normal user.
+    }
+    // ------------------------------------------------------------------------
     
     // Calculate progress automatically
     const totalEstimatedAppointments = calculateTotalEstimatedAppointments(duracionTratamiento);

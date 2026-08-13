@@ -75,7 +75,8 @@ export class OrthodonticVersionService {
   async updateCurrentVersion(
     patientId: string,
     versionData: Partial<OrthodonticVersion>,
-    versionId?: string
+    versionId?: string,
+    overrideToken?: string | null
   ): Promise<void> {
     try {
       let targetVersionId = versionId;
@@ -95,11 +96,16 @@ export class OrthodonticVersionService {
       }
       
       // Update the target version in place
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (overrideToken) {
+        headers['x-admin-override'] = overrideToken;
+      }
+
       const response = await fetch('/api/orthodontic-versions', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           patientId,
           originalVersionId: targetVersionId,
