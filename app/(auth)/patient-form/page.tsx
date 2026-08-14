@@ -1591,7 +1591,7 @@ function PatientFormContent() {
         loading={false}
       />
       
-      <form onSubmit={handleSubmit} className="space-y-8" noValidate>
+      <form onSubmit={handleSubmit} data-rr-block className="space-y-8" noValidate>
         {/* Datos Personales */}
         <section>
           <h2 className="text-xl font-semibold mb-4 border-b-2 border-teal-300 pb-2">Datos Personales</h2>

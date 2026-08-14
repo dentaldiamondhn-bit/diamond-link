@@ -26,6 +26,7 @@ import AnimatedUsers from '@/components/AnimatedUsers';
 import { usePathname } from 'next/navigation';
 import { useNotificationListener } from '@/hooks/useNotificationListener';
 import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
+import { SupportWidget } from '@/components/support/SupportWidget';
 
 export default function AuthLayout({
   children,
@@ -431,6 +432,9 @@ export default function AuthLayout({
                 {/* Tutorial Modal */}
                 {ready && <TutorialModal />}
               </div>
+
+              {/* Co-Browsing support widget */}
+              {ready && <SupportWidget />}
     <style>{`
       @media (orientation: portrait) {
         .portrait-sidebar-closed {

@@ -720,7 +720,7 @@ function HistoriaClinicaOrtodonciaContent() {
         />
       </div>
       
-      <form key={`historia-form-${patientId}`} onSubmit={handleSubmit} className="space-y-6" noValidate>
+      <form key={`historia-form-${patientId}`} onSubmit={handleSubmit} data-rr-block className="space-y-6" noValidate>
       {/* Historical versions are read-only: all fields disabled until an
           admin/support override unlocks the version for this session. */}
       <fieldset disabled={effectiveLocked} className="space-y-6">

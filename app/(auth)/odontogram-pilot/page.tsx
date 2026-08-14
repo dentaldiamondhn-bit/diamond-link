@@ -1247,7 +1247,7 @@ function OdontogramPilotPageContent() {
           }
         `}</style>
 
-      <div className="odontogram-container">
+      <div data-rr-block className="odontogram-container">
         {/* Patient Info */}
         <div className="mx-auto max-w-5xl px-5 mt-0">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex flex-wrap gap-8 items-end">

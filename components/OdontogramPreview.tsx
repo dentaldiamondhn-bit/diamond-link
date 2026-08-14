@@ -319,7 +319,7 @@ export default function OdontogramPreview({ pacienteId }: OdontogramPreviewProps
   };
 
   return (
-    <div>
+    <div data-rr-block>
       {/* Header row */}
       <div className="flex items-center gap-3 mb-4">
         <span className="text-xs font-semibold px-3 py-1 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
