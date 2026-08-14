@@ -29,6 +29,8 @@ import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
 import AnimatedFolder from '@/components/AnimatedFolder';
 import { dentalStudyService } from '@/services/dentalStudyService';
+import { orthodonticVersionService } from '@/services/orthodonticVersionService';
+import { OrthodonticVersion } from '@/utils/versionUtils';
 
 function MenuNavegacionContent() {
   const { user } = useUser();
@@ -50,6 +52,8 @@ function MenuNavegacionContent() {
   const [presupuestoStatsLoading, setPresupuestoStatsLoading] = useState(true);
   const [documentStats, setDocumentStats] = useState<any>(null);
   const [documentStatsLoading, setDocumentStatsLoading] = useState(true);
+  const [orthoStats, setOrthoStats] = useState<{ total: number; latestVersion: OrthodonticVersion | null } | null>(null);
+  const [orthoStatsLoading, setOrthoStatsLoading] = useState(true);
   const [hasOrthodonticHistory, setHasOrthodonticHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -202,6 +206,29 @@ function MenuNavegacionContent() {
       checkOrthodonticHistory();
     }
   }, [validPacienteId]);
+
+  useEffect(() => {
+    const loadOrthoStats = async () => {
+      if (!patient) return;
+
+      try {
+        setOrthoStatsLoading(true);
+        const versions = await orthodonticVersionService.getVersionsByPatientId(patient.paciente_id);
+        const sorted = [...versions].sort((a, b) => b.versionNumber - a.versionNumber);
+        setOrthoStats({
+          total: sorted.length,
+          latestVersion: sorted[0] || null,
+        });
+      } catch (error) {
+        console.error('Error loading orthodontic statistics:', error);
+        setOrthoStats(null);
+      } finally {
+        setOrthoStatsLoading(false);
+      }
+    };
+
+    loadOrthoStats();
+  }, [patient]);
 
   useEffect(() => {
     const loadConsentimientoStats = async () => {
@@ -812,6 +839,64 @@ function MenuNavegacionContent() {
     );
   };
 
+  const getOrthodonticsDescription = (): JSX.Element => {
+    if (orthoStatsLoading) {
+      return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
+    }
+
+    if (!orthoStats || orthoStats.total === 0 || !orthoStats.latestVersion) {
+      return <span className="text-gray-500 dark:text-gray-400">No hay historia clínica ortodóncica registrada</span>;
+    }
+
+    const latest = orthoStats.latestVersion;
+    const formatDate = (dateString: string) => {
+      if (!dateString) return null;
+      const date = new Date(dateString);
+      const hondurasDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+      return hondurasDate.toLocaleDateString('es-HN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    };
+
+    return (
+      <div className="text-sm space-y-1">
+        <div className="flex items-center space-x-2">
+          <span className="text-gray-700 dark:text-gray-300">
+            {orthoStats.total} versione{orthoStats.total !== 1 ? 's' : ''} registradas
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-teal-600 dark:text-teal-400 font-medium">
+            v{latest.versionNumber} · {latest.progressPercentage || 0}% progreso
+          </span>
+        </div>
+        {latest.recordDate && (
+          <div className="flex items-center space-x-2">
+            <span className="text-purple-600 dark:text-purple-400 font-medium">
+              Último: {formatDate(latest.recordDate)}
+            </span>
+          </div>
+        )}
+        {latest.doctorId && (
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              <i className="fas fa-user-md mr-1"></i>{latest.doctorId}
+            </span>
+          </div>
+        )}
+        {latest.notes && (
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-amber-600 dark:text-amber-400">
+              <i className="fas fa-sticky-note mr-1"></i>Notas de la versión v{latest.versionNumber}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const getDocumentStatsDescription = (): JSX.Element => {
     if (documentStatsLoading) {
       return <span className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</span>;
@@ -967,7 +1052,7 @@ function MenuNavegacionContent() {
       id: 'historia-clinica-ortodoncia',
       icon: 'fas fa-teeth',
       title: 'Historia Clínica Ortodóncica',
-      description: 'Registre y gestione la historia clínica ortodóncica completa del paciente, incluyendo diagnóstico, plan de tratamiento y seguimiento.',
+      description: getOrthodonticsDescription(),
       href: `/historia-clinica-ortodoncia?id=${validPacienteId}`
     },
     {
