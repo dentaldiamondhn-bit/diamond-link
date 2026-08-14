@@ -175,14 +175,21 @@ function HistoriaClinicaOrtodonciaContent() {
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [doctors, setDoctors] = useState<any[]>([]); // Add doctors from database
 
+  const versionManagement = useVersionManagement({ 
+    patientId: patientId || '' 
+  });
+
+  // Recompute progress whenever the version list changes (new version created,
+  // current version updated, etc.) so the ProgressBar stays in sync.
+  const progressRefreshKey = versionManagement.versions
+    .map((v) => `${v.versionNumber}:${v.completedAppointments ?? 0}:${v.progressPercentage ?? 0}:${v.duracionTratamiento ?? ''}`)
+    .join('|');
+
   // Progress and version management hooks
   const progressData = useProgressCalculation({ 
     patientId: patientId || '', 
-    duracionTratamiento: formData.duracion_tratamiento 
-  });
-  
-  const versionManagement = useVersionManagement({ 
-    patientId: patientId || '' 
+    duracionTratamiento: formData.duracion_tratamiento,
+    refreshKey: progressRefreshKey
   });
 
   // Signal to open the "Nueva Versión" dialog from the timeline details modal

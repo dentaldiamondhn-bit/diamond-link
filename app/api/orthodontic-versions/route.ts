@@ -168,7 +168,16 @@ export async function GET(request: NextRequest) {
       totalEstimatedAppointments: version.total_estimated_appointments
     })) || [];
     
-    return NextResponse.json({ versions: transformedVersions });
+    return NextResponse.json(
+      { versions: transformedVersions },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error in orthodontic versions GET:', error);
     return NextResponse.json(

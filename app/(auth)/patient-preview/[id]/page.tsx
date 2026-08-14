@@ -30,6 +30,13 @@ import OdontogramPreview from '@/components/OdontogramPreview';
 import ProgressBar from '@/components/ProgressBar';
 import { OrthodonticVersion, sortVersionsByDate, formatVersionDisplay } from '@/utils/versionUtils';
 import { orthodonticVersionService } from '@/services/orthodonticVersionService';
+import {
+  translateMordida,
+  translateAparato,
+  translateRadiografias,
+  translateModelos,
+  formatRetainer,
+} from '@/utils/orthodonticLabels';
 import { 
   User, Phone, Mail, MapPin, Heart, Activity, Coffee, 
   FileText, Edit3, ArrowLeft, Download, Printer, 
@@ -231,6 +238,24 @@ export default function PatientPreviewPage() {
       setOrthoVersionsLoading(false);
     }
   };
+
+  // Keep the orthodontic data fresh: refetch whenever the page regains focus
+  // (tab switch, back from the ortodoncia page, browser back/forward cache).
+  useEffect(() => {
+    const refreshOrthoOnVisible = () => {
+      if (document.visibilityState === 'visible' && patient) {
+        loadOrthodonticVersions(patient.paciente_id);
+      }
+    };
+    document.addEventListener('visibilitychange', refreshOrthoOnVisible);
+    window.addEventListener('pageshow', refreshOrthoOnVisible);
+    window.addEventListener('focus', refreshOrthoOnVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshOrthoOnVisible);
+      window.removeEventListener('pageshow', refreshOrthoOnVisible);
+      window.removeEventListener('focus', refreshOrthoOnVisible);
+    };
+  }, [patient?.paciente_id]);
 
   const loadTratamientosCompletados = async (pacienteId: string) => {
     setTratamientosCompletadosLoading(true);
@@ -1637,19 +1662,18 @@ export default function PatientPreviewPage() {
             { label: 'Motivo de Consulta Ortodóncica', value: version.motivoConsultaOrtodoncia },
             { label: 'Diagnóstico Ortodóncico', value: version.diagnosticoOrtodoncia },
             { label: 'Plan de Tratamiento Ortodóncico', value: version.planTratamientoOrtodoncia },
-            { label: 'Tipo de Mordida', value: version.tipoMordida },
-            { label: 'Tipo de Aparato', value: version.tipoAparato },
+{ label: 'Tipo de Mordida', value: translateMordida(version.tipoMordida || '') },
+            { label: 'Tipo de Aparato', value: translateAparato(version.tipoAparato || '') },
             { label: 'Duración Estimada', value: version.duracionTratamiento },
             { label: 'Fecha Inicio Tratamiento', value: version.fechaInicioTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaInicioTratamiento) : null },
             { label: 'Fecha Fin Tratamiento', value: version.fechaFinTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaFinTratamiento) : null },
             { label: 'Observaciones Ortodóncicas', value: version.observacionesOrtodoncia },
           ];
-          if (version.radiografiasRealizadas) details.push({ label: 'Radiografías Realizadas', value: version.radiografiasRealizadas });
-          if (version.modelosEstudio) details.push({ label: 'Modelos de Estudio', value: version.modelosEstudio });
-          if (version.analisisCefalometrico) details.push({ label: 'Análisis Cefalométrico', value: version.analisisCefalometrico });
+          if (version.radiografiasRealizadas) details.push({ label: 'Radiografías Realizadas', value: translateRadiografias(version.radiografiasRealizadas) });
+          if (version.modelosEstudio) details.push({ label: 'Modelos de Estudio', value: translateModelos(version.modelosEstudio) });
           if (version.extraccionesRealizadas) details.push({ label: 'Extracciones Realizadas', value: version.extraccionesRealizadas });
-          if (version.retenedorTipo || version.retenedorUso) details.push({ label: 'Retenedor Superior', value: [version.retenedorTipo, version.retenedorUso].filter(Boolean).join(' · ') });
-          if (version.retenedorInferiorTipo || version.retenedorInferiorUso) details.push({ label: 'Retenedor Inferior', value: [version.retenedorInferiorTipo, version.retenedorInferiorUso].filter(Boolean).join(' · ') });
+          if (version.retenedorTipo || version.retenedorUso) details.push({ label: 'Retenedor Superior', value: formatRetainer(version.retenedorTipo || '', version.retenedorUso || '') });
+          if (version.retenedorInferiorTipo || version.retenedorInferiorUso) details.push({ label: 'Retenedor Inferior', value: formatRetainer(version.retenedorInferiorTipo || '', version.retenedorInferiorUso || '') });
           if (version.seguimientoPostTratamiento) details.push({ label: 'Seguimiento Post-Tratamiento', value: version.seguimientoPostTratamiento });
           if (version.notes) details.push({ label: 'Notas de Versión', value: version.notes });
 

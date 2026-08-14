@@ -5,6 +5,13 @@ import { formatVersionDisplay, OrthodonticVersion } from '@/utils/versionUtils';
 import { getProgressColor, extractMonthsFromDuration } from '@/utils/progressUtils';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 import DocumentDisplay from './DocumentDisplay';
+import {
+  translateMordida,
+  translateAparato,
+  translateRadiografias,
+  translateModelos,
+  formatRetainer,
+} from '@/utils/orthodonticLabels';
 
 // Progress shown in cards/modal must match the top ProgressBar: total
 // appointments = months of treatment (min 4); fall back to stored values.
@@ -290,9 +297,12 @@ const Timeline: React.FC<TimelineProps> = ({
                         )}
                         
                         {version.notes && (
-                          <div className="flex items-start gap-2">
-                            <i className="fas fa-sticky-note mt-1 text-amber-500"></i>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+                          <div>
+                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                              <i className="fas fa-sticky-note mr-1 text-amber-500"></i>
+                              Notas de la Versión
+                            </span>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 italic mt-1 whitespace-pre-wrap">
                               {version.notes}
                             </p>
                           </div>
@@ -628,79 +638,5 @@ const InfoRow: React.FC<{ label: string; value: string }> = ({ label, value }) =
     </p>
   </div>
 );
-
-const MORDIDA_LABELS: Record<string, string> = {
-  clase_i: 'Clase I',
-  clase_ii: 'Clase II',
-  clase_ii_division_1: 'Clase II División 1',
-  clase_ii_division_2: 'Clase II División 2',
-  clase_iii: 'Clase III',
-  mordida_abierta: 'Mordida abierta',
-  mordida_abierta_anterior: 'Mordida abierta anterior',
-  mordida_abierta_posterior: 'Mordida abierta posterior',
-  mordida_cruzada: 'Mordida cruzada',
-  mordida_cruzada_anterior: 'Mordida cruzada anterior',
-  mordida_cruzada_posterior: 'Mordida cruzada posterior',
-  mordida_profunda: 'Mordida profunda',
-};
-
-const APARATO_LABELS: Record<string, string> = {
-  brackets_metalicos: 'Brackets metálicos',
-  brackets_ceramicos: 'Brackets cerámicos',
-  brackets_zafiro: 'Brackets de zafiro',
-  invisalign: 'Invisalign',
-  aparato_removible: 'Aparato removible',
-  expansion_palatina: 'Expansión palatina',
-  mantenedor_espacio: 'Mantenedor de espacio',
-};
-
-const RADIOGRAFIAS_LABELS: Record<string, string> = {
-  panoramica: 'Panorámica',
-  periapical: 'Periapical',
-  oclusal: 'Oclusal',
-  lateral_craneo: 'Lateral de cráneo',
-  todas: 'Todas',
-};
-
-const MODELOS_LABELS: Record<string, string> = {
-  si: 'Sí',
-  no: 'No',
-  en_proceso: 'En proceso',
-};
-
-const RETENEDOR_LABELS: Record<string, string> = {
-  fijo: 'Fijo',
-  removible: 'Removible',
-  hawley: 'Hawley',
-  invisible: 'Invisible',
-  sin_retenedor: 'Sin retenedor',
-};
-
-const RETENEDOR_USO_LABELS: Record<string, string> = {
-  tiempo_completo: 'Tiempo completo',
-  noche: 'Noche',
-  ocasional: 'Ocasional',
-  no_usa: 'No lo usa',
-};
-
-const translateLabel = (value: string, labels: Record<string, string>): string =>
-  labels[value] || value;
-
-const translateMordida = (value: string): string => translateLabel(value, MORDIDA_LABELS);
-const translateAparato = (value: string): string => translateLabel(value, APARATO_LABELS);
-const translateRadiografias = (value: unknown): string => {
-  if (value === null || value === undefined || value === '') return '';
-  const parts = Array.isArray(value)
-    ? value.map((item) => String(item))
-    : String(value).split(',').map((part) => part.trim()).filter(Boolean);
-  if (parts.length === 0) return '';
-  return parts.map((part) => translateLabel(part, RADIOGRAFIAS_LABELS)).join(', ');
-};
-const translateModelos = (value: string): string => translateLabel(value, MODELOS_LABELS);
-
-const formatRetainer = (tipo: string, uso?: string): string => {
-  const tipoLabel = translateLabel(tipo, RETENEDOR_LABELS);
-  return uso ? `${tipoLabel} · ${translateLabel(uso, RETENEDOR_USO_LABELS)}` : tipoLabel;
-};
 
 export default Timeline;

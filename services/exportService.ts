@@ -5,7 +5,14 @@ import { Presupuesto, parseConteoPorEstado } from './presupuestoService';
 import { Odontogram, OdontogramData } from '../types/odontogram';
 import { SimpleTimezoneFix } from './simpleTimezoneFix';
 import { formatCurrency } from '../utils/currencyUtils';
-import { OrthodonticVersion, formatVersionDisplay, normalizeRadiografias } from '../utils/versionUtils';
+import { OrthodonticVersion, formatVersionDisplay } from '../utils/versionUtils';
+import {
+  translateMordida,
+  translateAparato,
+  translateRadiografias,
+  translateModelos,
+  formatRetainer,
+} from '../utils/orthodonticLabels';
 
 const ODONT_CUADRANTES = ['mesial', 'distal', 'buccal', 'lingual'] as const;
 type OdontCuadrante = typeof ODONT_CUADRANTES[number];
@@ -989,23 +996,27 @@ export class ExportService {
       return `<div class="field"><span class="field-label">${label}:</span><span class="field-value">${value}</span></div>`;
     };
 
-    const retenedorSuperior = [version.retenedorTipo, version.retenedorUso].filter(Boolean).join(' · ');
-    const retenedorInferior = [version.retenedorInferiorTipo, version.retenedorInferiorUso].filter(Boolean).join(' · ');
-    const radiografias = version.radiografiasRealizadas ? normalizeRadiografias(version.radiografiasRealizadas) : '';
+    const retenedorSuperior = version.retenedorTipo || version.retenedorUso
+      ? formatRetainer(version.retenedorTipo || '', version.retenedorUso || '')
+      : '';
+    const retenedorInferior = version.retenedorInferiorTipo || version.retenedorInferiorUso
+      ? formatRetainer(version.retenedorInferiorTipo || '', version.retenedorInferiorUso || '')
+      : '';
+    const radiografias = version.radiografiasRealizadas ? translateRadiografias(version.radiografiasRealizadas) : '';
 
     const fields =
       field('Doctor Tratante', version.doctorId) +
       field('Motivo de Consulta Ortodóncica', version.motivoConsultaOrtodoncia) +
       field('Diagnóstico Ortodóncico', version.diagnosticoOrtodoncia) +
       field('Plan de Tratamiento Ortodóncico', version.planTratamientoOrtodoncia) +
-      field('Tipo de Mordida', version.tipoMordida) +
-      field('Tipo de Aparato', version.tipoAparato) +
+      field('Tipo de Mordida', version.tipoMordida ? translateMordida(version.tipoMordida) : '') +
+      field('Tipo de Aparato', version.tipoAparato ? translateAparato(version.tipoAparato) : '') +
       field('Duración Estimada', version.duracionTratamiento) +
       field('Fecha Inicio Tratamiento', version.fechaInicioTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaInicioTratamiento) : '') +
       field('Fecha Fin Tratamiento', version.fechaFinTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaFinTratamiento) : '') +
       field('Observaciones Ortodóncicas', version.observacionesOrtodoncia) +
       field('Radiografías Realizadas', radiografias) +
-      field('Modelos de Estudio', version.modelosEstudio) +
+      field('Modelos de Estudio', version.modelosEstudio ? translateModelos(version.modelosEstudio) : '') +
       field('Análisis Cefalométrico', version.analisisCefalometrico) +
       field('Extracciones Realizadas', version.extraccionesRealizadas) +
       field('Retenedor Superior', retenedorSuperior) +

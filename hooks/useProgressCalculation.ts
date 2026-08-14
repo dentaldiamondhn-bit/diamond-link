@@ -7,6 +7,7 @@ import { orthodonticVersionService } from '@/services/orthodonticVersionService'
 export interface UseProgressCalculationProps {
   patientId: string;
   duracionTratamiento?: string;
+  refreshKey?: string | number;
 }
 
 export interface ProgressData {
@@ -23,7 +24,8 @@ export interface ProgressData {
 
 export const useProgressCalculation = ({ 
   patientId, 
-  duracionTratamiento 
+  duracionTratamiento,
+  refreshKey
 }: UseProgressCalculationProps): ProgressData => {
   const [progressData, setProgressData] = useState<ProgressData>({
     completedAppointments: 0,
@@ -105,7 +107,7 @@ export const useProgressCalculation = ({
     };
 
     fetchProgressData();
-  }, [patientId, duracionTratamiento]);
+  }, [patientId, duracionTratamiento, refreshKey]);
 
   return progressData;
 };
