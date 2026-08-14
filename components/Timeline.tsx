@@ -33,6 +33,8 @@ interface TimelineProps {
   selectedIsLocked?: boolean;
   /** Opens the admin/support unlock flow (Clerk reverification). */
   onUnlock?: () => void;
+  /** Admin/support/tech-support session: every historical version is unlocked. */
+  privilegedUnlock?: boolean;
 }
 
 const Timeline: React.FC<TimelineProps> = ({
@@ -42,7 +44,8 @@ const Timeline: React.FC<TimelineProps> = ({
   loading = false,
   onCreateNewVersion,
   selectedIsLocked = false,
-  onUnlock
+  onUnlock,
+  privilegedUnlock = false
 }) => {
   const [hoveredVersion, setHoveredVersion] = useState<string | null>(null);
   const [detailsVersion, setDetailsVersion] = useState<OrthodonticVersion | null>(null);
@@ -187,8 +190,12 @@ const Timeline: React.FC<TimelineProps> = ({
                         </div>
                         
                         {!isCurrent && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
-                            <i className="fas fa-lock text-xs"></i>
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                            (isSelected && !selectedIsLocked) || privilegedUnlock
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
+                          }`}>
+                            <i className={`fas ${(isSelected && !selectedIsLocked) || privilegedUnlock ? 'fa-lock-open' : 'fa-lock'} text-xs`}></i>
                             Histórica
                           </span>
                         )}

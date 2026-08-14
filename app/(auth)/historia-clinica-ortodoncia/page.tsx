@@ -716,6 +716,7 @@ function HistoriaClinicaOrtodonciaContent() {
           onCreateNewVersion={() => setNewVersionSignal((signal) => signal + 1)}
           selectedIsLocked={effectiveLocked}
           onUnlock={() => setShowAdminOverrideModal(true)}
+          privilegedUnlock={isPrivilegedUser}
         />
       </div>
       
