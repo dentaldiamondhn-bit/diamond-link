@@ -502,7 +502,7 @@ export default function PatientFollowUpPage() {
   /* ---- render ---------------------------------------------------- */
   return (
     <div className="py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div data-rr-block className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
           <StatCard label="Total" value={stats.total} color="text-gray-900 dark:text-white" bg="bg-white dark:bg-gray-800" />

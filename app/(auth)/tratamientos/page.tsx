@@ -1102,7 +1102,7 @@ export default function TratamientosPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div data-rr-block className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Search Bar - Moved up */}
       <div className="bg-white dark:bg-gray-800 overflow-hidden shadow-xl rounded-2xl border border-gray-200 dark:border-gray-700 mb-6">
             <div className="p-6">

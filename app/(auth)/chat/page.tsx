@@ -631,7 +631,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-full">
+    <div data-rr-block className="flex h-full">
         {/* Conversations Sidebar */}
         <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 flex-col bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700`}>
           {/* Sidebar Header */}

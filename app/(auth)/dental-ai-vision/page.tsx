@@ -295,7 +295,7 @@ export default function DentalAIVisionWorkspace() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-slate-950 text-slate-100 font-sans overflow-hidden">
+    <div data-rr-block className="flex h-screen w-full bg-slate-950 text-slate-100 font-sans overflow-hidden">
       {/* LEFT PANE */}
       <div className="flex flex-col flex-1 border-r border-slate-800 bg-slate-900/50">
         <header className="flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-slate-900">
