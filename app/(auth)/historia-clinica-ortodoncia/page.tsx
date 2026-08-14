@@ -197,23 +197,24 @@ function HistoriaClinicaOrtodonciaContent() {
   // Admin/Support step-up override state (shared with the global countdown
   // timer bubble; lives in AdminOverrideContext so it survives navigation).
   const [showAdminOverrideModal, setShowAdminOverrideModal] = useState(false);
-  const { unlockVersion, getActiveToken, hasActiveOverride } = useAdminOverride();
+  const { unlockVersion, getOverrideToken } = useAdminOverride();
 
   // A version is read-only when it is not the latest (max version_number) or
-  // was hard-locked. An admin/support unlock token overrides this for the
-  // session: while any unlock is still valid (timer not expired) the other
-  // historical versions stay editable too. Admin/support/tech-support
-  // accounts have full access by role and never see the lock UI.
+  // was hard-locked. Only that exact version becomes editable when an
+  // admin/support unlock token is active for it (per-version, until the
+  // token expires). Admin/support/tech-support accounts have full access by
+  // role and never see the lock UI.
   const selectedIsLocked = isVersionLocked(
     versionManagement.selectedVersion,
     versionManagement.versions
   );
+  const selectedVersionId = versionManagement.selectedVersion?.id;
   const overrideRoles = ['admin', 'support', 'tech_support', 'tech-support'];
   const isPrivilegedUser =
     overrideRoles.includes(String(user?.publicMetadata?.role ?? '').toLowerCase()) ||
     user?.id === 'user_3A1mYfR054eV3tqtellpfMKZ7f6';
   const effectiveLocked =
-    selectedIsLocked && !hasActiveOverride() && !isPrivilegedUser;
+    selectedIsLocked && !(selectedVersionId && getOverrideToken(selectedVersionId)) && !isPrivilegedUser;
 
   // Populate form when a version is selected from timeline
   useEffect(() => {
@@ -665,7 +666,7 @@ function HistoriaClinicaOrtodonciaContent() {
             seguimientoPostTratamiento: formData.seguimiento_post_tratamiento,
             documentosOrtodoncia: formData.documentos_ortodoncia,
             firmaDigitalOrtodoncia: formData.firma_digital_ortodoncia
-          }, getActiveToken());
+          }, selectedVersionId ? getOverrideToken(selectedVersionId) : null);
         }}
         onSaveNew={async (data) => {
           // The dialog collects the full clinical template (seeded from the

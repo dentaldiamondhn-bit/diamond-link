@@ -4,7 +4,7 @@ import { createClerkClient } from '@clerk/backend';
 import { currentUser } from '@clerk/nextjs/server';
 import { extractMonthsFromDuration } from '@/utils/progressUtils';
 import { normalizeRadiografias } from '@/utils/versionUtils';
-import { decodeOverrideToken, isOverrideUser, verifyOverrideToken } from '@/lib/adminAuth';
+import { isOverrideUser, verifyOverrideToken } from '@/lib/adminAuth';
 
 
 const supabase = createClient();
@@ -466,22 +466,9 @@ export async function PUT(request: NextRequest) {
 
     if (isHistorical && !requesterIsPrivileged) {
       const overrideToken = request.headers.get('x-admin-override');
-      let tokenOk = !!overrideToken && verifyOverrideToken(overrideToken, { versionId: originalVersionId });
-      // An unlock is patient-scoped: once an admin/support unlocks any version
-      // of this patient, the token also authorizes editing the other historical
-      // versions while the token window is still valid.
-      if (!tokenOk && overrideToken) {
-        const decoded = decodeOverrideToken(overrideToken);
-        if (decoded && decoded.versionId !== originalVersionId) {
-          const { data: tokenTargetVersion } = await supabase
-            .from('historia_clinica_ortodoncia_versions')
-            .select('patient_id')
-            .eq('id', decoded.versionId)
-            .maybeSingle();
-          tokenOk = !!tokenTargetVersion && tokenTargetVersion.patient_id === patientId;
-        }
-      }
-      if (!tokenOk) {
+      // The token is bound to the exact version being edited: unlocking one
+      // version never authorizes edits to the others.
+      if (!overrideToken || !verifyOverrideToken(overrideToken, { versionId: originalVersionId })) {
         return NextResponse.json(
           { error: 'historical_version_locked: Esta versión histórica es de solo lectura. Usa "Admin / Support Unlock" para editarla.' },
           { status: 403 }
