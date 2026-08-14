@@ -30,7 +30,7 @@ function getZone(remainingMs: number): Zone {
 }
 
 /**
- * Floating countdown bubble shown right above the GlobalChatBubble while an
+ * Floating countdown bubble shown next to the support widget while an
  * admin/support unlock of a historical version is active. Counts down the
  * override token's remaining lifetime (10 minutes from issuance). Collapses
  * to a small circle 10s after unlocking; hovering (or tapping on touch

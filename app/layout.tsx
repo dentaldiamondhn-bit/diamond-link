@@ -4,7 +4,6 @@ import { Analytics } from '@vercel/analytics/react'
 import VercelAnalytics from '@/components/VercelAnalytics'
 import './globals.css'
 import BannerAlert from '@/components/BannerAlert'
-import GlobalChatBubble from '@/components/GlobalChatBubble'
 import AdminOverrideTimer from '@/components/AdminOverrideTimer'
 import { AdminOverrideProvider } from '@/contexts/AdminOverrideContext'
 
@@ -112,7 +111,6 @@ export default function RootLayout({
             <BannerAlert />
             {children}
             <AdminOverrideTimer />
-            <GlobalChatBubble />
             <Analytics />
             <VercelAnalytics />
           </AdminOverrideProvider>
