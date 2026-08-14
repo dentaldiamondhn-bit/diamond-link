@@ -778,7 +778,7 @@ export class ExportService {
                 ${field('Póliza', patient.poliza)}
             </div>
         </div>
-        ${((patient.edad && patient.edad < 18) || patient.representante_legal) ? `
+        ${(patient.edad && patient.edad < 18) ? `
         <div class="subtitle">Representante Legal</div>
         ${field('Nombre del Representante', patient.representante_legal)}
         ${field('Parentesco', patient.parentesco)}
@@ -1021,8 +1021,7 @@ export class ExportService {
       field('Extracciones Realizadas', version.extraccionesRealizadas) +
       field('Retenedor Superior', retenedorSuperior) +
       field('Retenedor Inferior', retenedorInferior) +
-      field('Seguimiento Post-Tratamiento', version.seguimientoPostTratamiento) +
-      field('Notas de Versión', version.notes);
+      field('Seguimiento Post-Tratamiento', version.seguimientoPostTratamiento);
 
     return `
     <div class="section">
@@ -1032,6 +1031,12 @@ export class ExportService {
             ${version.isCurrent ? ` · Progreso: ${version.progressPercentage || 0}%` : ''}
             ${version.createdBy ? ` · Creado por: ${version.createdBy}` : ''}
         </div>
+        ${version.notes ? `
+        <div style="margin: 0 0 12px; padding: 10px 12px; border: 1px solid #fcd34d; background: #fffbeb; border-radius: 10px;">
+            <div style="font-size: 12px; font-weight: bold; color: #92400e; margin-bottom: 4px;">Notas de la Versión</div>
+            <div style="font-size: 13px; color: #374151; white-space: pre-wrap;">${version.notes}</div>
+        </div>
+        ` : ''}
         <div class="grid-2">
             ${fields}
         </div>

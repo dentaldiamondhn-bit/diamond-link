@@ -85,21 +85,29 @@ export function signOverrideToken(payload: { versionId: string; adminUserId: str
 
 /** Verify a previously issued override token (HMAC + TTL + version binding). */
 export function verifyOverrideToken(token: string | null, expected: { versionId: string }): boolean {
-  if (!token) return false;
+  const payload = decodeOverrideToken(token);
+  return !!payload && payload.versionId === expected.versionId;
+}
+
+/**
+ * Decode a previously issued override token, verifying HMAC integrity and TTL.
+ * Returns the payload (versionId, adminUserId, exp) or null when invalid/expired.
+ */
+export function decodeOverrideToken(token: string | null): OverrideTokenPayload | null {
+  if (!token) return null;
   const [body, sig] = token.split('.');
-  if (!body || !sig) return false;
+  if (!body || !sig) return null;
 
   const expectedSig = createHmac('sha256', getSecret()).update(body).digest('base64url');
   const a = Buffer.from(expectedSig);
   const b = Buffer.from(sig);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
 
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as OverrideTokenPayload;
-    if (payload.versionId !== expected.versionId) return false;
-    if (typeof payload.exp !== 'number' || payload.exp < Date.now()) return false;
-    return true;
+    if (typeof payload.exp !== 'number' || payload.exp < Date.now()) return null;
+    return payload;
   } catch {
-    return false;
+    return null;
   }
 }

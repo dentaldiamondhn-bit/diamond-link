@@ -1022,8 +1022,8 @@ export default function PatientPreviewPage() {
                 <p className="text-gray-600 dark:text-gray-400">{patient.contacto}</p>
               </div>
             )}
-            {/* Legal Representative Information - Show if under 18 or if representative data exists */}
-            {((patient.edad && patient.edad < 18) || patient.representante_legal) && (
+            {/* Legal Representative Information - only relevant for minors */}
+            {patient.edad && patient.edad < 18 && (
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
                 <h4 className="text-md font-semibold text-gray-800 dark:text-white mb-3">
                   <div className="w-5 h-5 mr-2 flex items-center justify-center">
@@ -1657,28 +1657,33 @@ export default function PatientPreviewPage() {
           </div>
         ) : orthoVersions.length > 0 ? (() => {
           const version = orthoVersions[0];
+          const notes = version.notes;
           const details: { label: string; value?: string | number | null }[] = [
             { label: 'Doctor Tratante', value: version.doctorId },
             { label: 'Motivo de Consulta Ortodóncica', value: version.motivoConsultaOrtodoncia },
             { label: 'Diagnóstico Ortodóncico', value: version.diagnosticoOrtodoncia },
             { label: 'Plan de Tratamiento Ortodóncico', value: version.planTratamientoOrtodoncia },
-{ label: 'Tipo de Mordida', value: translateMordida(version.tipoMordida || '') },
+            { label: 'Tipo de Mordida', value: translateMordida(version.tipoMordida || '') },
             { label: 'Tipo de Aparato', value: translateAparato(version.tipoAparato || '') },
             { label: 'Duración Estimada', value: version.duracionTratamiento },
             { label: 'Fecha Inicio Tratamiento', value: version.fechaInicioTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaInicioTratamiento) : null },
             { label: 'Fecha Fin Tratamiento', value: version.fechaFinTratamiento ? SimpleTimezoneFix.formatDisplayDate(version.fechaFinTratamiento) : null },
+            { label: 'Radiografías Realizadas', value: translateRadiografias(version.radiografiasRealizadas) },
+            { label: 'Modelos de Estudio', value: translateModelos(version.modelosEstudio || '') },
+            { label: 'Análisis Cefalométrico', value: version.analisisCefalometrico },
+            { label: 'Extracciones Realizadas', value: version.extraccionesRealizadas },
+            ...(version.retenedorTipo || version.retenedorUso
+              ? [{ label: 'Retenedor Superior', value: formatRetainer(version.retenedorTipo || '', version.retenedorUso || '') }]
+              : []),
+            ...(version.retenedorInferiorTipo || version.retenedorInferiorUso
+              ? [{ label: 'Retenedor Inferior', value: formatRetainer(version.retenedorInferiorTipo || '', version.retenedorInferiorUso || '') }]
+              : []),
             { label: 'Observaciones Ortodóncicas', value: version.observacionesOrtodoncia },
+            { label: 'Seguimiento Post-Tratamiento', value: version.seguimientoPostTratamiento },
           ];
-          if (version.radiografiasRealizadas) details.push({ label: 'Radiografías Realizadas', value: translateRadiografias(version.radiografiasRealizadas) });
-          if (version.modelosEstudio) details.push({ label: 'Modelos de Estudio', value: translateModelos(version.modelosEstudio) });
-          if (version.extraccionesRealizadas) details.push({ label: 'Extracciones Realizadas', value: version.extraccionesRealizadas });
-          if (version.retenedorTipo || version.retenedorUso) details.push({ label: 'Retenedor Superior', value: formatRetainer(version.retenedorTipo || '', version.retenedorUso || '') });
-          if (version.retenedorInferiorTipo || version.retenedorInferiorUso) details.push({ label: 'Retenedor Inferior', value: formatRetainer(version.retenedorInferiorTipo || '', version.retenedorInferiorUso || '') });
-          if (version.seguimientoPostTratamiento) details.push({ label: 'Seguimiento Post-Tratamiento', value: version.seguimientoPostTratamiento });
-          if (version.notes) details.push({ label: 'Notas de Versión', value: version.notes });
 
           return (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-xl">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r from-teal-500 to-cyan-500">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -1706,14 +1711,31 @@ export default function PatientPreviewPage() {
                   size="sm"
                 />
 
+                {(details.filter(item => item.value).length > 0 || notes) && (
                 <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  {details.filter(item => item.value).map((item) => (
-                    <div key={item.label} className={item.label === 'Motivo de Consulta Ortodóncica' || item.label === 'Diagnóstico Ortodóncico' || item.label === 'Plan de Tratamiento Ortodóncico' || item.label === 'Observaciones Ortodóncicas' || item.label === 'Seguimiento Post-Tratamiento' ? 'md:col-span-2' : ''}>
+                  {details.slice(0, 1).filter(item => item.value).map((item) => (
+                    <div key={item.label}>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{item.label}</p>
+                      <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{item.value}</p>
+                    </div>
+                  ))}
+                  {notes && (
+                    <div className="md:col-span-2 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
+                      <h4 className="flex items-center gap-2 text-sm font-bold text-amber-800 dark:text-amber-300">
+                        <i className="fas fa-sticky-note text-amber-500"></i>
+                        Notas de la Versión
+                      </h4>
+                      <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{notes}</p>
+                    </div>
+                  )}
+                  {details.slice(1).filter(item => item.value).map((item) => (
+                    <div key={item.label} className={item.label === 'Motivo de Consulta Ortodóncica' || item.label === 'Diagnóstico Ortodóncico' || item.label === 'Plan de Tratamiento Ortodóncico' || item.label === 'Análisis Cefalométrico' || item.label === 'Observaciones Ortodóncicas' || item.label === 'Seguimiento Post-Tratamiento' ? 'md:col-span-2' : ''}>
                       <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{item.label}</p>
                       <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{item.value}</p>
                     </div>
                   ))}
                 </div>
+              )}
 
                 {version.documentosOrtodoncia && version.documentosOrtodoncia.length > 0 && (
                   <div className="mt-6">

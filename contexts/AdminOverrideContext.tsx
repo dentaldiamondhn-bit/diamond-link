@@ -17,6 +17,10 @@ interface AdminOverrideContextValue {
   recentVersionId: string | null;
   unlockVersion: (versionId: string, versionNumber: number, token: string) => void;
   getOverrideToken: (versionId: string) => string | null;
+  /** Token of any still-valid override (patient-scoped unlock), or null. */
+  getActiveToken: () => string | null;
+  /** True while at least one override is still valid (not time-expired). */
+  hasActiveOverride: () => boolean;
   clearOverride: (versionId: string) => void;
 }
 
@@ -80,6 +84,21 @@ export function AdminOverrideProvider({ children }: { children: React.ReactNode 
     [overrides]
   );
 
+  const getActiveOverride = (current: Record<string, ActiveOverride>): ActiveOverride | null => {
+    const now = Date.now();
+    for (const override of Object.values(current)) {
+      if (override.expiresAt > now) return override;
+    }
+    return null;
+  };
+
+  const getActiveToken = useCallback((): string | null => {
+    const active = getActiveOverride(overrides);
+    return active ? active.token : null;
+  }, [overrides]);
+
+  const hasActiveOverride = useCallback((): boolean => getActiveOverride(overrides) !== null, [overrides]);
+
   const clearOverride = useCallback((versionId: string) => {
     setOverrides((current) => {
       const next = { ...current };
@@ -95,9 +114,11 @@ export function AdminOverrideProvider({ children }: { children: React.ReactNode 
       recentVersionId,
       unlockVersion,
       getOverrideToken,
+      getActiveToken,
+      hasActiveOverride,
       clearOverride,
     }),
-    [overrides, recentVersionId, unlockVersion, getOverrideToken, clearOverride]
+    [overrides, recentVersionId, unlockVersion, getOverrideToken, getActiveToken, hasActiveOverride, clearOverride]
   );
 
   return <AdminOverrideContext.Provider value={value}>{children}</AdminOverrideContext.Provider>;

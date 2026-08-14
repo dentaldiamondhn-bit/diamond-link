@@ -30,7 +30,6 @@ import { OrthodonticVersion, normalizeRadiografias, isVersionLocked } from '@/ut
 import { calculateProgress, extractMonthsFromDuration, calculateEstimatedAppointments } from '@/utils/progressUtils';
 import AnimatedLeft from '@/components/AnimatedLeft';
 import AnimatedRight from '@/components/AnimatedRight';
-import VersionLockBanner from '@/components/VersionLockBanner';
 import AdminOverrideModal from '@/components/AdminOverrideModal';
 import { useAdminOverride } from '@/contexts/AdminOverrideContext';
 
@@ -198,17 +197,18 @@ function HistoriaClinicaOrtodonciaContent() {
   // Admin/Support step-up override state (shared with the global countdown
   // timer bubble; lives in AdminOverrideContext so it survives navigation).
   const [showAdminOverrideModal, setShowAdminOverrideModal] = useState(false);
-  const { getOverrideToken, unlockVersion } = useAdminOverride();
+  const { unlockVersion, getActiveToken, hasActiveOverride } = useAdminOverride();
 
   // A version is read-only when it is not the latest (max version_number) or
-  // was hard-locked. An admin/support unlock token overrides this for the session.
+  // was hard-locked. An admin/support unlock token overrides this for the
+  // session: while any unlock is still valid (timer not expired) the other
+  // historical versions stay editable too.
   const selectedIsLocked = isVersionLocked(
     versionManagement.selectedVersion,
     versionManagement.versions
   );
-  const selectedVersionId = versionManagement.selectedVersion?.id;
   const effectiveLocked =
-    selectedIsLocked && !(selectedVersionId && getOverrideToken(selectedVersionId));
+    selectedIsLocked && !hasActiveOverride();
 
   // Populate form when a version is selected from timeline
   useEffect(() => {
@@ -632,14 +632,6 @@ function HistoriaClinicaOrtodonciaContent() {
         />
       </div>
 
-      {/* Version Lock / Read-Only Banner */}
-      <VersionLockBanner
-        isLocked={effectiveLocked}
-        version={versionManagement.selectedVersion}
-        onUnlock={() => setShowAdminOverrideModal(true)}
-        onCreateNewVersion={() => setNewVersionSignal((signal) => signal + 1)}
-      />
-      
       {/* Version Management Section */}
       <VersionManager
         onUpdateCurrent={async () => {
@@ -668,7 +660,7 @@ function HistoriaClinicaOrtodonciaContent() {
             seguimientoPostTratamiento: formData.seguimiento_post_tratamiento,
             documentosOrtodoncia: formData.documentos_ortodoncia,
             firmaDigitalOrtodoncia: formData.firma_digital_ortodoncia
-          }, selectedVersionId ? getOverrideToken(selectedVersionId) : null);
+          }, getActiveToken());
         }}
         onSaveNew={async (data) => {
           // The dialog collects the full clinical template (seeded from the
@@ -716,6 +708,8 @@ function HistoriaClinicaOrtodonciaContent() {
           selectedVersionId={versionManagement.selectedVersion?.id}
           loading={versionManagement.loading}
           onCreateNewVersion={() => setNewVersionSignal((signal) => signal + 1)}
+          selectedIsLocked={effectiveLocked}
+          onUnlock={() => setShowAdminOverrideModal(true)}
         />
       </div>
       

@@ -29,6 +29,10 @@ interface TimelineProps {
   selectedVersionId?: string;
   loading?: boolean;
   onCreateNewVersion?: () => void;
+  /** The selected version is locked (historical / hard-locked, no active unlock). */
+  selectedIsLocked?: boolean;
+  /** Opens the admin/support unlock flow (Clerk reverification). */
+  onUnlock?: () => void;
 }
 
 const Timeline: React.FC<TimelineProps> = ({
@@ -36,7 +40,9 @@ const Timeline: React.FC<TimelineProps> = ({
   onVersionSelect,
   selectedVersionId,
   loading = false,
-  onCreateNewVersion
+  onCreateNewVersion,
+  selectedIsLocked = false,
+  onUnlock
 }) => {
   const [hoveredVersion, setHoveredVersion] = useState<string | null>(null);
   const [detailsVersion, setDetailsVersion] = useState<OrthodonticVersion | null>(null);
@@ -330,6 +336,26 @@ const Timeline: React.FC<TimelineProps> = ({
                       </>
                     )}
                   </div>
+
+                  {isSelected && selectedIsLocked && onUnlock && (
+                    <div className="flex items-center justify-between gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/30 border-t border-amber-200 dark:border-amber-800">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                        <i className="fas fa-lock text-amber-500 text-xs"></i>
+                        Versión Histórica (Solo Lectura)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUnlock();
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-md transition-colors"
+                      >
+                        <i className="fas fa-user-shield"></i>
+                        Desbloquear
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
