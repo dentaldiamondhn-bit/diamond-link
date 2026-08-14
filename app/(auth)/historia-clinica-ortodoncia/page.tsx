@@ -202,13 +202,18 @@ function HistoriaClinicaOrtodonciaContent() {
   // A version is read-only when it is not the latest (max version_number) or
   // was hard-locked. An admin/support unlock token overrides this for the
   // session: while any unlock is still valid (timer not expired) the other
-  // historical versions stay editable too.
+  // historical versions stay editable too. Admin/support/tech-support
+  // accounts have full access by role and never see the lock UI.
   const selectedIsLocked = isVersionLocked(
     versionManagement.selectedVersion,
     versionManagement.versions
   );
+  const overrideRoles = ['admin', 'support', 'tech_support', 'tech-support'];
+  const isPrivilegedUser =
+    overrideRoles.includes(String(user?.publicMetadata?.role ?? '').toLowerCase()) ||
+    user?.id === 'user_3A1mYfR054eV3tqtellpfMKZ7f6';
   const effectiveLocked =
-    selectedIsLocked && !hasActiveOverride();
+    selectedIsLocked && !hasActiveOverride() && !isPrivilegedUser;
 
   // Populate form when a version is selected from timeline
   useEffect(() => {

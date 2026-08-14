@@ -4,7 +4,7 @@ import { createClerkClient } from '@clerk/backend';
 import { currentUser } from '@clerk/nextjs/server';
 import { extractMonthsFromDuration } from '@/utils/progressUtils';
 import { normalizeRadiografias } from '@/utils/versionUtils';
-import { decodeOverrideToken, verifyOverrideToken } from '@/lib/adminAuth';
+import { decodeOverrideToken, isOverrideUser, verifyOverrideToken } from '@/lib/adminAuth';
 
 
 const supabase = createClient();
@@ -431,6 +431,15 @@ export async function PUT(request: NextRequest) {
     // Editing an existing historical (non-latest or hard-locked) version
     // requires a valid admin override token, issued only after Clerk
     // reverification + admin/support role verification (verify-admin-override).
+    // Admin/support/tech-support accounts bypass the token requirement by
+    // role: they have full access to historical versions.
+    let requesterIsPrivileged = false;
+    try {
+      requesterIsPrivileged = isOverrideUser(await currentUser());
+    } catch {
+      requesterIsPrivileged = false;
+    }
+
     const { data: targetVersion, error: targetError } = await supabase
       .from('historia_clinica_ortodoncia_versions')
       .select('id, version_number, is_current, is_locked')
@@ -455,7 +464,7 @@ export async function PUT(request: NextRequest) {
 
     const isHistorical = (maxRow?.version_number ?? 0) > targetVersion.version_number || !!targetVersion.is_locked;
 
-    if (isHistorical) {
+    if (isHistorical && !requesterIsPrivileged) {
       const overrideToken = request.headers.get('x-admin-override');
       let tokenOk = !!overrideToken && verifyOverrideToken(overrideToken, { versionId: originalVersionId });
       // An unlock is patient-scoped: once an admin/support unlocks any version
