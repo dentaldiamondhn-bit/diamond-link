@@ -98,6 +98,27 @@ export default function CoBrowseAgentPage() {
     [onReplayEvent]
   );
 
+  // Normalize a pointer position against the visible (scaled + centered)
+  // replayer box. The rrweb iframe is letterboxed inside the container, so the
+  // client's viewport maps 1:1 to the .replayer-wrapper box only. Computing
+  // percent against the wrapper's bounding rect (NOT the browser window or the
+  // bare container) keeps coordinates aligned at the edges and lets the remote
+  // cursor reach the user's exact screen borders. Values are clamped to
+  // [0,100] so clicks/cursor in the letterbox margins stick to the border
+  // instead of producing coordinates outside the client's viewport.
+  const getWrapperPoint = useCallback((e: { clientX: number; clientY: number }) => {
+    const container = containerRef.current;
+    if (!container) return null;
+    const wrapper = container.querySelector('.replayer-wrapper') as HTMLElement | null;
+    const box = wrapper ?? container;
+    const rect = box.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return {
+      x: Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100)),
+      y: Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100)),
+    };
+  }, []);
+
   useEffect(() => {
     if (!sessionId) return;
 
@@ -195,12 +216,25 @@ export default function CoBrowseAgentPage() {
     // pixel size and gets cropped by the overflow-hidden container; with the
     // transform the whole DOM is visible AND the coordinate mapping between the
     // agent's viewport and the serviced user's window becomes proportional.
+    //
+    // IMPORTANT: the wrapper is a block element so its base width defaults to
+    // the container width (not the recorded viewport width), while its base
+    // height comes from the iframe (= recorded viewport height). If we apply
+    // scale against the recorded viewport to a differently-sized wrapper box,
+    // the scaled rect does NOT match the visible iframe — breaking coordinate
+    // mapping and edge reachability. Fix: explicitly size the wrapper to the
+    // recorded viewport so scale and rect reflect the visible page exactly.
     const fitToContainer = () => {
       const container = containerRef.current;
       if (!container) return;
       const wrapper = container.querySelector('.replayer-wrapper') as HTMLElement | null;
       const viewport = recordedViewportRef.current;
       if (!wrapper || !viewport?.width || !viewport?.height) return;
+      // Explicitly set the wrapper box to match the recorded viewport before
+      // scaling — otherwise the wrapper stays container-width (block default)
+      // and the scaled rect diverges from the actual iframe.
+      wrapper.style.width = `${viewport.width}px`;
+      wrapper.style.height = `${viewport.height}px`;
       const scale = Math.min(
         (container.clientWidth - 4) / viewport.width,
         (container.clientHeight - 4) / viewport.height,
@@ -252,17 +286,40 @@ export default function CoBrowseAgentPage() {
     const onWheel = (e: WheelEvent) => {
       const socket = socketRef.current;
       if (!socket?.connected) return;
+      // Skip trackpad pinch-to-zoom (ctrlKey is set by the browser) so we
+      // don't scroll the user's page when the agent is just zooming.
+      if (e.ctrlKey) return;
       e.preventDefault();
-      const wrapper = containerRef.current?.querySelector('.replayer-wrapper');
+      const wrapper = containerRef.current?.querySelector('.replayer-wrapper') as HTMLElement | null;
       let scale = 1;
       const viewport = recordedViewportRef.current;
       if (wrapper && viewport?.width) {
         scale = wrapper.getBoundingClientRect().width / viewport.width || 1;
       }
+      // deltaMode: 0 = pixels, 1 = lines (Firefox), 2 = pages. Normalize to
+      // pixels so the serviced user scrolls by a consistent distance no matter
+      // the agent's browser/OS wheel settings.
+      let deltaX = e.deltaX;
+      let deltaY = e.deltaY;
+      if (e.deltaMode === 1) {
+        deltaX *= 16;
+        deltaY *= 16;
+      } else if (e.deltaMode === 2) {
+        const h = containerRef.current?.clientHeight || window.innerHeight;
+        deltaX *= h;
+        deltaY *= h;
+      }
+      // Deltas are scaled back so the user's page scrolls by the distance the
+      // agent saw move on screen. The pointer's position is sent along so the
+      // client can scroll whichever sub-container is under the cursor.
+      const point = getWrapperPoint(e);
       socket.emit('agent-scroll', {
         roomId: sessionId,
-        deltaX: e.deltaX / scale,
-        deltaY: e.deltaY / scale,
+        deltaX: deltaX / scale,
+        deltaY: deltaY / scale,
+        x: point?.x,
+        y: point?.y,
+        smooth: false,
       });
     };
     container.addEventListener('wheel', onWheel, { passive: false });
@@ -294,7 +351,7 @@ export default function CoBrowseAgentPage() {
       replayerRef.current = null;
       replayerReadyRef.current = false;
     };
-  }, [sessionId]);
+  }, [sessionId, getWrapperPoint]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -303,15 +360,25 @@ export default function CoBrowseAgentPage() {
       const now = performance.now();
       if (now - cursorThrottleRef.current < 50) return;
       cursorThrottleRef.current = now;
+      // Send BOTH representations of the pointer so every client version works:
+      //  - x/y + viewport: raw agent-window pixels (legacy clients scale these)
+      //  - percentX/percentY: percent over the replayer box (the client's
+      //    viewport scaled to fit) — lets the remote laser stay aligned and
+      //    reach the client's screen borders exactly. The client uses these
+      //    when present and falls back to the pixel pair otherwise.
+      const point = getWrapperPoint(e);
+      if (!point) return;
       socket.emit('agent-cursor-move', {
         roomId: sessionId,
         x: e.clientX,
         y: e.clientY,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
+        percentX: point.x,
+        percentY: point.y,
       });
     },
-    [sessionId]
+    [sessionId, getWrapperPoint]
   );
 
   const handleClick = useCallback(
@@ -319,29 +386,24 @@ export default function CoBrowseAgentPage() {
       const socket = socketRef.current;
       if ((!pingMode && !controlMode) || !socket?.connected) return;
 
-      // Coordinates are normalized against the visible (scaled + centered)
-      // replayer box so they map back proportionally to the serviced user's
-      // window, even when the iframe is letterboxed inside the container.
-      const container = containerRef.current;
-      if (!container) return;
-      const wrapper = container.querySelector('.replayer-wrapper') as HTMLElement | null;
-      const box = wrapper ?? container;
-      const rect = box.getBoundingClientRect();
-      const x = rect.width > 0 ? ((e.clientX - rect.left) / rect.width) * 100 : 0;
-      const y = rect.height > 0 ? ((e.clientY - rect.top) / rect.height) * 100 : 0;
+      // Percent over the replayer box. Clamped to [0,100] so clicks in the
+      // letterbox margins map to the client's screen border instead of a
+      // coordinate outside their viewport (which elementFromPoint would miss).
+      const point = getWrapperPoint(e);
+      if (!point) return;
 
       if (controlMode) {
-        socket.emit('agent-remote-click', { roomId: sessionId, x, y });
+        socket.emit('agent-remote-click', { roomId: sessionId, x: point.x, y: point.y });
       } else {
         socket.emit('agent-ping-click', {
           roomId: sessionId,
-          x,
-          y,
+          x: point.x,
+          y: point.y,
           label: 'Look Here!',
         });
       }
     },
-    [pingMode, controlMode, sessionId]
+    [pingMode, controlMode, sessionId, getWrapperPoint]
   );
 
   const scrollViewport = useCallback(
@@ -356,6 +418,7 @@ export default function CoBrowseAgentPage() {
         roomId: sessionId,
         deltaX: dir === 'left' || dir === 'right' ? delta : 0,
         deltaY: dir === 'up' || dir === 'down' ? delta : 0,
+        smooth: true,
       });
     },
     [sessionId]
@@ -429,6 +492,8 @@ export default function CoBrowseAgentPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <style>{`
+        .replayer-wrapper,
+        .replayer-wrapper iframe,
         .replayer-mouse,
         .replayer-mouse-tail { pointer-events: none !important; }
       `}</style>

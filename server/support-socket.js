@@ -11,10 +11,15 @@
  * Channels (spec):
  *   client -> agent  : 'dom-mutation-event' { roomId, event }  (rrweb events)
  *   client -> agent  : 'client-cursor-move' { roomId, x, y }  (client pointer, % of client viewport)
- *   agent  -> client : 'agent-cursor-move'  { roomId, x, y, viewportWidth, viewportHeight }
+ *   agent  -> client : 'agent-cursor-move'  { roomId, x, y, viewportWidth, viewportHeight, percentX, percentY }
+ *                          x/y = agent-window pixels (legacy), percentX/Y = %
+ *                          over the replayer box (preferred); both forwarded
  *   agent  -> client : 'agent-ping-click'   { roomId, x, y, label }   (% of replayer viewport)
  *   agent  -> client : 'agent-remote-click' { roomId, x, y }          (% of replayer viewport)
- *   agent  -> client : 'agent-scroll'       { roomId, deltaX, deltaY }
+ *   agent  -> client : 'agent-scroll'       { roomId, deltaX, deltaY, x, y, smooth }
+ *                          x/y = optional % of client viewport under the pointer
+ *                          (targets a scrollable sub-container); smooth toggles
+ *                          smooth vs. instant scrolling on the client
  *   either -> other  : 'peer-info'          { roomId, role, info }    (identity: userId/name/imageUrl)
  *
  * Extra (privacy-first):
@@ -151,7 +156,11 @@ io.on('connection', (socket) => {
   });
 
   // Agent -> Client: Remote Cursor Movements (Laser)
-  socket.on('agent-cursor-move', ({ roomId, x, y, viewportWidth, viewportHeight }) => {
+  // The agent sends both raw agent-window pixels (x/y + viewport) and percent
+  // over the replayer box (percentX/percentY). Both are forwarded so clients
+  // can pick whichever they understand — keeps the protocol version-tolerant
+  // while the app is upgraded across browser sessions.
+  socket.on('agent-cursor-move', ({ roomId, x, y, viewportWidth, viewportHeight, percentX, percentY }) => {
     if (typeof roomId !== 'string' || !roomId) return;
     if (typeof x !== 'number' || typeof y !== 'number') return;
     socket.to(roomId).emit('client-show-agent-cursor', {
@@ -159,6 +168,8 @@ io.on('connection', (socket) => {
       y,
       viewportWidth: typeof viewportWidth === 'number' ? viewportWidth : null,
       viewportHeight: typeof viewportHeight === 'number' ? viewportHeight : null,
+      percentX: typeof percentX === 'number' ? percentX : undefined,
+      percentY: typeof percentY === 'number' ? percentY : undefined,
     });
   });
 
@@ -188,12 +199,17 @@ io.on('connection', (socket) => {
   });
 
   // Agent -> Client: Remote Scroll (drive the serviced user's DOM viewport)
-  socket.on('agent-scroll', ({ roomId, deltaX, deltaY }) => {
+  // x/y are optional percent coordinates under the agent's pointer so the
+  // client can scroll the specific sub-container at that point.
+  socket.on('agent-scroll', ({ roomId, deltaX, deltaY, x, y, smooth }) => {
     if (typeof roomId !== 'string' || !roomId) return;
     if (typeof deltaX !== 'number' && typeof deltaY !== 'number') return;
     socket.to(roomId).emit('client-scroll', {
       deltaX: typeof deltaX === 'number' ? deltaX : 0,
       deltaY: typeof deltaY === 'number' ? deltaY : 0,
+      x: typeof x === 'number' ? x : undefined,
+      y: typeof y === 'number' ? y : undefined,
+      smooth: typeof smooth === 'boolean' ? smooth : false,
     });
   });
 

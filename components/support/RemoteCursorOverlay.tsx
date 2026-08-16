@@ -6,6 +6,10 @@ import type { Socket } from 'socket.io-client';
 interface AgentCursor {
   x: number;
   y: number;
+  // true: x/y are percent (0-100) over the agent's replayer box, which maps
+  // 1:1 to this viewport. false: x/y are raw agent-window pixels scaled by
+  // the viewport ratio (legacy agents that predate percent coordinates).
+  percent: boolean;
   viewportWidth: number | null;
   viewportHeight: number | null;
 }
@@ -31,13 +35,56 @@ interface Ping {
  * plus the viewport size they were computed against; we scale to the client's
  * current viewport so the cursor stays accurate across different screen sizes.
  */
+// Walk up from the element under the remote pointer and return the first
+// actually scrollable ancestor (a scroll container with room to scroll). This
+// lets wheel gestures drive the exact sub-container the agent is pointing at
+// instead of always scrolling the window.
+function findScrollable(el: Element | null): Element | null {
+  for (let cur: Element | null = el; cur && cur !== document.documentElement; cur = cur.parentElement) {
+    const style = window.getComputedStyle(cur);
+    const overflowY = style.overflowY === 'auto' || style.overflowY === 'scroll';
+    const overflowX = style.overflowX === 'auto' || style.overflowX === 'scroll';
+    if ((overflowY && cur.scrollHeight > cur.clientHeight) || (overflowX && cur.scrollWidth > cur.clientWidth)) {
+      return cur;
+    }
+  }
+  return null;
+}
+
 export function RemoteCursorOverlay({ socket }: { socket: Socket }) {
   const [cursor, setCursor] = useState<AgentCursor | null>(null);
   const [pings, setPings] = useState<Ping[]>([]);
+  const [, setViewport] = useState({ width: 0, height: 0 });
   const pingIdRef = useRef(0);
 
+  // Recompute pixel positions when the serviced user resizes their window,
+  // since the laser is positioned from percent coordinates.
   useEffect(() => {
-    const onCursorMove = (data: AgentCursor) => setCursor(data);
+    const onResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    const onCursorMove = (data: {
+      x: number;
+      y: number;
+      viewportWidth?: number | null;
+      viewportHeight?: number | null;
+      percentX?: number;
+      percentY?: number;
+    }) => {
+      // Prefer the percent coordinates (version-tolerant): legacy agents only
+      // send pixels + viewport, which we fall back to with the old scaling.
+      const hasPercent = typeof data.percentX === 'number' && typeof data.percentY === 'number';
+      setCursor({
+        x: hasPercent ? data.percentX : data.x,
+        y: hasPercent ? data.percentY : data.y,
+        percent: hasPercent,
+        viewportWidth: typeof data.viewportWidth === 'number' ? data.viewportWidth : null,
+        viewportHeight: typeof data.viewportHeight === 'number' ? data.viewportHeight : null,
+      });
+    };
 
     const onPing = (data: { x: number; y: number; label?: string }) => {
       const id = ++pingIdRef.current;
@@ -48,8 +95,10 @@ export function RemoteCursorOverlay({ socket }: { socket: Socket }) {
     };
 
     const onRemoteClick = (data: { x: number; y: number }) => {
-      const x = (data.x / 100) * window.innerWidth;
-      const y = (data.y / 100) * window.innerHeight;
+      // Clamp to the viewport so clicks on the client's screen borders still
+      // hit a real element (elementFromPoint is empty outside the window).
+      const x = Math.min(window.innerWidth - 1, Math.max(0, (data.x / 100) * window.innerWidth));
+      const y = Math.min(window.innerHeight - 1, Math.max(0, (data.y / 100) * window.innerHeight));
       const el = document.elementFromPoint(x, y);
       if (!el) return;
       // Dispatch a full mouse sequence so both native listeners and React's
@@ -66,14 +115,44 @@ export function RemoteCursorOverlay({ socket }: { socket: Socket }) {
           })
         );
       }
+      // Give focus + caret placement to form fields so the agent can type
+      // into inputs/selects after clicking them.
+      const interactive = el.closest('input, textarea, select, [contenteditable="true"]') as
+        | HTMLElement
+        | null;
+      if (interactive && typeof interactive.focus === 'function') {
+        interactive.focus();
+        const input = interactive as HTMLInputElement;
+        if (typeof input.select === 'function' && input.type !== 'hidden') {
+          input.select();
+        }
+      }
     };
 
-    const onScroll = (data: { deltaX: number; deltaY: number }) => {
-      window.scrollBy({
-        left: data.deltaX || 0,
-        top: data.deltaY || 0,
-        behavior: 'smooth',
-      });
+    const onScroll = (data: {
+      deltaX: number;
+      deltaY: number;
+      x?: number;
+      y?: number;
+      smooth?: boolean;
+    }) => {
+      const deltaX = data.deltaX || 0;
+      const deltaY = data.deltaY || 0;
+      if (!deltaX && !deltaY) return;
+      const behavior: ScrollBehavior = data.smooth ? 'smooth' : 'auto';
+      // When the agent includes a pointer position, scroll the sub-container
+      // under that point if it can scroll; otherwise fall back to the window.
+      let target: Element | null = null;
+      if (data.x !== undefined && data.y !== undefined) {
+        const x = Math.min(window.innerWidth - 1, Math.max(0, (data.x / 100) * window.innerWidth));
+        const y = Math.min(window.innerHeight - 1, Math.max(0, (data.y / 100) * window.innerHeight));
+        target = findScrollable(document.elementFromPoint(x, y));
+      }
+      if (target) {
+        target.scrollBy({ left: deltaX, top: deltaY, behavior });
+      } else {
+        window.scrollBy({ left: deltaX, top: deltaY, behavior });
+      }
     };
 
     socket.on('client-show-agent-cursor', onCursorMove);
@@ -88,12 +167,22 @@ export function RemoteCursorOverlay({ socket }: { socket: Socket }) {
     };
   }, [socket]);
 
-  const scaleX = cursor?.viewportWidth
-    ? window.innerWidth / cursor.viewportWidth
-    : 1;
-  const scaleY = cursor?.viewportHeight
-    ? window.innerHeight / cursor.viewportHeight
-    : 1;
+  // Percent maps 1:1 onto this viewport (the agent's replayer box IS the
+  // serviced user's viewport, scaled to fit). Legacy pixel coordinates are
+  // scaled by the agent/client viewport ratio, as before.
+  let left = 0;
+  let top = 0;
+  if (cursor) {
+    if (cursor.percent) {
+      left = (Math.min(100, Math.max(0, cursor.x)) / 100) * window.innerWidth;
+      top = (Math.min(100, Math.max(0, cursor.y)) / 100) * window.innerHeight;
+    } else {
+      const scaleX = cursor.viewportWidth ? window.innerWidth / cursor.viewportWidth : 1;
+      const scaleY = cursor.viewportHeight ? window.innerHeight / cursor.viewportHeight : 1;
+      left = cursor.x * scaleX;
+      top = cursor.y * scaleY;
+    }
+  }
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[99999]">
@@ -101,8 +190,8 @@ export function RemoteCursorOverlay({ socket }: { socket: Socket }) {
         <div
           className="absolute"
           style={{
-            left: cursor.x * scaleX,
-            top: cursor.y * scaleY,
+            left,
+            top,
             transform: 'translate(-50%, -50%)',
           }}
         >
