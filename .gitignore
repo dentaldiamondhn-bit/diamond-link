@@ -47,3 +47,6 @@ clerk.broken/
 .env*.local
 everything-claude-code/
 .venv/
+
+# Agent tooling workspace
+.mimocode/

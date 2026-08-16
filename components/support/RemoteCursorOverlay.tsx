@@ -22,9 +22,14 @@ interface Ping {
  * and visual pings. Rendered above everything with pointer-events disabled
  * so it never blocks the user's own interactions.
  *
- * Coordinates are normalized: the agent sends viewport-relative x/y plus the
- * viewport size they were computed against; we scale to the client's current
- * viewport so the cursor stays accurate across different screen sizes.
+ * Also receives the agent's remote-control actions:
+ *  - remote clicks are replayed as synthetic mouse events on the element under
+ *    the given point, so the agent can operate the serviced user's buttons.
+ *  - scroll deltas drive the serviced user's DOM viewport.
+ *
+ * Coordinates are normalized (percent): the agent sends viewport-relative x/y
+ * plus the viewport size they were computed against; we scale to the client's
+ * current viewport so the cursor stays accurate across different screen sizes.
  */
 export function RemoteCursorOverlay({ socket }: { socket: Socket }) {
   const [cursor, setCursor] = useState<AgentCursor | null>(null);
@@ -42,11 +47,44 @@ export function RemoteCursorOverlay({ socket }: { socket: Socket }) {
       }, 2500);
     };
 
+    const onRemoteClick = (data: { x: number; y: number }) => {
+      const x = (data.x / 100) * window.innerWidth;
+      const y = (data.y / 100) * window.innerHeight;
+      const el = document.elementFromPoint(x, y);
+      if (!el) return;
+      // Dispatch a full mouse sequence so both native listeners and React's
+      // synthetic onClick (attached at the root) are triggered.
+      for (const type of ['mousedown', 'mouseup', 'click'] as const) {
+        el.dispatchEvent(
+          new MouseEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            clientX: x,
+            clientY: y,
+            button: 0,
+          })
+        );
+      }
+    };
+
+    const onScroll = (data: { deltaX: number; deltaY: number }) => {
+      window.scrollBy({
+        left: data.deltaX || 0,
+        top: data.deltaY || 0,
+        behavior: 'smooth',
+      });
+    };
+
     socket.on('client-show-agent-cursor', onCursorMove);
     socket.on('client-show-ping', onPing);
+    socket.on('client-remote-click', onRemoteClick);
+    socket.on('client-scroll', onScroll);
     return () => {
       socket.off('client-show-agent-cursor', onCursorMove);
       socket.off('client-show-ping', onPing);
+      socket.off('client-remote-click', onRemoteClick);
+      socket.off('client-scroll', onScroll);
     };
   }, [socket]);
 

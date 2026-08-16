@@ -9,6 +9,7 @@ import { TutorialButton } from './TutorialButton';
 
 const techSupportNavItems = [
   { href: '/tech-support/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt' },
+  { href: '/tech-support/co-browse', label: 'Soporte Remoto', icon: 'fas fa-tower-broadcast' },
   { href: '/tech-support/tickets', label: 'Tickets de Soporte', icon: 'fas fa-ticket-alt' },
   { href: '/tech-support/system-logs', label: 'Logs del Sistema', icon: 'fas fa-file-alt' },
   { href: '/tech-support/system-settings', label: 'Configuración del Sistema', icon: 'fas fa-cogs' },

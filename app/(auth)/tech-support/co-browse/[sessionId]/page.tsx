@@ -2,44 +2,97 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth, useUser } from '@clerk/nextjs';
 import { io, type Socket } from 'socket.io-client';
 import { Replayer, type eventWithTime } from 'rrweb';
+import 'rrweb/dist/style.css';
 import { supabase } from '@/lib/supabase';
 import { hasOverrideRole } from '@/lib/adminAuth';
+import { getSocketServerUrl } from '@/lib/socketUrl';
+import { AgentCursorOverlay } from '@/components/support/AgentCursorOverlay';
+import type { PeerInfo } from '@/hooks/useCoBrowse';
 
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:4000';
+interface RecordedViewport {
+  width: number;
+  height: number;
+}
 
 export default function CoBrowseAgentPage() {
   const params = useParams<{ sessionId: string }>();
   const sessionId = params?.sessionId ?? '';
   const router = useRouter();
   const { sessionClaims, userId } = useAuth();
+  const { user } = useUser();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const replayerRef = useRef<Replayer | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const recordingRef = useRef<eventWithTime[]>([]);
+  const recordedViewportRef = useRef<RecordedViewport | null>(null);
 
   const [connected, setConnected] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [firstEventType, setFirstEventType] = useState<number | null>(null);
+  const [lastEventType, setLastEventType] = useState<number | null>(null);
   const [eventCount, setEventCount] = useState(0);
+  const [queuedCount, setQueuedCount] = useState(0);
+  const [bufferCount, setBufferCount] = useState<number | null>(null);
+  const [socketId, setSocketId] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
   const [pingMode, setPingMode] = useState(false);
+  const [controlMode, setControlMode] = useState(false);
+  const [clientCursor, setClientCursor] = useState<{ left: number; top: number } | null>(null);
+  const [clientInfo, setClientInfo] = useState<PeerInfo | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const isPrivileged = hasOverrideRole(sessionClaims, userId);
+  const socketUrl = getSocketServerUrl();
+
+  const pendingEventsRef = useRef<eventWithTime[]>([]);
+  const replayerReadyRef = useRef(false);
+  const cursorThrottleRef = useRef(0);
 
   const onReplayEvent = useCallback((event: eventWithTime) => {
-    replayerRef.current?.addEvent(event);
+    setRecording(true);
+    setFirstEventType((t) => t ?? event.type);
+    setLastEventType(event.type);
+
+    // Track the recorded viewport dimensions (Meta event, type 4, or a
+    // ViewportResize incremental event, source 4). These tell us the client's
+    // page size so we can scale the iframe to fit and map coordinates back to
+    // the client's window accurately.
+    if (event.type === 4 && event.data?.width) {
+      recordedViewportRef.current = { width: event.data.width, height: event.data.height };
+    } else if (event.type === 3 && event.data?.source === 4 && event.data?.width) {
+      recordedViewportRef.current = { width: event.data.width, height: event.data.height };
+    }
+
+    const replayer = replayerRef.current;
+    if (replayer && replayerReadyRef.current) {
+      replayer.addEvent(event);
+    } else if (replayer && !replayerReadyRef.current && pendingEventsRef.current.length === 0) {
+      // Bootstrapping: feed the very first event directly to addEvent()
+      // so rrweb processes it and emits 'resize' (Meta, type 4) — which
+      // triggers flush() and sets the queue flowing. Without this step the
+      // Meta event would sit in the queue forever waiting for 'resize',
+      // which only fires when Meta is processed — a deadlock.
+      replayer.addEvent(event);
+    } else {
+      pendingEventsRef.current.push(event);
+      setQueuedCount(pendingEventsRef.current.length);
+    }
     recordingRef.current.push(event);
     setEventCount((n) => n + 1);
+    console.debug(`[co-browse] replay event type=${event.type} queued=${pendingEventsRef.current.length}`);
   }, []);
 
   const onRoomBuffer = useCallback(
     ({ events }: { events: eventWithTime[] }) => {
+      setBufferCount(events.length);
+      console.debug(`[co-browse] room-buffer received ${events.length} events`);
       for (const event of events) onReplayEvent(event);
     },
     [onReplayEvent]
@@ -48,56 +101,208 @@ export default function CoBrowseAgentPage() {
   useEffect(() => {
     if (!sessionId) return;
 
-    const socket = io(SOCKET_URL, {
+    const socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       setConnected(true);
-      socket.emit('join-room', { roomId: sessionId, role: 'agent' });
+      setSocketId(socket.id ?? null);
+      socket.emit('join-room', {
+        roomId: sessionId,
+        role: 'agent',
+        info: {
+          userId: userId ?? '',
+          name:
+            [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+            user?.primaryEmailAddress?.emailAddress ||
+            'Soporte',
+          imageUrl: user?.imageUrl ?? null,
+        },
+      });
+      console.debug(`[co-browse] socket connected id=${socket.id}, joined room ${sessionId}`);
     });
-    socket.on('disconnect', () => setConnected(false));
+    socket.on('disconnect', () => {
+      setConnected(false);
+      setClientCursor(null);
+      console.debug('[co-browse] socket disconnected');
+    });
     socket.on('replay-event', onReplayEvent);
     socket.on('room-buffer', onRoomBuffer);
+    socket.on('peer-info', (data: { role: string; info: PeerInfo }) => {
+      if (data.role === 'client' && data.info) setClientInfo(data.info);
+    });
+    socket.on('agent-show-client-cursor', (data: { x: number; y: number }) => {
+      // Percent over the client's window -> pixels within the container's
+      // (centered, scaled) replayer box.
+      const containerEl = containerRef.current;
+      const wrapper = containerEl?.querySelector('.replayer-wrapper') as HTMLElement | null;
+      if (containerEl && wrapper) {
+        const containerRect = containerEl.getBoundingClientRect();
+        const rect = wrapper.getBoundingClientRect();
+        setClientCursor({
+          left: (data.x / 100) * rect.width + (rect.left - containerRect.left),
+          top: (data.y / 100) * rect.height + (rect.top - containerRect.top),
+        });
+      } else {
+        setClientCursor(null);
+      }
+    });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [sessionId, onReplayEvent, onRoomBuffer]);
+  }, [sessionId, onReplayEvent, onRoomBuffer, userId, user, socketUrl]);
 
   // Bootstrap the live Replayer once the container is mounted.
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
+    // UNSAFE_replayCanvas: true selects the "allow-same-origin allow-scripts"
+    // iframe sandbox path inside rrweb (see Replayer.setupDom / line ~16407
+    // of dist/rrweb.js). Without it, the default createSandboxedIframe path
+    // uses sandbox="allow-same-origin" with NO "allow-scripts", so when the
+    // rebuilt DOM inserts <script> elements from the recorded page the browser
+    // raises "Blocked script execution" and the iframe's layout never fully
+    // renders — the agent sees a blank viewport.
+    //
+    // This is safe because recordCanvas:false (useCoBrowse.ts) means no canvas
+    // data is captured or replayed; the flag is used here only to select the
+    // non-sandboxed iframe creation path so the browser can process <script>
+    // DOM nodes during rebuild. rrweb replaces all script content with
+    // "SCRIPT_PLACEHOLDER" during serialization, so no user code executes.
+    //
+    // pauseAnimation:false prevents rrweb from injecting
+    // "animation-play-state:paused" CSS for the rrweb-paused class that is
+    // always added in live mode (state=="live" !== "playing"), avoiding any
+    // rendering interference from animation suppression.
     const replayer = new Replayer([], {
-      root: containerRef.current,
+      root: container,
       liveMode: true,
-      autoPlay: false,
-      width: '100%',
-      height: '100%',
+      UNSAFE_replayCanvas: true,
+      pauseAnimation: false,
     });
-    replayer.startLive();
     replayerRef.current = replayer;
+    replayer.startLive();
+
+    // Scale the replayed page to fit the container (it is recorded at the
+    // client's full viewport size). Without this the iframe keeps the client's
+    // pixel size and gets cropped by the overflow-hidden container; with the
+    // transform the whole DOM is visible AND the coordinate mapping between the
+    // agent's viewport and the serviced user's window becomes proportional.
+    const fitToContainer = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const wrapper = container.querySelector('.replayer-wrapper') as HTMLElement | null;
+      const viewport = recordedViewportRef.current;
+      if (!wrapper || !viewport?.width || !viewport?.height) return;
+      const scale = Math.min(
+        (container.clientWidth - 4) / viewport.width,
+        (container.clientHeight - 4) / viewport.height,
+        1
+      );
+      const scaledW = viewport.width * scale;
+      const scaledH = viewport.height * scale;
+      wrapper.style.transformOrigin = 'top left';
+      wrapper.style.transform = `scale(${Math.max(scale, 0.1)})`;
+      wrapper.style.left = `${(container.clientWidth - scaledW) / 2}px`;
+      wrapper.style.top = `${(container.clientHeight - scaledH) / 2}px`;
+    };
+
+    // The Replayer attaches its iframe with display:none; it only gets
+    // dimensions when rrweb processes a Meta event (type 4), which emits
+    // 'resize'. The very first event is fed directly to addEvent() in
+    // onReplayEvent (the bootstrapping path) so rrweb can process the Meta
+    // and emit 'resize'. Events arriving between that bootstrap call and
+    // the 'resize' callback are queued here and flushed once the iframe
+    // has dimensions.
+    //
+    // We do NOT call replayer.play(): this is a live session, so the
+    // state machine must stay in the 'live' state. Calling play() would
+    // switch to 'playing' mode and alter how events are dispatched
+    // (timeline/timer vs. immediate sync), corrupting the live stream.
+    let flushed = false;
+    const flush = (dim?: { width: number; height: number }) => {
+      if (dim?.width && dim?.height) {
+        recordedViewportRef.current = { width: dim.width, height: dim.height };
+      }
+      fitToContainer();
+      if (flushed) return;
+      flushed = true;
+      replayerReadyRef.current = true;
+      setQueuedCount(0);
+      const queued = pendingEventsRef.current;
+      pendingEventsRef.current = [];
+      console.debug(`[co-browse] player ready (resize received), flushing ${queued.length} queued events`);
+      for (const event of queued) replayer.addEvent(event);
+    };
+    replayer.on('resize', flush);
+
+    // Re-fit whenever the agent resizes its own window.
+    window.addEventListener('resize', fitToContainer);
+
+    // Forward the agent's wheel gestures to the serviced user's DOM viewport.
+    // Native non-passive listener so we can preventDefault (the container has
+    // overflow-hidden; nothing else should scroll as a result of the wheel).
+    const onWheel = (e: WheelEvent) => {
+      const socket = socketRef.current;
+      if (!socket?.connected) return;
+      e.preventDefault();
+      const wrapper = containerRef.current?.querySelector('.replayer-wrapper');
+      let scale = 1;
+      const viewport = recordedViewportRef.current;
+      if (wrapper && viewport?.width) {
+        scale = wrapper.getBoundingClientRect().width / viewport.width || 1;
+      }
+      socket.emit('agent-scroll', {
+        roomId: sessionId,
+        deltaX: e.deltaX / scale,
+        deltaY: e.deltaY / scale,
+      });
+    };
+    container.addEventListener('wheel', onWheel, { passive: false });
+
+    // 'fullsnapshot-rebuilded' fires after the iframe's DOM tree has been
+    // rebuilt from the first FullSnapshot — at this point the viewport is
+    // visible to the agent, so we flip the UI state.
+    const onFullSnapshotRebuilt = () => {
+      setPlayerReady(true);
+      console.debug('[co-browse] full snapshot rebuilt — viewport visible');
+    };
+    replayer.on('fullsnapshot-rebuilded', onFullSnapshotRebuilt);
+
+    // If events arrived before the Replayer was created (e.g. a room-buffer
+    // landed during the same tick), they're sitting in pendingEventsRef
+    // waiting for the bootstrap path. Feed the first one directly to
+    // addEvent() to kick off the resize → flush cycle.
+    if (pendingEventsRef.current.length > 0) {
+      const firstEvent = pendingEventsRef.current.shift()!;
+      console.debug(`[co-browse] bootstrapping with queued event type=${firstEvent.type}`);
+      replayer.addEvent(firstEvent);
+    }
 
     return () => {
+      replayer.off('resize', flush);
+      replayer.off('fullsnapshot-rebuilded', onFullSnapshotRebuilt);
+      window.removeEventListener('resize', fitToContainer);
+      container.removeEventListener('wheel', onWheel);
       replayerRef.current = null;
+      replayerReadyRef.current = false;
     };
-  }, []);
-
-  // Begin recording playback once the relay is connected. Kept separate from
-  // the replayer bootstrap so reconnects never rebuild the mirrored state.
-  useEffect(() => {
-    if (!connected) return;
-    replayerRef.current?.play();
-    setRecording(true);
-  }, [connected]);
+  }, [sessionId]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       const socket = socketRef.current;
       if (!socket?.connected) return;
+      const now = performance.now();
+      if (now - cursorThrottleRef.current < 50) return;
+      cursorThrottleRef.current = now;
       socket.emit('agent-cursor-move', {
         roomId: sessionId,
         x: e.clientX,
@@ -112,15 +317,48 @@ export default function CoBrowseAgentPage() {
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       const socket = socketRef.current;
-      if (!pingMode || !socket?.connected) return;
-      socket.emit('agent-ping-click', {
+      if ((!pingMode && !controlMode) || !socket?.connected) return;
+
+      // Coordinates are normalized against the visible (scaled + centered)
+      // replayer box so they map back proportionally to the serviced user's
+      // window, even when the iframe is letterboxed inside the container.
+      const container = containerRef.current;
+      if (!container) return;
+      const wrapper = container.querySelector('.replayer-wrapper') as HTMLElement | null;
+      const box = wrapper ?? container;
+      const rect = box.getBoundingClientRect();
+      const x = rect.width > 0 ? ((e.clientX - rect.left) / rect.width) * 100 : 0;
+      const y = rect.height > 0 ? ((e.clientY - rect.top) / rect.height) * 100 : 0;
+
+      if (controlMode) {
+        socket.emit('agent-remote-click', { roomId: sessionId, x, y });
+      } else {
+        socket.emit('agent-ping-click', {
+          roomId: sessionId,
+          x,
+          y,
+          label: 'Look Here!',
+        });
+      }
+    },
+    [pingMode, controlMode, sessionId]
+  );
+
+  const scrollViewport = useCallback(
+    (dir: 'up' | 'down' | 'left' | 'right') => {
+      const socket = socketRef.current;
+      if (!socket?.connected) return;
+      const container = containerRef.current;
+      const step = container ? container.clientHeight * 0.4 : 300;
+      const delta =
+        dir === 'up' ? -step : dir === 'down' ? step : dir === 'left' ? -step : step;
+      socket.emit('agent-scroll', {
         roomId: sessionId,
-        x: (e.clientX / window.innerWidth) * 100,
-        y: (e.clientY / window.innerHeight) * 100,
-        label: 'Look Here!',
+        deltaX: dir === 'left' || dir === 'right' ? delta : 0,
+        deltaY: dir === 'up' || dir === 'down' ? delta : 0,
       });
     },
-    [pingMode, sessionId]
+    [sessionId]
   );
 
   const exportRecording = useCallback(() => {
@@ -149,14 +387,30 @@ export default function CoBrowseAgentPage() {
           contentType: 'application/json',
         });
       if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from('support-sessions').getPublicUrl(fileName);
-      setUploadedUrl(data.publicUrl);
+
+      // Private bucket: hand out a temporary signed URL for download.
+      const { data: publicUrlData, error: signedUrlError } = await supabase.storage
+        .from('support-sessions')
+        .createSignedUrl(fileName, 3600);
+      if (signedUrlError) throw signedUrlError;
+      setUploadedUrl(publicUrlData.signedUrl);
+
+      // Audit row: link the session to its recording.
+      const { error: insertError } = await supabase.from('support_sessions').insert({
+        session_id: sessionId,
+        agent_user_id: userId,
+        status: 'recorded',
+        event_count: recordingRef.current.length,
+        recording_path: fileName,
+        started_at: new Date().toISOString(),
+      });
+      if (insertError) throw insertError;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error subiendo la grabación.');
     } finally {
       setUploading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, userId]);
 
   if (!isPrivileged) {
     return (
@@ -174,6 +428,10 @@ export default function CoBrowseAgentPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
+      <style>{`
+        .replayer-mouse,
+        .replayer-mouse-tail { pointer-events: none !important; }
+      `}</style>
       <div className="mx-auto max-w-7xl">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -181,6 +439,25 @@ export default function CoBrowseAgentPage() {
             <p className="text-xs text-gray-500">
               Sesión: <code className="rounded bg-gray-200 px-1 py-0.5">{sessionId}</code>
             </p>
+            {clientInfo && (
+              <div className="mt-1.5 flex items-center gap-2">
+                {clientInfo.imageUrl ? (
+                  <img
+                    src={clientInfo.imageUrl}
+                    alt={clientInfo.name || 'Usuario'}
+                    className="h-6 w-6 rounded-full object-cover ring-2 ring-teal-200"
+                  />
+                ) : (
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-[10px] font-bold text-white">
+                    {(clientInfo.name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="flex items-center gap-1 rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-semibold text-teal-800">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                  {clientInfo.name || 'Usuario atendido'}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span
@@ -194,6 +471,25 @@ export default function CoBrowseAgentPage() {
             <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-700">
               {eventCount} eventos
             </span>
+            {firstEventType !== null && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  firstEventType === 2
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-amber-100 text-amber-700'
+                }`}
+                title="El primer evento debe ser un FullSnapshot (tipo 2) para que el reproductor pinte la pantalla."
+              >
+                <i className="fas fa-file-circle-check mr-1" />
+                {firstEventType === 2 ? 'Snapshot inicial OK' : `Primer evento: tipo ${firstEventType}`}
+              </span>
+            )}
+            {!playerReady && connected && (
+              <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
+                <i className="fas fa-spinner fa-spin mr-1" />
+                Inicializando reproductor…
+              </span>
+            )}
             <button
               type="button"
               onClick={() => setPingMode((m) => !m)}
@@ -205,6 +501,19 @@ export default function CoBrowseAgentPage() {
             >
               <i className="fas fa-bullseye mr-1.5" />
               {pingMode ? 'Ping activo — clic en el video' : 'Modo Ping'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setControlMode((m) => !m)}
+              title="El agente puede hacer clic y desplazarse dentro de la pantalla del usuario"
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                controlMode
+                  ? 'bg-rose-600 text-white shadow-lg'
+                  : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <i className={`fas fa-mouse-pointer mr-1.5 ${controlMode ? 'animate-pulse' : ''}`} />
+              {controlMode ? 'Control activo' : 'Modo Control'}
             </button>
             <button
               type="button"
@@ -267,10 +576,113 @@ export default function CoBrowseAgentPage() {
           ref={containerRef}
           onMouseMove={handleMouseMove}
           onClick={handleClick}
-          className={`aspect-video w-full overflow-hidden rounded-xl bg-white shadow ring-1 ring-gray-200 ${
-            pingMode ? 'cursor-crosshair' : 'cursor-none'
+          className={`relative h-[62vh] min-h-[400px] w-full overflow-hidden rounded-xl bg-white shadow ring-1 ring-gray-200 ${
+            pingMode || controlMode ? 'cursor-crosshair' : 'cursor-none'
           }`}
-        />
+        >
+          {playerReady && <AgentCursorOverlay cursor={clientCursor} />}
+
+          {/* Scroll pad: move the serviced user's DOM viewport from the agent */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-3 right-3 z-30 flex flex-col items-center rounded-xl bg-white/90 p-1.5 shadow-lg ring-1 ring-gray-200 backdrop-blur"
+          >
+            <button
+              type="button"
+              onClick={() => scrollViewport('up')}
+              title="Desplazar hacia arriba"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
+            >
+              <i className="fas fa-chevron-up text-sm" />
+            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => scrollViewport('left')}
+                title="Desplazar a la izquierda"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
+              >
+                <i className="fas fa-chevron-left text-sm" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollViewport('down')}
+                title="Desplazar hacia abajo"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
+              >
+                <i className="fas fa-chevron-down text-sm" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollViewport('right')}
+                title="Desplazar a la derecha"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
+              >
+                <i className="fas fa-chevron-right text-sm" />
+              </button>
+            </div>
+          </div>
+
+          {(!playerReady || eventCount === 0) && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white text-gray-400">
+              <i className="fas fa-video text-4xl" />
+              <p className="mt-3 text-sm font-semibold">
+                {!connected
+                  ? 'Esperando conexión…'
+                  : !playerReady
+                    ? 'Inicializando reproductor…'
+                    : 'Esperando datos de la sesión…'}
+              </p>
+              {!connected && (
+                <p className="mt-1 text-xs">
+                  El usuario debe iniciar «Compartir pantalla» desde su widget Soporte Remoto.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {controlMode && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">
+            <i className="fas fa-mouse-pointer" />
+            <span>
+              Control remoto activo: los clics en el visor se ejecutan en la pantalla del usuario. La
+              rueda del ratón desplaza su vista. Desactívalo cuando termines.
+            </span>
+            <button
+              type="button"
+              onClick={() => setControlMode(false)}
+              className="ml-auto shrink-0 rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700"
+            >
+              Desactivar
+            </button>
+          </div>
+        )}
+
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowDebug((s) => !s)}
+            className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-600 ring-1 ring-gray-300 hover:bg-gray-50"
+          >
+            <i className={`fas fa-bug mr-1.5 ${showDebug ? 'text-teal-600' : ''}`} />
+            Diagnóstico {showDebug ? 'ocultar' : 'mostrar'}
+          </button>
+          {showDebug && (
+            <div className="mt-2 overflow-x-auto rounded-xl bg-gray-900 px-4 py-3 font-mono text-[11px] leading-relaxed text-gray-300">
+              <p><span className="text-gray-500">socket id:</span> {socketId ?? '—'} (relay: {socketUrl})</p>
+              <p><span className="text-gray-500">conectado:</span> {connected ? 'sí' : 'no'} · <span className="text-gray-500">player listo:</span> {playerReady ? 'sí' : 'no'}</p>
+              <p><span className="text-gray-500">eventos:</span> {eventCount} · <span className="text-gray-500">en cola:</span> {queuedCount} · <span className="text-gray-500">buffer inicial:</span> {bufferCount ?? '—'}</p>
+              <p>
+                <span className="text-gray-500">primer evento:</span> {firstEventType ?? '—'}
+                {firstEventType === 2 && <span className="text-emerald-400"> (FullSnapshot ✓)</span>}
+                {firstEventType !== null && firstEventType !== 2 && <span className="text-amber-400"> (¡no es FullSnapshot!)</span>}
+                {' '}· <span className="text-gray-500">último evento:</span> {lastEventType ?? '—'}
+              </p>
+              <p className="text-gray-500">Tipos de evento: 0=Meta · 2=FullSnapshot · 3=Incremental · 4=AdoptedStyle · 5=Viewport · 6=Font</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

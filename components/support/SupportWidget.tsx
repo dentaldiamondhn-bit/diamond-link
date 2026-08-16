@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, X, Send, Loader2, User, MessageCircle } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useCoBrowse } from '@/hooks/useCoBrowse';
+import { useCoBrowse, type PeerInfo } from '@/hooks/useCoBrowse';
 import { RemoteCursorOverlay } from '@/components/support/RemoteCursorOverlay';
 
 interface Message {
@@ -27,7 +27,14 @@ interface Message {
  *    agent's remote cursor/pings are drawn over the page.
  */
 export function SupportWidget() {
-  const { isSharing, sessionId, socket, startSupportSession, stopSupportSession } = useCoBrowse();
+  const {
+    isSharing,
+    sessionId,
+    socket,
+    agentInfo,
+    startSupportSession,
+    stopSupportSession,
+  } = useCoBrowse();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'soporte' | 'chat'>('soporte');
 
@@ -39,7 +46,12 @@ export function SupportWidget() {
     return (
       <>
         <RemoteCursorOverlay socket={socket} />
-        <ActiveSupportPanel socket={socket} agentUrl={agentUrl} onStop={stopSupportSession} />
+        <ActiveSupportPanel
+          socket={socket}
+          agentUrl={agentUrl}
+          agentInfo={agentInfo}
+          onStop={stopSupportSession}
+        />
       </>
     );
   }
@@ -140,10 +152,12 @@ export function SupportWidget() {
 function ActiveSupportPanel({
   socket,
   agentUrl,
+  agentInfo,
   onStop,
 }: {
   socket: Socket;
   agentUrl: string;
+  agentInfo: PeerInfo | null;
   onStop: () => void;
 }) {
   const [connected, setConnected] = useState<boolean | null>(() => socket.connected);
@@ -192,7 +206,39 @@ function ActiveSupportPanel({
         </button>
       </div>
 
+      {connected === false && (
+        <div className="flex items-center gap-2 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-700 ring-1 ring-red-200">
+          <i className="fas fa-exclamation-triangle" />
+          Relay desconectado — la sesión no está transmitiendo.
+        </div>
+      )}
+
       <div className="space-y-3 p-4">
+        {agentInfo && (
+          <div className="flex items-center gap-3 rounded-xl bg-teal-50 px-3 py-2.5 ring-1 ring-teal-100">
+            {agentInfo.imageUrl ? (
+              <img
+                src={agentInfo.imageUrl}
+                alt={agentInfo.name || 'Agente'}
+                className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-teal-200"
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-600 text-sm font-bold text-white">
+                {(agentInfo.name || 'S').charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-teal-900">
+                {agentInfo.name || 'Agente de soporte'}
+              </p>
+              <p className="flex items-center gap-1 text-[11px] text-teal-700">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                Agente conectado — viendo tu pantalla
+              </p>
+            </div>
+          </div>
+        )}
+
         <p className="text-xs text-gray-600">
           Comparte este enlace con el agente de soporte para que vea tu pantalla en vivo:
         </p>

@@ -244,7 +244,7 @@
 - [ ] Set up regular dependency updates
 - [ ] Configure automated testing
 - [ ] Set up performance monitoring
-- ] Configure cost alerts
+- [ ] Configure cost alerts
 - [ ] Plan capacity scaling
 - [ ] Document maintenance procedures
 
