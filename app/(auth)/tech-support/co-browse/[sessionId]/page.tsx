@@ -393,6 +393,7 @@ export default function CoBrowseAgentPage() {
       if (!point) return;
 
       if (controlMode) {
+        console.debug(`[co-browse] agent remote-click x=${point.x.toFixed(1)} y=${point.y.toFixed(1)}`);
         socket.emit('agent-remote-click', { roomId: sessionId, x: point.x, y: point.y });
       } else {
         socket.emit('agent-ping-click', {

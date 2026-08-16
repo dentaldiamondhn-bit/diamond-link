@@ -100,6 +100,7 @@ export function RemoteCursorOverlay({ socket }: { socket: Socket }) {
       const x = Math.min(window.innerWidth - 1, Math.max(0, (data.x / 100) * window.innerWidth));
       const y = Math.min(window.innerHeight - 1, Math.max(0, (data.y / 100) * window.innerHeight));
       const el = document.elementFromPoint(x, y);
+      console.debug(`[co-browse] client remote-click raw=(${data.x},${data.y}) px=(${x.toFixed(0)},${y.toFixed(0)}) element=${el?.tagName ?? 'null'} class="${el?.className ?? ''}"`);
       if (!el) return;
       // Dispatch a full mouse sequence so both native listeners and React's
       // synthetic onClick (attached at the root) are triggered.

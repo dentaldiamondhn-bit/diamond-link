@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, X, Send, Loader2, User, MessageCircle } from 'lucide-react';
+import { Bot, X, Send, Loader2, User, MessageCircle, Maximize2 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useCoBrowse, type PeerInfo } from '@/hooks/useCoBrowse';
@@ -37,21 +37,51 @@ export function SupportWidget() {
   } = useCoBrowse();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'soporte' | 'chat'>('soporte');
+  const [minimized, setMinimized] = useState(false);
+  const wasSharingRef = useRef(false);
 
   const agentUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/tech-support/co-browse/${sessionId}`
     : '';
 
+  // Auto-minimize when agent connects during an active session.
+  // When the session starts, the full panel is visible so the user can copy
+  // the session URL. Once the agent joins (agentInfo becomes non-null) we
+  // collapse it to a small indicator so it doesn't block the agent's view.
+  // Reset minimized when session ends.
+  useEffect(() => {
+    if (!isSharing) {
+      wasSharingRef.current = false;
+      // Defer to avoid synchronous setState inside the effect body.
+      const id = setTimeout(() => setMinimized(false), 0);
+      return () => clearTimeout(id);
+    } else if (agentInfo && !wasSharingRef.current) {
+      wasSharingRef.current = true;
+      const id = setTimeout(() => setMinimized(true), 0);
+      return () => clearTimeout(id);
+    }
+  }, [isSharing, agentInfo]);
+
   if (isSharing && socket) {
     return (
       <>
         <RemoteCursorOverlay socket={socket} />
-        <ActiveSupportPanel
-          socket={socket}
-          agentUrl={agentUrl}
-          agentInfo={agentInfo}
-          onStop={stopSupportSession}
-        />
+        {minimized ? (
+          <MinimizedSessionIndicator
+            agentInfo={agentInfo}
+            connected={socket.connected}
+            onExpand={() => setMinimized(false)}
+            onStop={stopSupportSession}
+          />
+        ) : (
+          <ActiveSupportPanel
+            socket={socket}
+            agentUrl={agentUrl}
+            agentInfo={agentInfo}
+            onStop={stopSupportSession}
+            onMinimize={() => setMinimized(true)}
+          />
+        )}
       </>
     );
   }
@@ -149,16 +179,88 @@ export function SupportWidget() {
   );
 }
 
+/**
+ * Compact floating indicator shown when the session is active and the agent
+ * has connected. Replaces the full panel so it doesn't block the agent's
+ * view of the serviced user's screen.
+ */
+function MinimizedSessionIndicator({
+  agentInfo,
+  connected,
+  onExpand,
+  onStop,
+}: {
+  agentInfo: PeerInfo | null;
+  connected: boolean;
+  onExpand: () => void;
+  onStop: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      transition={{ duration: 0.15 }}
+      className="fixed bottom-6 right-6 z-[9990] flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-xl ring-1 ring-gray-200 print:hidden"
+    >
+      {/* Agent avatar or initial */}
+      {agentInfo?.imageUrl ? (
+        <img
+          src={agentInfo.imageUrl}
+          alt={agentInfo.name || 'Agente'}
+          className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-teal-200"
+        />
+      ) : (
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-600 text-[10px] font-bold text-white">
+          {(agentInfo?.name || 'S').charAt(0).toUpperCase()}
+        </div>
+      )}
+
+      {/* Status text */}
+      <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+        <span
+          className={`h-2 w-2 rounded-full ${
+            connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'
+          }`}
+        />
+        {agentInfo?.name || 'Soporte'}
+      </span>
+
+      {/* Expand button */}
+      <button
+        type="button"
+        onClick={onExpand}
+        className="ml-1 flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+        title="Expandir panel de soporte"
+      >
+        <Maximize2 size={14} />
+      </button>
+
+      {/* Stop button */}
+      <button
+        type="button"
+        onClick={onStop}
+        className="flex h-6 w-6 items-center justify-center rounded-full text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
+        title="Terminar sesión"
+      >
+        <i className="fas fa-phone-slash text-xs" />
+      </button>
+    </motion.div>
+  );
+}
+
 function ActiveSupportPanel({
   socket,
   agentUrl,
   agentInfo,
   onStop,
+  onMinimize,
 }: {
   socket: Socket;
   agentUrl: string;
   agentInfo: PeerInfo | null;
   onStop: () => void;
+  onMinimize?: () => void;
 }) {
   const [connected, setConnected] = useState<boolean | null>(() => socket.connected);
   const [copied, setCopied] = useState(false);
@@ -196,14 +298,26 @@ function ActiveSupportPanel({
           <i className={`fas fa-record-vinyl ${connected === false ? '' : 'animate-pulse'}`} />
           Sesión de soporte activa
         </div>
-        <button
-          type="button"
-          onClick={onStop}
-          className="flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700"
-        >
-          <i className="fas fa-phone-slash" />
-          Terminar
-        </button>
+        <div className="flex items-center gap-1">
+          {onMinimize && (
+            <button
+              type="button"
+              onClick={onMinimize}
+              className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-xs font-semibold text-white hover:bg-white/30"
+              title="Minimizar panel"
+            >
+              <i className="fas fa-minus" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onStop}
+            className="flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700"
+          >
+            <i className="fas fa-phone-slash" />
+            Terminar
+          </button>
+        </div>
       </div>
 
       {connected === false && (
