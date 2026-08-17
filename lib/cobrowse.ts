@@ -1,7 +1,6 @@
 'use client';
 
 import { createClient, type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
-import pako from 'pako';
 
 /**
  * Supabase Realtime channel management for co-browsing.
@@ -101,15 +100,10 @@ export function createCobrowseChannel(
     for (const { event, handler } of opts.broadcastHandlers) {
       channel.on('broadcast', { event }, ({ payload }) => {
         try {
-          handler(decodeSinglePayload(payload as Record<string, unknown>));
+          handler(payload as Record<string, unknown>);
         } catch (err) {
-          console.error(`[cobrowse] decode failed for ${event}`, err);
+          console.error(`[cobrowse] handler failed for ${event}`, err);
         }
-      });
-      // Also listen for chunked variants of the same event.
-      channel.on('broadcast', { event: `${event}:chunk` }, ({ payload }) => {
-        const reassembled = reassemble(event, payload as Record<string, unknown>);
-        if (reassembled) handler(reassembled);
       });
     }
   }
@@ -153,179 +147,20 @@ export function createCobrowseChannel(
   };
 }
 
-// ─── binary ↔ base64 helpers (safe for arbitrary Uint8Array data) ──────────
-
-function uint8ToBase64(bytes: Uint8Array): string {
-  let bin = '';
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
-function base64ToUint8(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-// ─── pako compression ──────────────────────────────────────────────────────
-
-function compressPayload(payload: Record<string, unknown>): Uint8Array {
-  const json = JSON.stringify(payload);
-  const encoded = new TextEncoder().encode(json);
-  return pako.deflate(encoded, { level: 9 });
-}
-
-function decompressPayload(compressed: Uint8Array): Record<string, unknown> {
-  const json = pako.inflate(compressed, { to: 'string' });
-  if (typeof json !== 'string') {
-    throw new Error('pako.inflate returned non-string');
-  }
-  return JSON.parse(json) as Record<string, unknown>;
-}
-
-// ─── chunking constants ────────────────────────────────────────────────────
-//
-// Supabase Realtime truncates broadcast messages at ~20 KB (20 480 bytes).
-// The wire size includes: WebSocket frame headers + Supabase Realtime
-// protocol envelope + broadcast event wrapper + our JSON payload. The
-// overhead can be 2-3 KB, so keep chunk base64 well under 16 KB.
-//
-// 8 KB compressed bytes → ~10.7 KB base64 → safe with protocol overhead.
-
-const CHUNK_RAW_BYTES = 8 * 1024;
-
-// Events below this size after JSON.stringify skip compression entirely.
-const COMPRESS_THRESHOLD = 4 * 1024;
-
 /**
  * Broadcast an event on the co-browse channel.
  *
- * 1. Small payloads (<4 KB JSON) → sent as-is (fast path, no overhead).
- * 2. Compressed payload fits in one message (<18 KB wire) → single compressed event.
- * 3. Compressed payload too large → chunked compressed event.
+ * Supabase Realtime truncates broadcast messages at ~20 KB wire size.
+ * Events under ~16 KB JSON are sent directly. Larger events (especially
+ * the rrweb FullSnapshot) should be uploaded to Supabase Storage and
+ * sent as a reference event instead.
  */
 export function broadcastEvent(
   channel: RealtimeChannel,
   event: string,
   payload: Record<string, unknown>
 ): void {
-  const serialized = JSON.stringify(payload);
-
-  // Fast path: tiny event, no compression needed
-  if (serialized.length <= COMPRESS_THRESHOLD) {
-    channel.send({ type: 'broadcast', event, payload });
-    return;
-  }
-
-  // Compress
-  const compressed = compressPayload(payload);
-  const b64 = uint8ToBase64(compressed);
-
-  // Wire size ≈ base64 + ~2-3 KB protocol overhead
-  if (b64.length + 3000 < 18 * 1024) {
-    // Fits in a single message
-    channel.send({
-      type: 'broadcast',
-      event,
-      payload: { compressed: true, d: b64 },
-    });
-    return;
-  }
-
-  // Chunk the compressed bytes
-  const totalChunks = Math.ceil(compressed.length / CHUNK_RAW_BYTES);
-  const chunkId = crypto.randomUUID();
-  console.debug(
-    `[cobrowse] chunking ${event}: ${serialized.length} raw → ${compressed.length} compressed → ${totalChunks} chunks`
-  );
-
-  for (let i = 0; i < totalChunks; i++) {
-    const slice = compressed.slice(i * CHUNK_RAW_BYTES, (i + 1) * CHUNK_RAW_BYTES);
-    const sliceB64 = uint8ToBase64(slice);
-    channel.send({
-      type: 'broadcast',
-      event: `${event}:chunk`,
-      payload: { chunkId, i, t: totalChunks, d: sliceB64 },
-    });
-  }
-}
-
-// ─── chunk reassembly ──────────────────────────────────────────────────────
-
-const pendingChunks = new Map<string, { t: number; parts: (string | undefined)[]; ts: number }>();
-
-function reassemble(
-  event: string,
-  payload: Record<string, unknown>
-): Record<string, unknown> | null {
-  const { chunkId, i, t, d } = payload as {
-    chunkId: string;
-    i: number;
-    t: number;
-    d: string;
-  };
-
-  if (typeof chunkId !== 'string' || typeof i !== 'number' || typeof t !== 'number' || typeof d !== 'string') {
-    console.warn(`[cobrowse] invalid chunk for ${event}`, payload);
-    return null;
-  }
-
-  const key = `${event}:${chunkId}`;
-  let entry = pendingChunks.get(key);
-  if (!entry) {
-    entry = { t, parts: new Array(t), ts: Date.now() };
-    pendingChunks.set(key, entry);
-  }
-
-  if (entry.t !== t) {
-    console.warn(`[cobrowse] chunk count mismatch for ${event}:${chunkId}, discarding`);
-    pendingChunks.delete(key);
-    return null;
-  }
-
-  entry.parts[i] = d;
-
-  if (entry.parts.every((p) => p !== undefined)) {
-    pendingChunks.delete(key);
-    try {
-      const b64 = entry.parts.join('');
-      console.log(`[cobrowse] reassembling ${event}:${chunkId}: ${entry.parts.length} chunks, ${b64.length} b64 chars`);
-      const bytes = base64ToUint8(b64);
-      // Verify zlib magic number (0x78) before inflate
-      if (bytes.length < 2 || bytes[0] !== 0x78) {
-        console.error(`[cobrowse] reassemble: bad zlib header for ${event}:${chunkId} (first byte: 0x${bytes[0]?.toString(16)})`);
-        return null;
-      }
-      return decompressPayload(bytes);
-    } catch (err) {
-      console.error(`[cobrowse] reassemble failed for ${event}:${chunkId}`, err);
-      return null;
-    }
-  }
-
-  return null;
-}
-
-// Evict chunks older than 30 s to prevent memory leaks from lost packets.
-setInterval(() => {
-  const cutoff = Date.now() - 30_000;
-  for (const [key, entry] of pendingChunks) {
-    if (entry.ts < cutoff) {
-      console.warn(`[cobrowse] evicting stale chunk: ${key}`);
-      pendingChunks.delete(key);
-    }
-  }
-}, 15_000);
-
-// ─── receive helpers ───────────────────────────────────────────────────────
-
-function decodeSinglePayload(payload: Record<string, unknown>): Record<string, unknown> {
-  if (payload.compressed) {
-    const bytes = base64ToUint8(payload.d as string);
-    return decompressPayload(bytes);
-  }
-  return payload;
+  channel.send({ type: 'broadcast', event, payload });
 }
 
 /**
@@ -343,14 +178,10 @@ export function onBroadcastEvent(
 ): () => void {
   channel.on('broadcast', { event }, ({ payload }) => {
     try {
-      handler(decodeSinglePayload(payload as Record<string, unknown>));
+      handler(payload as Record<string, unknown>);
     } catch (err) {
-      console.error(`[cobrowse] decode failed for ${event}`, err);
+      console.error(`[cobrowse] handler failed for ${event}`, err);
     }
-  });
-  channel.on('broadcast', { event: `${event}:chunk` }, ({ payload }) => {
-    const reassembled = reassemble(event, payload as Record<string, unknown>);
-    if (reassembled) handler(reassembled);
   });
   // No individual unsubscribe — channel.on() returns the same channel object,
   // so calling .unsubscribe() would close the entire channel. Handlers are

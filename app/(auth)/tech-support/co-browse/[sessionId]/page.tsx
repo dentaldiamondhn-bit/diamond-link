@@ -53,6 +53,8 @@ export default function CoBrowseAgentPage() {
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const sessionStartTimeRef = useRef<number>(Date.now());
 
   const isPrivileged = hasOverrideRole(sessionClaims, userId);
 
@@ -132,6 +134,27 @@ export default function CoBrowseAgentPage() {
       if (event) onReplayEvent(event);
     };
 
+    const onFullsnapshotRef = async (payload: Record<string, unknown>) => {
+      const path = payload.path as string;
+      if (!path) return;
+      console.log(`[co-browse] FullSnapshot reference received: ${path}`);
+      try {
+        const { data, error: dlError } = await supabase.storage
+          .from('support-sessions')
+          .download(path);
+        if (dlError) {
+          console.error(`[co-browse] FullSnapshot download failed: status=${dlError.statusCode} message="${dlError.message}" name="${dlError.name}" path="${path}"`);
+          return;
+        }
+        const text = await data.text();
+        const event = JSON.parse(text) as eventWithTime;
+        console.log(`[co-browse] FullSnapshot fetched (${text.length} chars), feeding to replayer`);
+        onReplayEvent(event);
+      } catch (err) {
+        console.error('[co-browse] FullSnapshot fetch error:', err);
+      }
+    };
+
     const onClientCursor = (payload: Record<string, unknown>) => {
       const data = payload as { x: number; y: number };
       const containerEl = containerRef.current;
@@ -151,6 +174,7 @@ export default function CoBrowseAgentPage() {
     const { channel } = createCobrowseChannel(sessionId, {
       broadcastHandlers: [
         { event: 'dom-mutation-event', handler: onDomMutation },
+        { event: 'fullsnapshot-reference', handler: onFullsnapshotRef },
         { event: 'client-cursor-move', handler: onClientCursor },
       ],
       onClientJoin: (info) => {
@@ -162,6 +186,12 @@ export default function CoBrowseAgentPage() {
         console.log('[co-browse] client left (Presence)');
         setClientInfo(null);
         setClientCursor(null);
+        setConnected(false);
+        if (recordingRef.current.length > 0) {
+          setSessionEnded(true);
+          setPingMode(false);
+          setControlMode(false);
+        }
       },
       onStatusChange: (status) => {
         setChannelState(status);
@@ -298,7 +328,12 @@ export default function CoBrowseAgentPage() {
     const onWheel = (e: WheelEvent) => {
       const channel = channelRef.current;
       if (!isChannelReady(channel)) return;
-      if (e.ctrlKey) return;
+
+      // Trackpad two-finger scroll on macOS sends ctrlKey:true with small
+      // deltas — treat as scroll (not pinch) when there is meaningful delta.
+      const isTruePinch = e.ctrlKey && Math.abs(e.deltaX) < 2 && Math.abs(e.deltaY) < 2;
+      if (isTruePinch) return;
+
       e.preventDefault();
       const wrapper = containerRef.current?.querySelector('.replayer-wrapper') as HTMLElement | null;
       let scale = 1;
@@ -389,23 +424,6 @@ export default function CoBrowseAgentPage() {
     [pingMode, controlMode, getWrapperPoint]
   );
 
-  const scrollViewport = useCallback(
-    (dir: 'up' | 'down' | 'left' | 'right') => {
-      const channel = channelRef.current;
-      if (!isChannelReady(channel)) return;
-      const container = containerRef.current;
-      const step = container ? container.clientHeight * 0.4 : 300;
-      const delta =
-        dir === 'up' ? -step : dir === 'down' ? step : dir === 'left' ? -step : step;
-      broadcastEvent(channel, 'agent-scroll', {
-        deltaX: dir === 'left' || dir === 'right' ? delta : 0,
-        deltaY: dir === 'up' || dir === 'down' ? delta : 0,
-        smooth: true,
-      });
-    },
-    []
-  );
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const channel = channelRef.current;
@@ -463,7 +481,7 @@ export default function CoBrowseAgentPage() {
     setUploadedUrl(null);
     setError(null);
     try {
-      const fileName = `support_session_${sessionId}_${Date.now()}.json`;
+      const fileName = `recordings/support_session_${sessionId}_${Date.now()}.json`;
       const { error: uploadError } = await supabase.storage
         .from('support-sessions')
         .upload(fileName, new Blob([JSON.stringify(recordingRef.current)], { type: 'application/json' }), {
@@ -551,12 +569,12 @@ export default function CoBrowseAgentPage() {
               }`}
             >
               <span className={`mr-1 inline-block h-2 w-2 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-              {connected ? 'Conectado' : 'Desconectado'}
+              {connected ? 'Conectado' : sessionEnded ? 'Sesión finalizada' : 'Desconectado'}
             </span>
             <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-700">
               {eventCount} eventos
             </span>
-            {firstEventType !== null && (
+            {!sessionEnded && firstEventType !== null && (
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${
                   firstEventType === 2
@@ -569,58 +587,62 @@ export default function CoBrowseAgentPage() {
                 {firstEventType === 2 ? 'Snapshot inicial OK' : `Primer evento: tipo ${firstEventType}`}
               </span>
             )}
-            {!playerReady && connected && (
+            {!sessionEnded && !playerReady && connected && (
               <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
                 <i className="fas fa-spinner fa-spin mr-1" />
                 Inicializando reproductor…
               </span>
             )}
+            {!sessionEnded && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setPingMode((m) => !m)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                    pingMode
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <i className="fas fa-bullseye mr-1.5" />
+                  {pingMode ? 'Ping activo — clic en el video' : 'Modo Ping'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setControlMode((m) => !m)}
+                  title="El agente puede hacer clic y desplazarse dentro de la pantalla del usuario"
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                    controlMode
+                      ? 'bg-rose-600 text-white shadow-lg'
+                      : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <i className={`fas fa-mouse-pointer mr-1.5 ${controlMode ? 'animate-pulse' : ''}`} />
+                  {controlMode ? 'Control activo' : 'Modo Control'}
+                </button>
+                <button
+                  type="button"
+                  onClick={exportRecording}
+                  disabled={recordingRef.current.length === 0}
+                  className="rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  <i className="fas fa-download mr-1.5" />
+                  Exportar JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={uploadRecording}
+                  disabled={uploading || recordingRef.current.length === 0}
+                  className="rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
+                >
+                  <i className={`fas fa-cloud-upload-alt mr-1.5 ${uploading ? 'animate-spin' : ''}`} />
+                  {uploading ? 'Subiendo...' : 'Subir a Supabase'}
+                </button>
+              </>
+            )}
             <button
               type="button"
-              onClick={() => setPingMode((m) => !m)}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                pingMode
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <i className="fas fa-bullseye mr-1.5" />
-              {pingMode ? 'Ping activo — clic en el video' : 'Modo Ping'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setControlMode((m) => !m)}
-              title="El agente puede hacer clic y desplazarse dentro de la pantalla del usuario"
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                controlMode
-                  ? 'bg-rose-600 text-white shadow-lg'
-                  : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <i className={`fas fa-mouse-pointer mr-1.5 ${controlMode ? 'animate-pulse' : ''}`} />
-              {controlMode ? 'Control activo' : 'Modo Control'}
-            </button>
-            <button
-              type="button"
-              onClick={exportRecording}
-              disabled={recordingRef.current.length === 0}
-              className="rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50 disabled:opacity-40"
-            >
-              <i className="fas fa-download mr-1.5" />
-              Exportar JSON
-            </button>
-            <button
-              type="button"
-              onClick={uploadRecording}
-              disabled={uploading || recordingRef.current.length === 0}
-              className="rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
-            >
-              <i className={`fas fa-cloud-upload-alt mr-1.5 ${uploading ? 'animate-spin' : ''}`} />
-              {uploading ? 'Subiendo...' : 'Subir a Supabase'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/tech-support')}
+              onClick={() => router.push('/tech-support/co-browse')}
               className="rounded-full bg-gray-800 px-4 py-1.5 text-sm font-semibold text-white hover:bg-gray-900"
             >
               <i className="fas fa-arrow-left mr-1.5" />
@@ -670,48 +692,63 @@ export default function CoBrowseAgentPage() {
         >
           {playerReady && <AgentCursorOverlay cursor={clientCursor} />}
 
-          {/* Scroll pad: move the serviced user's DOM viewport from the agent */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="absolute bottom-3 right-3 z-30 flex flex-col items-center rounded-xl bg-white/90 p-1.5 shadow-lg ring-1 ring-gray-200 backdrop-blur"
-          >
-            <button
-              type="button"
-              onClick={() => scrollViewport('up')}
-              title="Desplazar hacia arriba"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-            >
-              <i className="fas fa-chevron-up text-sm" />
-            </button>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => scrollViewport('left')}
-                title="Desplazar a la izquierda"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-              >
-                <i className="fas fa-chevron-left text-sm" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollViewport('down')}
-                title="Desplazar hacia abajo"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-              >
-                <i className="fas fa-chevron-down text-sm" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollViewport('right')}
-                title="Desplazar a la derecha"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-              >
-                <i className="fas fa-chevron-right text-sm" />
-              </button>
+          {sessionEnded && eventCount > 0 && (
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-gray-900/70 backdrop-blur-sm">
+              <div className="rounded-2xl bg-white p-8 shadow-2xl text-center max-w-sm">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+                  <i className="fas fa-check text-2xl text-emerald-600" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">Sesión finalizada</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {eventCount} eventos capturados · {Math.round((Date.now() - sessionStartTimeRef.current) / 60000)} min
+                </p>
+                <div className="mt-6 flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={exportRecording}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50 transition"
+                  >
+                    <i className="fas fa-download" />
+                    Exportar grabación (JSON)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={uploadRecording}
+                    disabled={uploading}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 transition"
+                  >
+                    <i className={`fas fa-cloud-upload-alt ${uploading ? 'animate-spin' : ''}`} />
+                    {uploading ? 'Subiendo...' : 'Subir a Supabase'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/tech-support/co-browse')}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition"
+                  >
+                    <i className="fas fa-arrow-left" />
+                    Salir
+                  </button>
+                </div>
+                {uploadedUrl && (
+                  <p className="mt-3 text-xs text-emerald-600">
+                    <i className="fas fa-check-circle mr-1" />
+                    Subida completa —{' '}
+                    <a href={uploadedUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                      ver archivo
+                    </a>
+                  </p>
+                )}
+                {error && (
+                  <p className="mt-3 text-xs text-red-600">
+                    <i className="fas fa-exclamation-triangle mr-1" />
+                    {error}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {(!playerReady || eventCount === 0) && (
+          {(!playerReady || eventCount === 0) && !sessionEnded && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white text-gray-400">
               <i className="fas fa-video text-4xl" />
               <p className="mt-3 text-sm font-semibold">
@@ -730,7 +767,7 @@ export default function CoBrowseAgentPage() {
           )}
         </div>
 
-        {controlMode && (
+        {controlMode && !sessionEnded && (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">
             <i className="fas fa-mouse-pointer" />
             <span>

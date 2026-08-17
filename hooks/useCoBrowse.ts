@@ -12,6 +12,7 @@ import {
   removeCobrowseChannel,
   type PeerInfo,
 } from '@/lib/cobrowse';
+import { supabase } from '@/lib/supabase';
 
 export type { PeerInfo };
 
@@ -82,6 +83,27 @@ export function useCoBrowse() {
     console.log(`[co-browse] client session ${newSessionId} — joining Supabase channel`);
 
     let lastFullSnapshot: eventWithTime | null = null;
+    let lastFullSnapshotPath: string | null = null;
+
+    const uploadFullSnapshot = async (event: eventWithTime): Promise<string | null> => {
+      try {
+        const path = `fullsnapshots/${newSessionId}_${Date.now()}.json`;
+        const { error } = await supabase.storage
+          .from('support-sessions')
+          .upload(path, new Blob([JSON.stringify(event)], { type: 'application/json' }), {
+            contentType: 'application/json',
+          });
+        if (error) {
+          console.error('[co-browse] FullSnapshot upload failed:', error.message);
+          return null;
+        }
+        console.log(`[co-browse] FullSnapshot uploaded to ${path}`);
+        return path;
+      } catch (err) {
+        console.error('[co-browse] FullSnapshot upload error:', err);
+        return null;
+      }
+    };
 
     const startRecording = () => {
       if (stopRecordingRef.current) return;
@@ -90,9 +112,23 @@ export function useCoBrowse() {
         emit: (event) => {
           if (!isChannelReady(ch)) return;
           console.debug(`[co-browse] client emit type=${event.type} room=${newSessionId}`);
-          broadcastEvent(ch, 'dom-mutation-event', { event });
+
           if (event.type === 2) {
             lastFullSnapshot = event as eventWithTime;
+            // Upload FullSnapshot to Storage (too large for broadcast).
+            // Send a reference event so the agent can fetch it via HTTP.
+            uploadFullSnapshot(event).then((path) => {
+              if (path && isChannelReady(ch)) {
+                lastFullSnapshotPath = path;
+                broadcastEvent(ch, 'fullsnapshot-reference', { path });
+              } else if (isChannelReady(ch)) {
+                // Upload failed — try sending raw (may be truncated by Supabase)
+                console.warn('[co-browse] FullSnapshot upload failed, sending raw');
+                broadcastEvent(ch, 'dom-mutation-event', { event });
+              }
+            });
+          } else {
+            broadcastEvent(ch, 'dom-mutation-event', { event });
           }
         },
       });
@@ -133,7 +169,11 @@ export function useCoBrowse() {
         onAgentJoin: (info) => {
           console.log(`[co-browse] agent joined via Presence: ${info.name}`);
           setAgentInfo(info);
-          if (lastFullSnapshot) {
+          // Re-send FullSnapshot to late-joining agent
+          if (lastFullSnapshotPath && isChannelReady(ch)) {
+            broadcastEvent(ch, 'fullsnapshot-reference', { path: lastFullSnapshotPath });
+          } else if (lastFullSnapshot && isChannelReady(ch)) {
+            // Path not available yet (upload in progress) — send raw as fallback
             broadcastEvent(ch, 'dom-mutation-event', { event: lastFullSnapshot });
           }
           takeFullSnapshot();
