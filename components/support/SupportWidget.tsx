@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, X, Send, Loader2, User, MessageCircle, Maximize2 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
@@ -30,7 +29,8 @@ export function SupportWidget() {
   const {
     isSharing,
     sessionId,
-    socket,
+    channel,
+    channelConnected,
     agentInfo,
     startSupportSession,
     stopSupportSession,
@@ -62,20 +62,20 @@ export function SupportWidget() {
     }
   }, [isSharing, agentInfo]);
 
-  if (isSharing && socket) {
+  if (isSharing && channel) {
     return (
       <>
-        <RemoteCursorOverlay socket={socket} />
+        <RemoteCursorOverlay channel={channel} />
         {minimized ? (
           <MinimizedSessionIndicator
             agentInfo={agentInfo}
-            connected={socket.connected}
+            connected={channelConnected}
             onExpand={() => setMinimized(false)}
             onStop={stopSupportSession}
           />
         ) : (
           <ActiveSupportPanel
-            socket={socket}
+            connected={channelConnected}
             agentUrl={agentUrl}
             agentInfo={agentInfo}
             onStop={stopSupportSession}
@@ -250,31 +250,19 @@ function MinimizedSessionIndicator({
 }
 
 function ActiveSupportPanel({
-  socket,
+  connected,
   agentUrl,
   agentInfo,
   onStop,
   onMinimize,
 }: {
-  socket: Socket;
+  connected: boolean;
   agentUrl: string;
   agentInfo: PeerInfo | null;
   onStop: () => void;
   onMinimize?: () => void;
 }) {
-  const [connected, setConnected] = useState<boolean | null>(() => socket.connected);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const onConnect = () => setConnected(true);
-    const onDisconnect = () => setConnected(false);
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-    };
-  }, [socket]);
 
   const copySession = async () => {
     if (navigator.clipboard?.writeText) {

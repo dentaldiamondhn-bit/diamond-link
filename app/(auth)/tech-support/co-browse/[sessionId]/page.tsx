@@ -3,14 +3,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@clerk/nextjs';
-import { io, type Socket } from 'socket.io-client';
 import { Replayer, type eventWithTime } from 'rrweb';
 import 'rrweb/dist/style.css';
 import { supabase } from '@/lib/supabase';
 import { hasOverrideRole } from '@/lib/adminAuth';
-import { getSocketServerUrl } from '@/lib/socketUrl';
+import {
+  createCobrowseChannel,
+  broadcastEvent,
+  trackPresence,
+  untrackPresence,
+  removeCobrowseChannel,
+  isChannelReady,
+  type PeerInfo,
+} from '@/lib/cobrowse';
 import { AgentCursorOverlay } from '@/components/support/AgentCursorOverlay';
-import type { PeerInfo } from '@/hooks/useCoBrowse';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface RecordedViewport {
   width: number;
@@ -26,7 +33,7 @@ export default function CoBrowseAgentPage() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const replayerRef = useRef<Replayer | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const recordingRef = useRef<eventWithTime[]>([]);
   const recordedViewportRef = useRef<RecordedViewport | null>(null);
 
@@ -37,8 +44,7 @@ export default function CoBrowseAgentPage() {
   const [lastEventType, setLastEventType] = useState<number | null>(null);
   const [eventCount, setEventCount] = useState(0);
   const [queuedCount, setQueuedCount] = useState(0);
-  const [bufferCount, setBufferCount] = useState<number | null>(null);
-  const [socketId, setSocketId] = useState<string | null>(null);
+  const [channelState, setChannelState] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
   const [pingMode, setPingMode] = useState(false);
   const [controlMode, setControlMode] = useState(false);
@@ -49,7 +55,6 @@ export default function CoBrowseAgentPage() {
   const [uploading, setUploading] = useState(false);
 
   const isPrivileged = hasOverrideRole(sessionClaims, userId);
-  const socketUrl = getSocketServerUrl();
 
   const pendingEventsRef = useRef<eventWithTime[]>([]);
   const replayerReadyRef = useRef(false);
@@ -89,15 +94,6 @@ export default function CoBrowseAgentPage() {
     console.debug(`[co-browse] replay event type=${event.type} queued=${pendingEventsRef.current.length}`);
   }, []);
 
-  const onRoomBuffer = useCallback(
-    ({ events }: { events: eventWithTime[] }) => {
-      setBufferCount(events.length);
-      console.debug(`[co-browse] room-buffer received ${events.length} events`);
-      for (const event of events) onReplayEvent(event);
-    },
-    [onReplayEvent]
-  );
-
   // Normalize a pointer position against the visible (scaled + centered)
   // replayer box. The rrweb iframe is letterboxed inside the container, so the
   // client's viewport maps 1:1 to the .replayer-wrapper box only. Computing
@@ -122,44 +118,13 @@ export default function CoBrowseAgentPage() {
   useEffect(() => {
     if (!sessionId) return;
 
-    const socket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-    });
-    socketRef.current = socket;
+    const onDomMutation = (payload: Record<string, unknown>) => {
+      const event = payload.event as eventWithTime;
+      if (event) onReplayEvent(event);
+    };
 
-    socket.on('connect', () => {
-      setConnected(true);
-      setSocketId(socket.id ?? null);
-      socket.emit('join-room', {
-        roomId: sessionId,
-        role: 'agent',
-        info: {
-          userId: userId ?? '',
-          name:
-            [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-            user?.primaryEmailAddress?.emailAddress ||
-            'Soporte',
-          imageUrl: user?.imageUrl ?? null,
-        },
-      });
-      console.debug(`[co-browse] socket connected id=${socket.id}, joined room ${sessionId}`);
-    });
-    socket.on('disconnect', () => {
-      setConnected(false);
-      setClientCursor(null);
-      console.debug('[co-browse] socket disconnected');
-    });
-    socket.on('replay-event', onReplayEvent);
-    socket.on('room-buffer', onRoomBuffer);
-    socket.on('peer-info', (data: { role: string; info: PeerInfo }) => {
-      if (data.role === 'client' && data.info) setClientInfo(data.info);
-    });
-    socket.on('agent-show-client-cursor', (data: { x: number; y: number }) => {
-      // Percent over the client's window -> pixels within the container's
-      // (centered, scaled) replayer box.
+    const onClientCursor = (payload: Record<string, unknown>) => {
+      const data = payload as { x: number; y: number };
       const containerEl = containerRef.current;
       const wrapper = containerEl?.querySelector('.replayer-wrapper') as HTMLElement | null;
       if (containerEl && wrapper) {
@@ -172,13 +137,51 @@ export default function CoBrowseAgentPage() {
       } else {
         setClientCursor(null);
       }
+    };
+
+    const { channel } = createCobrowseChannel(sessionId, {
+      broadcastHandlers: [
+        { event: 'dom-mutation-event', handler: onDomMutation },
+        { event: 'client-cursor-move', handler: onClientCursor },
+      ],
+      onClientJoin: (info) => {
+        console.log(`[co-browse] client joined via Presence: ${info.name}`);
+        setClientInfo(info);
+        setConnected(true);
+      },
+      onClientLeave: () => {
+        console.log('[co-browse] client left (Presence)');
+        setClientInfo(null);
+        setClientCursor(null);
+      },
+      onStatusChange: (status) => {
+        setChannelState(status);
+        if (status === 'SUBSCRIBED') {
+          console.log(`[co-browse] agent channel subscribed, joining room ${sessionId}`);
+          trackPresence(channel, 'agent', {
+            userId: userId ?? '',
+            name:
+              [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+              user?.primaryEmailAddress?.emailAddress ||
+              'Soporte',
+            imageUrl: user?.imageUrl ?? null,
+          });
+          setConnected(true);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setConnected(false);
+          setClientCursor(null);
+          console.warn(`[co-browse] channel problem: ${status}`);
+        }
+      },
     });
+    channelRef.current = channel;
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      untrackPresence(channel);
+      removeCobrowseChannel(channel);
+      channelRef.current = null;
     };
-  }, [sessionId, onReplayEvent, onRoomBuffer, userId, user, socketUrl]);
+  }, [sessionId, onReplayEvent, userId, user]);
 
   // Bootstrap the live Replayer once the container is mounted.
   useEffect(() => {
@@ -284,10 +287,8 @@ export default function CoBrowseAgentPage() {
     // Native non-passive listener so we can preventDefault (the container has
     // overflow-hidden; nothing else should scroll as a result of the wheel).
     const onWheel = (e: WheelEvent) => {
-      const socket = socketRef.current;
-      if (!socket?.connected) return;
-      // Skip trackpad pinch-to-zoom (ctrlKey is set by the browser) so we
-      // don't scroll the user's page when the agent is just zooming.
+      const channel = channelRef.current;
+      if (!isChannelReady(channel)) return;
       if (e.ctrlKey) return;
       e.preventDefault();
       const wrapper = containerRef.current?.querySelector('.replayer-wrapper') as HTMLElement | null;
@@ -296,9 +297,6 @@ export default function CoBrowseAgentPage() {
       if (wrapper && viewport?.width) {
         scale = wrapper.getBoundingClientRect().width / viewport.width || 1;
       }
-      // deltaMode: 0 = pixels, 1 = lines (Firefox), 2 = pages. Normalize to
-      // pixels so the serviced user scrolls by a consistent distance no matter
-      // the agent's browser/OS wheel settings.
       let deltaX = e.deltaX;
       let deltaY = e.deltaY;
       if (e.deltaMode === 1) {
@@ -309,12 +307,8 @@ export default function CoBrowseAgentPage() {
         deltaX *= h;
         deltaY *= h;
       }
-      // Deltas are scaled back so the user's page scrolls by the distance the
-      // agent saw move on screen. The pointer's position is sent along so the
-      // client can scroll whichever sub-container is under the cursor.
       const point = getWrapperPoint(e);
-      socket.emit('agent-scroll', {
-        roomId: sessionId,
+      broadcastEvent(channel, 'agent-scroll', {
         deltaX: deltaX / scale,
         deltaY: deltaY / scale,
         x: point?.x,
@@ -355,21 +349,14 @@ export default function CoBrowseAgentPage() {
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      const socket = socketRef.current;
-      if (!socket?.connected) return;
+      const channel = channelRef.current;
+      if (!isChannelReady(channel)) return;
       const now = performance.now();
       if (now - cursorThrottleRef.current < 50) return;
       cursorThrottleRef.current = now;
-      // Send BOTH representations of the pointer so every client version works:
-      //  - x/y + viewport: raw agent-window pixels (legacy clients scale these)
-      //  - percentX/percentY: percent over the replayer box (the client's
-      //    viewport scaled to fit) — lets the remote laser stay aligned and
-      //    reach the client's screen borders exactly. The client uses these
-      //    when present and falls back to the pixel pair otherwise.
       const point = getWrapperPoint(e);
       if (!point) return;
-      socket.emit('agent-cursor-move', {
-        roomId: sessionId,
+      broadcastEvent(channel, 'agent-cursor-move', {
         x: e.clientX,
         y: e.clientY,
         viewportWidth: window.innerWidth,
@@ -378,51 +365,84 @@ export default function CoBrowseAgentPage() {
         percentY: point.y,
       });
     },
-    [sessionId, getWrapperPoint]
+    [getWrapperPoint]
   );
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      const socket = socketRef.current;
-      if ((!pingMode && !controlMode) || !socket?.connected) return;
+      const channel = channelRef.current;
+      if ((!pingMode && !controlMode) || !isChannelReady(channel)) return;
 
-      // Percent over the replayer box. Clamped to [0,100] so clicks in the
-      // letterbox margins map to the client's screen border instead of a
-      // coordinate outside their viewport (which elementFromPoint would miss).
       const point = getWrapperPoint(e);
       if (!point) return;
 
       if (controlMode) {
         console.debug(`[co-browse] agent remote-click x=${point.x.toFixed(1)} y=${point.y.toFixed(1)}`);
-        socket.emit('agent-remote-click', { roomId: sessionId, x: point.x, y: point.y });
+        broadcastEvent(channel, 'agent-remote-click', { x: point.x, y: point.y });
       } else {
-        socket.emit('agent-ping-click', {
-          roomId: sessionId,
+        broadcastEvent(channel, 'agent-ping-click', {
           x: point.x,
           y: point.y,
           label: 'Look Here!',
         });
       }
     },
-    [pingMode, controlMode, sessionId, getWrapperPoint]
+    [pingMode, controlMode, getWrapperPoint]
   );
 
   const scrollViewport = useCallback(
     (dir: 'up' | 'down' | 'left' | 'right') => {
-      const socket = socketRef.current;
-      if (!socket?.connected) return;
+      const channel = channelRef.current;
+      if (!isChannelReady(channel)) return;
       const container = containerRef.current;
       const step = container ? container.clientHeight * 0.4 : 300;
       const delta =
         dir === 'up' ? -step : dir === 'down' ? step : dir === 'left' ? -step : step;
-      socket.emit('agent-scroll', {
-        roomId: sessionId,
+      broadcastEvent(channel, 'agent-scroll', {
         deltaX: dir === 'left' || dir === 'right' ? delta : 0,
         deltaY: dir === 'up' || dir === 'down' ? delta : 0,
         smooth: true,
       });
     },
-    [sessionId]
+    []
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const channel = channelRef.current;
+      if (!controlMode || !isChannelReady(channel)) return;
+      e.preventDefault();
+      broadcastEvent(channel, 'agent-remote-keypress', {
+        type: 'keydown',
+        key: e.key,
+        code: e.code,
+        keyCode: e.keyCode,
+        altKey: e.altKey,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+      });
+    },
+    [controlMode]
+  );
+
+  const handleKeyUp = useCallback(
+    (e: React.KeyboardEvent) => {
+      const channel = channelRef.current;
+      if (!controlMode || !isChannelReady(channel)) return;
+      e.preventDefault();
+      broadcastEvent(channel, 'agent-remote-keypress', {
+        type: 'keyup',
+        key: e.key,
+        code: e.code,
+        keyCode: e.keyCode,
+        altKey: e.altKey,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+      });
+    },
+    [controlMode]
   );
 
   const exportRecording = useCallback(() => {
@@ -640,8 +660,11 @@ export default function CoBrowseAgentPage() {
 
         <div
           ref={containerRef}
+          tabIndex={0}
           onMouseMove={handleMouseMove}
           onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          onKeyUp={handleKeyUp}
           className={`relative h-[62vh] min-h-[400px] w-full overflow-hidden rounded-xl bg-white shadow ring-1 ring-gray-200 ${
             pingMode || controlMode ? 'cursor-crosshair' : 'cursor-none'
           }`}
@@ -736,9 +759,9 @@ export default function CoBrowseAgentPage() {
           </button>
           {showDebug && (
             <div className="mt-2 overflow-x-auto rounded-xl bg-gray-900 px-4 py-3 font-mono text-[11px] leading-relaxed text-gray-300">
-              <p><span className="text-gray-500">socket id:</span> {socketId ?? '—'} (relay: {socketUrl})</p>
+              <p><span className="text-gray-500">channel:</span> cobrowse:{sessionId} ({channelState ?? '—'})</p>
               <p><span className="text-gray-500">conectado:</span> {connected ? 'sí' : 'no'} · <span className="text-gray-500">player listo:</span> {playerReady ? 'sí' : 'no'}</p>
-              <p><span className="text-gray-500">eventos:</span> {eventCount} · <span className="text-gray-500">en cola:</span> {queuedCount} · <span className="text-gray-500">buffer inicial:</span> {bufferCount ?? '—'}</p>
+              <p><span className="text-gray-500">eventos:</span> {eventCount} · <span className="text-gray-500">en cola:</span> {queuedCount}</p>
               <p>
                 <span className="text-gray-500">primer evento:</span> {firstEventType ?? '—'}
                 {firstEventType === 2 && <span className="text-emerald-400"> (FullSnapshot ✓)</span>}
