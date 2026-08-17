@@ -131,6 +131,21 @@ export default function CoBrowseAgentPage() {
     if (!sessionId) return;
 
     const onDomMutation = (payload: Record<string, unknown>) => {
+      // Compressed FullSnapshot fallback: client sends gzip bytes as
+      // Uint8Array-like `d` field with `compressed: true` flag.
+      if (payload.compressed && Array.isArray(payload.d)) {
+        try {
+          const bytes = new Uint8Array(payload.d);
+          const json = pako.ungzip(bytes, { to: 'string' });
+          const event = JSON.parse(json) as eventWithTime;
+          console.log(`[co-browse] compressed FullSnapshot received via broadcast (${bytes.length} bytes → ${json.length} chars)`);
+          onReplayEvent(event);
+          return;
+        } catch (err) {
+          console.error('[co-browse] failed to decompress FullSnapshot broadcast', err);
+          return;
+        }
+      }
       const event = payload.event as eventWithTime;
       if (event) onReplayEvent(event);
     };
@@ -147,9 +162,16 @@ export default function CoBrowseAgentPage() {
           console.error(`[co-browse] FullSnapshot download failed: status=${dlError.statusCode} message="${dlError.message}" name="${dlError.name}" path="${path}"`);
           return;
         }
-        const text = await data.text();
+        const isGzipped = path.endsWith('.gz');
+        let text: string;
+        if (isGzipped) {
+          const bytes = new Uint8Array(await data.arrayBuffer());
+          text = pako.ungzip(bytes, { to: 'string' });
+        } else {
+          text = await data.text();
+        }
         const event = JSON.parse(text) as eventWithTime;
-        console.log(`[co-browse] FullSnapshot fetched (${text.length} chars), feeding to replayer`);
+        console.log(`[co-browse] FullSnapshot fetched (${text.length} chars${isGzipped ? ', gzipped' : ''}), feeding to replayer`);
         onReplayEvent(event);
       } catch (err) {
         console.error('[co-browse] FullSnapshot fetch error:', err);
@@ -487,8 +509,8 @@ export default function CoBrowseAgentPage() {
       const fileName = `recordings/support_session_${sessionId}_${Date.now()}.json.gz`;
       const { error: uploadError } = await supabase.storage
         .from('support-sessions')
-        .upload(fileName, new Blob([compressed], { type: 'application/gzip' }), {
-          contentType: 'application/gzip',
+        .upload(fileName, new Blob([compressed], { type: 'application/octet-stream' }), {
+          contentType: 'application/octet-stream',
         });
       if (uploadError) throw uploadError;
 
