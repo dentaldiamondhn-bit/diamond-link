@@ -13,7 +13,7 @@ import {
   removeCobrowseChannel,
   type PeerInfo,
 } from '@/lib/cobrowse';
-import { supabase } from '@/lib/supabase';
+
 
 export type { PeerInfo };
 
@@ -84,29 +84,6 @@ export function useCoBrowse() {
     console.log(`[co-browse] client session ${newSessionId} — joining Supabase channel`);
 
     let lastFullSnapshot: eventWithTime | null = null;
-    let lastFullSnapshotPath: string | null = null;
-
-    const uploadFullSnapshot = async (event: eventWithTime): Promise<string | null> => {
-      try {
-        const json = JSON.stringify(event);
-        const compressed = pako.gzip(json);
-        const path = `fullsnapshots/${newSessionId}_${Date.now()}.json.gz`;
-        const { error } = await supabase.storage
-          .from('support-sessions')
-          .upload(path, new Blob([compressed], { type: 'application/octet-stream' }), {
-            contentType: 'application/octet-stream',
-          });
-        if (error) {
-          console.error('[co-browse] FullSnapshot upload failed:', error.message);
-          return null;
-        }
-        console.log(`[co-browse] FullSnapshot uploaded to ${path} (${json.length} raw → ${compressed.length} compressed)`);
-        return path;
-      } catch (err) {
-        console.error('[co-browse] FullSnapshot upload error:', err);
-        return null;
-      }
-    };
 
     const startRecording = () => {
       if (stopRecordingRef.current) return;
@@ -118,21 +95,12 @@ export function useCoBrowse() {
 
           if (event.type === 2) {
             lastFullSnapshot = event as eventWithTime;
-            // Upload FullSnapshot to Storage (too large for broadcast raw).
-            // Send a reference event so the agent can fetch it via HTTP.
-            uploadFullSnapshot(event).then((path) => {
-              if (path && isChannelReady(ch)) {
-                lastFullSnapshotPath = path;
-                broadcastEvent(ch, 'fullsnapshot-reference', { path });
-              } else if (isChannelReady(ch)) {
-                // Storage upload failed — send gzip-compressed snapshot
-                // directly via broadcast (gzip JSON is ~10x smaller, fits
-                // in a single Supabase Realtime message).
-                console.warn('[co-browse] Storage upload failed, sending compressed FullSnapshot via broadcast');
-                const compressed = pako.gzip(JSON.stringify(event));
-                broadcastEvent(ch, 'dom-mutation-event', { event, compressed: true, d: Array.from(compressed) });
-              }
-            });
+            // Gzip compress the FullSnapshot and broadcast directly.
+            // A ~500KB snapshot compresses to ~40KB, well under Supabase
+            // Realtime's ~16KB JSON limit when sent as a byte array.
+            const compressed = pako.gzip(JSON.stringify(event));
+            console.log(`[co-browse] FullSnapshot compressed: ${JSON.stringify(event).length} → ${compressed.length} bytes`);
+            broadcastEvent(ch, 'dom-mutation-event', { event, compressed: true, d: Array.from(compressed) });
           } else {
             broadcastEvent(ch, 'dom-mutation-event', { event });
           }
@@ -176,10 +144,7 @@ export function useCoBrowse() {
           console.log(`[co-browse] agent joined via Presence: ${info.name}`);
           setAgentInfo(info);
           // Re-send FullSnapshot to late-joining agent
-          if (lastFullSnapshotPath && isChannelReady(ch)) {
-            broadcastEvent(ch, 'fullsnapshot-reference', { path: lastFullSnapshotPath });
-          } else if (lastFullSnapshot && isChannelReady(ch)) {
-            // Path not available yet — send compressed snapshot via broadcast
+          if (lastFullSnapshot && isChannelReady(ch)) {
             const compressed = pako.gzip(JSON.stringify(lastFullSnapshot));
             broadcastEvent(ch, 'dom-mutation-event', { event: lastFullSnapshot, compressed: true, d: Array.from(compressed) });
           }
