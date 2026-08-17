@@ -18,6 +18,7 @@ import {
 } from '@/lib/cobrowse';
 import { AgentCursorOverlay } from '@/components/support/AgentCursorOverlay';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import pako from 'pako';
 
 interface RecordedViewport {
   width: number;
@@ -481,11 +482,13 @@ export default function CoBrowseAgentPage() {
     setUploadedUrl(null);
     setError(null);
     try {
-      const fileName = `recordings/support_session_${sessionId}_${Date.now()}.json`;
+      const json = JSON.stringify(recordingRef.current);
+      const compressed = pako.gzip(json);
+      const fileName = `recordings/support_session_${sessionId}_${Date.now()}.json.gz`;
       const { error: uploadError } = await supabase.storage
         .from('support-sessions')
-        .upload(fileName, new Blob([JSON.stringify(recordingRef.current)], { type: 'application/json' }), {
-          contentType: 'application/json',
+        .upload(fileName, new Blob([compressed], { type: 'application/gzip' }), {
+          contentType: 'application/gzip',
         });
       if (uploadError) throw uploadError;
 
