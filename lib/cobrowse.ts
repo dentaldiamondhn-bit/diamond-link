@@ -178,17 +178,22 @@ function compressPayload(payload: Record<string, unknown>): Uint8Array {
 
 function decompressPayload(compressed: Uint8Array): Record<string, unknown> {
   const json = pako.inflate(compressed, { to: 'string' });
+  if (typeof json !== 'string') {
+    throw new Error('pako.inflate returned non-string');
+  }
   return JSON.parse(json) as Record<string, unknown>;
 }
 
 // ─── chunking constants ────────────────────────────────────────────────────
 //
 // Supabase Realtime truncates broadcast messages at ~20 KB (20 480 bytes).
-// After pako compression the compressed bytes are base64-encoded (×1.33),
-// then wrapped in a JSON envelope {chunkId,i,t,d} (~80 bytes overhead).
-// Use 12 KB compressed-byte chunks → ~16 KB base64 → well under the limit.
+// The wire size includes: WebSocket frame headers + Supabase Realtime
+// protocol envelope + broadcast event wrapper + our JSON payload. The
+// overhead can be 2-3 KB, so keep chunk base64 well under 16 KB.
+//
+// 8 KB compressed bytes → ~10.7 KB base64 → safe with protocol overhead.
 
-const CHUNK_RAW_BYTES = 12 * 1024;
+const CHUNK_RAW_BYTES = 8 * 1024;
 
 // Events below this size after JSON.stringify skip compression entirely.
 const COMPRESS_THRESHOLD = 4 * 1024;
@@ -217,8 +222,8 @@ export function broadcastEvent(
   const compressed = compressPayload(payload);
   const b64 = uint8ToBase64(compressed);
 
-  // Wire size ≈ base64 + ~80 bytes envelope overhead
-  if (b64.length + 80 < 18 * 1024) {
+  // Wire size ≈ base64 + ~2-3 KB protocol overhead
+  if (b64.length + 3000 < 18 * 1024) {
     // Fits in a single message
     channel.send({
       type: 'broadcast',
@@ -285,10 +290,16 @@ function reassemble(
     pendingChunks.delete(key);
     try {
       const b64 = entry.parts.join('');
+      console.log(`[cobrowse] reassembling ${event}:${chunkId}: ${entry.parts.length} chunks, ${b64.length} b64 chars`);
       const bytes = base64ToUint8(b64);
+      // Verify zlib magic number (0x78) before inflate
+      if (bytes.length < 2 || bytes[0] !== 0x78) {
+        console.error(`[cobrowse] reassemble: bad zlib header for ${event}:${chunkId} (first byte: 0x${bytes[0]?.toString(16)})`);
+        return null;
+      }
       return decompressPayload(bytes);
     } catch (err) {
-      console.error(`[cobrowse] reassemble failed for ${event}`, err);
+      console.error(`[cobrowse] reassemble failed for ${event}:${chunkId}`, err);
       return null;
     }
   }
