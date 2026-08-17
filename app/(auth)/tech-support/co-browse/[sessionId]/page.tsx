@@ -90,15 +90,18 @@ export default function CoBrowseAgentPage() {
       pendingEventsRef.current.push(event);
       setQueuedCount(pendingEventsRef.current.length);
 
-      // Check if we now have a FullSnapshot — if so, flush the buffer
-      // (including everything queued before it) in order.
+      // Check if we now have a FullSnapshot — if so, flush ONLY the
+      // FullSnapshot and any events AFTER it. Mutations that arrived
+      // before the FullSnapshot are stale (already reflected in the
+      // snapshot's DOM tree) and would fail with "Node not found".
       const hasSnapshot = pendingEventsRef.current.some((e) => e.type === 2);
       if (hasSnapshot) {
-        const queued = pendingEventsRef.current;
+        const snapshotIdx = pendingEventsRef.current.findIndex((e) => e.type === 2);
+        const toFlush = pendingEventsRef.current.slice(snapshotIdx);
         pendingEventsRef.current = [];
         setQueuedCount(0);
-        console.log(`[co-browse] FullSnapshot received, flushing ${queued.length} queued events`);
-        for (const evt of queued) replayer.addEvent(evt);
+        console.log(`[co-browse] FullSnapshot received, flushing ${toFlush.length} events (${snapshotIdx} pre-snapshot mutations discarded)`);
+        for (const evt of toFlush) replayer.addEvent(evt);
       }
     }
     recordingRef.current.push(event);
@@ -506,11 +509,12 @@ export default function CoBrowseAgentPage() {
     try {
       const json = JSON.stringify(recordingRef.current);
       const compressed = pako.gzip(json);
-      const fileName = `recordings/support_session_${sessionId}_${Date.now()}.json.gz`;
+      console.log(`[co-browse] recording compressed: ${json.length} → ${compressed.length} bytes`);
+      const fileName = `recordings/support_session_${sessionId}_${Date.now()}.json`;
       const { error: uploadError } = await supabase.storage
         .from('support-sessions')
-        .upload(fileName, new Blob([compressed], { type: 'application/octet-stream' }), {
-          contentType: 'application/octet-stream',
+        .upload(fileName, new Blob([compressed], { type: 'application/json' }), {
+          contentType: 'application/json',
         });
       if (uploadError) throw uploadError;
 

@@ -95,12 +95,9 @@ export function useCoBrowse() {
 
           if (event.type === 2) {
             lastFullSnapshot = event as eventWithTime;
-            // Gzip compress the FullSnapshot and broadcast directly.
-            // A ~500KB snapshot compresses to ~40KB, well under Supabase
-            // Realtime's ~16KB JSON limit when sent as a byte array.
             const compressed = pako.gzip(JSON.stringify(event));
             console.log(`[co-browse] FullSnapshot compressed: ${JSON.stringify(event).length} → ${compressed.length} bytes`);
-            broadcastEvent(ch, 'dom-mutation-event', { event, compressed: true, d: Array.from(compressed) });
+            broadcastEvent(ch, 'dom-mutation-event', { compressed: true, d: Array.from(compressed) });
           } else {
             broadcastEvent(ch, 'dom-mutation-event', { event });
           }
@@ -146,7 +143,7 @@ export function useCoBrowse() {
           // Re-send FullSnapshot to late-joining agent
           if (lastFullSnapshot && isChannelReady(ch)) {
             const compressed = pako.gzip(JSON.stringify(lastFullSnapshot));
-            broadcastEvent(ch, 'dom-mutation-event', { event: lastFullSnapshot, compressed: true, d: Array.from(compressed) });
+            broadcastEvent(ch, 'dom-mutation-event', { compressed: true, d: Array.from(compressed) });
           }
           takeFullSnapshot();
         },
