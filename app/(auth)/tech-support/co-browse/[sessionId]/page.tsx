@@ -75,19 +75,28 @@ export default function CoBrowseAgentPage() {
       recordedViewportRef.current = { width: event.data.width, height: event.data.height };
     }
 
+    // Buffer ALL events until we receive a FullSnapshot (type 2).
+    // Supabase Realtime broadcast does not guarantee ordering — chunked
+    // events (the ~800 KB FullSnapshot) may arrive AFTER small incremental
+    // mutations. Feeding mutations before the DOM tree exists causes
+    // "Node with id not found" errors and a blank viewport.
     const replayer = replayerRef.current;
     if (replayer && replayerReadyRef.current) {
       replayer.addEvent(event);
-    } else if (replayer && !replayerReadyRef.current && pendingEventsRef.current.length === 0) {
-      // Bootstrapping: feed the very first event directly to addEvent()
-      // so rrweb processes it and emits 'resize' (Meta, type 4) — which
-      // triggers flush() and sets the queue flowing. Without this step the
-      // Meta event would sit in the queue forever waiting for 'resize',
-      // which only fires when Meta is processed — a deadlock.
-      replayer.addEvent(event);
-    } else {
+    } else if (replayer && !replayerReadyRef.current) {
       pendingEventsRef.current.push(event);
       setQueuedCount(pendingEventsRef.current.length);
+
+      // Check if we now have a FullSnapshot — if so, flush the buffer
+      // (including everything queued before it) in order.
+      const hasSnapshot = pendingEventsRef.current.some((e) => e.type === 2);
+      if (hasSnapshot) {
+        const queued = pendingEventsRef.current;
+        pendingEventsRef.current = [];
+        setQueuedCount(0);
+        console.log(`[co-browse] FullSnapshot received, flushing ${queued.length} queued events`);
+        for (const evt of queued) replayer.addEvent(evt);
+      }
     }
     recordingRef.current.push(event);
     setEventCount((n) => n + 1);
@@ -323,19 +332,9 @@ export default function CoBrowseAgentPage() {
     // visible to the agent, so we flip the UI state.
     const onFullSnapshotRebuilt = () => {
       setPlayerReady(true);
-      console.debug('[co-browse] full snapshot rebuilt — viewport visible');
+      console.log('[co-browse] full snapshot rebuilt — viewport visible');
     };
     replayer.on('fullsnapshot-rebuilded', onFullSnapshotRebuilt);
-
-    // If events arrived before the Replayer was created (e.g. a room-buffer
-    // landed during the same tick), they're sitting in pendingEventsRef
-    // waiting for the bootstrap path. Feed the first one directly to
-    // addEvent() to kick off the resize → flush cycle.
-    if (pendingEventsRef.current.length > 0) {
-      const firstEvent = pendingEventsRef.current.shift()!;
-      console.debug(`[co-browse] bootstrapping with queued event type=${firstEvent.type}`);
-      replayer.addEvent(firstEvent);
-    }
 
     return () => {
       replayer.off('resize', flush);
