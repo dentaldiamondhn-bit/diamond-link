@@ -13,6 +13,7 @@ import {
   removeCobrowseChannel,
   type PeerInfo,
 } from '@/lib/cobrowse';
+import { supabase } from '@/lib/supabase';
 
 
 export type { PeerInfo };
@@ -115,6 +116,29 @@ export function useCoBrowse() {
 
     let lastFullSnapshot: eventWithTime | null = null;
 
+    const uploadFullSnapshot = async (event: eventWithTime, channel: RealtimeChannel, sid: string) => {
+      try {
+        const json = JSON.stringify(event);
+        const compressed = pako.gzip(json);
+        const path = `fullsnapshots/${sid}_${Date.now()}.json.gz`;
+        console.log(`[co-browse] uploading FullSnapshot to Storage: ${json.length} → ${compressed.length} bytes (${path})`);
+        const { error: uploadError } = await supabase.storage
+          .from('support-sessions')
+          .upload(path, new Blob([compressed], { type: 'application/json' }), {
+            contentType: 'application/json',
+          });
+        if (uploadError) {
+          console.error('[co-browse] FullSnapshot Storage upload failed, falling back to broadcast', uploadError);
+          broadcastEvent(channel, 'dom-mutation-event', { compressed: true, d: Array.from(compressed) });
+          return;
+        }
+        broadcastEvent(channel, 'fullsnapshot-reference', { path });
+        console.log(`[co-browse] fullsnapshot-reference sent (${path})`);
+      } catch (err) {
+        console.error('[co-browse] FullSnapshot upload error:', err);
+      }
+    };
+
     const startRecording = () => {
       if (stopRecordingRef.current) return;
       const stopRecording = record({
@@ -125,9 +149,7 @@ export function useCoBrowse() {
 
           if (event.type === 2) {
             lastFullSnapshot = event as eventWithTime;
-            const compressed = pako.gzip(JSON.stringify(event));
-            console.log(`[co-browse] FullSnapshot compressed: ${JSON.stringify(event).length} → ${compressed.length} bytes`);
-            broadcastEvent(ch, 'dom-mutation-event', { compressed: true, d: Array.from(compressed) });
+            void uploadFullSnapshot(event, ch, newSessionId);
           } else {
             broadcastEvent(ch, 'dom-mutation-event', { event });
           }
@@ -247,10 +269,9 @@ export function useCoBrowse() {
         onAgentJoin: (info) => {
           console.log(`[co-browse] agent joined via Presence: ${info.name}`);
           setAgentInfo(info);
-          // Re-send FullSnapshot to late-joining agent
+          // Re-send FullSnapshot to late-joining agent via Storage
           if (lastFullSnapshot && isChannelReady(ch)) {
-            const compressed = pako.gzip(JSON.stringify(lastFullSnapshot));
-            broadcastEvent(ch, 'dom-mutation-event', { compressed: true, d: Array.from(compressed) });
+            void uploadFullSnapshot(lastFullSnapshot, ch, newSessionId);
           }
           takeFullSnapshot();
         },
