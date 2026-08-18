@@ -13,10 +13,36 @@ import {
   removeCobrowseChannel,
   type PeerInfo,
 } from '@/lib/cobrowse';
-import { supabase } from '@/lib/supabase';
 
 
 export type { PeerInfo };
+
+export interface RemoteCursor {
+  x: number;
+  y: number;
+  percent: boolean;
+  viewportWidth: number | null;
+  viewportHeight: number | null;
+}
+
+export interface Ping {
+  id: number;
+  x: number;
+  y: number;
+  label: string;
+}
+
+function findScrollable(el: Element | null): Element | null {
+  for (let cur: Element | null = el; cur && cur !== document.documentElement; cur = cur.parentElement) {
+    const style = window.getComputedStyle(cur);
+    const overflowY = style.overflowY === 'auto' || style.overflowY === 'scroll';
+    const overflowX = style.overflowX === 'auto' || style.overflowX === 'scroll';
+    if ((overflowY && cur.scrollHeight > cur.clientHeight) || (overflowX && cur.scrollWidth > cur.clientWidth)) {
+      return cur;
+    }
+  }
+  return null;
+}
 
 /**
  * HIPAA/PHI redaction is enforced by the recorder:
@@ -47,11 +73,14 @@ export function useCoBrowse() {
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const [channelConnected, setChannelConnected] = useState(false);
   const [agentInfo, setAgentInfo] = useState<PeerInfo | null>(null);
+  const [remoteCursor, setRemoteCursor] = useState<RemoteCursor | null>(null);
+  const [pings, setPings] = useState<Ping[]>([]);
   const stopRecordingRef = useRef<(() => void) | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const cursorThrottleRef = useRef(0);
   const cursorListenerRef = useRef<((e: MouseEvent) => void) | null>(null);
+  const pingIdRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -86,28 +115,6 @@ export function useCoBrowse() {
 
     let lastFullSnapshot: eventWithTime | null = null;
 
-    const uploadFullSnapshot = async (event: eventWithTime, channel: RealtimeChannel, sid: string) => {
-      try {
-        const json = JSON.stringify(event);
-        const compressed = pako.gzip(json);
-        const path = `fullsnapshots/${sid}_${Date.now()}.json.gz`;
-        console.log(`[co-browse] uploading FullSnapshot to Storage: ${json.length} → ${compressed.length} bytes (${path})`);
-        const { error: uploadError } = await supabase.storage
-          .from('support-sessions')
-          .upload(path, new Blob([compressed], { type: 'application/json' }), {
-            contentType: 'application/json',
-          });
-        if (uploadError) {
-          console.error('[co-browse] FullSnapshot Storage upload failed:', uploadError);
-          return;
-        }
-        broadcastEvent(channel, 'fullsnapshot-reference', { path });
-        console.log(`[co-browse] fullsnapshot-reference sent (${path})`);
-      } catch (err) {
-        console.error('[co-browse] FullSnapshot upload error:', err);
-      }
-    };
-
     const startRecording = () => {
       if (stopRecordingRef.current) return;
       const stopRecording = record({
@@ -118,7 +125,9 @@ export function useCoBrowse() {
 
           if (event.type === 2) {
             lastFullSnapshot = event as eventWithTime;
-            void uploadFullSnapshot(event, ch, newSessionId);
+            const compressed = pako.gzip(JSON.stringify(event));
+            console.log(`[co-browse] FullSnapshot compressed: ${JSON.stringify(event).length} → ${compressed.length} bytes`);
+            broadcastEvent(ch, 'dom-mutation-event', { compressed: true, d: Array.from(compressed) });
           } else {
             broadcastEvent(ch, 'dom-mutation-event', { event });
           }
@@ -158,23 +167,90 @@ export function useCoBrowse() {
     let cleanupFn: () => void;
     try {
       const result = createCobrowseChannel(newSessionId, {
-        // Register agent→client broadcast events BEFORE subscribe so the
-        // server's join message includes them in the event filter.
-        // Actual handlers live in RemoteCursorOverlay; these no-ops just
-        // ensure the events are forwarded by the Supabase Realtime server.
         broadcastHandlers: [
-          { event: 'agent-cursor-move', handler: () => {} },
-          { event: 'agent-ping-click', handler: () => {} },
-          { event: 'agent-remote-click', handler: () => {} },
-          { event: 'agent-scroll', handler: () => {} },
-          { event: 'agent-remote-keypress', handler: () => {} },
+          { event: 'agent-cursor-move', handler: (payload) => {
+            const data = payload as {
+              x: number; y: number;
+              viewportWidth?: number; viewportHeight?: number;
+              percentX?: number; percentY?: number;
+            };
+            const hasPercent = typeof data.percentX === 'number' && typeof data.percentY === 'number';
+            setRemoteCursor({
+              x: hasPercent ? data.percentX! : data.x,
+              y: hasPercent ? data.percentY! : data.y,
+              percent: hasPercent,
+              viewportWidth: typeof data.viewportWidth === 'number' ? data.viewportWidth : null,
+              viewportHeight: typeof data.viewportHeight === 'number' ? data.viewportHeight : null,
+            });
+          }},
+          { event: 'agent-ping-click', handler: (payload) => {
+            const data = payload as { x: number; y: number; label?: string };
+            const id = ++pingIdRef.current;
+            setPings((prev) => [...prev, { id, x: data.x, y: data.y, label: data.label || 'Look Here!' }]);
+            setTimeout(() => {
+              setPings((prev) => prev.filter((p) => p.id !== id));
+            }, 2500);
+          }},
+          { event: 'agent-remote-click', handler: (payload) => {
+            const data = payload as { x: number; y: number };
+            const x = Math.min(window.innerWidth - 1, Math.max(0, (data.x / 100) * window.innerWidth));
+            const y = Math.min(window.innerHeight - 1, Math.max(0, (data.y / 100) * window.innerHeight));
+            const el = document.elementFromPoint(x, y);
+            if (!el) return;
+            for (const type of ['mousedown', 'mouseup', 'click'] as const) {
+              el.dispatchEvent(
+                new MouseEvent(type, { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0 })
+              );
+            }
+            const interactive = el.closest('input, textarea, select, [contenteditable="true"]') as HTMLElement | null;
+            if (interactive && typeof interactive.focus === 'function') {
+              interactive.focus();
+              const input = interactive as HTMLInputElement;
+              if (typeof input.select === 'function' && input.type !== 'hidden') {
+                input.select();
+              }
+            }
+          }},
+          { event: 'agent-scroll', handler: (payload) => {
+            const data = payload as { deltaX: number; deltaY: number; x?: number; y?: number; smooth?: boolean };
+            const deltaX = data.deltaX || 0;
+            const deltaY = data.deltaY || 0;
+            if (!deltaX && !deltaY) return;
+            const behavior: ScrollBehavior = data.smooth ? 'smooth' : 'auto';
+            let target: Element | null = null;
+            if (data.x !== undefined && data.y !== undefined) {
+              const x = Math.min(window.innerWidth - 1, Math.max(0, (data.x / 100) * window.innerWidth));
+              const y = Math.min(window.innerHeight - 1, Math.max(0, (data.y / 100) * window.innerHeight));
+              target = findScrollable(document.elementFromPoint(x, y));
+            }
+            if (target) {
+              target.scrollBy({ left: deltaX, top: deltaY, behavior });
+            } else {
+              window.scrollBy({ left: deltaX, top: deltaY, behavior });
+            }
+          }},
+          { event: 'agent-remote-keypress', handler: (payload) => {
+            const { type, key, code, keyCode, altKey, ctrlKey, metaKey, shiftKey } = payload as {
+              type: string; key: string; code: string; keyCode: number;
+              altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean;
+            };
+            const target = document.activeElement;
+            if (!target || !(target instanceof HTMLElement)) return;
+            target.dispatchEvent(
+              new KeyboardEvent(type as 'keydown' | 'keyup', {
+                key, code, keyCode, altKey, ctrlKey, metaKey, shiftKey,
+                bubbles: true, cancelable: true, view: window,
+              })
+            );
+          }},
         ],
         onAgentJoin: (info) => {
           console.log(`[co-browse] agent joined via Presence: ${info.name}`);
           setAgentInfo(info);
-          // Re-send FullSnapshot to late-joining agent via Storage reference
+          // Re-send FullSnapshot to late-joining agent
           if (lastFullSnapshot && isChannelReady(ch)) {
-            void uploadFullSnapshot(lastFullSnapshot, ch, newSessionId);
+            const compressed = pako.gzip(JSON.stringify(lastFullSnapshot));
+            broadcastEvent(ch, 'dom-mutation-event', { compressed: true, d: Array.from(compressed) });
           }
           takeFullSnapshot();
         },
@@ -241,6 +317,8 @@ export function useCoBrowse() {
     channel,
     channelConnected,
     agentInfo,
+    remoteCursor,
+    pings,
     startSupportSession,
     stopSupportSession,
   };

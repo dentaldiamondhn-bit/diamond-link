@@ -32,6 +32,8 @@ export function SupportWidget() {
     channel,
     channelConnected,
     agentInfo,
+    remoteCursor,
+    pings,
     startSupportSession,
     stopSupportSession,
   } = useCoBrowse();
@@ -65,7 +67,7 @@ export function SupportWidget() {
   if (isSharing && channel) {
     return (
       <>
-        <RemoteCursorOverlay channel={channel} />
+        <RemoteCursorOverlay remoteCursor={remoteCursor} pings={pings} />
         {minimized ? (
           <MinimizedSessionIndicator
             agentInfo={agentInfo}
