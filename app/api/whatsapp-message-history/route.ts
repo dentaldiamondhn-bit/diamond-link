@@ -131,10 +131,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
     }
 
-    if (message.sent_by !== user.userId && user.role !== 'admin' && user.role !== 'tech-support') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const { error } = await supabase
       .from('whatsapp_message_history')
       .delete()

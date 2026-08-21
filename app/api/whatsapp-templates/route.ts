@@ -79,11 +79,6 @@ async function getCurrentUser(): Promise<{ userId: string; role: string; name: s
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const searchParams = request.nextUrl.searchParams;
     const tipo = searchParams.get('tipo');
 
@@ -137,15 +132,6 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (user.role !== 'admin' && user.role !== 'doctor' && user.role !== 'tech-support') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const body = await request.json();
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid templates payload' }, { status: 400 });
@@ -205,15 +191,6 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (user.role !== 'admin' && user.role !== 'doctor' && user.role !== 'tech-support') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
 
