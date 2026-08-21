@@ -5,21 +5,25 @@ import { formatPhoneDisplay, createWhatsAppUrl } from '@/utils/phoneUtils';
 import { PatientFollowUpStatusService } from '@/services/patientFollowUpStatusService';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useUser } from '@clerk/nextjs';
-import { StickyNote } from 'lucide-react';
+import { StickyNote, Send, X } from 'lucide-react';
 import PatientOverviewModal from '@/components/PatientOverviewModal';
 import GlobalWhatsAppEdit from '@/components/GlobalWhatsAppEdit';
 import { FormattingToolbar } from '@/components/FormattingToolbar';
+import { supabase } from '@/lib/supabase';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 interface FollowUpStatus {
   id: string;
+  paciente_id: string;
   whatsapp_sent: boolean;
   patient_responded: boolean;
   appointment_scheduled: boolean;
   notes?: string;
   custom_whatsapp_message?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface PatientFollowUp {
@@ -145,13 +149,10 @@ export default function PatientFollowUpPage() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_PREFS.sortKey);
   const [sortDir, setSortDir] = useState<SortDir>(DEFAULT_PREFS.sortDir);
-  const [editingNotes, setEditingNotes] = useState<string | null>(null);
-  const [notesDraft, setNotesDraft] = useState('');
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [messageDraft, setMessageDraft] = useState('');
   const [messageHistory, setMessageHistory] = useState<Record<string, any[]>>({});
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [savingNotes, setSavingNotes] = useState(false);
   const prefsLoaded = useRef(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [globalTemplates, setGlobalTemplates] = useState<Record<string, string>>({});
@@ -231,8 +232,40 @@ export default function PatientFollowUpPage() {
     loadPatients();
   }, [loadPatients]);
 
-  /* ---- real-time subscriptions removed (client-side env issue) ---- */
-  /* Use page refresh or onSave callbacks to update data */
+  /* ---- real-time subscription to patient_follow_up_status -------- */
+  useEffect(() => {
+    const channel = supabase
+      .channel('patient_follow_up_status_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'patient_follow_up_status' },
+        (payload) => {
+          const updated = payload.new as FollowUpStatus;
+          if (!updated?.paciente_id) return;
+          setPatients(prev =>
+            prev.map(p => {
+              if (p.paciente_id !== updated.paciente_id) return p;
+              const existing = p.follow_up_status;
+              // Keep the newer record (by updated_at or created_at)
+              if (existing?.id && existing.id === updated.id) {
+                return { ...p, follow_up_status: updated };
+              }
+              if (!existing) {
+                return { ...p, follow_up_status: updated };
+              }
+              const existingTime = new Date(existing.updated_at || existing.created_at).getTime();
+              const newTime = new Date(updated.updated_at || updated.created_at).getTime();
+              return newTime >= existingTime ? { ...p, follow_up_status: updated } : p;
+            })
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   /* ---- computed stats & sorted list ------------------------------ */
   const stats = useMemo(() => {
@@ -290,6 +323,30 @@ export default function PatientFollowUpPage() {
     patient: PatientFollowUp,
     field: 'whatsapp_sent' | 'patient_responded' | 'appointment_scheduled'
   ) => {
+    // Optimistic update: flip the checkbox instantly
+    const key = patientRowKey(patient);
+    setPatients(prev =>
+      prev.map(p => {
+        if (patientRowKey(p) !== key) return p;
+        const currentStatus = p.follow_up_status;
+        const currentValue = currentStatus?.[field] ?? false;
+        return {
+          ...p,
+          follow_up_status: currentStatus
+            ? { ...currentStatus, [field]: !currentValue }
+            : {
+                id: '',
+                paciente_id: p.paciente_id,
+                whatsapp_sent: field === 'whatsapp_sent',
+                patient_responded: field === 'patient_responded',
+                appointment_scheduled: field === 'appointment_scheduled',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+        };
+      })
+    );
+
     try {
       if (patient.follow_up_status?.id) {
         await PatientFollowUpStatusService.toggleField(patient.follow_up_status.id, field);
@@ -301,11 +358,19 @@ export default function PatientFollowUpPage() {
         });
         if (created) {
           await PatientFollowUpStatusService.toggleField(created.id, field);
+          // Re-sync this patient's status with the real DB record
+          setPatients(prev =>
+            prev.map(p => {
+              if (patientRowKey(p) !== key) return p;
+              return { ...p, follow_up_status: created };
+            })
+          );
         }
       }
-      loadPatients();
     } catch (err) {
       console.error(`Error toggling ${field}:`, err);
+      // Revert optimistic update on error
+      loadPatients();
     }
   };
 
@@ -461,35 +526,6 @@ export default function PatientFollowUpPage() {
     }
   };
 
-  const startEditNotes = (patient: PatientFollowUp) => {
-    setEditingNotes(patientRowKey(patient));
-    setNotesDraft(patient.follow_up_status?.notes || '');
-  };
-
-  const saveNotes = async (patient: PatientFollowUp) => {
-    setSavingNotes(true);
-    try {
-      if (patient.follow_up_status?.id) {
-        await PatientFollowUpStatusService.updateNotes(patient.follow_up_status.id, notesDraft);
-      } else {
-        const created = await PatientFollowUpStatusService.createFollowUpStatus({
-          paciente_id: patient.paciente_id,
-          treatment_date: patient.fecha_ultimo_tratamiento,
-          notes: notesDraft,
-        });
-        if (created) {
-          await PatientFollowUpStatusService.updateNotes(created.id, notesDraft);
-        }
-      }
-      setEditingNotes(null);
-      loadPatients();
-    } catch (err) {
-      console.error('Error saving notes:', err);
-    } finally {
-      setSavingNotes(false);
-    }
-  };
-
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(d => (d === 'desc' ? 'asc' : 'desc'));
@@ -602,7 +638,6 @@ export default function PatientFollowUpPage() {
               const tipo = TIPO_CONFIG[patient.tipo_seguimiento] || TIPO_CONFIG.otro;
               const key = patientRowKey(patient);
               const isEditingMessage = editingMessage === key;
-              const isEditingNotes = editingNotes === key;
 
               return (
                 <div
@@ -716,44 +751,16 @@ export default function PatientFollowUpPage() {
                           Enviar WhatsApp
                         </button>
                       )}
-
-                      {/* Notes toggle */}
-                      <button
-                        onClick={() => (isEditingNotes ? setEditingNotes(null) : startEditNotes(patient))}
-                        className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors py-1"
-                      >
-                        📝 {patient.follow_up_status?.notes ? 'Ver notas' : 'Agregar notas'}
-                      </button>
                     </div>
                   </div>
 
-                  {/* Notes Panel */}
-                  {isEditingNotes && (
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <textarea
-                        value={notesDraft}
-                        onChange={e => setNotesDraft(e.target.value)}
-                        placeholder="Escribe notas sobre este seguimiento..."
-                        rows={3}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm resize-none focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => saveNotes(patient)}
-                          disabled={savingNotes}
-                          className="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
-                        >
-                          {savingNotes ? 'Guardando...' : 'Guardar'}
-                        </button>
-                        <button
-                          onClick={() => setEditingNotes(null)}
-                          className="px-4 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 text-sm font-medium transition-colors"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Follow-up Notes Comment Section */}
+                  <FollowUpNotes
+                    followUpStatusId={patient.follow_up_status?.id}
+                    pacienteId={patient.paciente_id}
+                    treatmentDate={patient.fecha_ultimo_tratamiento}
+                    onNoteCreated={() => loadPatients()}
+                  />
 
                   {/* Message Editor Panel */}
                   {isEditingMessage && (
@@ -945,5 +952,238 @@ function Checkbox({
       </div>
       <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
     </button>
+  );
+}
+
+function FollowUpNotes({
+  followUpStatusId: initialStatusId,
+  pacienteId,
+  treatmentDate,
+  onNoteCreated,
+}: {
+  followUpStatusId?: string;
+  pacienteId: string;
+  treatmentDate: string;
+  onNoteCreated?: () => void;
+}) {
+  const { user } = useUser();
+  const [notes, setNotes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showInput, setShowInput] = useState(false);
+  const statusIdRef = useRef<string | undefined>(initialStatusId);
+
+  useEffect(() => {
+    statusIdRef.current = initialStatusId;
+  }, [initialStatusId]);
+
+  useEffect(() => {
+    if (!pacienteId) return;
+    setLoading(true);
+    fetch(`/api/patient-follow-up-notes?paciente_id=${pacienteId}`)
+      .then(async r => {
+        const data = await r.json();
+        if (Array.isArray(data)) {
+          setNotes(data);
+        } else {
+          console.error('Follow-up notes fetch error:', data);
+        }
+      })
+      .catch(err => console.error('Follow-up notes fetch failed:', err))
+      .finally(() => setLoading(false));
+  }, [pacienteId]);
+
+  useEffect(() => {
+    if (!pacienteId) return;
+    const channel = supabase
+      .channel(`patient_follow_up_notes:${pacienteId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'patient_follow_up_notes' },
+        (payload) => {
+          const row = payload.new as any;
+          if (!row) return;
+          if (payload.eventType === 'INSERT') {
+            setNotes(prev => {
+              if (prev.some(n => n.id === row.id)) return prev;
+              return [...prev, row].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setNotes(prev => prev.map(n => n.id === row.id ? row : n));
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as any)?.id;
+            if (deletedId) setNotes(prev => prev.filter(n => n.id !== deletedId));
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [pacienteId]);
+
+  const ensureStatusId = async (): Promise<string | null> => {
+    if (statusIdRef.current) return statusIdRef.current;
+    try {
+      const created = await PatientFollowUpStatusService.createFollowUpStatus({
+        paciente_id: pacienteId,
+        treatment_date: treatmentDate,
+      });
+      if (created?.id) {
+        statusIdRef.current = created.id;
+        return created.id;
+      }
+    } catch (err) {
+      console.error('Error creating follow-up status:', err);
+    }
+    return null;
+  };
+
+  const handleSave = async () => {
+    if (!draft.trim()) return;
+    setSaving(true);
+    try {
+      let sid = statusIdRef.current;
+      if (!sid) {
+        sid = await ensureStatusId();
+        if (!sid) return;
+      }
+      const res = await fetch('/api/patient-follow-up-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          follow_up_status_id: sid,
+          message: draft.trim(),
+          user_id: user?.id || null,
+          user_name: user?.fullName || user?.firstName || 'Usuario',
+          user_image: user?.imageUrl || null,
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setNotes(prev => {
+          if (prev.some(n => n.id === created.id)) return prev;
+          return [...prev, created];
+        });
+        setDraft('');
+        setShowInput(false);
+        onNoteCreated?.();
+      }
+    } catch (err) {
+      console.error('Error saving note:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (noteId: string) => {
+    try {
+      await fetch(`/api/patient-follow-up-notes?id=${noteId}`, { method: 'DELETE' });
+      setNotes(prev => prev.filter(n => n.id !== noteId));
+    } catch (err) {
+      console.error('Error deleting note:', err);
+    }
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notas</h4>
+        <button
+          onClick={() => setShowInput(!showInput)}
+          className="text-xs text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 font-medium flex items-center gap-1 transition-colors"
+        >
+          {showInput ? 'Cancelar' : '+ Agregar'}
+        </button>
+      </div>
+
+      {loading && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 py-1">Cargando notas...</p>
+      )}
+
+      {!loading && notes.length === 0 && !showInput && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 py-1 italic">Sin notas aún</p>
+      )}
+
+      {notes.map((note: any) => (
+        <div
+          key={note.id}
+          className="group flex gap-3 py-2 px-2 rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50 transition-colors"
+        >
+          <div className="w-7 h-7 rounded-full bg-teal-500/20 dark:bg-teal-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            {note.user_image ? (
+              <img src={note.user_image} alt="" className="w-7 h-7 rounded-full object-cover" />
+            ) : (
+              <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
+                {(note.user_name || 'U').substring(0, 1).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                {note.user_name || 'Usuario'}
+              </span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                {new Date(note.created_at).toLocaleDateString('es-HN', {
+                  day: '2-digit', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit',
+                })}
+              </span>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words leading-relaxed">
+              {note.message}
+            </p>
+          </div>
+          <button
+            onClick={() => handleDelete(note.id)}
+            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all p-1 self-start flex-shrink-0"
+            title="Eliminar nota"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+
+      {showInput && (
+        <div className="flex gap-2 mt-1">
+          <div className="w-7 h-7 rounded-full bg-teal-500/20 dark:bg-teal-400/20 flex items-center justify-center flex-shrink-0 mt-1">
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+            ) : (
+              <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
+                {(user?.firstName || 'U').substring(0, 1).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="flex-1">
+            <textarea
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSave();
+              }}
+              placeholder="Agregar comentario..."
+              rows={2}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm resize-none focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+            />
+            <div className="flex gap-2 mt-1.5 justify-end">
+              <button
+                onClick={() => { setShowInput(false); setDraft(''); }}
+                className="px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !draft.trim()}
+                className="px-3 py-1 rounded-md bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Guardando...' : 'Enviar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
