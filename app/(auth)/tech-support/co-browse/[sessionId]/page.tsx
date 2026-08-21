@@ -13,6 +13,7 @@ import {
   trackPresence,
   untrackPresence,
   removeCobrowseChannel,
+  downloadFullSnapshotStorage,
   isChannelReady,
   type PeerInfo,
 } from '@/lib/cobrowse';
@@ -49,12 +50,14 @@ export default function CoBrowseAgentPage() {
   const [showDebug, setShowDebug] = useState(false);
   const [pingMode, setPingMode] = useState(false);
   const [controlMode, setControlMode] = useState(false);
+  const controlModeRef = useRef(false);
   const [clientCursor, setClientCursor] = useState<{ left: number; top: number } | null>(null);
   const [clientInfo, setClientInfo] = useState<PeerInfo | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [fullsnapshotStatus, setFullsnapshotStatus] = useState<string>('esperando');
   const sessionStartTimeRef = useRef<number>(Date.now());
 
   const isPrivileged = hasOverrideRole(sessionClaims, userId);
@@ -62,90 +65,81 @@ export default function CoBrowseAgentPage() {
   const pendingEventsRef = useRef<eventWithTime[]>([]);
   const replayerReadyRef = useRef(false);
   const cursorThrottleRef = useRef(0);
+  const agentIdentityRef = useRef({
+    userId: userId ?? '',
+    name: [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.primaryEmailAddress?.emailAddress || 'Soporte',
+    imageUrl: user?.imageUrl ?? null,
+  });
 
   const onReplayEvent = useCallback((event: eventWithTime) => {
     setRecording(true);
     setFirstEventType((t) => t ?? event.type);
     setLastEventType(event.type);
+    if (event.type === 2) {
+      setFullsnapshotStatus('ok');
+      console.log(`[co-browse] FullSnapshot (type 2) fed to replayer`);
+    }
 
     // Track the recorded viewport dimensions (Meta event, type 4, or a
-    // ViewportResize incremental event, source 4). These tell us the client's
-    // page size so we can scale the iframe to fit and map coordinates back to
-    // the client's window accurately.
+    // ViewportResize incremental event, source 4).
     if (event.type === 4 && event.data?.width) {
       recordedViewportRef.current = { width: event.data.width, height: event.data.height };
     } else if (event.type === 3 && event.data?.source === 4 && event.data?.width) {
       recordedViewportRef.current = { width: event.data.width, height: event.data.height };
     }
 
-    // Buffer ALL events until we receive a FullSnapshot (type 2).
-    // Supabase Realtime broadcast does not guarantee ordering — chunked
-    // events (the ~800 KB FullSnapshot) may arrive AFTER small incremental
-    // mutations. Feeding mutations before the DOM tree exists causes
-    // "Node with id not found" errors and a blank viewport.
     const replayer = replayerRef.current;
-    if (replayer && replayerReadyRef.current) {
+    if (!replayer) {
+      console.warn('[co-browse] onReplayEvent: no replayer yet, discarding event type', event.type);
+      recordingRef.current.push(event);
+      setEventCount((n) => n + 1);
+      return;
+    }
+
+    if (replayerReadyRef.current) {
       replayer.addEvent(event);
-    } else if (replayer && !replayerReadyRef.current) {
+    } else {
       pendingEventsRef.current.push(event);
       setQueuedCount(pendingEventsRef.current.length);
 
-      // Check if we now have a FullSnapshot — if so, flush ONLY the
-      // FullSnapshot and any events AFTER it. Mutations that arrived
-      // before the FullSnapshot are stale (already reflected in the
-      // snapshot's DOM tree) and would fail with "Node not found".
-      const hasSnapshot = pendingEventsRef.current.some((e) => e.type === 2);
-      if (hasSnapshot) {
+      // When FullSnapshot arrives, flush it and everything AFTER it.
+      // Pre-snapshot mutations are stale — the snapshot's DOM tree already
+      // reflects them. Feeding them causes "Node not found" errors.
+      if (event.type === 2) {
         const snapshotIdx = pendingEventsRef.current.findIndex((e) => e.type === 2);
         const toFlush = pendingEventsRef.current.slice(snapshotIdx);
         pendingEventsRef.current = [];
         setQueuedCount(0);
-        console.log(`[co-browse] FullSnapshot received, flushing ${toFlush.length} events (${snapshotIdx} pre-snapshot mutations discarded)`);
+        console.log(`[co-browse] flushing ${toFlush.length} events from FullSnapshot (${snapshotIdx} pre-snapshot discarded)`);
         for (const evt of toFlush) replayer.addEvent(evt);
       }
     }
     recordingRef.current.push(event);
     setEventCount((n) => n + 1);
-    console.debug(`[co-browse] replay event type=${event.type} queued=${pendingEventsRef.current.length}`);
   }, []);
 
-  // Normalize a pointer position against the visible (scaled + centered)
-  // replayer box. The rrweb iframe is letterboxed inside the container, so the
-  // client's viewport maps 1:1 to the .replayer-wrapper box only. Computing
-  // percent against the wrapper's bounding rect (NOT the browser window or the
-  // bare container) keeps coordinates aligned at the edges and lets the remote
-  // cursor reach the user's exact screen borders. Values are clamped to
-  // [0,100] so clicks/cursor in the letterbox margins stick to the border
-  // instead of producing coordinates outside the client's viewport.
-  const getWrapperPoint = useCallback((e: { clientX: number; clientY: number }) => {
-    const container = containerRef.current;
-    if (!container) return null;
-    const wrapper = container.querySelector('.replayer-wrapper') as HTMLElement | null;
-    const box = wrapper ?? container;
-    const rect = box.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
-    return {
-      x: Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100)),
-      y: Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100)),
-    };
-  }, []);
+  useEffect(() => { controlModeRef.current = controlMode; }, [controlMode]);
 
   useEffect(() => {
     if (!sessionId) return;
 
     const onDomMutation = (payload: Record<string, unknown>) => {
       // Compressed FullSnapshot fallback: client sends gzip bytes as
-      // Uint8Array-like `d` field with `compressed: true` flag.
-      if (payload.compressed && Array.isArray(payload.d)) {
+      // base64 string `d` field with `compressed: true` flag.
+      if (payload.compressed && typeof payload.d === 'string') {
         try {
-          const bytes = new Uint8Array(payload.d);
+          const binary = atob(payload.d);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
           const json = pako.ungzip(bytes, { to: 'string' });
           const event = JSON.parse(json) as eventWithTime;
-          console.log(`[co-browse] compressed FullSnapshot received via broadcast (${bytes.length} bytes → ${json.length} chars)`);
+          console.log(`[co-browse] compressed FullSnapshot via broadcast (${bytes.length} bytes)`);
+          setFullsnapshotStatus('recibido (base64 broadcast)');
           onReplayEvent(event);
           return;
         } catch (err) {
           console.error('[co-browse] failed to decompress FullSnapshot broadcast', err);
+          setFullsnapshotStatus('error descomprimiendo');
           return;
         }
       }
@@ -157,27 +151,29 @@ export default function CoBrowseAgentPage() {
       const path = payload.path as string;
       if (!path) return;
       console.log(`[co-browse] FullSnapshot reference received: ${path}`);
+      setFullsnapshotStatus(`descargando ${path.split('/').pop()}...`);
       try {
-        const { data, error: dlError } = await supabase.storage
-          .from('support-sessions')
-          .download(path);
-        if (dlError) {
-          console.error(`[co-browse] FullSnapshot download failed: status=${dlError.statusCode} message="${dlError.message}" name="${dlError.name}" path="${path}"`);
+        const result = await downloadFullSnapshotStorage(path);
+        if ('error' in result) {
+          console.error(`[co-browse] FullSnapshot download failed: ${result.error} path="${path}"`);
+          setFullsnapshotStatus(`error descarga: ${result.error}`);
           return;
         }
         const isGzipped = path.endsWith('.gz');
         let text: string;
         if (isGzipped) {
-          const bytes = new Uint8Array(await data.arrayBuffer());
+          const bytes = new Uint8Array(await result.data.arrayBuffer());
           text = pako.ungzip(bytes, { to: 'string' });
         } else {
-          text = await data.text();
+          text = await result.data.text();
         }
         const event = JSON.parse(text) as eventWithTime;
         console.log(`[co-browse] FullSnapshot fetched (${text.length} chars${isGzipped ? ', gzipped' : ''}), feeding to replayer`);
+        setFullsnapshotStatus('ok');
         onReplayEvent(event);
       } catch (err) {
         console.error('[co-browse] FullSnapshot fetch error:', err);
+        setFullsnapshotStatus(`error: ${err instanceof Error ? err.message : 'desconocido'}`);
       }
     };
 
@@ -188,9 +184,10 @@ export default function CoBrowseAgentPage() {
       if (containerEl && wrapper) {
         const containerRect = containerEl.getBoundingClientRect();
         const rect = wrapper.getBoundingClientRect();
+        // Client sends window-relative percentages (matching agent's send)
         setClientCursor({
-          left: (data.x / 100) * rect.width + (rect.left - containerRect.left),
-          top: (data.y / 100) * rect.height + (rect.top - containerRect.top),
+          left: (data.x / 100) * window.innerWidth + (rect.left - containerRect.left),
+          top: (data.y / 100) * window.innerHeight + (rect.top - containerRect.top),
         });
       } else {
         setClientCursor(null);
@@ -223,19 +220,13 @@ export default function CoBrowseAgentPage() {
         setChannelState(status);
         if (status === 'SUBSCRIBED') {
           console.log(`[co-browse] agent channel subscribed, joining room ${sessionId}`);
-          trackPresence(channel, 'agent', {
-            userId: userId ?? '',
-            name:
-              [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-              user?.primaryEmailAddress?.emailAddress ||
-              'Soporte',
-            imageUrl: user?.imageUrl ?? null,
-          });
+          trackPresence(channel, 'agent', agentIdentityRef.current);
           setConnected(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`[co-browse] channel problem: ${status}, will auto-reconnect`);
+        } else if (status === 'CLOSED') {
           setConnected(false);
           setClientCursor(null);
-          console.warn(`[co-browse] channel problem: ${status}`);
         }
       },
     });
@@ -246,7 +237,7 @@ export default function CoBrowseAgentPage() {
       removeCobrowseChannel(channel);
       channelRef.current = null;
     };
-  }, [sessionId, onReplayEvent, userId, user]);
+  }, [sessionId, onReplayEvent, userId]);
 
   // Bootstrap the live Replayer once the container is mounted.
   useEffect(() => {
@@ -362,6 +353,7 @@ export default function CoBrowseAgentPage() {
 
       e.preventDefault();
       const wrapper = containerRef.current?.querySelector('.replayer-wrapper') as HTMLElement | null;
+      const container = containerRef.current;
       let scale = 1;
       const viewport = recordedViewportRef.current;
       if (wrapper && viewport?.width) {
@@ -377,12 +369,22 @@ export default function CoBrowseAgentPage() {
         deltaX *= h;
         deltaY *= h;
       }
-      const point = getWrapperPoint(e);
+      
+      // Calculate window-relative percentages (client expects window-relative)
+      let percentX: number | undefined;
+      let percentY: number | undefined;
+      if (wrapper && container) {
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        percentX = Math.min(100, Math.max(0, ((e.clientX - wrapperRect.left + containerRect.left) / window.innerWidth) * 100));
+        percentY = Math.min(100, Math.max(0, ((e.clientY - wrapperRect.top + containerRect.top) / window.innerHeight) * 100));
+      }
+      
       broadcastEvent(channel, 'agent-scroll', {
         deltaX: deltaX / scale,
         deltaY: deltaY / scale,
-        x: point?.x,
-        y: point?.y,
+        x: percentX,
+        y: percentY,
         smooth: false,
       });
     };
@@ -391,10 +393,53 @@ export default function CoBrowseAgentPage() {
     // 'fullsnapshot-rebuilded' fires after the iframe's DOM tree has been
     // rebuilt from the first FullSnapshot — at this point the viewport is
     // visible to the agent, so we flip the UI state.
+
+    // Handler for clicks on the iframe content (control mode)
+    const onIframeClick = (e: MouseEvent) => {
+      const channel = channelRef.current;
+      if (!controlModeRef.current || !isChannelReady(channel)) return;
+
+      const wrapper = containerRef.current?.querySelector('.replayer-wrapper') as HTMLElement | null;
+      const container = containerRef.current;
+      const viewport = recordedViewportRef.current;
+      if (!wrapper || !container || !viewport?.width || !viewport?.height) return;
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const scale = wrapperRect.width / viewport.width;
+
+      // Convert iframe-relative coordinates to wrapper-relative, then to window-relative
+      const wrapperX = (e.clientX - wrapperRect.left) / scale;
+      const wrapperY = (e.clientY - wrapperRect.top) / scale;
+      
+      const percentX = Math.min(100, Math.max(0, ((wrapperX + (wrapperRect.left - containerRect.left)) / window.innerWidth) * 100));
+      const percentY = Math.min(100, Math.max(0, ((wrapperY + (wrapperRect.top - containerRect.top)) / window.innerHeight) * 100));
+
+      console.debug(`[co-browse] agent iframe-click x=${percentX.toFixed(1)} y=${percentY.toFixed(1)}`);
+      broadcastEvent(channel, 'agent-remote-click', { x: percentX, y: percentY });
+    };
+
     const onFullSnapshotRebuilt = () => {
       setPlayerReady(true);
       console.log('[co-browse] full snapshot rebuilt — viewport visible');
+
+      // Attach wheel listener to the iframe's content window so scroll events
+      // on the replayed page are captured and forwarded to the client.
+      // The iframe is created by rrweb and accessible via replayer.iframe.
+      try {
+        const iframe = (replayer as unknown as { iframe?: HTMLIFrameElement }).iframe;
+        if (iframe?.contentWindow) {
+          iframe.contentWindow.addEventListener('wheel', onWheel, { passive: false });
+          // Also attach click listener for control mode - clicks on iframe content
+          // need to be captured and forwarded to the client
+          iframe.contentWindow.addEventListener('click', onIframeClick, true);
+          console.log('[co-browse] attached wheel and click listeners to iframe');
+        }
+      } catch (err) {
+        console.warn('[co-browse] could not attach listeners to iframe:', err);
+      }
     };
+
     replayer.on('fullsnapshot-rebuilded', onFullSnapshotRebuilt);
 
     return () => {
@@ -402,10 +447,18 @@ export default function CoBrowseAgentPage() {
       replayer.off('fullsnapshot-rebuilded', onFullSnapshotRebuilt);
       window.removeEventListener('resize', fitToContainer);
       container.removeEventListener('wheel', onWheel);
+      // Clean up iframe listeners
+      try {
+        const iframe = (replayer as unknown as { iframe?: HTMLIFrameElement }).iframe;
+        if (iframe?.contentWindow) {
+          iframe.contentWindow.removeEventListener('wheel', onWheel);
+          iframe.contentWindow.removeEventListener('click', onIframeClick, true);
+        }
+      } catch {}
       replayerRef.current = null;
       replayerReadyRef.current = false;
     };
-  }, [sessionId, getWrapperPoint]);
+  }, [sessionId]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -414,18 +467,30 @@ export default function CoBrowseAgentPage() {
       const now = performance.now();
       if (now - cursorThrottleRef.current < 50) return;
       cursorThrottleRef.current = now;
-      const point = getWrapperPoint(e);
-      if (!point) return;
+      
+      // Calculate position relative to the full window (not just wrapper)
+      // The client's RemoteCursorOverlay applies percentages to window.innerWidth/Height
+      const wrapper = containerRef.current?.querySelector('.replayer-wrapper') as HTMLElement | null;
+      const container = containerRef.current;
+      if (!wrapper || !container) return;
+      
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      
+      // Position relative to window
+      const percentX = Math.min(100, Math.max(0, ((e.clientX - wrapperRect.left + containerRect.left) / window.innerWidth) * 100));
+      const percentY = Math.min(100, Math.max(0, ((e.clientY - wrapperRect.top + containerRect.top) / window.innerHeight) * 100));
+      
       broadcastEvent(channel, 'agent-cursor-move', {
         x: e.clientX,
         y: e.clientY,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
-        percentX: point.x,
-        percentY: point.y,
+        percentX,
+        percentY,
       });
     },
-    [getWrapperPoint]
+    []
   );
 
   const handleClick = useCallback(
@@ -433,8 +498,17 @@ export default function CoBrowseAgentPage() {
       const channel = channelRef.current;
       if ((!pingMode && !controlMode) || !isChannelReady(channel)) return;
 
-      const point = getWrapperPoint(e);
-      if (!point) return;
+      // Calculate position relative to full window (consistent with cursor)
+      const wrapper = containerRef.current?.querySelector('.replayer-wrapper') as HTMLElement | null;
+      const container = containerRef.current;
+      if (!wrapper || !container) return;
+      
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      
+      const percentX = Math.min(100, Math.max(0, ((e.clientX - wrapperRect.left + containerRect.left) / window.innerWidth) * 100));
+      const percentY = Math.min(100, Math.max(0, ((e.clientY - wrapperRect.top + containerRect.top) / window.innerHeight) * 100));
+      const point = { x: percentX, y: percentY };
 
       if (controlMode) {
         console.debug(`[co-browse] agent remote-click x=${point.x.toFixed(1)} y=${point.y.toFixed(1)}`);
@@ -447,7 +521,7 @@ export default function CoBrowseAgentPage() {
         });
       }
     },
-    [pingMode, controlMode, getWrapperPoint]
+    [pingMode, controlMode]
   );
 
   const handleKeyDown = useCallback(
@@ -711,6 +785,7 @@ export default function CoBrowseAgentPage() {
         <div
           ref={containerRef}
           tabIndex={0}
+          onMouseDown={(e) => { e.currentTarget.focus(); }}
           onMouseMove={handleMouseMove}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
@@ -719,7 +794,7 @@ export default function CoBrowseAgentPage() {
             pingMode || controlMode ? 'cursor-crosshair' : 'cursor-none'
           }`}
         >
-          {playerReady && <AgentCursorOverlay cursor={clientCursor} />}
+          {clientCursor && <AgentCursorOverlay cursor={clientCursor} />}
 
           {sessionEnded && eventCount > 0 && (
             <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-gray-900/70 backdrop-blur-sm">
@@ -827,6 +902,7 @@ export default function CoBrowseAgentPage() {
               <p><span className="text-gray-500">channel:</span> cobrowse:{sessionId} ({channelState ?? '—'})</p>
               <p><span className="text-gray-500">conectado:</span> {connected ? 'sí' : 'no'} · <span className="text-gray-500">player listo:</span> {playerReady ? 'sí' : 'no'}</p>
               <p><span className="text-gray-500">eventos:</span> {eventCount} · <span className="text-gray-500">en cola:</span> {queuedCount}</p>
+              <p><span className="text-gray-500">FullSnapshot:</span> <span className={fullsnapshotStatus === 'ok' || fullsnapshotStatus === 'ok (directo)' ? 'text-emerald-400' : fullsnapshotStatus.startsWith('error') ? 'text-red-400' : 'text-amber-400'}>{fullsnapshotStatus}</span></p>
               <p>
                 <span className="text-gray-500">primer evento:</span> {firstEventType ?? '—'}
                 {firstEventType === 2 && <span className="text-emerald-400"> (FullSnapshot ✓)</span>}

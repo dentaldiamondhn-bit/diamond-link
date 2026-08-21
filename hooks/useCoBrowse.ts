@@ -11,10 +11,9 @@ import {
   trackPresence,
   untrackPresence,
   removeCobrowseChannel,
+  uploadFullSnapshotStorage,
   type PeerInfo,
 } from '@/lib/cobrowse';
-import { supabase } from '@/lib/supabase';
-
 
 export type { PeerInfo };
 
@@ -76,6 +75,7 @@ export function useCoBrowse() {
   const [agentInfo, setAgentInfo] = useState<PeerInfo | null>(null);
   const [remoteCursor, setRemoteCursor] = useState<RemoteCursor | null>(null);
   const [pings, setPings] = useState<Ping[]>([]);
+  const [fullsnapshotStatus, setFullsnapshotStatus] = useState<string>('idle');
   const stopRecordingRef = useRef<(() => void) | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -120,22 +120,32 @@ export function useCoBrowse() {
       try {
         const json = JSON.stringify(event);
         const compressed = pako.gzip(json);
-        const path = `fullsnapshots/${sid}_${Date.now()}.json.gz`;
-        console.log(`[co-browse] uploading FullSnapshot to Storage: ${json.length} → ${compressed.length} bytes (${path})`);
-        const { error: uploadError } = await supabase.storage
-          .from('support-sessions')
-          .upload(path, new Blob([compressed], { type: 'application/json' }), {
-            contentType: 'application/json',
-          });
-        if (uploadError) {
-          console.error('[co-browse] FullSnapshot Storage upload failed, falling back to broadcast', uploadError);
-          broadcastEvent(channel, 'dom-mutation-event', { compressed: true, d: Array.from(compressed) });
+        console.log(`[co-browse] FullSnapshot: ${json.length} bytes → ${compressed.length} bytes gzip`);
+
+        setFullsnapshotStatus('uploading...');
+        const result = await uploadFullSnapshotStorage(sid, new Blob([compressed], { type: 'application/json' }));
+
+        if ('error' in result) {
+          console.warn('[co-browse] Storage upload failed, using base64 broadcast:', result.error);
+          setFullsnapshotStatus('broadcasting base64...');
+          const CHUNK = 32768;
+          let b64 = '';
+          for (let i = 0; i < compressed.length; i += CHUNK) {
+            b64 += String.fromCharCode.apply(null, compressed.subarray(i, i + CHUNK));
+          }
+          b64 = btoa(b64);
+          console.log(`[co-browse] base64 FullSnapshot: ${b64.length} chars`);
+          broadcastEvent(channel, 'dom-mutation-event', { compressed: true, d: b64 });
+          setFullsnapshotStatus('broadcast sent');
           return;
         }
-        broadcastEvent(channel, 'fullsnapshot-reference', { path });
-        console.log(`[co-browse] fullsnapshot-reference sent (${path})`);
+
+        console.log(`[co-browse] Storage upload OK: ${result.path}`);
+        setFullsnapshotStatus('reference sent');
+        broadcastEvent(channel, 'fullsnapshot-reference', { path: result.path });
       } catch (err) {
-        console.error('[co-browse] FullSnapshot upload error:', err);
+        console.error('[co-browse] FullSnapshot delivery failed:', err);
+        setFullsnapshotStatus(`error: ${err instanceof Error ? err.message : 'unknown'}`);
       }
     };
 
@@ -294,7 +304,7 @@ export function useCoBrowse() {
             startRecording();
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.warn(`[co-browse] channel problem: ${status}`);
-            setChannelConnected(false);
+            if (status === 'CLOSED') setChannelConnected(false);
           }
         },
       });
@@ -340,6 +350,7 @@ export function useCoBrowse() {
     agentInfo,
     remoteCursor,
     pings,
+    fullsnapshotStatus,
     startSupportSession,
     stopSupportSession,
   };

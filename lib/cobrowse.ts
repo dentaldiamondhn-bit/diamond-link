@@ -36,7 +36,14 @@ export interface PresenceState {
 // default client used for database queries).
 let cobrowseClient: SupabaseClient | null = null;
 
-function getCobrowseClient(): SupabaseClient {
+/**
+ * Return the singleton cobrowse Supabase client.
+ *
+ * This client is guaranteed to be anonymous (persistSession: false) and is
+ * safe for both Realtime channels and Storage operations (uploads/downloads)
+ * that rely on anon RLS policies.
+ */
+export function getCobrowseClient(): SupabaseClient {
   if (!cobrowseClient) {
     cobrowseClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -225,4 +232,34 @@ export function isChannelReady(channel: RealtimeChannel): boolean {
 export function removeCobrowseChannel(channel: RealtimeChannel): void {
   const client = getCobrowseClient();
   client.removeChannel(channel);
+}
+
+// ---------------------------------------------------------------------------
+// Storage helpers — always use the anonymous cobrowse client so uploads and
+// downloads succeed via the anon RLS policies regardless of any auth session
+// on the main app Supabase client.
+// ---------------------------------------------------------------------------
+
+const BUCKET = 'support-sessions';
+
+export async function uploadFullSnapshotStorage(
+  sessionId: string,
+  data: Blob
+): Promise<{ path: string } | { error: string }> {
+  const client = getCobrowseClient();
+  const path = `fullsnapshots/${sessionId}_${Date.now()}.json.gz`;
+  const { error } = await client.storage
+    .from(BUCKET)
+    .upload(path, data, { contentType: 'application/json' });
+  if (error) return { error: error.message };
+  return { path };
+}
+
+export async function downloadFullSnapshotStorage(
+  path: string
+): Promise<{ data: Blob } | { error: string }> {
+  const client = getCobrowseClient();
+  const { data, error } = await client.storage.from(BUCKET).download(path);
+  if (error) return { error: error.message };
+  return { data };
 }
