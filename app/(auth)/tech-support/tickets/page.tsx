@@ -1784,20 +1784,32 @@ function TicketDetailModal({
                 {ticket.activities && ticket.activities.length > 0 ? (
                   <div className="space-y-3">
                     {ticket.activities.map((activity) => (
-                      <div key={activity.id} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                      <div key={activity.id} className="flex gap-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+                        {activity.user?.profileImageUrl ? (
+                          <img src={activity.user.profileImageUrl} alt="" className="w-8 h-8 rounded-full flex-shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                              {(activity.user?.name || activity.user?.first_name || '?').charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-slate-800 dark:text-white">
+                              {activity.user?.name || activity.user?.first_name || 'Usuario'}
+                            </span>
+                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300">
                               {activity.activity_type === ActivityType.STATUS_CHANGE && 'Cambio de estado'}
                               {activity.activity_type === ActivityType.COMMENT && 'Comentario'}
                               {activity.activity_type === ActivityType.ASSIGNMENT && 'Asignación'}
                               {activity.activity_type === ActivityType.EDIT && 'Edición'}
-                            </p>
-                            <p className="text-sm mt-1 text-slate-800 dark:text-white">{activity.content}</p>
+                            </span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {new Date(activity.created_at).toLocaleString()}
+                            </span>
                           </div>
-                          <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                            {new Date(activity.created_at).toLocaleString()}
-                          </span>
+                          <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">{activity.content}</p>
                         </div>
                       </div>
                     ))}

@@ -42,6 +42,8 @@ export enum ActivityType {
 export interface User {
   id: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
   role: UserRole;
   department?: string;

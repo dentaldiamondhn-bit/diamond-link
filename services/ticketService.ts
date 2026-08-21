@@ -12,6 +12,11 @@ const enrichTicketsWithUsers = async (tickets: any[]) => {
         if (a.user_id) userIds.add(a.user_id);
       }
     }
+    if (ticket.activities) {
+      for (const act of ticket.activities) {
+        if (act.user_id) userIds.add(act.user_id);
+      }
+    }
   }
   if (userIds.size === 0) return tickets;
 
@@ -36,6 +41,11 @@ const enrichTicketsWithUsers = async (tickets: any[]) => {
     if (ticket.assignees) {
       for (const a of ticket.assignees) {
         if (a.user_id) a.user = userMap[a.user_id] || null;
+      }
+    }
+    if (ticket.activities) {
+      for (const act of ticket.activities) {
+        if (act.user_id) act.user = userMap[act.user_id] || null;
       }
     }
   }
