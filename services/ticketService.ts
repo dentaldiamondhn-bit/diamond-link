@@ -778,4 +778,34 @@ export class TicketService {
       return { error };
     }
   }
+
+  static async addAttachment(ticketId: string, attachment: {
+    attachment_type: string;
+    attachment_id: string;
+    attachment_title: string;
+    attachment_description?: string;
+    file_url?: string;
+    metadata?: Record<string, any>;
+  }): Promise<{ data: any; error: any }> {
+    try {
+      const { data, error } = await supabase
+        .from('ticket_attachments')
+        .insert({
+          ticket_id: ticketId,
+          ...attachment,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding attachment:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error adding attachment:', error);
+      return { data: null, error };
+    }
+  }
 }

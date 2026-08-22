@@ -31,7 +31,9 @@ import {
   AlertTriangle,
   LayoutGrid,
   List,
-  UserPlus
+  UserPlus,
+  Upload,
+  Loader2
 } from 'lucide-react';
 import { UserSelect } from '@/components/calendar/UserSelect';
 import { UserAvatar } from '@/components/calendar/UserComponents';
@@ -653,7 +655,7 @@ export default function TicketsPage() {
               <div
                 key={ticket.id}
                 onClick={() => setSelectedTicket(ticket)}
-                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col gap-3 cursor-pointer"
+                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-xl hover:border-emerald-300 dark:hover:border-emerald-500 hover:scale-[1.02] transition-all duration-200 p-5 flex flex-col gap-3 cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -1674,7 +1676,45 @@ function TicketDetailModal({
   const [draftAssignees, setDraftAssignees] = useState<any[]>(
     ticket.assignees?.map(a => a.user).filter(Boolean) || []
   );
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const hasChanges = draftStatus !== ticket.status || comment.trim() !== '' || editingAssignees;
+
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !user?.id) return;
+
+    setUploadingAttachment(true);
+    try {
+      const formData = new FormData();
+      formData.append('ticketId', ticket.id);
+      Array.from(files).forEach(f => formData.append('files', f));
+
+      const res = await fetch('/api/upload-ticket-documents', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await res.json();
+
+      if (result.uploadedUrls) {
+        for (const url of result.uploadedUrls) {
+          const fileName = decodeURIComponent(url.split('/').pop() || 'documento');
+          await TicketService.addAttachment(ticket.id, {
+            attachment_type: 'document',
+            attachment_id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            attachment_title: fileName,
+            attachment_description: 'Documento adjuntado',
+            file_url: url,
+          });
+        }
+        onUpdate();
+      }
+    } catch (err) {
+      console.error('Error uploading attachment:', err);
+    } finally {
+      setUploadingAttachment(false);
+      e.target.value = '';
+    }
+  };
 
   const canReassign = userRole === UserRole.ADMIN || userRole === UserRole.TECH_SUPPORT || ticket.creator_id === user?.id;
 
@@ -1780,14 +1820,13 @@ function TicketDetailModal({
               )}
 
               {/* Attachments */}
-              {ticket.attachments && ticket.attachments.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-                    <Paperclip className="w-5 h-5 text-emerald-600" />
-                    Adjuntos ({ticket.attachments.length})
-                  </h3>
-                  <div className="space-y-3">
-                    {ticket.attachments.map((attachment) => (
+              <div>
+                <h3 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                  <Paperclip className="w-5 h-5 text-emerald-600" />
+                  Adjuntos {ticket.attachments && ticket.attachments.length > 0 ? `(${ticket.attachments.length})` : ''}
+                </h3>
+                <div className="space-y-3">
+                  {ticket.attachments && ticket.attachments.map((attachment) => (
                       <div key={attachment.id} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -1813,8 +1852,6 @@ function TicketDetailModal({
                             <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
                               {attachment.attachment_description}
                             </p>
-                            
-                            {/* Show document preview for document attachments */}
                             {attachment.attachment_type === 'document' && (
                               <div className="mb-3">
                                 <IsolatedDocumentDisplay 
@@ -1823,7 +1860,6 @@ function TicketDetailModal({
                                 />
                               </div>
                             )}
-                            
                             {attachment.metadata && (
                               <div className="text-xs text-slate-500 dark:text-slate-500">
                                 {attachment.metadata.fecha_cita && (
@@ -1859,9 +1895,27 @@ function TicketDetailModal({
                         </div>
                       </div>
                     ))}
-                  </div>
+                  {/* Upload button */}
+                  <label className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border-2 border-dashed border-slate-300 dark:border-slate-500 rounded-xl p-4 cursor-pointer transition-all group">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={handleAttachmentUpload}
+                      disabled={uploadingAttachment}
+                    />
+                    {uploadingAttachment ? (
+                      <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                    ) : (
+                      <Upload className="w-5 h-5 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                    )}
+                    <span className="text-sm text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
+                      {uploadingAttachment ? 'Subiendo...' : 'Adjuntar documento'}
+                    </span>
+                  </label>
                 </div>
-              )}
+              </div>
 
               {/* Activity Timeline */}
               <div>
