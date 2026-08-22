@@ -687,12 +687,11 @@ export default function TicketsPage() {
                   {ticket.assignees && ticket.assignees.length > 0 && (
                     <>
                       <span className="text-gray-400">→</span>
-                      <div className="flex -space-x-1.5">
-                        {ticket.assignees.slice(0, 3).map((a, i) => (
-                          a.user ? <UserAvatar key={i} user={a.user} size="sm" /> : null
-                        ))}
-                        {ticket.assignees.length > 3 && (
-                          <span className="text-xs text-gray-500 ml-1">+{ticket.assignees.length - 3}</span>
+                      <div className="flex items-center gap-1">
+                        <UserAvatar user={ticket.assignees[0].user} size="sm" />
+                        <span className="text-xs truncate max-w-[100px]">{ticket.assignees[0].user?.first_name || ticket.assignees[0].user?.email}</span>
+                        {ticket.assignees.length > 1 && (
+                          <span className="text-xs text-gray-500 ml-1">+{ticket.assignees.length - 1}</span>
                         )}
                       </div>
                     </>
