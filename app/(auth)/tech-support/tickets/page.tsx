@@ -637,7 +637,7 @@ export default function TicketsPage() {
 
         {/* Tickets Grid/List View */}
         {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full overflow-x-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTickets.map((ticket) => {
             const statusStyles = getStatusStyles(ticket.status);
             const priorityStyles = getPriorityStyles(ticket.priority);
@@ -645,94 +645,74 @@ export default function TicketsPage() {
             return (
               <div
                 key={ticket.id}
-                className="group bg-white dark:bg-slate-800 rounded-2xl shadow-md hover:shadow-2xl border border-slate-200 dark:border-slate-700 p-5 transition-all duration-300 hover:-translate-y-1 w-full overflow-hidden"
+                onClick={() => setSelectedTicket(ticket)}
+                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col gap-3 cursor-pointer"
               >
-                <div className="flex flex-col gap-3 w-full overflow-hidden">
-                  {/* Top Row - Icon & Badges */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className={`p-2.5 rounded-lg ${
-                      ticket.type === TicketType.SYSTEM_ISSUE ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
-                      ticket.type === TicketType.IMPLEMENTATION ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
-                      ticket.type === TicketType.REMINDER ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' :
-                      ticket.type === TicketType.PATIENT_CASE ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' :
-                      'bg-blue-100 dark:bg-blue-900/30 text-blue-600'
-                    }`}>
-                      {getTypeIcon(ticket.type)}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${statusStyles.bg} ${statusStyles.text}`}>
-                        {STATUS_LABELS[ticket.status] || ticket.status}
-                      </span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${priorityStyles.bg} ${priorityStyles.text}`}>
-                        {PRIORITY_LABELS[ticket.priority] || ticket.priority}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Title & Description */}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
                       {ticket.ticket_number && (
-                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">{ticket.ticket_number}</span>
+                        <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{ticket.ticket_number}</span>
                       )}
                     </div>
-                    <h3 className="text-sm font-semibold text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                      {ticket.title}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                      {ticket.description?.length > 60 ? `${ticket.description.substring(0, 60)}...` : ticket.description || 'Sin descripción'}
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{ticket.title}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
+                      {ticket.description?.length > 80 
+                        ? `${ticket.description.substring(0, 80)}...` 
+                        : ticket.description || 'Sin descripción'
+                      }
                     </p>
                   </div>
+                </div>
 
-                  {/* People Row */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/50">
-                    <div className="flex items-center gap-1">
-                      {/* Creator */}
-                      {ticket.creator ? (
-                        <div className="cursor-help" title={`${ticket.creator.first_name && ticket.creator.last_name ? `${ticket.creator.first_name} ${ticket.creator.last_name}` : ticket.creator.email || 'Usuario'}${ticket.creator.role ? ` (${ticket.creator.role})` : ''}`}>
-                          <UserAvatar user={ticket.creator} size="sm" />
-                        </div>
-                      ) : (
-                        <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Sin asignar">
-                          <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-[8px]"></i>
-                        </div>
-                      )}
-                      {/* Assignees */}
-                      {ticket.assignees && ticket.assignees.length > 0 && (
-                        <div className="flex -space-x-1.5 ml-1">
-                          {ticket.assignees.slice(0, 2).map((assignee, index) => (
-                            <div key={assignee.user_id || index} className="relative" style={{ zIndex: 10 - index }}>
-                              {assignee.user ? (
-                                <div className="cursor-help" title={`${assignee.user.first_name && assignee.user.last_name ? `${assignee.user.first_name} ${assignee.user.last_name}` : assignee.user.email || 'Usuario'}${assignee.user.role ? ` (${assignee.user.role})` : ''}`}>
-                                  <UserAvatar user={assignee.user} size="sm" />
-                                </div>
-                              ) : (
-                                <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Usuario desconocido">
-                                  <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-[8px]"></i>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          {ticket.assignees.length > 2 && (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-1 cursor-help" title={`${ticket.assignees.length - 2} usuarios más`}>
-                              +{ticket.assignees.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusStyles.bg} ${statusStyles.text}`}>
+                    {STATUS_LABELS[ticket.status] || ticket.status}
+                  </span>
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${priorityStyles.bg} ${priorityStyles.text}`}>
+                    {PRIORITY_LABELS[ticket.priority] || ticket.priority}
+                  </span>
+                  <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    {TYPE_LABELS[ticket.type] || ticket.type}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  {ticket.creator && (
+                    <div className="flex items-center gap-1.5">
+                      <UserAvatar user={ticket.creator} size="sm" />
+                      <span className="text-xs truncate max-w-[100px]">{ticket.creator.first_name || ticket.creator.email}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                      {ticket.due_date && (
-                        <span>{new Date(ticket.due_date).toLocaleDateString('es-HN')}</span>
-                      )}
-                      {ticket.attachments && ticket.attachments.length > 0 && (
-                        <div className="flex items-center gap-0.5">
-                          <Paperclip className="w-3 h-3" />
-                          <span>{ticket.attachments.length}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  )}
+                  {ticket.assignees && ticket.assignees.length > 0 && (
+                    <>
+                      <span className="text-gray-400">→</span>
+                      <div className="flex -space-x-1.5">
+                        {ticket.assignees.slice(0, 3).map((a, i) => (
+                          a.user ? <UserAvatar key={i} user={a.user} size="sm" /> : null
+                        ))}
+                        {ticket.assignees.length > 3 && (
+                          <span className="text-xs text-gray-500 ml-1">+{ticket.assignees.length - 3}</span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+                  <span>{new Date(ticket.created_at).toLocaleDateString('es-HN')}</span>
+                  {ticket.due_date && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(ticket.due_date).toLocaleDateString('es-HN')}
+                    </span>
+                  )}
+                  {ticket.attachments && ticket.attachments.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Paperclip className="w-3 h-3" />
+                      {ticket.attachments.length}
+                    </span>
+                  )}
                 </div>
               </div>
             );
