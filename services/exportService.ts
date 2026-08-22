@@ -1170,7 +1170,7 @@ export class ExportService {
     const gingivitis = (datos.gingivitis || []).map((g: any) =>
       `<span class="odontogram-chip"><span class="odontogram-chip-warn">⚠</span>${ODONT_GINGIVITIS_LABELS[g.tipo] || g.tipo}${g.detalle ? ` - ${g.detalle}` : ''}</span>`).join('');
 
-    const fecha = (datos as any).informacion_general?.fecha || odontogram.fecha_creacion || '';
+    const fecha = (datos as any).fecha || '';
     const fechaLabel = fecha
       ? new Date(fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
       : '';

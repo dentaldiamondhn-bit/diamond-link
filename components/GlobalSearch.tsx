@@ -627,7 +627,7 @@ export default function GlobalSearch() {
                             Odontograma v{odontogram.version} • {patient?.nombre_completo || 'Sin paciente'}
                           </div>
                           <div className="text-xs text-gray-400">
-                            {odontogram.datos_odontograma?.informacion_general?.fecha || odontogram.fecha_actualizacion} • {odontogram.notas?.substring(0, 50) || 'Sin notas'}
+                            {odontogram.datos_odontograma?.fecha || odontogram.fecha_actualizacion} • {odontogram.notas?.substring(0, 50) || 'Sin notas'}
                           </div>
                         </div>
                         );

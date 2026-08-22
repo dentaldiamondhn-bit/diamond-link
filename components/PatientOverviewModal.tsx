@@ -221,7 +221,7 @@ export default function PatientOverviewModal({ pacienteId, isOpen, onClose }: Pa
                           <span>·</span>
                           <span>v{odontogramStats.latest_version.version}</span>
                           <span>·</span>
-                          <span>{formatDate(odontogramStats.latest_version.fecha_odontograma || odontogramStats.latest_version.fecha_creacion)}</span>
+                          <span>{odontogramStats.latest_version.fecha_odontograma ? formatDate(odontogramStats.latest_version.fecha_odontograma) : 'Sin fecha'}</span>
                         </>
                       )}
                     </div>
