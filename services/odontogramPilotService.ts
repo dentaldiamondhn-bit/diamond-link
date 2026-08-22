@@ -166,7 +166,8 @@ export class OdontogramPilotService {
         total_versions: totalVersions,
         latest_version: latestVersion ? {
           version: latestVersion.version,
-          fecha_creacion: latestVersion.fecha_creacion
+          fecha_creacion: latestVersion.fecha_creacion,
+          fecha_odontograma: latestVersion.datos_odontograma?.informacion_general?.fecha || null
         } : null,
         status_counts: statusCounts,
         mordidas: latestVersion?.datos_odontograma?.mordidas || [],

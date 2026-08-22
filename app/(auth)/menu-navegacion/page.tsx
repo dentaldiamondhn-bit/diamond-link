@@ -556,7 +556,7 @@ function MenuNavegacionContent() {
         {latest_version && (
           <div className="flex items-center space-x-2">
             <span className="text-purple-600 dark:text-purple-400 font-medium">
-              {SimpleTimezoneFix.formatDisplayDate(latest_version.fecha_creacion)}
+              {SimpleTimezoneFix.formatDisplayDate(latest_version.fecha_odontograma || latest_version.fecha_creacion)}
             </span>
           </div>
         )}

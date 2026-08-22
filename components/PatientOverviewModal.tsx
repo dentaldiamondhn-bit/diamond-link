@@ -15,7 +15,7 @@ interface PatientOverviewModalProps {
 
 interface OdontogramStats {
   total_versions: number;
-  latest_version: { version: number; fecha_creacion: string } | null;
+  latest_version: { version: number; fecha_creacion: string; fecha_odontograma?: string | null } | null;
   status_counts: Record<string, number>;
 }
 
@@ -221,7 +221,7 @@ export default function PatientOverviewModal({ pacienteId, isOpen, onClose }: Pa
                           <span>·</span>
                           <span>v{odontogramStats.latest_version.version}</span>
                           <span>·</span>
-                          <span>{formatDate(odontogramStats.latest_version.fecha_creacion)}</span>
+                          <span>{formatDate(odontogramStats.latest_version.fecha_odontograma || odontogramStats.latest_version.fecha_creacion)}</span>
                         </>
                       )}
                     </div>
