@@ -170,7 +170,7 @@ export async function DELETE(
     
     try {
       const { error: paymentsError } = await supabase
-        .from('pagos')
+        .from('payments')
         .delete()
         .eq('tratamiento_completado_id', tratamientoId);
       

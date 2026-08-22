@@ -10,6 +10,7 @@ import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import { PaymentService } from '../../../services/paymentService';
+import { PatientCreditService } from '../../../services/patientCreditService';
 import { currencyConversionService } from '../../../services/currencyConversionService';
 import type { CompletedTreatment, TreatmentItem } from '../../../services/completedTreatmentService';
 import type { Payment, PaymentSummary } from '../../../services/paymentService';
@@ -49,6 +50,9 @@ function TratamientosCompletadosPageContent() {
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [newPayment, setNewPayment] = useState({ monto_pago: '', moneda: 'HNL' as Currency, metodo_pago: 'efectivo', notas_pago: '' });
   const [conversionInfo, setConversionInfo] = useState<{convertedAmount: number, exchangeRate: number} | null>(null);
+  const [applyCredit, setApplyCredit] = useState(false);
+  const [creditAmount, setCreditAmount] = useState<string>('');
+  const [applyingCredit, setApplyingCredit] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<{id: string, amount: number, currency: string, method: string} | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
@@ -359,6 +363,8 @@ function TratamientosCompletadosPageContent() {
       metodo_pago: 'efectivo',
       notas_pago: ''
     });
+    setApplyCredit(false);
+    setCreditAmount('');
   };
 
   const addPayment = async () => {
@@ -390,6 +396,54 @@ function TratamientosCompletadosPageContent() {
     } catch (error) {
       console.error('Error adding payment:', error);
       alert('Error al agregar pago');
+    }
+  };
+
+  const applyCreditPayment = async () => {
+    if (!selectedTreatment || !creditAmount) {
+      alert('Por favor ingrese el monto del crédito a aplicar');
+      return;
+    }
+
+    const amount = parseFloat(creditAmount);
+    if (amount <= 0) {
+      alert('El monto debe ser mayor a 0');
+      return;
+    }
+
+    const creditoDisponible = paymentSummary?.credito_disponible;
+    const treatmentCurrency = selectedTreatment.moneda || 'HNL';
+    const availableInCurrency = treatmentCurrency === 'USD' 
+      ? creditoDisponible?.disponible_usd || 0 
+      : creditoDisponible?.disponible_hnl || 0;
+
+    if (amount > availableInCurrency) {
+      alert(`Crédito insuficiente. Disponible: ${formatCurrency(availableInCurrency, treatmentCurrency)}`);
+      return;
+    }
+
+    try {
+      setApplyingCredit(true);
+      await PatientCreditService.applyCredit(
+        selectedTreatment.paciente_id,
+        selectedTreatment.id,
+        amount,
+        treatmentCurrency,
+        `Crédito aplicado al tratamiento ${selectedTreatment.tratamiento_numero || selectedTreatment.id}`
+      );
+
+      const summary = await PaymentService.getPaymentSummary(selectedTreatment.id);
+      setPaymentSummary(summary);
+      await loadCompletedTreatments();
+
+      setCreditAmount('');
+      setApplyCredit(false);
+      alert(`Crédito de ${formatCurrency(amount, treatmentCurrency)} aplicado exitosamente`);
+    } catch (error) {
+      console.error('Error applying credit:', error);
+      alert('Error al aplicar crédito: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setApplyingCredit(false);
     }
   };
 
@@ -463,14 +517,10 @@ function TratamientosCompletadosPageContent() {
   };
 
   const getPaymentStatusBadge = (treatment: CompletedTreatment) => {
-    // Calculate payment status like the modal does
     const totalPaid = treatment.monto_pagado || 0;
     const totalFinal = treatment.total_final || 0;
-    const paymentStatus = totalFinal <= 0 ? 'pagado' : 
-      totalPaid >= totalFinal ? 'pagado' : 
-      totalPaid > 0 ? 'parcialmente_pagado' : 'pendiente';
+    const paymentStatus = PaymentService.calculatePaymentStatus(totalFinal, totalPaid);
     
-    // Use calculated payment status
     if (paymentStatus === 'pagado') {
       return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
     } else if (paymentStatus === 'parcialmente_pagado') {
@@ -481,14 +531,10 @@ function TratamientosCompletadosPageContent() {
   };
 
   const getPaymentStatusText = (treatment: CompletedTreatment) => {
-    // Calculate payment status like the modal does
     const totalPaid = treatment.monto_pagado || 0;
     const totalFinal = treatment.total_final || 0;
-    const paymentStatus = totalFinal <= 0 ? 'pagado' : 
-      totalPaid >= totalFinal ? 'pagado' : 
-      totalPaid > 0 ? 'parcialmente_pagado' : 'pendiente';
+    const paymentStatus = PaymentService.calculatePaymentStatus(totalFinal, totalPaid);
     
-    // Use calculated payment status
     if (paymentStatus === 'pagado') {
       return 'Pagado';
     } else if (paymentStatus === 'parcialmente_pagado') {
@@ -942,13 +988,10 @@ function TratamientosCompletadosPageContent() {
                               
                               {/* Payment Information - Use same logic as payment modal */}
                               {(() => {
-                                // Calculate payment summary like the modal does
                                 const totalPaid = treatment.monto_pagado || 0;
                                 const totalFinal = treatment.total_final || 0;
-                                const pendingBalance = totalFinal - totalPaid;
-                                const paymentStatus = totalFinal <= 0 ? 'pagado' : 
-                                  totalPaid >= totalFinal ? 'pagado' : 
-                                  totalPaid > 0 ? 'parcialmente_pagado' : 'pendiente';
+                                const pendingBalance = PaymentService.calculatePendingBalance(totalFinal, totalPaid);
+                                const paymentStatus = PaymentService.calculatePaymentStatus(totalFinal, totalPaid);
                                 
                                 return (totalPaid > 0 || pendingBalance > 0 || paymentStatus !== 'pendiente') && (
                                   <>
@@ -1116,10 +1159,8 @@ function TratamientosCompletadosPageContent() {
                             {(() => {
                               const totalPaid = treatment.monto_pagado || 0;
                               const totalFinal = treatment.total_final || 0;
-                              const pendingBalance = totalFinal - totalPaid;
-                              const paymentStatus = totalFinal <= 0 ? 'pagado' : 
-                                totalPaid >= totalFinal ? 'pagado' : 
-                                totalPaid > 0 ? 'parcialmente_pagado' : 'pendiente';
+                              const pendingBalance = PaymentService.calculatePendingBalance(totalFinal, totalPaid);
+                              const paymentStatus = PaymentService.calculatePaymentStatus(totalFinal, totalPaid);
                               
                               return (totalPaid > 0 || pendingBalance > 0 || paymentStatus !== 'pendiente') && (
                                 <div className="mt-1 space-y-0.5">
@@ -1337,8 +1378,8 @@ function TratamientosCompletadosPageContent() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-300">Saldo Pendiente:</span>
-                            <span className="font-medium text-red-600 dark:text-red-400">
-                              {formatCurrency(-(paymentSummary.saldo_pendiente || 0), paymentSummary.moneda_principal)}
+                            <span className={`font-medium ${paymentSummary.saldo_pendiente > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                              {formatCurrency(paymentSummary.saldo_pendiente, paymentSummary.moneda_principal)}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -1350,6 +1391,85 @@ function TratamientosCompletadosPageContent() {
                         </div>
                       ) : null}
                     </div>
+
+                    {/* Saldo Positivo (Available Credit) */}
+                    {paymentSummary?.credito_disponible && selectedTreatment?.paciente_id && (() => {
+                      const treatmentCurrency = selectedTreatment.moneda || 'HNL';
+                      const availableInCurrency = treatmentCurrency === 'USD'
+                        ? paymentSummary.credito_disponible.disponible_usd
+                        : paymentSummary.credito_disponible.disponible_hnl;
+
+                      if (availableInCurrency <= 0) return null;
+
+                      return (
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-lg mb-4 border border-emerald-200 dark:border-emerald-700">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+                              <i className="fas fa-coins"></i>
+                              Saldo Positivo Disponible
+                            </h4>
+                            <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                              {formatCurrency(availableInCurrency, treatmentCurrency)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-3">
+                            Este paciente tiene credito disponible de sobre-pagos anteriores. Puede aplicarlo a este tratamiento.
+                          </p>
+                          {!applyCredit ? (
+                            <button
+                              onClick={() => {
+                                setApplyCredit(true);
+                                setCreditAmount(String(Math.min(availableInCurrency, paymentSummary.saldo_pendiente || 0)));
+                              }}
+                              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
+                              disabled={paymentSummary.saldo_pendiente <= 0}
+                            >
+                              <i className="fas fa-hand-holding-usd mr-2"></i>
+                              Aplicar Saldo Positivo
+                            </button>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
+                                <label className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                                  Monto a aplicar:
+                                </label>
+                                <input
+                                  type="number"
+                                  value={creditAmount}
+                                  onChange={(e) => setCreditAmount(e.target.value)}
+                                  className="w-32 px-3 py-1.5 border border-emerald-300 dark:border-emerald-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                                  min="0"
+                                  max={Math.min(availableInCurrency, paymentSummary.saldo_pendiente || 0)}
+                                  step="0.01"
+                                />
+                                <span className="text-sm text-emerald-600 dark:text-emerald-400">
+                                  / {formatCurrency(availableInCurrency, treatmentCurrency)}
+                                </span>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={applyCreditPayment}
+                                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium disabled:opacity-50"
+                                  disabled={applyingCredit || !creditAmount || parseFloat(creditAmount) <= 0}
+                                >
+                                  {applyingCredit ? (
+                                    <><i className="fas fa-spinner fa-spin mr-2"></i>Aplicando...</>
+                                  ) : (
+                                    <><i className="fas fa-check mr-2"></i>Confirmar</>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => { setApplyCredit(false); setCreditAmount(''); }}
+                                  className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 text-sm"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Add New Payment Form */}
                     {(!paymentSummary || paymentSummary.saldo_pendiente > 0) && (
@@ -1376,7 +1496,7 @@ function TratamientosCompletadosPageContent() {
                         {paymentSummary && paymentSummary.saldo_pendiente > 0 && selectedTreatment?.total_final > 0 && (
                           <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded">
                             <p className="text-sm text-blue-800 dark:text-blue-200">
-                              Saldo pendiente: {formatCurrency(-(paymentSummary.saldo_pendiente), paymentSummary.moneda_principal)}
+                              Saldo pendiente: {formatCurrency(paymentSummary.saldo_pendiente, paymentSummary.moneda_principal)}
                             </p>
                           </div>
                         )}

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { Currency } from '../utils/currencyUtils';
 import { currencyConversionService, ConversionResult } from './currencyConversionService';
+import { PatientCreditService, PatientCreditSummary } from './patientCreditService';
 
 export interface Payment {
   id: string;
@@ -27,9 +28,26 @@ export interface PaymentSummary {
   pagos: Payment[];
   moneda_principal?: Currency;
   total_tratamiento?: number;
+  credito_disponible?: PatientCreditSummary;
 }
 
 export class PaymentService {
+  /**
+   * Centralized: Calculate payment status from total and paid amounts
+   */
+  static calculatePaymentStatus(totalFinal: number, totalPaid: number): 'pendiente' | 'parcialmente_pagado' | 'pagado' {
+    if (totalFinal <= 0) return 'pagado';
+    if (totalPaid >= totalFinal) return 'pagado';
+    if (totalPaid > 0) return 'parcialmente_pagado';
+    return 'pendiente';
+  }
+
+  /**
+   * Centralized: Calculate pending balance (never negative)
+   */
+  static calculatePendingBalance(totalFinal: number, totalPaid: number): number {
+    return Math.max(0, totalFinal - totalPaid);
+  }
   // Get all payments for a completed treatment
   static async getPaymentsByTreatmentId(tratamientoCompletadoId: string): Promise<Payment[]> {
     try {
@@ -172,18 +190,26 @@ export class PaymentService {
     try {
       const { data: treatment } = await supabase
         .from('tratamientos_completados')
-        .select('total_final, moneda, monto_pagado, estado_pago, saldo_pendiente')
+        .select('total_final, moneda, monto_pagado, estado_pago, saldo_pendiente, paciente_id')
         .eq('id', tratamientoCompletadoId)
         .single();
 
       const payments = await this.getPaymentsByTreatmentId(tratamientoCompletadoId);
 
       const totalPaid = treatment?.monto_pagado || 0;
-      const saldoPendiente = treatment?.saldo_pendiente ?? Math.max(0, (treatment?.total_final || 0) - totalPaid);
+      const totalFinal = treatment?.total_final || 0;
+      const saldoPendiente = this.calculatePendingBalance(totalFinal, totalPaid);
+      const estadoPago = this.calculatePaymentStatus(totalFinal, totalPaid);
 
-      let estadoPago: 'pendiente' | 'parcialmente_pagado' | 'pagado' = 'pendiente';
-      if (totalPaid >= (treatment?.total_final || 0)) estadoPago = 'pagado';
-      else if (totalPaid > 0) estadoPago = 'parcialmente_pagado';
+      // Get available patient credit if treatment has a paciente_id
+      let creditoDisponible: PatientCreditSummary | undefined;
+      if (treatment?.paciente_id) {
+        try {
+          creditoDisponible = await PatientCreditService.getCreditSummary(treatment.paciente_id);
+        } catch (creditError) {
+          console.warn('Could not load patient credit info:', creditError);
+        }
+      }
 
       return {
         monto_pagado: totalPaid,
@@ -191,7 +217,8 @@ export class PaymentService {
         estado_pago: estadoPago,
         pagos: payments,
         moneda_principal: treatment?.moneda,
-        total_tratamiento: treatment?.total_final
+        total_tratamiento: totalFinal,
+        credito_disponible: creditoDisponible
       };
     } catch (error) {
       console.error('Error getting payment summary:', error);
@@ -206,8 +233,7 @@ export class PaymentService {
       'tarjeta_credito',
       'tarjeta_debito',
       'transferencia',
-      'cheque',
-      'paypal',
+      'saldo_positivo',
       'extra_bac_6meses',
       'extra_bac_3meses',
       'extra_bac_9meses',
@@ -227,6 +253,7 @@ export class PaymentService {
       'transferencia': 'Transferencia Bancaria',
       'cheque': 'Cheque',
       'paypal': 'PayPal',
+      'saldo_positivo': 'Saldo Positivo',
       'otro': 'Otro',
       'extra_bac_6meses': 'Extra BAC 6meses',
       'extra_bac_3meses': 'Extra BAC 3meses',
