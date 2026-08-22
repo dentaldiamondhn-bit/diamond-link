@@ -396,7 +396,7 @@ export class TicketService {
   }
 
   // Update ticket
-  static async updateTicket(ticketId: string, updates: UpdateTicketData, userId: string): Promise<{ data: Ticket | null; error: any }> {
+  static async updateTicket(ticketId: string, updates: UpdateTicketData, userId: string, comment?: string): Promise<{ data: Ticket | null; error: any }> {
     try {
       const { data: currentTicket } = await this.getTicketById(ticketId);
       if (!currentTicket) {
@@ -415,8 +415,11 @@ export class TicketService {
         .single();
 
       if (data && !error) {
+        const statusChanged = updates.status && updates.status !== currentTicket.status;
+        const hasComment = comment && comment.trim();
+
         // Create activity for status change
-        if (updates.status && updates.status !== currentTicket.status) {
+        if (statusChanged) {
           await this.createActivity({
             ticket_id: ticketId,
             activity_type: ActivityType.STATUS_CHANGE,
@@ -424,9 +427,11 @@ export class TicketService {
             metadata: { old_status: currentTicket.status, new_status: updates.status }
           }, userId);
 
-          // Notify relevant users on status change
           const ticketUsers = await this.getTicketUserIds(ticketId, currentTicket.creator_id, userId);
           const statusLabel = STATUS_LABELS[updates.status] || updates.status;
+          const notifMessage = hasComment
+            ? `El ticket "${data.title}" cambió a estado: ${statusLabel} — "${comment!.trim()}"`
+            : `El ticket "${data.title}" cambió a estado: ${statusLabel}`;
           for (const uid of ticketUsers) {
             try {
               await fetch('/api/notifications/send-to-user', {
@@ -437,7 +442,7 @@ export class TicketService {
                   notification: {
                     type: 'ticket_status_changed',
                     title: 'Estado del ticket actualizado',
-                    message: `El ticket "${data.title}" cambió a estado: ${statusLabel}`,
+                    message: notifMessage,
                     metadata: { ticketId, ticketTitle: data.title, newStatus: updates.status }
                   }
                 }),
@@ -446,6 +451,47 @@ export class TicketService {
               console.error('Failed to notify user on status change:', notifErr);
             }
           }
+        }
+
+        // Comment without status change: separate notification
+        if (hasComment && !statusChanged) {
+          await this.createActivity({
+            ticket_id: ticketId,
+            activity_type: ActivityType.COMMENT,
+            content: comment!.trim(),
+            metadata: { is_comment: true }
+          }, userId);
+
+          const ticketUsers = await this.getTicketUserIds(ticketId, currentTicket.creator_id, userId);
+          for (const uid of ticketUsers) {
+            try {
+              await fetch('/api/notifications/send-to-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: uid,
+                  notification: {
+                    type: 'ticket_comment',
+                    title: 'Nuevo comentario en ticket',
+                    message: `Nuevo comentario en el ticket "${data.title}": "${comment!.trim()}"`,
+                    metadata: { ticketId, ticketTitle: data.title }
+                  }
+                }),
+              });
+            } catch (notifErr) {
+              console.error('Failed to notify user on comment:', notifErr);
+            }
+          }
+        }
+
+        // Comment WITH status change: create activity only, no separate notification
+        if (hasComment && statusChanged) {
+          await this.createActivity({
+            ticket_id: ticketId,
+            activity_type: ActivityType.COMMENT,
+            content: comment!.trim(),
+            metadata: { is_comment: true }
+          }, userId);
         }
 
         // Create activity for assignment change

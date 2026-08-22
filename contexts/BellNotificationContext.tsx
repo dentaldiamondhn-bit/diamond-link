@@ -3,7 +3,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/nextjs';
-import { Bell, X } from 'lucide-react';
 
 export interface BellNotification {
   id: string;
@@ -43,7 +42,6 @@ function mapRow(row: any): BellNotification {
 
 export function BellNotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<BellNotification[]>([]);
-  const [toastNotification, setToastNotification] = useState<{ title: string; message: string } | null>(null);
   const { user } = useUser();
   const userId = user?.id;
 
@@ -94,9 +92,6 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification(title, { body, icon: '/favicon.ico' });
             }
-
-            setToastNotification({ title, message: body });
-            setTimeout(() => setToastNotification(null), 5000);
           }
         },
       )
@@ -191,22 +186,6 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
       value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification, clearAll }}
     >
       {children}
-      {toastNotification && (
-        <div className="fixed top-4 right-4 z-[9999] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-4 max-w-sm animate-slide-in">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-              <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800 dark:text-white">{toastNotification.title}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{toastNotification.message}</p>
-            </div>
-            <button onClick={() => setToastNotification(null)} className="flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
     </BellNotificationContext.Provider>
   );
 }

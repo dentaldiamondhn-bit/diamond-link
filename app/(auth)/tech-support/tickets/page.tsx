@@ -1674,14 +1674,13 @@ function TicketDetailModal({
     setSaving(true);
     try {
       if (draftStatus !== ticket.status) {
-        await TicketService.updateTicket(ticket.id, { status: draftStatus }, user.id);
+        await TicketService.updateTicket(ticket.id, { status: draftStatus }, user.id, comment.trim() || undefined);
+      } else if (comment.trim()) {
+        await TicketService.updateTicket(ticket.id, {}, user.id, comment.trim());
       }
       if (editingAssignees) {
         const newIds = draftAssignees.map(u => u.id);
         await TicketService.reassignTicket(ticket.id, newIds, user.id);
-      }
-      if (comment.trim()) {
-        await TicketService.addComment(ticket.id, user.id, comment);
       }
       onUpdate();
       onClose();
