@@ -566,18 +566,24 @@ export default function TicketsPage() {
             {/* Filter Dropdowns */}
             <div className="flex flex-wrap items-center gap-3">
               {/* View Toggle */}
-              <div className="flex items-center bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+              <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'grid' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <LayoutGrid className="w-4 h-4 inline mr-1.5" />
+                  Cuadricula
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
                 >
-                  <List className="w-4 h-4" />
+                  <List className="w-4 h-4 inline mr-1.5" />
+                  Lista
                 </button>
               </div>
               <div className="relative">
@@ -631,7 +637,7 @@ export default function TicketsPage() {
 
         {/* Tickets Grid/List View */}
         {viewMode === 'grid' ? (
-        <div className="grid gap-4 w-full overflow-x-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full overflow-x-hidden">
           {filteredTickets.map((ticket) => {
             const statusStyles = getStatusStyles(ticket.status);
             const priorityStyles = getPriorityStyles(ticket.priority);
@@ -641,10 +647,10 @@ export default function TicketsPage() {
                 key={ticket.id}
                 className="group bg-white dark:bg-slate-800 rounded-2xl shadow-md hover:shadow-2xl border border-slate-200 dark:border-slate-700 p-5 transition-all duration-300 hover:-translate-y-1 w-full overflow-hidden"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full overflow-hidden">
-                  {/* Left Section - Type Icon & Title */}
-                  <div className="flex items-start gap-4 flex-1 min-w-0">
-                    <div className={`p-3 rounded-xl ${
+                <div className="flex flex-col gap-3 w-full overflow-hidden">
+                  {/* Top Row - Icon & Badges */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className={`p-2.5 rounded-lg ${
                       ticket.type === TicketType.SYSTEM_ISSUE ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
                       ticket.type === TicketType.IMPLEMENTATION ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
                       ticket.type === TicketType.REMINDER ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' :
@@ -653,114 +659,78 @@ export default function TicketsPage() {
                     }`}>
                       {getTypeIcon(ticket.type)}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                        {ticket.ticket_number && (
-                          <span className="inline-flex items-center px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm font-medium mr-2">
-                            {ticket.ticket_number}
-                          </span>
-                        )}
-                        {ticket.title}
-                      </h3>
-                      <p className="text-slate-500 dark:text-slate-400 text-sm truncate mt-1">
-                        {ticket.description?.length > 120 
-                          ? `${ticket.description.substring(0, 120)}...` 
-                          : ticket.description || 'Sin descripción'
-                        }
-                      </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${statusStyles.bg} ${statusStyles.text}`}>
+                        {STATUS_LABELS[ticket.status] || ticket.status}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${priorityStyles.bg} ${priorityStyles.text}`}>
+                        {PRIORITY_LABELS[ticket.priority] || ticket.priority}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Middle Section - Badges */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${statusStyles.bg} ${statusStyles.text} shadow-sm`}>
-                      {statusStyles.icon}
-                      {STATUS_LABELS[ticket.status] || ticket.status}
-                    </span>
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${priorityStyles.bg} ${priorityStyles.text} shadow-sm`}>
-                      {PRIORITY_LABELS[ticket.priority] || ticket.priority}
-                    </span>
+                  {/* Title & Description */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {ticket.ticket_number && (
+                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">{ticket.ticket_number}</span>
+                      )}
+                    </div>
+                    <h3 className="text-sm font-semibold text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      {ticket.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                      {ticket.description?.length > 60 ? `${ticket.description.substring(0, 60)}...` : ticket.description || 'Sin descripción'}
+                    </p>
                   </div>
 
-                  {/* Right Section - Meta & Actions */}
-                  <div className="flex flex-wrap items-center justify-end gap-2 lg:gap-4 text-sm text-slate-500 dark:text-slate-400">
-                    <div className="hidden md:flex items-center gap-2 lg:gap-4">
-                      {/* Creator Avatar */}
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {ticket.creator ? (
-                          <div className="flex items-center gap-2 max-w-[100px] lg:max-w-[120px] group relative">
-                            <div className="cursor-help" title={`${ticket.creator.first_name && ticket.creator.last_name 
-                              ? `${ticket.creator.first_name} ${ticket.creator.last_name}` 
-                              : ticket.creator.email || 'Usuario'}${ticket.creator.role ? ` (${ticket.creator.role})` : ''}`}>
-                              <UserAvatar user={ticket.creator} size="sm" />
-                            </div>
-                            <span className="truncate text-xs font-medium text-gray-900 dark:text-white">
-                              {ticket.creator.first_name && ticket.creator.last_name 
-                                ? `${ticket.creator.first_name} ${ticket.creator.last_name}`
-                                : ticket.creator.email || 'Usuario'}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Sin asignar">
-                              <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
-                            </div>
-                            <span className="text-xs font-medium text-gray-400 dark:text-gray-500">Sin asignar</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Assignee Avatars */}
+                  {/* People Row */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                    <div className="flex items-center gap-1">
+                      {/* Creator */}
+                      {ticket.creator ? (
+                        <div className="cursor-help" title={`${ticket.creator.first_name && ticket.creator.last_name ? `${ticket.creator.first_name} ${ticket.creator.last_name}` : ticket.creator.email || 'Usuario'}${ticket.creator.role ? ` (${ticket.creator.role})` : ''}`}>
+                          <UserAvatar user={ticket.creator} size="sm" />
+                        </div>
+                      ) : (
+                        <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Sin asignar">
+                          <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-[8px]"></i>
+                        </div>
+                      )}
+                      {/* Assignees */}
                       {ticket.assignees && ticket.assignees.length > 0 && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex -space-x-1.5 ml-1">
                           {ticket.assignees.slice(0, 2).map((assignee, index) => (
-                            <div key={assignee.user_id || index} className="flex items-center gap-1">
+                            <div key={assignee.user_id || index} className="relative" style={{ zIndex: 10 - index }}>
                               {assignee.user ? (
-                                <div className="cursor-help" title={`${assignee.user.first_name && assignee.user.last_name 
-                                  ? `${assignee.user.first_name} ${assignee.user.last_name}` 
-                                  : assignee.user.email || 'Usuario'}${assignee.user.role ? ` (${assignee.user.role})` : ''}`}>
+                                <div className="cursor-help" title={`${assignee.user.first_name && assignee.user.last_name ? `${assignee.user.first_name} ${assignee.user.last_name}` : assignee.user.email || 'Usuario'}${assignee.user.role ? ` (${assignee.user.role})` : ''}`}>
                                   <UserAvatar user={assignee.user} size="sm" />
                                 </div>
                               ) : (
-                                <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Usuario desconocido">
-                                  <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-xs"></i>
+                                <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center" title="Usuario desconocido">
+                                  <i className="fas fa-user-slash text-gray-500 dark:text-gray-400 text-[8px]"></i>
                                 </div>
                               )}
                             </div>
                           ))}
                           {ticket.assignees.length > 2 && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 cursor-help" 
-                                  title={`${ticket.assignees.length - 2} usuarios más asignados`}>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-1 cursor-help" title={`${ticket.assignees.length - 2} usuarios más`}>
                               +{ticket.assignees.length - 2}
                             </span>
                           )}
                         </div>
                       )}
-                      
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
                       {ticket.due_date && (
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <Calendar className="w-4 h-4" />
-                          <span className="whitespace-nowrap text-xs">{new Date(ticket.due_date).toLocaleDateString('es-HN')}</span>
-                        </div>
+                        <span>{new Date(ticket.due_date).toLocaleDateString('es-HN')}</span>
                       )}
                       {ticket.attachments && ticket.attachments.length > 0 && (
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <Paperclip className="w-4 h-4" />
+                        <div className="flex items-center gap-0.5">
+                          <Paperclip className="w-3 h-3" />
                           <span>{ticket.attachments.length}</span>
                         </div>
                       )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {canViewTicketDetails(ticket) && (
-                        <button
-                          onClick={() => setSelectedTicket(ticket)}
-                          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
-                        >
-                          <MessageSquare className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                        </button>
-                      )}
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                     </div>
                   </div>
                 </div>
