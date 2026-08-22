@@ -2016,7 +2016,10 @@ function TicketDetailModal({
                           }`}
                         >
                           {ticket.creator_id === user?.id && ticket.status === TicketStatus.RESOLVED ? (
-                            <option value={TicketStatus.CLOSED}>Cerrado</option>
+                            <>
+                              <option value={TicketStatus.OPEN}>Reabrir</option>
+                              <option value={TicketStatus.CLOSED}>Cerrar</option>
+                            </>
                           ) : (
                             <>
                               <option value={TicketStatus.OPEN}>Abierto</option>
