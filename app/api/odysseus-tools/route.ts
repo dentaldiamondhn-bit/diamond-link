@@ -191,7 +191,7 @@ async function getOdontogram(supabase: any, params: any) {
   }
   
   const { data: odontogram, error } = await supabase
-    .from('odontograms')
+    .from('odontogram_pilots')
     .select('*')
     .eq('paciente_id', patientId)
     .eq('activo', true)

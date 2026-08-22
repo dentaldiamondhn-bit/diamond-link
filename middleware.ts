@@ -20,9 +20,7 @@ function canAccessRouteServer(userRole: string, pathname: string): boolean {
     '/dashboard': ['admin', 'doctor', 'assistant'],
     '/pacientes': ['admin', 'doctor', 'assistant'],
     '/calendario': ['admin', 'doctor', 'assistant'],
-    '/odontogram': ['admin', 'doctor', 'assistant'],
     '/odontogram-pilot': ['admin', 'doctor', 'assistant'],
-    '/odontogram-test': ['admin', 'doctor', 'assistant'],
     '/tratamientos': ['admin', 'doctor', 'assistant'],
     '/tratamientos-completados': ['admin', 'doctor', 'assistant'],
     '/presupuestos': ['admin', 'doctor', 'assistant'],
@@ -135,9 +133,7 @@ export default clerkMiddleware(async (auth, req) => {
       '/calendario',
       '/patient-form',
       '/consentimientos',
-      '/odontogram',
       '/odontogram-pilot',
-      '/odontogram-test',
       '/estudio-periodontal',
       '/menu-navegacion',
       '/tratamientos',
@@ -174,13 +170,6 @@ export default clerkMiddleware(async (auth, req) => {
     
     // TEMPORARY: Allow tech-support/users for component-level access control
     if (req.nextUrl.pathname === '/tech-support/users') {
-      const response = NextResponse.next();
-      addCloudflareHeaders(response, req);
-      return response;
-    }
-    
-    // TESTING: Allow odontogram-test for all roles (testing page)
-    if (req.nextUrl.pathname.startsWith('/odontogram-test')) {
       const response = NextResponse.next();
       addCloudflareHeaders(response, req);
       return response;

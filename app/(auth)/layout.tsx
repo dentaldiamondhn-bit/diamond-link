@@ -262,7 +262,7 @@ export default function AuthLayout({
                                Consentimientos
                              </h1>
                            )}
-                           {pathname === '/odontogram' && (
+                            {pathname === '/odontogram-pilot' && (
                              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                                <i className="fas fa-tooth mr-2 text-teal-600"></i>
                                Odontograma

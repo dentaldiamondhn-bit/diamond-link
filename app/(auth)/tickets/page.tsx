@@ -1080,7 +1080,7 @@ function CreateTicketModal({
       const consentsResponse = await fetch(`/api/patients/${patientId}/consents`);
       const consents = consentsResponse.ok ? await consentsResponse.json() : [];
       
-      const odontogramResponse = await fetch(`/api/patients/${patientId}/odontogram`);
+      const odontogramResponse = await fetch(`/api/odontogram-pilot/active?patient_id=${patientId}`);
       const odontogram = odontogramResponse.ok ? await odontogramResponse.json() : null;
       
       const treatmentsResponse = await fetch(`/api/tratamientos-completados?paciente_id=${patientId}`);

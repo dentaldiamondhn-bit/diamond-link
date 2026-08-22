@@ -224,7 +224,7 @@ export function canAccessRoute(userRole: string, pathname: string): boolean {
     '/pacientes': 'canViewPatients',
     '/patient-form': 'canCreatePatients',
     '/patient-preview': 'canViewPatientPreview',
-    '/odontogram': 'canViewOdontogram',
+    '/odontogram-pilot': 'canViewOdontogram',
     '/tratamientos': 'canViewTreatments',
     '/tratamientos-completados': 'canViewCompletedTreatments',
     '/consentimientos': 'canViewConsentimientos',

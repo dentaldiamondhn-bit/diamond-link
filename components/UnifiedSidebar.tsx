@@ -24,7 +24,7 @@ export const NAVIGATION_GROUPS = [
     label: 'Herramientas Clínicas',
     icon: 'fa-tooth',
     items: [
-      { href: '/odontogram', icon: 'fa-teeth', label: 'Estudio Odontológico' },
+      { href: '/odontogram-pilot', icon: 'fa-teeth', label: 'Estudio Odontológico' },
     ]
   },
   {
