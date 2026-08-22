@@ -358,11 +358,11 @@ export default function PatientFollowUpPage() {
         });
         if (created) {
           await PatientFollowUpStatusService.toggleField(created.id, field);
-          // Re-sync this patient's status with the real DB record
+          // Re-sync with the toggled value, not the raw created record
           setPatients(prev =>
             prev.map(p => {
               if (patientRowKey(p) !== key) return p;
-              return { ...p, follow_up_status: created };
+              return { ...p, follow_up_status: { ...created, [field]: true } };
             })
           );
         }
@@ -406,6 +406,29 @@ export default function PatientFollowUpPage() {
     const url = createWhatsAppUrl(patient.paciente_telefono, messageDraft, patient.paciente_codigopais);
     window.open(url, '_blank');
 
+    // Optimistic update: check the whatsapp_sent checkbox immediately
+    const key = patientRowKey(patient);
+    setPatients(prev =>
+      prev.map(p => {
+        if (patientRowKey(p) !== key) return p;
+        const currentStatus = p.follow_up_status;
+        return {
+          ...p,
+          follow_up_status: currentStatus
+            ? { ...currentStatus, whatsapp_sent: true }
+            : {
+                id: '',
+                paciente_id: p.paciente_id,
+                whatsapp_sent: true,
+                patient_responded: false,
+                appointment_scheduled: false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+        };
+      })
+    );
+
     try {
       let statusId = patient.follow_up_status?.id;
       if (!statusId) {
@@ -414,7 +437,16 @@ export default function PatientFollowUpPage() {
           treatment_date: patient.fecha_ultimo_tratamiento,
           notes: '',
         });
-        if (created) statusId = created.id;
+        if (created) {
+          statusId = created.id;
+          // Re-sync with the created record (whatsapp_sent will be set by markWhatsAppSent)
+          setPatients(prev =>
+            prev.map(p => {
+              if (patientRowKey(p) !== key) return p;
+              return { ...p, follow_up_status: { ...created, whatsapp_sent: true } };
+            })
+          );
+        }
       }
 
       if (statusId) {
@@ -936,7 +968,7 @@ function Checkbox({
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
       className="flex items-center gap-2 group w-full text-left hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-md px-2 py-1 transition-colors"
     >
       <div
