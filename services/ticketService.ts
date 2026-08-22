@@ -1,6 +1,7 @@
 import { Ticket, TicketActivity, CreateTicketData, UpdateTicketData, CreateActivityData, TicketFilters, TicketStatus, ActivityType, TicketPriority } from '@/types/ticket';
 import { supabase } from '@/lib/supabase';
 import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
+import { STATUS_LABELS, PRIORITY_LABELS, STATUS_CHANGE_CONTENT, PRIORITY_CHANGE_CONTENT, ASSIGNMENT_CONTENT } from '@/lib/ticketLabels';
 
 // Helper function to batch-fetch users for multiple tickets at once
 const enrichTicketsWithUsers = async (tickets: any[]) => {
@@ -355,7 +356,7 @@ export class TicketService {
       await this.createActivity({
         ticket_id: ticket.id,
         activity_type: ActivityType.STATUS_CHANGE,
-        content: `Ticket created with status: ${TicketStatus.OPEN}`,
+        content: `Ticket creado con estado: ${STATUS_LABELS[TicketStatus.OPEN]}`,
         metadata: { old_status: null, new_status: TicketStatus.OPEN }
       }, creatorId);
 
@@ -419,9 +420,32 @@ export class TicketService {
           await this.createActivity({
             ticket_id: ticketId,
             activity_type: ActivityType.STATUS_CHANGE,
-            content: `Status changed from ${currentTicket.status} to ${updates.status}`,
+            content: STATUS_CHANGE_CONTENT(currentTicket.status, updates.status),
             metadata: { old_status: currentTicket.status, new_status: updates.status }
           }, userId);
+
+          // Notify relevant users on status change
+          const ticketUsers = await this.getTicketUserIds(ticketId, currentTicket.creator_id, userId);
+          const statusLabel = STATUS_LABELS[updates.status] || updates.status;
+          for (const uid of ticketUsers) {
+            try {
+              await fetch('/api/notifications/send-to-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: uid,
+                  notification: {
+                    type: 'ticket_status_changed',
+                    title: 'Estado del ticket actualizado',
+                    message: `El ticket "${data.title}" cambió a estado: ${statusLabel}`,
+                    metadata: { ticketId, ticketTitle: data.title, newStatus: updates.status }
+                  }
+                }),
+              });
+            } catch (notifErr) {
+              console.error('Failed to notify user on status change:', notifErr);
+            }
+          }
         }
 
         // Create activity for assignment change
@@ -429,7 +453,7 @@ export class TicketService {
           await this.createActivity({
             ticket_id: ticketId,
             activity_type: ActivityType.ASSIGNMENT,
-            content: `Assigned to user ${updates.assignee_id}`,
+            content: `Asignado a usuario ${updates.assignee_id}`,
             metadata: { old_assignee: currentTicket.assignee_id, new_assignee: updates.assignee_id }
           }, userId);
           // Notify new assignee
@@ -457,7 +481,7 @@ export class TicketService {
           await this.createActivity({
             ticket_id: ticketId,
             activity_type: ActivityType.EDIT,
-            content: `Priority changed from ${currentTicket.priority} to ${updates.priority}`,
+            content: PRIORITY_CHANGE_CONTENT(currentTicket.priority, updates.priority),
             metadata: { old_priority: currentTicket.priority, new_priority: updates.priority }
           }, userId);
         }
@@ -493,12 +517,39 @@ export class TicketService {
   // Add comment to ticket
   static async addComment(ticketId: string, userId: string, content: string): Promise<{ data: TicketActivity | null; error: any }> {
     try {
-      return await this.createActivity({
+      const result = await this.createActivity({
         ticket_id: ticketId,
         activity_type: ActivityType.COMMENT,
         content,
         metadata: { is_comment: true }
       }, userId);
+
+      // Notify ticket users about the comment
+      const { data: ticket } = await supabase.from('tickets').select('title, creator_id').eq('id', ticketId).single();
+      if (ticket) {
+        const ticketUsers = await this.getTicketUserIds(ticketId, ticket.creator_id, userId);
+        for (const uid of ticketUsers) {
+          try {
+            await fetch('/api/notifications/send-to-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: uid,
+                notification: {
+                  type: 'ticket_comment',
+                  title: 'Nuevo comentario en ticket',
+                  message: `Nuevo comentario en el ticket "${ticket.title}"`,
+                  metadata: { ticketId, ticketTitle: ticket.title }
+                }
+              }),
+            });
+          } catch (notifErr) {
+            console.error('Failed to notify user on comment:', notifErr);
+          }
+        }
+      }
+
+      return result;
     } catch (error) {
       console.error('Error adding comment:', error);
       return { data: null, error };
@@ -567,6 +618,102 @@ export class TicketService {
       return { data: result, error: null };
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      return { data: null, error };
+    }
+  }
+
+  // Get all user IDs related to a ticket (creator + assignees), excluding the actor
+  static async getTicketUserIds(ticketId: string, creatorId: string, actorId: string): Promise<string[]> {
+    const userIds = new Set<string>();
+    if (creatorId && creatorId !== actorId) userIds.add(creatorId);
+    try {
+      const { data: assignees } = await supabase
+        .from('ticket_assignees')
+        .select('user_id')
+        .eq('ticket_id', ticketId);
+      if (assignees) {
+        for (const a of assignees) {
+          if (a.user_id && a.user_id !== actorId) userIds.add(a.user_id);
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching ticket assignees for notifications:', e);
+    }
+    return [...userIds];
+  }
+
+  // Reassign ticket to new set of users
+  static async reassignTicket(ticketId: string, newAssigneeIds: string[], userId: string): Promise<{ data: Ticket | null; error: any }> {
+    try {
+      // Fetch current assignees
+      const { data: currentAssigneeRows } = await supabase
+        .from('ticket_assignees')
+        .select('user_id')
+        .eq('ticket_id', ticketId);
+      const oldAssigneeIds = (currentAssigneeRows || []).map((a: any) => a.user_id).sort();
+      const sortedNew = [...newAssigneeIds].sort();
+
+      // Only proceed if actually changed
+      if (JSON.stringify(oldAssigneeIds) === JSON.stringify(sortedNew)) {
+        const { data } = await supabase.from('tickets').select('*').eq('id', ticketId).single();
+        return { data, error: null };
+      }
+
+      // Remove old assignees
+      await supabase.from('ticket_assignees').delete().eq('ticket_id', ticketId);
+
+      // Insert new assignees
+      if (newAssigneeIds.length > 0) {
+        const assigneeData = newAssigneeIds.map(uid => ({
+          ticket_id: ticketId,
+          user_id: uid,
+          assigned_by: userId
+        }));
+        await supabase.from('ticket_assignees').insert(assigneeData);
+      }
+
+      // Fetch ticket title for activity/notification
+      const { data: ticket } = await supabase.from('tickets').select('title').eq('id', ticketId).single();
+      const ticketTitle = ticket?.title || 'Ticket';
+
+      // Create activity
+      await this.createActivity({
+        ticket_id: ticketId,
+        activity_type: ActivityType.ASSIGNMENT,
+        content: `Ticket re-asignado`,
+        metadata: { old_assignees: oldAssigneeIds, new_assignees: newAssigneeIds }
+      }, userId);
+
+      // Notify new assignees
+      for (const assigneeId of newAssigneeIds) {
+        try {
+          await fetch('/api/notifications/send-to-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: assigneeId,
+              notification: {
+                type: 'ticket_assigned',
+                title: 'Ticket re-asignado',
+                message: `Se te ha asignado el ticket: ${ticketTitle}`,
+                metadata: { ticketId, ticketTitle }
+              }
+            }),
+          });
+        } catch (notifErr) {
+          console.error('Failed to notify new ticket assignee:', notifErr);
+        }
+      }
+
+      const { data: updatedTicket } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('id', ticketId)
+        .single();
+
+      return { data: updatedTicket, error: null };
+    } catch (error) {
+      console.error('Error reassigning ticket:', error);
       return { data: null, error };
     }
   }
