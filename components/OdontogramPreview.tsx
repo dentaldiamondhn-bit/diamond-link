@@ -336,7 +336,7 @@ export default function OdontogramPreview({ pacienteId }: OdontogramPreviewProps
       </div>
 
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-        Fecha: {formatFecha((datos as any).fecha || odontogram.fecha_creacion)}
+        Fecha: {formatFecha((datos as any).informacion_general?.fecha || odontogram.fecha_creacion)}
       </p>
 
       {/* Tooth chart */}

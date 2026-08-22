@@ -248,27 +248,33 @@ export default function AuthLayout({
                                Dashboard
                              </h1>
                            )}
-                           {pathname === '/tratamientos-completados' && (
-                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                               <div className="w-6 h-6 mr-2 flex items-center justify-center">
-                                 <AnimatedTratamientosCompletados />
-                               </div>
-                               Tratamientos Completados
-                             </h1>
-                           )}
+                            {pathname === '/tratamientos-completados' && (
+                              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                                <div className="w-6 h-6 mr-2 flex items-center justify-center">
+                                  <AnimatedTratamientosCompletados />
+                                </div>
+                                Tratamientos Completados
+                              </h1>
+                            )}
+                            {pathname === '/tratamientos' && (
+                              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                                <i className="fas fa-tooth mr-2 text-teal-600"></i>
+                                Tratamientos
+                              </h1>
+                            )}
+                            {pathname === '/calendario' && (
+                              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                                <i className="fas fa-calendar-alt mr-2 text-teal-600"></i>
+                                Calendario
+                              </h1>
+                            )}
                            {pathname === '/consentimientos' && (
                              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                                <i className="fas fa-file-contract mr-2"></i>
                                Consentimientos
                              </h1>
                            )}
-                            {pathname === '/odontogram-pilot' && (
-                             <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
-                               <i className="fas fa-tooth mr-2 text-teal-600"></i>
-                               Odontograma
-                             </h1>
-                           )}
-                           {pathname === '/patient-form' && (
+                            {pathname === '/patient-form' && (
                              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                                <i className="fas fa-file-medical mr-2"></i>
                                Historia Clínica
@@ -314,13 +320,7 @@ export default function AuthLayout({
                              User Management
                            </h1>
                          )}
-                         {pathname.startsWith('/odontogram-test') && (
-                           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                             <i className="fas fa-tooth mr-2 text-teal-600"></i>
-                             Odontogram Testing
-                           </h1>
-                         )}
-                         {pathname.startsWith('/odontogram-pilot') && (
+                          {pathname.startsWith('/odontogram-pilot') && (
                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                              <i className="fas fa-circle-notch mr-2 text-teal-600"></i>
                              Odontograma
