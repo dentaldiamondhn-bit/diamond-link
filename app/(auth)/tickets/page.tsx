@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { TicketService } from '@/services/ticketService';
 import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData, ActivityType } from '@/types/ticket';
@@ -28,12 +28,17 @@ import {
   Activity,
   ChevronRight,
   ChevronDown,
-  AlertTriangle
+  AlertTriangle,
+  LayoutGrid,
+  List,
+  UserPlus
 } from 'lucide-react';
 import { UserSelect } from '@/components/calendar/UserSelect';
 import { UserAvatar } from '@/components/calendar/UserComponents';
 import { CalendarInviteesService } from '@/services/calendarInviteesService';
 import DocumentDisplay from '@/components/DocumentDisplay';
+import { UserPreferencesService } from '@/services/userPreferencesService';
+import { STATUS_LABELS, PRIORITY_LABELS, TYPE_LABELS, ACTIVITY_LABELS } from '@/lib/ticketLabels';
 
 export default function TicketsPage() {
   const { user } = useUser();
@@ -52,6 +57,9 @@ export default function TicketsPage() {
     search: ''
   });
 
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const prefsLoaded = useRef(false);
+
   // Document upload state - store files locally until ticket creation
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{type: 'success' | 'warning', text: string} | null>(null);
@@ -65,6 +73,20 @@ export default function TicketsPage() {
   useEffect(() => {
     loadTickets();
   }, [userRole]);
+
+  useEffect(() => {
+    if (!user?.id || prefsLoaded.current) return;
+    (async () => {
+      const prefs = await UserPreferencesService.getPagePreferences(user.id, 'tickets');
+      if (prefs?.viewMode) setViewMode(prefs.viewMode);
+      prefsLoaded.current = true;
+    })();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !prefsLoaded.current) return;
+    UserPreferencesService.updatePagePreferences(user.id, 'tickets', { viewMode }).catch(() => {});
+  }, [viewMode, user?.id]);
 
   // Real-time subscription for ticket updates
   useEffect(() => {
@@ -128,37 +150,28 @@ export default function TicketsPage() {
   const loadTickets = async () => {
     try {
       setLoading(true);
-      let result;
-      
-      if (userRole === UserRole.TECH_SUPPORT || userRole === UserRole.ADMIN) {
-        // Tech support and admin can see all tickets
-        result = await TicketService.getTickets({});
-      } else if (userRole === UserRole.DOCTOR) {
-        // Doctors can see department tickets
-        result = await TicketService.getTickets({});
-      } else {
-        // Staff can see their assigned and created tickets
-        result = await TicketService.getTickets({});
-      }
+      const result = await TicketService.getTickets({});
 
       if (result.data) {
-        // Filter tickets based on user role
         let filteredData = result.data;
-        
-        if (userRole !== UserRole.TECH_SUPPORT && userRole !== UserRole.ADMIN) {
-          // For non-admin users, only show tickets they created or are assigned to
+
+        if (userRole === UserRole.TECH_SUPPORT) {
+          filteredData = result.data;
+        } else if (userRole === UserRole.ADMIN) {
+          filteredData = result.data.filter(ticket => ticket.creator_id === user?.id);
+        } else {
           filteredData = result.data.filter(ticket => {
             const isCreator = ticket.creator_id === user?.id;
             const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === user?.id);
             return isCreator || isAssignee;
           });
+          filteredData = filteredData.filter(ticket => ticket.status !== TicketStatus.CLOSED);
         }
-        
-        // Filter out MAINTENANCE tickets for non-tech-support roles
+
         if (userRole !== UserRole.TECH_SUPPORT) {
           filteredData = filteredData.filter(ticket => ticket.type !== 'MAINTENANCE');
         }
-        
+
         setTickets(filteredData);
       }
     } catch (error) {
@@ -558,7 +571,22 @@ export default function TicketsPage() {
             </div>
             
             {/* Filter Dropdowns */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* View Toggle */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow-sm text-emerald-600' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
               <div className="relative">
                 <select
                   value={filters.status}
@@ -608,7 +636,8 @@ export default function TicketsPage() {
           </div>
         </div>
 
-        {/* Tickets Grid - Modern Card Layout */}
+        {/* Tickets Grid/List View */}
+        {viewMode === 'grid' ? (
         <div className="grid gap-4 w-full overflow-x-hidden">
           {filteredTickets.map((ticket) => {
             const statusStyles = getStatusStyles(ticket.status);
@@ -653,10 +682,10 @@ export default function TicketsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${statusStyles.bg} ${statusStyles.text} shadow-sm`}>
                       {statusStyles.icon}
-                      {ticket.status.replace('_', ' ')}
+                      {STATUS_LABELS[ticket.status] || ticket.status}
                     </span>
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${priorityStyles.bg} ${priorityStyles.text} shadow-sm`}>
-                      {ticket.priority}
+                      {PRIORITY_LABELS[ticket.priority] || ticket.priority}
                     </span>
                   </div>
 
@@ -746,6 +775,88 @@ export default function TicketsPage() {
             );
           })}
         </div>
+        ) : (
+        <div className="w-full overflow-x-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                <th className="pb-3 font-medium px-4">Ticket</th>
+                <th className="pb-3 font-medium px-4 hidden md:table-cell">Tipo</th>
+                <th className="pb-3 font-medium px-4">Estado</th>
+                <th className="pb-3 font-medium px-4 hidden lg:table-cell">Prioridad</th>
+                <th className="pb-3 font-medium px-4 hidden lg:table-cell">Asignados</th>
+                <th className="pb-3 font-medium px-4 hidden md:table-cell">Creado</th>
+                <th className="pb-3 font-medium px-4"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTickets.map((ticket) => {
+                const statusStyles = getStatusStyles(ticket.status);
+                const priorityStyles = getPriorityStyles(ticket.priority);
+                return (
+                  <tr
+                    key={ticket.id}
+                    onClick={() => setSelectedTicket(ticket)}
+                    className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${
+                          ticket.type === TicketType.SYSTEM_ISSUE ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
+                          ticket.type === TicketType.IMPLEMENTATION ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
+                          ticket.type === TicketType.REMINDER ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' :
+                          ticket.type === TicketType.PATIENT_CASE ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' :
+                          'bg-blue-100 dark:bg-blue-900/30 text-blue-600'
+                        }`}>
+                          {getTypeIcon(ticket.type)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            {ticket.ticket_number && (
+                              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{ticket.ticket_number}</span>
+                            )}
+                            <span className="font-medium text-slate-800 dark:text-white truncate">{ticket.title}</span>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-xs">{ticket.description || 'Sin descripción'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <span className="text-xs text-slate-600 dark:text-slate-400">{TYPE_LABELS[ticket.type] || ticket.type}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}>
+                        {STATUS_LABELS[ticket.status] || ticket.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${priorityStyles.bg} ${priorityStyles.text}`}>
+                        {PRIORITY_LABELS[ticket.priority] || ticket.priority}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      <div className="flex -space-x-2">
+                        {ticket.assignees?.slice(0, 3).map((a, i) => (
+                          a.user ? <UserAvatar key={i} user={a.user} size="sm" /> : null
+                        ))}
+                        {(ticket.assignees?.length || 0) > 3 && (
+                          <span className="text-xs text-slate-500 ml-1">+{ticket.assignees!.length - 3}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{new Date(ticket.created_at).toLocaleDateString('es-HN')}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        )}
 
         {/* Empty State */}
         {filteredTickets.length === 0 && !loading && (
@@ -1608,7 +1719,13 @@ function TicketDetailModal({
   const [comment, setComment] = useState('');
   const [draftStatus, setDraftStatus] = useState<TicketStatus>(ticket.status);
   const [saving, setSaving] = useState(false);
-  const hasChanges = draftStatus !== ticket.status || comment.trim() !== '';
+  const [editingAssignees, setEditingAssignees] = useState(false);
+  const [draftAssignees, setDraftAssignees] = useState<any[]>(
+    ticket.assignees?.map(a => a.user).filter(Boolean) || []
+  );
+  const hasChanges = draftStatus !== ticket.status || comment.trim() !== '' || editingAssignees;
+
+  const canReassign = userRole === UserRole.ADMIN || userRole === UserRole.TECH_SUPPORT || ticket.creator_id === user?.id;
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -1616,9 +1733,12 @@ function TicketDetailModal({
 
     setSaving(true);
     try {
-      // Status change and note are saved as separate log entries
       if (draftStatus !== ticket.status) {
         await TicketService.updateTicket(ticket.id, { status: draftStatus }, user.id);
+      }
+      if (editingAssignees) {
+        const newIds = draftAssignees.map(u => u.id);
+        await TicketService.reassignTicket(ticket.id, newIds, user.id);
       }
       if (comment.trim()) {
         await TicketService.addComment(ticket.id, user.id, comment);
@@ -1669,15 +1789,15 @@ function TicketDetailModal({
                     return (
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}>
                         {statusStyles.icon}
-                        {ticket.status.replace('_', ' ')}
+                        {STATUS_LABELS[ticket.status] || ticket.status}
                       </span>
                     );
                   })()}
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
-                    {ticket.type}
+                    {TYPE_LABELS[ticket.type] || ticket.type}
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
-                    {ticket.priority}
+                    {PRIORITY_LABELS[ticket.priority] || ticket.priority}
                   </span>
                 </div>
               </div>
@@ -1861,18 +1981,18 @@ function TicketDetailModal({
                 <div className="space-y-4">
                   <div>
                     <span className="text-sm text-slate-500 dark:text-slate-400">Tipo de Ticket</span>
-                    <p className="font-medium text-slate-800 dark:text-white">{ticket.type.replace('_', ' ')}</p>
+                    <p className="font-medium text-slate-800 dark:text-white">{TYPE_LABELS[ticket.type] || ticket.type}</p>
                   </div>
                   <div>
                     <span className="text-sm text-slate-500 dark:text-slate-400">Prioridad</span>
-                    <p className="font-medium text-slate-800 dark:text-white">{ticket.priority}</p>
+                    <p className="font-medium text-slate-800 dark:text-white">{PRIORITY_LABELS[ticket.priority] || ticket.priority}</p>
                   </div>
                   <div>
                     <span className="text-sm text-slate-500 dark:text-slate-400">Estado</span>
-                    <p className="font-medium text-slate-800 dark:text-white">{ticket.status.replace('_', ' ')}</p>
+                    <p className="font-medium text-slate-800 dark:text-white">{STATUS_LABELS[ticket.status] || ticket.status}</p>
                     
-                    {/* Status Selector for Admin and Tech Support (saved on Guardar) */}
-                    {userRole === UserRole.ADMIN || userRole === UserRole.TECH_SUPPORT ? (
+                    {/* Status Selector for Admin, Tech Support, or Creator when RESOLVED */}
+                    {(userRole === UserRole.ADMIN || userRole === UserRole.TECH_SUPPORT || (ticket.creator_id === user?.id && ticket.status === TicketStatus.RESOLVED)) ? (
                       <div className="relative mt-2">
                         <select
                           value={draftStatus}
@@ -1891,11 +2011,17 @@ function TicketDetailModal({
                               : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-600'
                           }`}
                         >
-                          <option value={TicketStatus.OPEN}>Abierto</option>
-                          <option value={TicketStatus.IN_PROGRESS}>En Progreso</option>
-                          <option value={TicketStatus.PENDING_REVIEW}>Revisión Pendiente</option>
-                          <option value={TicketStatus.RESOLVED}>Resuelto</option>
-                          <option value={TicketStatus.CLOSED}>Cerrado</option>
+                          {ticket.creator_id === user?.id && ticket.status === TicketStatus.RESOLVED ? (
+                            <option value={TicketStatus.CLOSED}>Cerrado</option>
+                          ) : (
+                            <>
+                              <option value={TicketStatus.OPEN}>Abierto</option>
+                              <option value={TicketStatus.IN_PROGRESS}>En Progreso</option>
+                              <option value={TicketStatus.PENDING_REVIEW}>Revisión Pendiente</option>
+                              <option value={TicketStatus.RESOLVED}>Resuelto</option>
+                              <option value={TicketStatus.CLOSED}>Cerrado</option>
+                            </>
+                          )}
                         </select>
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
                           <ChevronDown className={`w-4 h-4 ${
@@ -1916,7 +2042,7 @@ function TicketDetailModal({
                           return (
                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${statusStyles.bg} ${statusStyles.text}`}>
                               {statusStyles.icon}
-                              {ticket.status.replace('_', ' ')}
+                              {STATUS_LABELS[ticket.status] || ticket.status}
                             </span>
                           );
                         })()}
@@ -1946,7 +2072,35 @@ function TicketDetailModal({
                     </div>
                   </div>
                   <div>
-                    <span className="text-sm text-slate-500 dark:text-slate-400">Asignado a</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-500 dark:text-slate-400">Asignado a</span>
+                      {canReassign && !editingAssignees && (
+                        <button
+                          onClick={() => setEditingAssignees(true)}
+                          className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1"
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          Reasignar
+                        </button>
+                      )}
+                    </div>
+                    {editingAssignees ? (
+                      <div className="mt-2">
+                        <UserSelect
+                          selectedUsers={draftAssignees}
+                          onUsersChange={(users) => {
+                            setDraftAssignees(users);
+                          }}
+                          placeholder="Seleccionar usuarios..."
+                        />
+                        <button
+                          onClick={() => setEditingAssignees(false)}
+                          className="mt-2 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                        >
+                          Cancelar reasignación
+                        </button>
+                      </div>
+                    ) : (
                     <div className="mt-1 space-y-1">
                       {ticket.assignees && ticket.assignees.length > 0 ? (
                         ticket.assignees.map((assignee, index) => (
@@ -1979,6 +2133,7 @@ function TicketDetailModal({
                         </div>
                       )}
                     </div>
+                    )}
                   </div>
                   {ticket.due_date && (
                     <div>
