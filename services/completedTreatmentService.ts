@@ -1,6 +1,64 @@
 import { supabase } from '../lib/supabase';
 import { DoctorValidator } from '../utils/doctorValidator';
 import { Currency } from '../utils/currencyUtils';
+import { Patient } from '../types/patient';
+
+interface DoctorStatistics {
+  total_treatments: number;
+  total_revenue: number;
+  treatments_by_status: {
+    pendiente_firma: number;
+    firmado: number;
+    pagado: number;
+  };
+  average_treatment_value: number;
+  total_discount_given: number;
+}
+
+interface PatientTreatmentStatistics {
+  total_treatments: number;
+  total_amount_paid: number;
+  total_amount_billed: number;
+  total_discount: number;
+  average_treatment_value: number;
+  treatments_by_status: {
+    pendiente_firma: number;
+    firmado: number;
+    pagado: number;
+  };
+  latest_treatment_date: string | null;
+  currency: string;
+}
+
+interface CompletedTreatmentRow {
+  id: string;
+  paciente_id: string;
+  fecha_cita: string;
+  total_final: number | string;
+  total_descuento: number | string;
+  monto_pagado?: number | string;
+  moneda: string;
+  estado: string;
+  notas_doctor?: string;
+  beneficiario_nombre_completo?: string;
+  beneficiario_numero_identidad?: string;
+  beneficiario_telefono?: string;
+  beneficiario_email?: string;
+  [key: string]: unknown;
+}
+
+interface CompletedTreatmentJoinRow {
+  id: string;
+  paciente_id: string;
+  fecha_cita: string;
+  total_final: number | string;
+  monto_pagado?: number | string;
+  moneda: string;
+  estado: string;
+  patients?: Patient | null;
+  vista_tratamientos_realizados_detalles?: TreatmentItem[];
+  [key: string]: unknown;
+}
 
 export interface InventarioEnTratamiento {
   id: string;
@@ -38,8 +96,8 @@ export interface CompletedTreatment {
   estado_pago?: 'pendiente' | 'parcialmente_pagado' | 'pagado'; // Payment status
   creado_en: string;
   actualizado_en: string;
-  paciente?: any;
-  paciente_beneficiario?: any;
+  paciente?: Patient | null;
+  paciente_beneficiario?: Patient | null;
   tratamientos_realizados?: TreatmentItem[];
   tratamientos_inventario?: InventarioEnTratamiento[];
 }
@@ -127,7 +185,7 @@ export class CompletedTreatmentService {
       }
 
       // Process the joined data efficiently
-      return (data || []).map((treatment: any) => {
+      return (data as unknown as CompletedTreatmentJoinRow[] || []).map((treatment: CompletedTreatmentJoinRow) => {
         // Group treatment items by treatment
         const treatmentItems = treatment.vista_tratamientos_realizados_detalles || [];
         
@@ -138,18 +196,18 @@ export class CompletedTreatmentService {
           tipo_participacion: 'individual' as const,
           tratamiento_padre_id: undefined,
           fecha_cita: treatment.fecha_cita,
-          total_original: treatment.total_final || 0,
+          total_original: Number(treatment.total_final || 0),
           total_descuento: 0,
-          total_final: treatment.total_final || 0,
-          moneda: treatment.moneda || 'HNL',
+          total_final: Number(treatment.total_final || 0),
+          moneda: (treatment.moneda || 'HNL') as Currency,
           tipo_descuento: 'ninguno' as const,
           valor_descuento: 0,
           notas_doctor: undefined,
           firma_paciente_url: undefined,
           especialidad: undefined,
-          estado: treatment.estado || 'pendiente_firma',
-          monto_pagado: treatment.monto_pagado,
-          saldo_pendiente: (treatment.total_final || 0) - (treatment.monto_pagado || 0),
+          estado: (treatment.estado || 'pendiente_firma') as CompletedTreatment['estado'],
+          monto_pagado: Number(treatment.monto_pagado || 0),
+          saldo_pendiente: Number(treatment.total_final || 0) - Number(treatment.monto_pagado || 0),
           estado_pago: treatment.estado === 'pagado' ? 'pagado' as const : 'pendiente' as const,
           creado_en: treatment.fecha_cita,
           actualizado_en: treatment.fecha_cita,
@@ -157,7 +215,7 @@ export class CompletedTreatmentService {
           paciente_beneficiario: null,
           tratamientos_realizados: treatmentItems
         };
-      });
+      }) as CompletedTreatment[];
     } catch (error) {
       console.error('Error fetching completed treatments:', error);
       return [];
@@ -225,11 +283,12 @@ export class CompletedTreatmentService {
         .eq('tratamiento_completado_id', id);
 
       if (!invError && invItems) {
-        (result as any).tratamientos_inventario = invItems.map((item: any) => ({
+        const mapped = invItems.map(item => ({
           ...item,
           imagen_url: item.inventario?.imagen_url || null,
           inventario: undefined,
-        }));
+        })) as InventarioEnTratamiento[];
+        (result as CompletedTreatment).tratamientos_inventario = mapped;
       }
 
       return result;
@@ -271,7 +330,7 @@ export class CompletedTreatmentService {
       );
 
       // Batch-fetch treatment items for ALL treatments at once
-      const treatmentIds = uniqueTreatments.map((t: any) => t.id);
+      const treatmentIds = uniqueTreatments.map((t: CompletedTreatmentRow) => t.id);
       const { data: allItems } = await supabase
         .from('vista_tratamientos_realizados_detalles')
         .select('*')
@@ -284,7 +343,7 @@ export class CompletedTreatmentService {
         .select('*')
         .in('tratamiento_completado_id', treatmentIds);
 
-      const itemsByTreatment: Record<string, any[]> = {};
+      const itemsByTreatment: Record<string, TreatmentItem[]> = {};
       if (allItems) {
         for (const item of allItems) {
           if (!itemsByTreatment[item.tratamiento_completado_id]) itemsByTreatment[item.tratamiento_completado_id] = [];
@@ -292,7 +351,7 @@ export class CompletedTreatmentService {
         }
       }
 
-      const invItemsByTreatment: Record<string, any[]> = {};
+      const invItemsByTreatment: Record<string, InventarioEnTratamiento[]> = {};
       if (allInvItems) {
         for (const item of allInvItems) {
           if (!invItemsByTreatment[item.tratamiento_completado_id]) invItemsByTreatment[item.tratamiento_completado_id] = [];
@@ -301,31 +360,31 @@ export class CompletedTreatmentService {
       }
 
       // Batch-fetch patient data for ALL unique pacientes
-      const pacienteIds = [...new Set(uniqueTreatments.map((t: any) => t.paciente_id).filter(Boolean))];
+      const pacienteIds = [...new Set(uniqueTreatments.map((t: CompletedTreatmentRow) => t.paciente_id).filter(Boolean))];
       const { data: allPatients } = await supabase
         .from('patients')
         .select('*')
         .in('paciente_id', pacienteIds);
 
-      const patientMap: Record<string, any> = {};
+      const patientMap: Record<string, Patient> = {};
       if (allPatients) {
         for (const p of allPatients) {
           patientMap[p.paciente_id] = p;
         }
       }
 
-      const treatmentsWithItems = uniqueTreatments.map((treatment: any) => ({
+      const treatmentsWithItems = uniqueTreatments.map((treatment: CompletedTreatmentRow) => ({
         ...treatment,
         tratamientos_realizados: itemsByTreatment[treatment.id] || [],
         tratamientos_inventario: invItemsByTreatment[treatment.id] || [],
-        paciente: patientMap[treatment.paciente_id] || {},
+        paciente: patientMap[treatment.paciente_id] || null,
         paciente_beneficiario: treatment.beneficiario_nombre_completo ? {
           nombre_completo: treatment.beneficiario_nombre_completo,
           numero_identidad: treatment.beneficiario_numero_identidad,
           telefono: treatment.beneficiario_telefono,
           email: treatment.beneficiario_email
         } : null
-      }));
+      })) as CompletedTreatment[];
 
       return treatmentsWithItems;
     } catch (error) {
@@ -645,14 +704,14 @@ export class CompletedTreatmentService {
       }
 
       // Batch-fetch treatment items for ALL results at once
-      const treatmentIds = (data || []).map((t: any) => t.id);
+      const treatmentIds = (data || []).map((t: CompletedTreatmentRow) => t.id);
       const { data: allItems } = await supabase
         .from('vista_tratamientos_realizados_detalles')
         .select('*')
         .in('tratamiento_completado_id', treatmentIds)
         .order('creado_en', { ascending: true });
 
-      const itemsByTreatment: Record<string, any[]> = {};
+      const itemsByTreatment: Record<string, TreatmentItem[]> = {};
       if (allItems) {
         for (const item of allItems) {
           if (!itemsByTreatment[item.tratamiento_completado_id]) itemsByTreatment[item.tratamiento_completado_id] = [];
@@ -660,10 +719,10 @@ export class CompletedTreatmentService {
         }
       }
 
-      const treatmentsWithItems = (data || []).map((treatment: any) => ({
+      const treatmentsWithItems = (data || []).map((treatment: CompletedTreatmentRow) => ({
         ...treatment,
         tratamientos_realizados: itemsByTreatment[treatment.id] || []
-      }));
+      })) as CompletedTreatment[];
 
       return treatmentsWithItems;
     } catch (error) {
@@ -687,14 +746,14 @@ export class CompletedTreatmentService {
       }
 
       // Batch-fetch treatment items for ALL results at once
-      const treatmentIds = (data || []).map((t: any) => t.id);
+      const treatmentIds = (data || []).map((t: CompletedTreatmentRow) => t.id);
       const { data: allItems } = await supabase
         .from('vista_tratamientos_realizados_detalles')
         .select('*')
         .in('tratamiento_completado_id', treatmentIds)
         .order('creado_en', { ascending: true });
 
-      const itemsByTreatment: Record<string, any[]> = {};
+      const itemsByTreatment: Record<string, TreatmentItem[]> = {};
       if (allItems) {
         for (const item of allItems) {
           if (!itemsByTreatment[item.tratamiento_completado_id]) itemsByTreatment[item.tratamiento_completado_id] = [];
@@ -702,10 +761,10 @@ export class CompletedTreatmentService {
         }
       }
 
-      const treatmentsWithItems = (data || []).map((treatment: any) => ({
+      const treatmentsWithItems = (data || []).map((treatment: CompletedTreatmentRow) => ({
         ...treatment,
         tratamientos_realizados: itemsByTreatment[treatment.id] || []
-      }));
+      })) as CompletedTreatment[];
 
       return treatmentsWithItems;
     } catch (error) {
@@ -801,7 +860,7 @@ export class CompletedTreatmentService {
     }
   }
 
-  static async getDoctorStatistics(): Promise<any> {
+  static async getDoctorStatistics(): Promise<DoctorStatistics> {
     try {
       const { data, error } = await supabase
         .from('tratamientos_completados')
@@ -833,7 +892,7 @@ export class CompletedTreatmentService {
     }
   }
 
-  static async getPatientTreatmentStatistics(pacienteId: string): Promise<any> {
+  static async getPatientTreatmentStatistics(pacienteId: string): Promise<PatientTreatmentStatistics> {
     try {
       // Fetch treatments for the specific patient
       const { data, error } = await supabase

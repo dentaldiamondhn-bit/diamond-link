@@ -1,26 +1,68 @@
 import { supabase } from '../lib/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { CalendarEventWithPatient } from '../types/calendar';
+import { CalendarInvitee } from '../types/calendarInvitees';
+
+interface CalendarRecordData {
+  id?: string;
+  title?: string;
+  start_date?: string;
+  end_date?: string;
+  due_date?: string;
+  created_by?: string;
+  created_by_clerk_id?: string;
+  assigned_to?: string;
+  paciente_id?: string;
+  user_id?: string;
+  item_id?: string;
+  item_type?: string;
+  invitee_id?: string;
+  invitees?: Array<{ user: string }>;
+  table?: string;
+}
+
+interface RawChangePayload {
+  eventType?: string;
+  event?: string;
+  new?: Record<string, unknown>;
+  record?: Record<string, unknown>;
+  old?: Record<string, unknown>;
+  schema?: string;
+}
+
+interface NormalizedPayload {
+  eventType: string;
+  new?: Record<string, unknown>;
+  old?: Record<string, unknown>;
+}
+
+type NotificationType = 'event_created' | 'event_updated' | 'event_deleted' | 'task_created' | 'task_updated' | 'task_deleted' | 'reminder_created' | 'reminder_updated' | 'reminder_deleted' | 'invitee_added';
+
+function toNotificationType(eventType: string, prefix: 'event' | 'task' | 'reminder'): NotificationType {
+  const suffix = eventType === 'INSERT' ? 'created' : eventType === 'UPDATE' ? 'updated' : 'deleted';
+  return `${prefix}_${suffix}` as NotificationType;
+}
 
 export interface RealtimeEventUpdate {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
   table: string;
   schema: string;
-  old_record?: any;
-  record: any;
+  old_record?: CalendarRecordData | null;
+  record: CalendarRecordData | null;
   timestamp: string;
 }
 
 export interface CalendarRealtimeNotification {
-  type: 'event_created' | 'event_updated' | 'event_deleted' | 'task_created' | 'task_updated' | 'task_deleted' | 'reminder_created' | 'reminder_updated' | 'reminder_deleted' | 'invitee_added';
+  type: NotificationType;
   title: string;
   message: string;
-  data: any;
+  data: CalendarRecordData;
   timestamp: string;
   userId?: string;
 }
 
 class CalendarRealtimeService {
-  private subscriptions: Map<string, any> = new Map();
+  private subscriptions: Map<string, RealtimeChannel> = new Map();
   private notificationCallbacks: Set<(notification: CalendarRealtimeNotification) => void> = new Set();
   private eventUpdateCallbacks: Set<(update: RealtimeEventUpdate) => void> = new Set();
   private isConnected = false;
@@ -70,7 +112,7 @@ class CalendarRealtimeService {
           schema: 'public', 
           table: tableName 
         }, 
-        (payload) => this.handleDatabaseChange(tableName, payload)
+        (payload) => this.handleDatabaseChange(tableName, payload as unknown as RawChangePayload)
       ).subscribe((status, err) => {
         console.log(`📊 Subscription status for ${tableName}:`, status);
         
@@ -91,18 +133,18 @@ class CalendarRealtimeService {
     }
   }
 
-  private async handleDatabaseChange(tableName: string, payload: any) {
+  private async handleDatabaseChange(tableName: string, payload: RawChangePayload) {
     // Handle different payload structures
-    const eventType = payload.eventType || payload.event;
+    const eventType = payload.eventType || payload.event || 'UPDATE';
     const newRecord = payload.new || payload.record;
     const oldRecord = payload.old;
 
     const update: RealtimeEventUpdate = {
-      type: eventType,
+      type: eventType as RealtimeEventUpdate['type'],
       table: tableName,
       schema: payload.schema || 'public',
-      record: newRecord,
-      old_record: oldRecord,
+      record: newRecord as CalendarRecordData | null,
+      old_record: oldRecord as CalendarRecordData | null,
       timestamp: new Date().toISOString()
     };
 
@@ -115,13 +157,13 @@ class CalendarRealtimeService {
         tableName,
         eventType,
         newRecord,
-        newRecord_user_id: newRecord.user_id,
-        newRecord_item_id: newRecord.item_id,
-        newRecord_item_type: newRecord.item_type
+        newRecord_user_id: newRecord?.user_id,
+        newRecord_item_id: newRecord?.item_id,
+        newRecord_item_type: newRecord?.item_type
       });
       
       // When an invitee is added, create a proper notification for invitee
-      const inviteeNotification = await this.createInviteeNotification(newRecord);
+      const inviteeNotification = await this.createInviteeNotification(newRecord as CalendarRecordData);
       console.log('📱 INVITEE NOTIFICATION CREATED:', {
         notification: inviteeNotification,
         userId: inviteeNotification?.userId,
@@ -142,7 +184,7 @@ class CalendarRealtimeService {
         type: 'UPDATE',
         table: 'calendar_events',
         schema: 'public',
-        record: { id: newRecord.item_id }, // Trigger refresh for this event
+        record: { id: newRecord?.item_id } as CalendarRecordData,
         old_record: null,
         timestamp: new Date().toISOString()
       };
@@ -152,15 +194,15 @@ class CalendarRealtimeService {
     }
 
     // Convert to calendar notification
-    const notification = await this.convertToNotification(tableName, { ...payload, eventType });
+    const notification = await this.convertToNotification(tableName, { eventType, new: payload.new, old: payload.old });
     if (notification) {
       await this.notifyListeners(notification);
     }
   }
 
-  private async convertToNotification(tableName: string, payload: any): Promise<CalendarRealtimeNotification | null> {
+  private async convertToNotification(tableName: string, payload: NormalizedPayload): Promise<CalendarRealtimeNotification | null> {
     const eventType = payload.eventType;
-    const record = payload.new || payload.old;
+    const record = (payload.new || payload.old) as CalendarRecordData | undefined;
 
     if (!record) return null;
 
@@ -184,8 +226,8 @@ class CalendarRealtimeService {
     return notification;
   }
 
-  private createEventNotification(eventType: string, record: any): CalendarRealtimeNotification {
-    const type = `event_${eventType.toLowerCase()}` as any;
+  private createEventNotification(eventType: string, record: CalendarRecordData): CalendarRealtimeNotification {
+    const type = toNotificationType(eventType, 'event');
     const title = record.title || 'Evento';
     const startTime = record.start_date ? new Date(record.start_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
     const date = record.start_date ? new Date(record.start_date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }) : '';
@@ -213,8 +255,8 @@ class CalendarRealtimeService {
     };
   }
 
-  private createTaskNotification(eventType: string, record: any): CalendarRealtimeNotification {
-    const type = `task_${eventType.toLowerCase()}` as any;
+  private createTaskNotification(eventType: string, record: CalendarRecordData): CalendarRealtimeNotification {
+    const type = toNotificationType(eventType, 'task');
     const title = record.title || 'Tarea';
     const dueTime = record.due_date ? new Date(record.due_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
     const date = record.due_date ? new Date(record.due_date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }) : '';
@@ -242,8 +284,8 @@ class CalendarRealtimeService {
     };
   }
 
-  private createReminderNotification(eventType: string, record: any): CalendarRealtimeNotification {
-    const type = `reminder_${eventType.toLowerCase()}` as any;
+  private createReminderNotification(eventType: string, record: CalendarRecordData): CalendarRealtimeNotification {
+    const type = toNotificationType(eventType, 'reminder');
     const title = record.title || 'Recordatorio';
     
     let message = '';
@@ -269,15 +311,15 @@ class CalendarRealtimeService {
     };
   }
 
-  private async createInviteeNotification(record: any): Promise<CalendarRealtimeNotification> {
+  private async createInviteeNotification(record: CalendarRecordData): Promise<CalendarRealtimeNotification> {
     // When an invitee is added, create a notification for them with event details
-    const type = 'invitee_added' as any;
+    const type: NotificationType = 'invitee_added';
     let title = 'Invitación a Evento';
     let message = `Has sido invitado a un evento`;
     
     // Fetch event details for better notification content
     try {
-      const event = await this.fetchEventDetailsForInvitee(record.item_id);
+      const event = await this.fetchEventDetailsForInvitee(record.item_id || '');
       if (event) {
         title = `Invitación: ${event.title || 'Evento'}`;
         const startTime = event.start_date ? new Date(event.start_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -303,7 +345,7 @@ class CalendarRealtimeService {
     };
   }
 
-  private async fetchEventDetailsForInvitee(eventId: string): Promise<any> {
+  private async fetchEventDetailsForInvitee(eventId: string): Promise<CalendarEventWithPatient | null> {
     try {
       const { CalendarService } = await import('./calendarService');
       const events = await CalendarService.getEvents();
@@ -334,7 +376,7 @@ class CalendarRealtimeService {
     });
   }
   
-  private async getRelevantUsers(record: any): Promise<string[]> {
+  private async getRelevantUsers(record: CalendarRecordData): Promise<string[]> {
     const users = new Set<string>();
     
     // For calendar_invitees records, handle specially
@@ -370,7 +412,7 @@ class CalendarRealtimeService {
         const { CalendarInviteesService } = await import('./calendarInviteesService');
         const invitees = await CalendarInviteesService.getInviteesForItem('event', record.id);
         
-        invitees.forEach((invitee: any) => {
+        invitees.forEach((invitee: CalendarInvitee) => {
           if (invitee.user_id) {
             users.add(invitee.user_id);
           }
@@ -387,7 +429,7 @@ class CalendarRealtimeService {
         const { CalendarInviteesService } = await import('./calendarInviteesService');
         const invitees = await CalendarInviteesService.getInviteesForItem('task', record.id);
         
-        invitees.forEach((invitee: any) => {
+        invitees.forEach((invitee: CalendarInvitee) => {
           if (invitee.user_id) {
             users.add(invitee.user_id);
           }
@@ -439,22 +481,22 @@ class CalendarRealtimeService {
     const record = update.record;
     
     // Check if user is the creator
-    if (record.created_by_clerk_id === userId) {
+    if (record?.created_by_clerk_id === userId) {
       return true;
     }
 
     // Check if user is in invitees (for events)
-    if (record.invitees && Array.isArray(record.invitees)) {
-      return record.invitees.some((invitee: any) => invitee.user === userId);
+    if (record?.invitees && Array.isArray(record.invitees)) {
+      return record.invitees.some((invitee) => invitee.user === userId);
     }
 
     // Check if user is assigned (for tasks)
-    if (record.assigned_to === userId) {
+    if (record?.assigned_to === userId) {
       return true;
     }
 
     // Check if user is the patient
-    if (record.paciente_id === userId) {
+    if (record?.paciente_id === userId) {
       return true;
     }
 

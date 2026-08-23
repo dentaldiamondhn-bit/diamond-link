@@ -1,5 +1,96 @@
 import { supabase } from '../lib/supabase';
 
+// --- Supabase row shapes ---
+
+interface TreatmentCompletadoRow {
+  id: string;
+  fecha_cita: string;
+  total_final: number;
+  monto_pagado: number;
+  paciente_id: string;
+  patients?: { doctor: string }[];
+  vista_tratamientos_realizados_detalles?: TreatmentDetailRow[];
+}
+
+interface TreatmentDetailRow {
+  doctor_name: string;
+  nombre_tratamiento: string;
+  precio_final: number;
+  cantidad: number;
+  tratamiento_completado_id: string;
+  creado_en: string;
+}
+
+interface TratamientoRealizadoRow {
+  paciente_id: string;
+  precio_final: number;
+  creado_en: string;
+  doctor_id: string;
+  doctor_name: string;
+  nombre_tratamiento: string;
+  cantidad: number;
+  notas: string;
+}
+
+interface DoctorRow {
+  name: string;
+  specialty: string;
+  user_email?: string;
+  user_id?: string;
+  is_active?: boolean;
+}
+
+interface PatientRow {
+  paciente_id: string;
+  nombre_completo: string;
+  numero_identidad: string;
+  telefono: string;
+  doctor: string;
+  fecha_inicio: string;
+  edad?: number;
+  sexo?: string;
+}
+
+interface PaymentRow {
+  fecha_pago: string;
+  monto_pago: number;
+  metodo_pago: string;
+  tratamiento_completado_id: string;
+  moneda_original?: string;
+  moneda?: string;
+}
+
+interface PresupuestoRow {
+  patient_id: string;
+  total_amount: number;
+  status: string;
+  quote_date: string;
+}
+
+// --- Internal accumulator types ---
+
+interface ReportGroup {
+  date: string;
+  patients: Set<string>;
+  treatments: number;
+  revenue: number;
+  doctors: Set<string>;
+}
+
+interface DoctorGroup {
+  name: string;
+  specialty: string;
+  patients: number;
+  uniquePatients: Set<string>;
+  treatments: number;
+  revenue: number;
+  paidAmount: number;
+  pendingAmount: number;
+  treatmentTypes: Set<string>;
+}
+
+// --- Exported interface types ---
+
 export interface ReportData {
   date: string;
   patients: number;
@@ -32,6 +123,80 @@ export interface BudgetData {
   budgeted: number;
   actual: number;
   variance: number;
+}
+
+export interface PatientStats {
+  totalPatients: number;
+  newPatients: number;
+  returningPatients: number;
+  activePatients: number;
+}
+
+export interface RevenueStats {
+  totalRevenue: number;
+  totalTreatments: number;
+  averageRevenuePerTreatment: number;
+}
+
+export interface AgeCategories {
+  '0-17': number;
+  '18-25': number;
+  '26-35': number;
+  '36-45': number;
+  '46-55': number;
+  '56-65': number;
+  '65+': number;
+}
+
+export interface PatientDemographics {
+  averageAge: number;
+  genderDistribution: { masculino: number; femenino: number };
+  ageCategories: AgeCategories;
+}
+
+export interface PatientAnalytics {
+  paciente_id: string;
+  nombre: string;
+  identidad: string;
+  telefono: string;
+  doctor: string;
+  fechaInicio: string;
+  totalTreatments: number;
+  totalSpent: number;
+  totalPaid: number;
+  outstandingBalance: number;
+  paymentPercentage: number;
+  averageSpent: number;
+  lastVisit: string;
+  pendingBudgets: number;
+  acceptedBudgets: number;
+  status: string;
+}
+
+export interface TreatmentFinancialSummaryItem {
+  nombre: string;
+  cantidad: number;
+  totalIngresos: number;
+  promedioPorTratamiento: number;
+}
+
+export interface FinancialTransaction {
+  fecha: string;
+  paciente: string;
+  totalPagado: number;
+  totalNeto: number;
+  monedaOriginal: string;
+  moneda: string;
+  metodoPago: string;
+  tratamiento: string;
+}
+
+export interface PaymentStatusSummary {
+  paidFully: { count: number; total: number };
+  partiallyPaid: { count: number; total: number };
+  unpaid: { count: number; total: number };
+  total: number;
+  totalRevenue: number;
 }
 
 export class ReportsService {
@@ -78,12 +243,12 @@ export class ReportsService {
       if (error) throw error;
 
       // Group by date and calculate metrics
-      const groupedData = treatments?.reduce((acc, treatment) => {
+      const groupedData = treatments?.reduce<Record<string, ReportGroup>>((acc, treatment) => {
         const date = new Date(treatment.fecha_cita).toISOString().split('T')[0];
         
         // Get doctor name from the nested treatment details array
         const treatmentDetails = treatment.vista_tratamientos_realizados_detalles?.[0];
-        const doctorName = treatmentDetails?.doctor_name || (treatment as any).doctor_name || 'Desconocido';
+        const doctorName = treatmentDetails?.doctor_name || 'Desconocido';
         
         if (!acc[date]) {
           acc[date] = {
@@ -101,10 +266,10 @@ export class ReportsService {
         acc[date].doctors.add(doctorName);
         
         return acc;
-      }, {} as any);
+      }, {});
 
       // Convert to array format
-      const reportData: ReportData[] = Object.values(groupedData).map((group: any) => ({
+      const reportData: ReportData[] = Object.values(groupedData).map((group: ReportGroup) => ({
         date: group.date,
         patients: group.patients.size,
         treatments: group.treatments,
@@ -171,9 +336,9 @@ export class ReportsService {
       if (doctorsError) throw doctorsError;
 
       // Initialize doctor groups with all active doctors
-      const doctorGroups: { [key: string]: any } = {};
+      const doctorGroups: Record<string, DoctorGroup> = {};
       
-      doctors?.forEach((doctor: any) => {
+      doctors?.forEach((doctor: DoctorRow) => {
         doctorGroups[doctor.name] = {
           name: doctor.name,
           specialty: doctor.specialty,
@@ -188,7 +353,7 @@ export class ReportsService {
       });
 
       // Group treatments by actual doctor from tratamientos_realizados
-      treatments?.forEach((treatment: any) => {
+      treatments?.forEach((treatment: TratamientoRealizadoRow) => {
         let doctorName = treatment.doctor_name || 'Sin Doctor Asignado';
         
         // Check if the notes mention a different doctor performing the treatment
@@ -234,7 +399,7 @@ export class ReportsService {
       });
 
       // Convert to performance array
-      const performance: DoctorPerformance[] = Object.values(doctorGroups).map((group: any) => ({
+      const performance: DoctorPerformance[] = Object.values(doctorGroups).map((group: DoctorGroup) => ({
         name: group.name,
         specialty: group.specialty,
         patients: group.patients, // Use treatment count since paciente_id is often null
@@ -283,17 +448,19 @@ export class ReportsService {
         }
       }
 
-      const { data: treatments, error } = await query;
+      const { data: treatmentsData, error } = await query;
 
       if (error) throw error;
+
+      const treatments = treatmentsData as unknown as TreatmentCompletadoRow[] | null;
 
       // Group by treatment name
       const treatmentMap = new Map<string, { count: number; revenue: number }>();
 
-      treatments?.forEach((item: any) => {
-        const details = item.vista_tratamientos_realizados_detalles;
+      treatments?.forEach((item) => {
+        const details = (item as TreatmentCompletadoRow).vista_tratamientos_realizados_detalles;
         if (details && Array.isArray(details)) {
-          details.forEach((detail: any) => {
+          details.forEach((detail: TreatmentDetailRow) => {
             const name = detail.nombre_tratamiento || 'Sin nombre';
             const existing = treatmentMap.get(name) || { count: 0, revenue: 0 };
             existing.count += 1;
@@ -341,7 +508,7 @@ export class ReportsService {
     }
   }
 
-  static async getPatientStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any> {
+  static async getPatientStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<PatientStats> {
     try {
       // Get treatments in date range to determine active patients
       let treatmentsQuery = supabase
@@ -369,10 +536,10 @@ export class ReportsService {
       // falls within the date range. Since we only have treatments in the range,
       // we conservatively label single-treatment patients as "new" and
       // multi-treatment patients as "returning".
-      const patientTreatmentCounts = completedTreatments?.reduce((acc, treatment) => {
+      const patientTreatmentCounts = completedTreatments?.reduce<Record<string, number>>((acc, treatment) => {
         acc[treatment.paciente_id] = (acc[treatment.paciente_id] || 0) + 1;
         return acc;
-      }, {} as any);
+      }, {});
 
       const newPatients = Object.values(patientTreatmentCounts).filter((count: number) => count === 1).length;
       const returningPatients = Object.values(patientTreatmentCounts).filter((count: number) => count > 1).length;
@@ -405,13 +572,15 @@ export class ReportsService {
         }
       }
 
-      const { data: treatments, error } = await treatmentsQuery;
+      const { data: treatmentsData, error } = await treatmentsQuery;
 
       if (error) throw error;
 
+      const treatments = treatmentsData as unknown as { paciente_id: string; patients?: { edad?: number; sexo?: string } }[] | null;
+
       // Deduplicate by paciente_id to get unique patients in the date range
-      const patientMap = new Map<string, any>();
-      treatments?.forEach((t: any) => {
+      const patientMap = new Map<string, { edad?: number; sexo?: string }>();
+      treatments?.forEach((t) => {
         if (t.patients && !patientMap.has(t.paciente_id)) {
           patientMap.set(t.paciente_id, t.patients);
         }
@@ -482,7 +651,7 @@ export class ReportsService {
     }
   }
 
-  static async getRevenueStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any> {
+  static async getRevenueStats(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<RevenueStats> {
     try {
       // If custom dates are provided, use them exactly as provided
       // Only use defaults if no dates are specified
@@ -523,7 +692,7 @@ export class ReportsService {
     }
   }
 
-  static async getDetailedPatientAnalytics(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
+  static async getDetailedPatientAnalytics(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<PatientAnalytics[]> {
     try {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 365)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
@@ -555,19 +724,19 @@ export class ReportsService {
 
       if (presupuestosError) throw presupuestosError;
 
-      const patientAnalytics = patients?.map((patient: any) => {
-        const patientTreatments = treatments?.filter((t: any) => t.paciente_id === patient.paciente_id) || [];
-        const patientPresupuestos = presupuestos?.filter((p: any) => p.patient_id === patient.paciente_id) || [];
+      const patientAnalytics = patients?.map((patient: PatientRow) => {
+        const patientTreatments = treatments?.filter((t: { paciente_id: string; total_final: number; monto_pagado: number; fecha_cita: string }) => t.paciente_id === patient.paciente_id) || [];
+        const patientPresupuestos = presupuestos?.filter((p: PresupuestoRow) => p.patient_id === patient.paciente_id) || [];
 
-        const totalSpent = patientTreatments.reduce((sum: number, t: any) => sum + (t.total_final || 0), 0);
-        const totalPaid = patientTreatments.reduce((sum: number, t: any) => sum + (t.monto_pagado || 0), 0);
+        const totalSpent = patientTreatments.reduce((sum: number, t: { total_final: number }) => sum + (t.total_final || 0), 0);
+        const totalPaid = patientTreatments.reduce((sum: number, t: { monto_pagado: number }) => sum + (t.monto_pagado || 0), 0);
         const outstandingBalance = totalSpent - totalPaid;
 
-        const pendingBudgets = patientPresupuestos.filter((p: any) => p.status === 'pending');
-        const acceptedBudgets = patientPresupuestos.filter((p: any) => p.status === 'accepted');
+        const pendingBudgets = patientPresupuestos.filter((p: PresupuestoRow) => p.status === 'pending');
+        const acceptedBudgets = patientPresupuestos.filter((p: PresupuestoRow) => p.status === 'accepted');
 
         const latestTreatment = patientTreatments.length > 0
-          ? new Date(Math.max(...patientTreatments.map((t: any) => new Date(t.fecha_cita).getTime())))
+          ? new Date(Math.max(...patientTreatments.map((t: { fecha_cita: string }) => new Date(t.fecha_cita).getTime())))
           : null;
 
         const treatmentCount = patientTreatments.length;
@@ -600,7 +769,7 @@ export class ReportsService {
     }
   }
 
-  static async getFinancialSummaryByTreatment(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
+  static async getFinancialSummaryByTreatment(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<TreatmentFinancialSummaryItem[]> {
     try {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
@@ -622,9 +791,9 @@ export class ReportsService {
 
       if (error) throw error;
 
-      const treatmentSummary: { [key: string]: any } = {};
+      const treatmentSummary: Record<string, TreatmentFinancialSummaryItem> = {};
 
-      treatments?.forEach((treatment: any) => {
+      treatments?.forEach((treatment: TreatmentDetailRow) => {
         const treatmentName = treatment.nombre_tratamiento || 'Sin clasificar';
         const cantidad = treatment.cantidad || 1;
         const precio = treatment.precio_final || 0;
@@ -642,12 +811,12 @@ export class ReportsService {
         treatmentSummary[treatmentName].totalIngresos += precio;
       });
 
-      const result = Object.values(treatmentSummary).map((summary: any) => ({
+      const result = Object.values(treatmentSummary).map((summary: TreatmentFinancialSummaryItem) => ({
         ...summary,
         promedioPorTratamiento: summary.cantidad > 0 ? summary.totalIngresos / summary.cantidad : 0
       }));
 
-      return result.sort((a: any, b: any) => b.totalIngresos - a.totalIngresos);
+      return result.sort((a: TreatmentFinancialSummaryItem, b: TreatmentFinancialSummaryItem) => b.totalIngresos - a.totalIngresos);
     } catch (error) {
       console.error('Error fetching financial summary by treatment:', error);
       throw error;
@@ -659,6 +828,7 @@ export class ReportsService {
     selectFields: string,
     column: string,
     values: string[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extraFilters?: (q: any) => any,
     batchSize = 50
   ): Promise<T[]> {
@@ -674,7 +844,7 @@ export class ReportsService {
     return allResults;
   }
 
-  static async getFinancialTransactions(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
+  static async getFinancialTransactions(startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<FinancialTransaction[]> {
     try {
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
@@ -689,14 +859,14 @@ export class ReportsService {
             .select('id, patients!inner(doctor)')
             .eq('patients.doctor', doctorName);
           
-          treatmentIds = treatments?.map((t: any) => t.id) || null;
+          treatmentIds = treatments?.map((t: { id: string }) => t.id) || null;
         }
       }
 
-      let payments: any[] = [];
+      let payments: PaymentRow[] = [];
 
       if (treatmentIds && treatmentIds.length > 0) {
-        payments = await this.batchInQuery<any>(
+        payments = await this.batchInQuery<PaymentRow>(
           'payments',
           'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda',
           'tratamiento_completado_id',
@@ -712,14 +882,14 @@ export class ReportsService {
           .lte('fecha_pago', queryEndDate)
           .order('fecha_pago', { ascending: false });
         if (error) throw error;
-        payments = data || [];
+        payments = (data || []) as PaymentRow[];
       }
 
       if (!payments || payments.length === 0) return [];
 
-      const allTreatmentIds = payments.map((p: any) => p.tratamiento_completado_id).filter(Boolean);
+      const allTreatmentIds = payments.map((p: PaymentRow) => p.tratamiento_completado_id).filter(Boolean);
       
-      let treatmentsMap = new Map();
+      const treatmentsMap = new Map<string, { id: string; paciente_id: string }>();
       if (allTreatmentIds.length > 0) {
         const { data: treatments } = await supabase
           .from('tratamientos_completados')
@@ -727,13 +897,13 @@ export class ReportsService {
           .in('id', allTreatmentIds);
         
         if (treatments) {
-          treatments.forEach((t: any) => treatmentsMap.set(t.id, t));
+          treatments.forEach((t: { id: string; paciente_id: string }) => treatmentsMap.set(t.id, t));
         }
       }
 
-      const patientIds = Array.from(treatmentsMap.values()).map((t: any) => t.paciente_id).filter(Boolean);
+      const patientIds = Array.from(treatmentsMap.values()).map((t) => t.paciente_id).filter(Boolean);
       
-      let patientsMap = new Map();
+      const patientsMap = new Map<string, string>();
       if (patientIds.length > 0) {
         const { data: patients } = await supabase
           .from('patients')
@@ -741,7 +911,7 @@ export class ReportsService {
           .in('paciente_id', patientIds);
         
         if (patients) {
-          patients.forEach((p: any) => patientsMap.set(p.paciente_id, p.nombre_completo));
+          patients.forEach((p: { paciente_id: string; nombre_completo: string }) => patientsMap.set(p.paciente_id, p.nombre_completo));
         }
       }
 
@@ -753,7 +923,7 @@ export class ReportsService {
           .in('tratamiento_completado_id', allTreatmentIds);
         
         if (items) {
-          items.forEach((i: any) => {
+          items.forEach((i: { tratamiento_completado_id: string; nombre_tratamiento: string }) => {
             if (!treatmentItemsMap.has(i.tratamiento_completado_id)) {
               treatmentItemsMap.set(i.tratamiento_completado_id, i.nombre_tratamiento);
             }
@@ -761,8 +931,8 @@ export class ReportsService {
         }
       }
 
-      return payments.map((p: any) => {
-        const tc = treatmentsMap.get(p.tratamiento_completado_id) as any;
+      return payments.map((p: PaymentRow) => {
+        const tc = treatmentsMap.get(p.tratamiento_completado_id);
         const pacienteId = tc?.paciente_id;
         const tratamiento = treatmentItemsMap.get(p.tratamiento_completado_id) || 'Tratamiento';
         const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
@@ -799,7 +969,7 @@ export class ReportsService {
     }
   }
 
-  static async getAllFinancialTransactions(doctorEmail?: string, doctorUserId?: string): Promise<any[]> {
+  static async getAllFinancialTransactions(doctorEmail?: string, doctorUserId?: string): Promise<FinancialTransaction[]> {
     try {
       let treatmentIds: string[] | null = null;
       
@@ -811,14 +981,14 @@ export class ReportsService {
             .select('id, patients!inner(doctor)')
             .eq('patients.doctor', doctorName);
           
-          treatmentIds = treatments?.map((t: any) => t.id) || null;
+          treatmentIds = treatments?.map((t: { id: string }) => t.id) || null;
         }
       }
 
-      let payments: any[] = [];
+      let payments: PaymentRow[] = [];
 
       if (treatmentIds && treatmentIds.length > 0) {
-        payments = await this.batchInQuery<any>(
+        payments = await this.batchInQuery<PaymentRow>(
           'payments',
           'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda',
           'tratamiento_completado_id',
@@ -831,14 +1001,14 @@ export class ReportsService {
           .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda')
           .order('fecha_pago', { ascending: false });
         if (error) throw error;
-        payments = data || [];
+        payments = (data || []) as PaymentRow[];
       }
 
       if (!payments || payments.length === 0) return [];
 
-      const allTreatmentIds = payments.map((p: any) => p.tratamiento_completado_id).filter(Boolean);
+      const allTreatmentIds = payments.map((p: PaymentRow) => p.tratamiento_completado_id).filter(Boolean);
       
-      let treatmentsMap = new Map();
+      const treatmentsMap = new Map<string, { id: string; paciente_id: string }>();
       if (allTreatmentIds.length > 0) {
         const { data: treatments } = await supabase
           .from('tratamientos_completados')
@@ -846,13 +1016,13 @@ export class ReportsService {
           .in('id', allTreatmentIds);
         
         if (treatments) {
-          treatments.forEach((t: any) => treatmentsMap.set(t.id, t));
+          treatments.forEach((t: { id: string; paciente_id: string }) => treatmentsMap.set(t.id, t));
         }
       }
 
-      const patientIds = Array.from(treatmentsMap.values()).map((t: any) => t.paciente_id).filter(Boolean);
+      const patientIds = Array.from(treatmentsMap.values()).map((t) => t.paciente_id).filter(Boolean);
       
-      let patientsMap = new Map();
+      const patientsMap = new Map<string, string>();
       if (patientIds.length > 0) {
         const { data: patients } = await supabase
           .from('patients')
@@ -860,7 +1030,7 @@ export class ReportsService {
           .in('paciente_id', patientIds);
         
         if (patients) {
-          patients.forEach((p: any) => patientsMap.set(p.paciente_id, p.nombre_completo));
+          patients.forEach((p: { paciente_id: string; nombre_completo: string }) => patientsMap.set(p.paciente_id, p.nombre_completo));
         }
       }
 
@@ -872,7 +1042,7 @@ export class ReportsService {
           .in('tratamiento_completado_id', allTreatmentIds);
         
         if (items) {
-          items.forEach((i: any) => {
+          items.forEach((i: { tratamiento_completado_id: string; nombre_tratamiento: string }) => {
             if (!treatmentItemsMap.has(i.tratamiento_completado_id)) {
               treatmentItemsMap.set(i.tratamiento_completado_id, i.nombre_tratamiento);
             }
@@ -880,8 +1050,8 @@ export class ReportsService {
         }
       }
 
-      return payments.map((p: any) => {
-        const tc = treatmentsMap.get(p.tratamiento_completado_id) as any;
+      return payments.map((p: PaymentRow) => {
+        const tc = treatmentsMap.get(p.tratamiento_completado_id);
         const pacienteId = tc?.paciente_id;
         const tratamiento = treatmentItemsMap.get(p.tratamiento_completado_id) || 'Tratamiento';
         const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
@@ -918,7 +1088,7 @@ export class ReportsService {
     }
   }
 
-  static async getPaymentStatusSummary(doctorEmail?: string, doctorUserId?: string): Promise<any> {
+  static async getPaymentStatusSummary(doctorEmail?: string, doctorUserId?: string): Promise<PaymentStatusSummary> {
     try {
       let patientIds: string[] | null = null;
       
@@ -930,7 +1100,7 @@ export class ReportsService {
             .select('paciente_id')
             .eq('doctor', doctorName);
           
-          patientIds = patients?.map((p: any) => p.paciente_id) || [];
+          patientIds = patients?.map((p: { paciente_id: string }) => p.paciente_id) || [];
         }
       }
 
@@ -952,7 +1122,7 @@ export class ReportsService {
         unpaid: { count: 0, total: 0 }
       };
 
-      treatments?.forEach((treatment: any) => {
+      treatments?.forEach((treatment: { total_final: number; monto_pagado: number }) => {
         const total = treatment.total_final || 0;
         const paid = treatment.monto_pagado || 0;
 
@@ -973,7 +1143,7 @@ export class ReportsService {
         partiallyPaid: categories.partial,
         unpaid: categories.unpaid,
         total: treatments?.length || 0,
-        totalRevenue: treatments?.reduce((sum: number, t: any) => sum + (t.total_final || 0), 0) || 0
+        totalRevenue: treatments?.reduce((sum: number, t: { total_final: number }) => sum + (t.total_final || 0), 0) || 0
       };
     } catch (error) {
       console.error('Error fetching payment status summary:', error);
@@ -981,7 +1151,7 @@ export class ReportsService {
     }
   }
 
-  static async exportPatientAnalyticsToCSV(patientAnalytics: any[]): Promise<string> {
+  static async exportPatientAnalyticsToCSV(patientAnalytics: PatientAnalytics[]): Promise<string> {
     if (!patientAnalytics || patientAnalytics.length === 0) {
       return 'No data available';
     }

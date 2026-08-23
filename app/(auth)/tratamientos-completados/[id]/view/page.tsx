@@ -95,7 +95,6 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
           // This is because a completed treatment is a specific event that happened on that date
           const fechaInicio = treatmentData.fecha_cita || 
                           treatmentData.paciente.fecha_inicio || 
-                          treatmentData.paciente.fecha_inicio_consulta || 
                           treatmentData.paciente.fecha_nacimiento;
           
           // Then get record category info

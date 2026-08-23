@@ -1,10 +1,11 @@
-import { Ticket, TicketActivity, CreateTicketData, UpdateTicketData, CreateActivityData, TicketFilters, TicketStatus, ActivityType, TicketPriority } from '@/types/ticket';
+import { Ticket, TicketActivity, TicketAssignee, TicketAttachment, User, CreateTicketData, UpdateTicketData, CreateActivityData, TicketFilters, TicketStatus, ActivityType, TicketPriority } from '@/types/ticket';
 import { supabase } from '@/lib/supabase';
 import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { STATUS_LABELS, PRIORITY_LABELS, STATUS_CHANGE_CONTENT, PRIORITY_CHANGE_CONTENT, ASSIGNMENT_CONTENT } from '@/lib/ticketLabels';
 
 // Helper function to batch-fetch users for multiple tickets at once
-const enrichTicketsWithUsers = async (tickets: any[]) => {
+const enrichTicketsWithUsers = async (tickets: Ticket[]) => {
   const userIds = new Set<string>();
   for (const ticket of tickets) {
     if (ticket.creator_id) userIds.add(ticket.creator_id);
@@ -22,7 +23,7 @@ const enrichTicketsWithUsers = async (tickets: any[]) => {
   if (userIds.size === 0) return tickets;
 
   const ids = [...userIds];
-  let userMap: Record<string, any> = {};
+  let userMap: Record<string, User> = {};
   try {
     const response = await fetch(`/api/users?ids=${ids.join(',')}`);
     if (response.ok) {
@@ -105,14 +106,14 @@ const generateTicketNumber = async (): Promise<string> => {
 };
 
 // Re-export for callers expecting the singular function name
-const enrichTicketWithUsers = async (ticket: any) => {
+const enrichTicketWithUsers = async (ticket: Ticket) => {
   const result = await enrichTicketsWithUsers([ticket]);
   return result[0];
 };
 
 export class TicketService {
   // Get tickets with filters
-  static async getTickets(filters: TicketFilters = {}): Promise<{ data: Ticket[] | null; error: any }> {
+  static async getTickets(filters: TicketFilters = {}): Promise<{ data: Ticket[] | null; error: PostgrestError | null }> {
     try {
       let query = supabase
         .from('tickets')
@@ -190,7 +191,7 @@ export class TicketService {
   }
 
   // Get single ticket by ID
-  static async getTicketById(ticketId: string): Promise<{ data: Ticket | null; error: any }> {
+  static async getTicketById(ticketId: string): Promise<{ data: Ticket | null; error: PostgrestError | null }> {
     try {
       const { data, error } = await supabase
         .from('tickets')
@@ -243,7 +244,7 @@ export class TicketService {
   }
 
   // Create new ticket
-  static async createTicket(ticketData: CreateTicketData, creatorId: string, supabaseClient?: any): Promise<{ data: Ticket | null; error: any }> {
+  static async createTicket(ticketData: CreateTicketData, creatorId: string, supabaseClient?: SupabaseClient): Promise<{ data: Ticket | null; error: PostgrestError | null }> {
     try {
       const { assignee_ids, attachments, patient_id, ...ticketFields } = ticketData;
       
@@ -396,11 +397,11 @@ export class TicketService {
   }
 
   // Update ticket
-  static async updateTicket(ticketId: string, updates: UpdateTicketData, userId: string, comment?: string): Promise<{ data: Ticket | null; error: any }> {
+  static async updateTicket(ticketId: string, updates: UpdateTicketData, userId: string, comment?: string): Promise<{ data: Ticket | null; error: PostgrestError | null }> {
     try {
       const { data: currentTicket } = await this.getTicketById(ticketId);
       if (!currentTicket) {
-        return { data: null, error: 'Ticket not found' };
+        return { data: null, error: { message: 'Ticket not found' } as PostgrestError };
       }
 
       const { data, error } = await supabase
@@ -541,7 +542,7 @@ export class TicketService {
   }
 
   // Create activity
-  static async createActivity(activityData: CreateActivityData, userId?: string): Promise<{ data: TicketActivity | null; error: any }> {
+  static async createActivity(activityData: CreateActivityData, userId?: string): Promise<{ data: TicketActivity | null; error: PostgrestError | null }> {
     try {
       const { data, error } = await supabase
         .from('ticket_activities')
@@ -561,7 +562,7 @@ export class TicketService {
   }
 
   // Add comment to ticket
-  static async addComment(ticketId: string, userId: string, content: string): Promise<{ data: TicketActivity | null; error: any }> {
+  static async addComment(ticketId: string, userId: string, content: string): Promise<{ data: TicketActivity | null; error: PostgrestError | null }> {
     try {
       const result = await this.createActivity({
         ticket_id: ticketId,
@@ -603,7 +604,7 @@ export class TicketService {
   }
 
   // Get tickets due soon (for reminders)
-  static async getTicketsDueSoon(hours: number = 24): Promise<{ data: Ticket[] | null; error: any }> {
+  static async getTicketsDueSoon(hours: number = 24): Promise<{ data: Ticket[] | null; error: PostgrestError | null }> {
     try {
       const dueDate = new Date();
       dueDate.setHours(dueDate.getHours() + hours);
@@ -628,7 +629,7 @@ export class TicketService {
   }
 
   // Get dashboard data based on user role
-  static async getDashboardData(userId: string, userRole: string): Promise<{ data: any; error: any }> {
+  static async getDashboardData(userId: string, userRole: string): Promise<{ data: { assignedTickets: Ticket[]; createdTickets: Ticket[]; departmentTickets?: Ticket[]; allTickets?: Ticket[]; dueSoonTickets: Ticket[] } | null; error: unknown }> {
     try {
       const queries = [];
 
@@ -689,14 +690,14 @@ export class TicketService {
   }
 
   // Reassign ticket to new set of users
-  static async reassignTicket(ticketId: string, newAssigneeIds: string[], userId: string): Promise<{ data: Ticket | null; error: any }> {
+  static async reassignTicket(ticketId: string, newAssigneeIds: string[], userId: string): Promise<{ data: Ticket | null; error: PostgrestError | null }> {
     try {
       // Fetch current assignees
       const { data: currentAssigneeRows } = await supabase
         .from('ticket_assignees')
         .select('user_id')
         .eq('ticket_id', ticketId);
-      const oldAssigneeIds = (currentAssigneeRows || []).map((a: any) => a.user_id).sort();
+      const oldAssigneeIds = (currentAssigneeRows || []).map((a: { user_id: string }) => a.user_id).sort();
       const sortedNew = [...newAssigneeIds].sort();
 
       // Only proceed if actually changed
@@ -765,7 +766,7 @@ export class TicketService {
   }
 
   // Delete ticket (admin/tech support only)
-  static async deleteTicket(ticketId: string): Promise<{ error: any }> {
+  static async deleteTicket(ticketId: string): Promise<{ error: PostgrestError | null }> {
     try {
       const { error } = await supabase
         .from('tickets')
@@ -786,7 +787,7 @@ export class TicketService {
     attachment_description?: string;
     file_url?: string;
     metadata?: Record<string, any>;
-  }): Promise<{ data: any; error: any }> {
+  }): Promise<{ data: TicketAttachment | null; error: PostgrestError | null }> {
     try {
       const { data, error } = await supabase
         .from('ticket_attachments')
