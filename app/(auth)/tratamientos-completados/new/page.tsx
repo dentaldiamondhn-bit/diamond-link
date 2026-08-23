@@ -715,7 +715,7 @@ function NuevoTratamientoCompletadoPageContent() {
         for (const item of selectedTreatments) {
           if (String(item.tratamiento_id).startsWith('inv_')) continue;
           try {
-            await TreatmentService.incrementTreatmentCounter(item.tratamiento_id, item.cantidad);
+            await TreatmentService.incrementTreatmentCounter(Number(item.tratamiento_id), item.cantidad);
           } catch (error) {
             console.error(`Error incrementing counter for treatment ${item.tratamiento_id}:`, error);
           }
@@ -798,7 +798,7 @@ function NuevoTratamientoCompletadoPageContent() {
         for (const item of selectedTreatments) {
           if (String(item.tratamiento_id).startsWith('inv_')) continue;
           try {
-            await TreatmentService.incrementTreatmentCounter(item.tratamiento_id, item.cantidad);
+            await TreatmentService.incrementTreatmentCounter(Number(item.tratamiento_id), item.cantidad);
           } catch (error) {
             console.error(`Error incrementing counter for treatment ${item.tratamiento_id}:`, error);
           }

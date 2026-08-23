@@ -161,11 +161,11 @@ async function generateTechnicalDocumentation(context?: any): Promise<string> {
   documentation += `- **AI**: Odysseus AI integration\n\n`;
   documentation += `## Key Components\n\n`;
   documentation += `### API Routes\n`;
-  documentation += `- Located in `/app/api/`\n`;
+  documentation += `- Located in /app/api/\n`;
   documentation += `- RESTful design with proper error handling\n`;
   documentation += `- Authentication middleware via Clerk\n\n`;
   documentation += `### Services\n`;
-  documentation += `- Business logic in `/services/`\n`;
+  documentation += `- Business logic in /services/\n`;
   documentation += `- Database operations via Supabase client\n`;
   documentation += `- Type-safe interfaces for data models\n\n`;
   documentation += `### AI Integration\n`;

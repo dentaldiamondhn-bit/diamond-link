@@ -6,10 +6,7 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import HydratedUserButton from '@/components/HydratedUserButton';
 import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
-import AdminSidebar from '@/components/AdminSidebar';
-import DoctorSidebar from '@/components/DoctorSidebar';
-import StaffSidebar from '@/components/StaffSidebar';
-import TechSupportSidebar from '@/components/TechSupportSidebar';
+import UnifiedSidebar from '@/components/UnifiedSidebar';
 import AnimatedReport from '@/components/AnimatedReport';
 import AnimatedBurger from '@/components/AnimatedBurger';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -18,6 +15,7 @@ import { BellNotificationProvider } from '@/contexts/BellNotificationContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { TutorialProvider } from '@/contexts/TutorialContext';
 import { TutorialModal } from '@/components/TutorialModal';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { TutorialButton } from '@/components/TutorialButton';
 import GlobalSearch from '@/components/GlobalSearch';
 import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
@@ -131,39 +129,16 @@ export default function AuthLayout({
         />
       )}
 
-      {/* Role-based Sidebar */}
+      {/* Unified Sidebar */}
       <div className={`
-        transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'}
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-        xl:translate-x-0 fixed xl:relative xl:flex-shrink-0 
-        transition-transform duration-300 ease-in-out z-50 xl:z-auto
-        ${sidebarOpen ? 'portrait-sidebar-open' : 'portrait-sidebar-closed'}
+        transition-all duration-300 ${ready ? 'opacity-100' : 'opacity-0'}
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        xl:translate-x-0 fixed xl:relative xl:flex-shrink-0
+        z-50 xl:z-auto
         print:hidden
       `}>
-                    <div className="w-64 lg:w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
-                      {userRole === 'tech_support' && <TechSupportSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
-                      {userRole === 'admin' && <AdminSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
-                      {userRole === 'doctor' && <DoctorSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
-                      {userRole === 'staff' && <StaffSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
-                      
-                      {/* Fallback sidebar if role detection fails */}
-                      {(!userRole || !['tech_support', 'admin', 'doctor', 'staff'].includes(userRole)) && (
-                        <div className="w-64 bg-gray-900 text-white flex flex-col h-full">
-                          <div className="p-6 border-b border-gray-700">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-yellow-600 rounded-lg flex items-center justify-center">
-                                <i className="fas fa-exclamation-triangle text-white"></i>
-                              </div>
-                              <div>
-                                <h1 className="text-xl font-bold text-white">Unknown Role</h1>
-                                <p className="text-xs text-gray-400">{userRole || 'undefined'}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+        <UnifiedSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      </div>
                   {/* Main Content */}
                   <div className="flex-1 xl:ml-0 overflow-auto flex flex-col print:overflow-visible print:h-auto">
                     {/* Header with User Info */}
@@ -425,7 +400,9 @@ export default function AuthLayout({
                   
                    {/* Page Content */}
                    <div className="flex-1 overflow-auto print:overflow-visible print:h-auto">
-                     {children}
+                     <ErrorBoundary>
+                       {children}
+                     </ErrorBoundary>
                    </div>
                 </div>
                 

@@ -24,7 +24,7 @@ import {
 import { PatientService } from '../../../services/patientService';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
-import { UserAvatar } from '../../../components/calendar/UserComponents';
+import { UserAvatar } from '../../../components/ui/UserComponents';
 import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import PatientsTableModal from '../../../components/PatientsTableModal';
 
@@ -394,6 +394,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3 self-start rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm sm:self-auto">
                 <UserAvatar
                   user={{
+                    id: user?.id || '',
                     first_name: user?.firstName,
                     last_name: user?.lastName,
                     profileImageUrl: user?.imageUrl,

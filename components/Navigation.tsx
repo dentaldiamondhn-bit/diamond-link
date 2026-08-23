@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import AnimatedUser from './AnimatedUser';
 import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
-import { CalendarNotificationCounter } from './calendar/CalendarNotificationCounter';
+import { CalendarNotificationCounter } from './ui/CalendarNotificationCounter';
 
 interface NavItem {
   href: string;

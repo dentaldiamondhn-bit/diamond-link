@@ -34,7 +34,7 @@ export default function HydratedUserButton({
     <>
       <UserButton {...(userButtonProps as React.ComponentProps<typeof UserButton>)} />
       {showOnlineDot && (
-        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
+        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full shadow-sm" style={{ borderColor: 'white', borderWidth: '2px', borderStyle: 'solid' }}></div>
       )}
     </>
   );

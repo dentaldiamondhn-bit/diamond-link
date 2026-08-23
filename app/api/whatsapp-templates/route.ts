@@ -70,7 +70,7 @@ async function getCurrentUser(): Promise<{ userId: string; role: string; name: s
     const user = await clerk.users.getUser(userId);
     const role = (user.publicMetadata?.role || user.privateMetadata?.role || 'staff') as string;
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || user.emailAddresses[0]?.emailAddress || 'Usuario';
-    const image = user.profileImageUrl || user.imageUrl || '';
+    const image = user.imageUrl || '';
     return { userId, role: role.toLowerCase(), name, image };
   } catch {
     return null;
@@ -149,14 +149,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'No valid templates to save' }, { status: 400 });
     }
 
-    const updates = Object.entries(templates).map(([tipo, message_text]) => ({
+    const updates: Array<{ tipo: string; message_text: string }> = Object.entries(templates).map(([tipo, message_text]) => ({
       tipo,
       message_text,
     }));
 
     const { data, error } = await supabase
       .from('whatsapp_templates')
-      .upsert(updates, { onConflict: ['tipo'] })
+      .upsert(updates, { onConflict: 'tipo' })
       .select();
 
     if (error) {
@@ -165,12 +165,13 @@ export async function PUT(request: NextRequest) {
     }
 
     // Save history for all template updates
+    const currentUser = await getCurrentUser();
     const entriesToInsert = Object.entries(templates).map(([tipo, message_text]) => ({
       tipo,
       message_text,
-      changed_by: user.userId,
-      changed_by_name: user.name,
-      changed_by_image: user.image,
+      changed_by: currentUser?.userId || '',
+      changed_by_name: currentUser?.name || '',
+      changed_by_image: currentUser?.image || '',
     }));
 
     if (entriesToInsert.length > 0) {

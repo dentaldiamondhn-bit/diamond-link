@@ -217,25 +217,6 @@ export class PatientService {
     }
   }
 
-  static async deletePatient(paciente_id: string) {
-    try {
-      const { error } = await supabase
-        .from('patients')
-        .delete()
-        .eq('paciente_id', paciente_id);
-
-      if (error) {
-        console.error('Error deleting patient:', error);
-        throw error;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Unexpected error deleting patient:', error);
-      throw error;
-    }
-  }
-
   static async deletePatient(pacienteId: string): Promise<void> {
     try {
       // Delete related records first (foreign key constraints)

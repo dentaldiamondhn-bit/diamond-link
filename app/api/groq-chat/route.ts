@@ -167,17 +167,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const newSystemMessage = { role: 'system', content: systemPrompt };
+    const newSystemMessage = { role: 'system' as const, content: systemPrompt };
     const newUserMessage = { 
-      role: 'user', 
+      role: 'user' as const, 
       content: `${message}\n\n${Object.keys(context).length > 0 ? `Additional Context:\n${JSON.stringify(context, null, 2)}` : ''}` 
     };
 
     // Construct full message list for Groq
     // We filter out past system messages to use the freshly generated one
-    const messagesForGroq = [
+    const messagesForGroq: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
       newSystemMessage,
-      ...pastMessages.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
+      ...pastMessages.filter(m => m.role !== 'system').map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
       newUserMessage
     ];
 

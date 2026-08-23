@@ -83,7 +83,7 @@ export class ReportsService {
         
         // Get doctor name from the nested treatment details array
         const treatmentDetails = treatment.vista_tratamientos_realizados_detalles?.[0];
-        const doctorName = treatmentDetails?.doctor_name || treatment.doctor_name || 'Desconocido';
+        const doctorName = treatmentDetails?.doctor_name || (treatment as any).doctor_name || 'Desconocido';
         
         if (!acc[date]) {
           acc[date] = {
@@ -669,7 +669,7 @@ export class ReportsService {
       if (extraFilters) q = extraFilters(q);
       const { data, error } = await q;
       if (error) throw error;
-      if (data) allResults.push(...data);
+      if (data) allResults.push(...(data as T[]));
     }
     return allResults;
   }

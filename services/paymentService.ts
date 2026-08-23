@@ -75,7 +75,7 @@ export class PaymentService {
     treatmentCurrency?: Currency
   ): Promise<Payment> {
     try {
-      const paymentData = {
+      const paymentData: Record<string, any> = {
         ...payment,
         monto_original: payment.monto_pago,
         moneda_original: payment.moneda,

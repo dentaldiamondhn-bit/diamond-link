@@ -47,7 +47,7 @@ export class ErrorBoundary extends React.Component<
             </h1>
             <div className="bg-red-100 border border-red-200 rounded-lg p-4">
               <p className="text-red-700 mb-2">
-                An error occurred while loading the Capacitor demo.
+                An unexpected error occurred. Please try reloading the page.
               </p>
               <details className="text-sm text-red-600">
                 <summary>Error details</summary>

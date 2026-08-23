@@ -19,7 +19,7 @@ async function getCurrentUser(): Promise<{ userId: string; role: string; name: s
     const user = await clerk.users.getUser(userId);
     const role = (user.publicMetadata?.role || user.privateMetadata?.role || 'staff') as string;
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || user.emailAddresses[0]?.emailAddress || 'Usuario';
-    const image = user.profileImageUrl || user.imageUrl || '';
+    const image = user.imageUrl || '';
     return { userId, role: role.toLowerCase(), name, image };
   } catch {
     return null;

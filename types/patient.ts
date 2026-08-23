@@ -12,6 +12,7 @@ export interface Patient {
   fecha_nacimiento: string;
   representante_legal?: string;
   parentesco?: 'padre' | 'madre' | 'tutor' | 'otro';
+  otro_parentesco?: string;
   // Representative identification fields for minors
   rep_tipo_identificacion?: 'HN' | 'US' | 'GT' | 'SV' | 'NI' | 'ES' | 'OTRO';
   rep_otro_tipo_identificacion?: string;

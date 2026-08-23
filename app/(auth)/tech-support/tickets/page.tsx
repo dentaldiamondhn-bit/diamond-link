@@ -9,8 +9,8 @@ import { Ticket, TicketStatus, TicketPriority, TicketType, CreateTicketData, Cre
 import SystemLogs from '@/components/SystemLogs';
 import { useUser } from '@clerk/nextjs';
 import { useTheme } from '@/contexts/ThemeContext';
-import { UserSelect } from '@/components/calendar/UserSelect';
-import { UserAvatar } from '@/components/calendar/UserComponents';
+import { UserSelect } from '@/components/ui/UserSelect';
+import { UserAvatar } from '@/components/ui/UserComponents';
 import { CalendarInviteesService } from '@/services/calendarInviteesService';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import { UserPreferencesService } from '@/services/userPreferencesService';
@@ -415,32 +415,6 @@ export default function TicketsPage() {
         return '#';
     }
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setModalLoading(true);
-    
-    // Convert uploaded document URLs to attachment format
-    const docAttachments: CreateTicketAttachmentData[] = uploadedDocuments.map(url => {
-      const fileName = decodeURIComponent(url.split('/').pop() || 'documento');
-      return {
-        attachment_type: 'document' as const,
-        attachment_id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        attachment_title: fileName,
-        file_url: url
-      };
-    });
-    
-    const submitData = {
-      ...formData,
-      assignee_ids: selectedUsers.map(u => u.id),
-      attachments: [...getSelectedAttachments(), ...docAttachments],
-      patient_id: selectedPatient?.paciente_id || ''
-    };
-    
-    onSubmit(submitData);
-    setModalLoading(false);
-  }
 
   return (
     <>
@@ -1436,7 +1410,7 @@ function CreateTicketModal({
                         </div>
                         <button
                           type="button"
-                          onClick={() => removeSelectedDocument(index)}
+                          onClick={() => onRemoveSelectedDocument(index)}
                           className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
                         >
                           Eliminar
@@ -1796,7 +1770,13 @@ function TicketDetailModal({
                           </>
                         )}
                       </select>
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <div 
+                        className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer"
+                        onClick={(e) => {
+                          const select = (e.currentTarget.parentElement as HTMLElement)?.querySelector('select');
+                          if (select) select.click();
+                        }}
+                      >
                         <ChevronDown className={`w-4 h-4 ${
                           draftStatus === TicketStatus.OPEN ? 'text-blue-500' 
                           : draftStatus === TicketStatus.IN_PROGRESS ? 'text-violet-500'

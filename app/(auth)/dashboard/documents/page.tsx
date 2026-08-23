@@ -385,7 +385,7 @@ function DocumentsPageContent() {
         <HistoricalBanner 
           isHistorical={recordCategoryInfo?.isHistorical}
           isBypassed={bypassHistoricalMode}
-          patientId={patient?.id}
+          patientId={patient?.paciente_id}
           onBypassChange={(bypassed) => {
             // Handle bypass change if needed
             console.log('Bypass changed:', bypassed);
@@ -429,7 +429,7 @@ function DocumentsPageContent() {
                 Paciente: {patient.nombre_completo}
               </span>
               {recordCategoryInfo?.isHistorical && (
-                <HistoricalBadge />
+                <HistoricalBadge isHistorical={recordCategoryInfo?.isHistorical} isBypassed={bypassHistoricalMode} />
               )}
             </div>
           )}

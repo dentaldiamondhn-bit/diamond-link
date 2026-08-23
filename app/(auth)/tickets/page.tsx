@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { TicketService } from '@/services/ticketService';
-import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData, ActivityType } from '@/types/ticket';
+import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData, CreateTicketAttachmentData, ActivityType } from '@/types/ticket';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { 
@@ -35,8 +35,8 @@ import {
   Upload,
   Loader2
 } from 'lucide-react';
-import { UserSelect } from '@/components/calendar/UserSelect';
-import { UserAvatar } from '@/components/calendar/UserComponents';
+import { UserSelect } from '@/components/ui/UserSelect';
+import { UserAvatar } from '@/components/ui/UserComponents';
 import { CalendarInviteesService } from '@/services/calendarInviteesService';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import { UserPreferencesService } from '@/services/userPreferencesService';
@@ -1449,7 +1449,7 @@ function CreateTicketModal({
                         </div>
                         <button
                           type="button"
-                          onClick={() => removeSelectedDocument(index)}
+                          onClick={() => onRemoveSelectedDocument(index)}
                           className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
                         >
                           Eliminar
@@ -2030,7 +2030,13 @@ function TicketDetailModal({
                             </>
                           )}
                         </select>
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <div 
+                          className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer"
+                          onClick={(e) => {
+                            const select = (e.currentTarget.parentElement as HTMLElement)?.querySelector('select');
+                            if (select) select.click();
+                          }}
+                        >
                           <ChevronDown className={`w-4 h-4 ${
                             draftStatus === TicketStatus.OPEN ? 'text-blue-500' 
                             : draftStatus === TicketStatus.IN_PROGRESS ? 'text-violet-500'

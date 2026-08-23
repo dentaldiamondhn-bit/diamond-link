@@ -28,7 +28,7 @@ import {
   RadialBar,
   Cell
 } from 'recharts';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import AccessDenied from '@/components/AccessDenied';
 import { 
   FiDollarSign, 
@@ -68,7 +68,7 @@ const COLORS = {
   indigo: '#6366f1'
 };
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -78,7 +78,7 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { 
     opacity: 1, 
@@ -87,7 +87,7 @@ const itemVariants = {
   }
 };
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, scale: 0.95 },
   visible: { 
     opacity: 1, 

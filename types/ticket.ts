@@ -84,6 +84,7 @@ export interface Ticket {
   patient_id?: string;
   patient?: any;
   ticket_number?: string;
+  due_date?: string;
 }
 
 export interface TicketAssignee {

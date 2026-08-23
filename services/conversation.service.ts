@@ -3,13 +3,13 @@ import { supabase } from '@/lib/supabase';
 
 // Zod schemas for validation
 const ConversationSchema = z.object({
-  userId: z.string().min(1),
+  user_id: z.string().min(1),
   title: z.string().min(1).max(255).default('New Conversation'),
   model: z.string().min(1).max(50).default('local-llama'),
 });
 
 const MessageSchema = z.object({
-  conversationId: z.string().uuid(),
+  conversation_id: z.string().uuid(),
   role: z.enum(['user', 'assistant']),
   content: z.string().min(1),
   model: z.string().optional(),
@@ -27,21 +27,21 @@ const CreateConversationWithMessagesSchema = z.object({
 // TypeScript interfaces
 export interface IConversation {
   id: string;
-  userId: string;
+  user_id: string;
   title: string;
   model: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
   messages?: IMessage[];
 }
 
 export interface IMessage {
   id: string;
-  conversationId: string;
+  conversation_id: string;
   role: 'user' | 'assistant';
   content: string;
   model?: string;
-  createdAt: string;
+  created_at: string;
 }
 
 export interface ICreateConversation {
@@ -162,16 +162,16 @@ export class ConversationService {
   /**
    * Add a message to a conversation
    */
-  async addMessage(conversationId: string, message: Omit<IMessage, 'id' | 'conversationId' | 'createdAt'>): Promise<IMessage> {
+  async addMessage(conversationId: string, message: Omit<IMessage, 'id' | 'conversation_id' | 'created_at'>): Promise<IMessage> {
     const validatedMessage = MessageSchema.parse({
-      conversationId,
+      conversation_id: conversationId,
       ...message,
     });
 
     const { data, error } = await supabase
       .from('messages')
       .insert({
-        conversation_id: validatedMessage.conversationId,
+        conversation_id: validatedMessage.conversation_id,
         role: validatedMessage.role,
         content: validatedMessage.content,
         model: validatedMessage.model,

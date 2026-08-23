@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Treatment, Promotion } from '../../../types/treatment';
 import { Paquete } from '../../../types/paquete';
-import { formatCurrency, getCurrencySymbol, getAvailableCurrencies } from '../../../utils/currencyUtils';
+import { formatCurrency, getCurrencySymbol, getAvailableCurrencies, type Currency } from '../../../utils/currencyUtils';
 import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils';
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
@@ -2372,7 +2372,7 @@ export default function TratamientosPage() {
                             </label>
                             <div className="mt-1 relative rounded-md shadow-sm">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(insumoFormData.moneda || 'HNL')}</span>
+                                <span className="text-gray-500 sm:text-sm">{getCurrencySymbol((insumoFormData.moneda || 'HNL') as Currency)}</span>
                               </div>
                               <input
                                 type="number"

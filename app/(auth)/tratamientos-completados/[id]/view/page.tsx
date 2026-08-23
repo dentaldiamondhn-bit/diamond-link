@@ -85,7 +85,7 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
         setLoading(true);
         
         const treatmentData = await CompletedTreatmentService.getCompletedTreatmentById(treatmentId);
-        setTreatment(treatmentData);
+        setTreatment(treatmentData as CompletedTreatment | null);
         
         if (treatmentData?.paciente) {
           // Load patient-specific historical mode settings first

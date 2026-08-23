@@ -87,7 +87,7 @@ async function tryHFInference(buffer: Buffer, imgW: number, imgH: number, model:
       'Authorization': `Bearer ${HF_TOKEN}`,
       'Content-Type': 'application/octet-stream',
     },
-    body: buffer,
+    body: new Uint8Array(buffer),
   });
   if (!res.ok) throw new Error(`HF API ${res.status}`);
   const data = await res.json();
