@@ -1248,52 +1248,71 @@ function OdontogramPilotPageContent() {
         `}</style>
 
       <div data-rr-block className="odontogram-container">
-        {/* Patient Info */}
-        <div className="mx-auto max-w-5xl px-5 mt-0">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex flex-wrap gap-8 items-end">
-            <div className="form-group flex-1 min-w-[220px]">
-              <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Nombre completo:</label>
-              <input
-                type="text"
-                value={patient?.nombre_completo || ''}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
-              />
-            </div>
-            
-            <div className="form-group w-[260px] shrink-0">
-              <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Identidad:</label>
-              <input
-                type="text"
-                value={patient?.numero_identidad || ''}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
-              />
-            </div>
-            
-            <div className="form-group flex-1 min-w-[220px]">
-              <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Fecha del Odontograma:</label>
-              <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
+        {/* Patient Info + Action Buttons */}
+        <div className="mx-auto max-w-5xl w-full px-5 mt-0">
+          <div className="flex gap-4 items-start">
+            {/* Patient Info Card */}
+            <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 flex items-end gap-3">
+              <div className="form-group flex-1 min-w-[180px]">
+                <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Nombre completo:</label>
                 <input
-                  type="date"
-                  value={fechaOdontograma}
-                  onChange={(e) => {
-                    if (!editParam || editParam !== 'true') {
-                      setFechaOdontograma(e.target.value);
-                    }
-                  }}
-                  className="min-w-0 flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  type="text"
+                  value={patient?.nombre_completo || ''}
+                  disabled
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
                 />
-                <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={prospectoOrto}
-                    onChange={(e) => setProspectoOrto(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                  />
-                  <span className="text-sm font-medium text-black dark:text-gray-100">Prospecto para Orto</span>
-                </label>
               </div>
+              
+              <div className="form-group shrink-0">
+                <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Identidad:</label>
+                <input
+                  type="text"
+                  value={patient?.numero_identidad || ''}
+                  disabled
+                  className="w-[160px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
+                />
+              </div>
+              
+              <div className="min-w-[280px] shrink-0">
+                <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Fecha del Odontograma:</label>
+                <div className="flex items-center gap-x-2 gap-y-2">
+                  <input
+                    type="date"
+                    value={fechaOdontograma}
+                    onChange={(e) => {
+                      if (!editParam || editParam !== 'true') {
+                        setFechaOdontograma(e.target.value);
+                      }
+                    }}
+                    className="min-w-[180px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                  <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={prospectoOrto}
+                      onChange={(e) => setProspectoOrto(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-sm font-medium text-black dark:text-gray-100">Prospecto para Orto</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-2 shrink-0 pt-0">
+              <button
+                onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <i className="fas fa-bars"></i> Menu
+              </button>
+              <button
+                onClick={() => router.push(`/notas-linea-de-tiempo?id=${pacienteId}`)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <i className="fas fa-sticky-note"></i> Notas
+              </button>
             </div>
           </div>
         </div>
@@ -1742,43 +1761,8 @@ function OdontogramPilotPageContent() {
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div style={{ textAlign: 'center', margin: '20px 0' }}>
-        <button
-          onClick={guardarNuevoOdontograma}
-          disabled={saving}
-          style={{ background: 'linear-gradient(135deg, #8fe392ff 0%, #3c9f41ff 100%)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: '0 5px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-          className="hover:shadow-lg"
-        >
-          <i className="fas fa-save"></i> {saving ? 'Guardando...' : 'Crear Nueva Versión'}
-        </button>
-        <button
-          onClick={retrocederCambio}
-          disabled={historialCambios.length === 0}
-          style={{ background: 'linear-gradient(135deg, #ce54e3ff 0%, #8E24AA 100%)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: '0 5px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-          className="hover:shadow-lg"
-        >
-          <i className="fas fa-step-backward"></i> Retroceder último cambio
-        </button>
-        <button
-          onClick={limpiarTodo}
-          style={{ background: 'linear-gradient(135deg, #d27069ff 0%, #E53935 100%)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: '0 5px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-          className="hover:shadow-lg"
-        >
-          <i className="fas fa-broom"></i> Limpiar todo
-        </button>
-        <button
-          onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
-          style={{ background: 'linear-gradient(135deg, #53a7ecff 0%, #0f6bc7ff 100%)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap', margin: '0 5px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-          className="hover:shadow-lg"
-        >
-          <i className="fas fa-arrow-left"></i> Volver
-        </button>
-      </div>
-
       <style jsx>{`
         .form-group {
-          flex: 1;
           min-width: 220px;
           margin-bottom: 5px;
         }
