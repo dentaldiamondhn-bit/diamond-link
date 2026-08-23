@@ -4,15 +4,16 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: reminders, error } = await supabase
       .from('calendar_reminders')
       .select('*')
       .eq('item_type', 'task')
-      .eq('item_id', params.id) // Tasks only use item_id
+      .eq('item_id', id) // Tasks only use item_id
       .order('minutes_before', { ascending: true });
 
     if (error) {
@@ -27,9 +28,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     // TODO: Re-enable authentication once auth issues are resolved
     // const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -45,7 +47,7 @@ export async function POST(
       .insert(reminders.map((r: any) => ({
         ...r,
         item_type: 'task',
-        item_id: params.id, // Tasks only use item_id
+        item_id: id, // Tasks only use item_id
         created_by: 'temp-user' // TODO: Replace with actual user.id when auth is fixed
       })))
       .select()
@@ -63,9 +65,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     // TODO: Re-enable authentication once auth issues are resolved
     // const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -78,7 +81,7 @@ export async function DELETE(
       .from('calendar_reminders')
       .delete()
       .eq('item_type', 'task')
-      .eq('item_id', params.id) // Tasks only use item_id
+      .eq('item_id', id) // Tasks only use item_id
       // .eq('created_by', user.id); // TODO: Re-enable when auth is fixed
 
     if (error) {

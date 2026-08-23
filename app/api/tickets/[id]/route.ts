@@ -5,15 +5,16 @@ import { UpdateTicketData, ActivityType } from '@/types/ticket';
 
 
 // GET /api/tickets/[id] - Get single ticket
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const result = await TicketService.getTicketById(params.id);
+    const result = await TicketService.getTicketById(id);
     
     if (result.error) {
       return NextResponse.json({ error: 'Failed to fetch ticket' }, { status: 500 });
@@ -31,8 +32,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/tickets/[id] - Update ticket
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -46,7 +48,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
-    const result = await TicketService.updateTicket(params.id, updates, userId);
+    const result = await TicketService.updateTicket(id, updates, userId);
     
     if (result.error) {
       return NextResponse.json({ error: 'Failed to update ticket' }, { status: 500 });
@@ -64,8 +66,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // POST /api/tickets/[id]/comment - Add comment to ticket
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -78,7 +81,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: 'Comment content is required' }, { status: 400 });
     }
 
-    const result = await TicketService.addComment(params.id, userId, content.trim());
+    const result = await TicketService.addComment(id, userId, content.trim());
     
     if (result.error) {
       return NextResponse.json({ error: 'Failed to add comment' }, { status: 500 });
@@ -92,8 +95,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 }
 
 // DELETE /api/tickets/[id] - Delete ticket (admin/tech support only)
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -101,7 +105,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // TODO: Add role check for admin/tech support only
-    const result = await TicketService.deleteTicket(params.id);
+    const result = await TicketService.deleteTicket(id);
     
     if (result.error) {
       return NextResponse.json({ error: 'Failed to delete ticket' }, { status: 500 });

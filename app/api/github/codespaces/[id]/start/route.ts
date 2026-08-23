@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const codespaceId = params.id;
+    const { id } = await params;
+    const codespaceId = id;
     const githubToken = process.env.GITHUB_TOKEN;
     
     if (!githubToken) {

@@ -5,9 +5,10 @@ import { CompletedTreatmentService } from '@/services/completedTreatmentService'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; itemId: string } }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
+    const { id, itemId } = await params;
     const body = await request.json();
 
     // Validate quantity if provided
@@ -18,7 +19,7 @@ export async function PUT(
       );
     }
 
-    const updatedItem = await CompletedTreatmentService.updateTreatmentItem(params.itemId, body);
+    const updatedItem = await CompletedTreatmentService.updateTreatmentItem(itemId, body);
     return NextResponse.json(updatedItem);
   } catch (error) {
     console.error('Error in PUT /api/tratamientos-completados/[id]/items/[itemId]:', error);
@@ -31,10 +32,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; itemId: string } }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
-    await CompletedTreatmentService.removeTreatmentItem(params.itemId);
+    const { id, itemId } = await params;
+    await CompletedTreatmentService.removeTreatmentItem(itemId);
     return NextResponse.json({ message: 'Treatment item deleted successfully' });
   } catch (error) {
     console.error('Error in DELETE /api/tratamientos-completados/[id]/items/[itemId]:', error);

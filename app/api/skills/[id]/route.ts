@@ -9,9 +9,10 @@ const supabase = createClient();
 // GET /api/skills/[id] - Get specific skill
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -21,7 +22,7 @@ export async function GET(
     const { data, error } = await supabase
       .from('skills')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) throw error;
@@ -43,9 +44,10 @@ export async function GET(
 // PUT /api/skills/[id] - Update skill
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -58,7 +60,7 @@ export async function PUT(
     const { data: currentSkill, error: fetchError } = await supabase
       .from('skills')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) throw fetchError;
@@ -86,7 +88,7 @@ export async function PUT(
         version: newVersion,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -105,9 +107,10 @@ export async function PUT(
 // DELETE /api/skills/[id] - Delete skill
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -118,7 +121,7 @@ export async function DELETE(
     const { data: currentSkill, error: fetchError } = await supabase
       .from('skills')
       .select('created_by')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) throw fetchError;
@@ -134,7 +137,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('skills')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
 

@@ -9,9 +9,10 @@ const supabase = createClient();
 // GET /api/workflows/[id] - Get specific workflow
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -21,7 +22,7 @@ export async function GET(
     const { data, error } = await supabase
       .from('workflows')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) throw error;
@@ -43,9 +44,10 @@ export async function GET(
 // PUT /api/workflows/[id] - Update workflow
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -58,7 +60,7 @@ export async function PUT(
     const { data: currentWorkflow, error: fetchError } = await supabase
       .from('workflows')
       .select('created_by')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) throw fetchError;
@@ -82,7 +84,7 @@ export async function PUT(
         is_active: body.is_active !== undefined ? body.is_active : undefined,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -101,9 +103,10 @@ export async function PUT(
 // DELETE /api/workflows/[id] - Delete workflow
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -114,7 +117,7 @@ export async function DELETE(
     const { data: currentWorkflow, error: fetchError } = await supabase
       .from('workflows')
       .select('created_by')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (fetchError) throw fetchError;
@@ -130,7 +133,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('workflows')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
 

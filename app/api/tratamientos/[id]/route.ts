@@ -5,10 +5,11 @@ import { TreatmentService } from '@/services/treatmentService';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    const { id: rawId } = await params;
+    const id = parseInt(rawId);
     const treatment = await TreatmentService.getTreatmentById(id);
     return NextResponse.json(treatment);
   } catch (error) {
@@ -22,10 +23,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    const { id: rawId } = await params;
+    const id = parseInt(rawId);
     const updates = await request.json();
     
     const updatedTreatment = await TreatmentService.updateTreatment(id, updates);
@@ -41,10 +43,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    const { id: rawId } = await params;
+    const id = parseInt(rawId);
     await TreatmentService.deleteTreatment(id);
     return NextResponse.json({ success: true });
   } catch (error) {

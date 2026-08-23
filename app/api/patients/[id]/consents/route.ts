@@ -3,10 +3,11 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const patientId = params.id;
+    const { id } = await params;
+    const patientId = id;
 
     // Get patient consents - use correct table name and field names
     const { data: consents, error } = await supabase

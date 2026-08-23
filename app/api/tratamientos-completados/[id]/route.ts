@@ -6,10 +6,11 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const treatment = await CompletedTreatmentService.getCompletedTreatmentById(params.id);
+    const { id } = await params;
+    const treatment = await CompletedTreatmentService.getCompletedTreatmentById(id);
     
     if (!treatment) {
       return NextResponse.json(
@@ -30,9 +31,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Validate tipo_descuento if provided
@@ -51,7 +53,7 @@ export async function PUT(
       );
     }
 
-    const updatedTreatment = await CompletedTreatmentService.updateCompletedTreatment(params.id, body);
+    const updatedTreatment = await CompletedTreatmentService.updateCompletedTreatment(id, body);
     return NextResponse.json(updatedTreatment);
   } catch (error) {
     console.error('Error in PUT /api/tratamientos-completados/[id]:', error);
@@ -64,10 +66,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tratamientoId = params.id;
+    const { id } = await params;
+    const tratamientoId = id;
     
     if (!tratamientoId) {
       return NextResponse.json(

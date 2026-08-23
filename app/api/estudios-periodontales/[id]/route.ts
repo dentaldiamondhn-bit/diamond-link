@@ -4,16 +4,17 @@ import { auth } from '@clerk/nextjs/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = createSupabaseClient();
-    const estudioId = params.id;
+    const estudioId = id;
 
     const { data, error } = await supabase
       .from('estudios_periodontales')
@@ -44,9 +45,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -54,7 +56,7 @@ export async function PUT(
 
     const body = await request.json();
     const supabase = createSupabaseClient();
-    const estudioId = params.id;
+    const estudioId = id;
 
     // First verify the estudio belongs to the user
     const { data: existingEstudio, error: verifyError } = await supabase
@@ -141,16 +143,17 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = createSupabaseClient();
-    const estudioId = params.id;
+    const estudioId = id;
 
     // Verify the estudio belongs to the user before deleting
     const { data: existingEstudio, error: verifyError } = await supabase

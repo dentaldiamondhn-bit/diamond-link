@@ -5,16 +5,17 @@ import { auth } from '@clerk/nextjs/server';
 // GET /api/conversations/[id] - Get a specific conversation with messages
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const conversation = await conversationService.getConversationById(params.id, userId);
+    const conversation = await conversationService.getConversationById(id, userId);
     
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
@@ -36,9 +37,10 @@ export async function GET(
 // PUT /api/conversations/[id] - Update a conversation
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -46,7 +48,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const conversation = await conversationService.updateConversation(params.id, userId, body);
+    const conversation = await conversationService.updateConversation(id, userId, body);
     
     return NextResponse.json({
       success: true,
@@ -64,16 +66,17 @@ export async function PUT(
 // DELETE /api/conversations/[id] - Delete a conversation
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await conversationService.deleteConversation(params.id, userId);
+    await conversationService.deleteConversation(id, userId);
     
     return NextResponse.json({
       success: true,

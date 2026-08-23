@@ -5,16 +5,17 @@ import { auth } from '@clerk/nextjs/server';
 // GET /api/conversations/[id]/messages - Get all messages for a conversation
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const messages = await conversationService.getMessages(params.id, userId);
+    const messages = await conversationService.getMessages(id, userId);
     
     return NextResponse.json({
       success: true,
@@ -32,9 +33,10 @@ export async function GET(
 // POST /api/conversations/[id]/messages - Add a message to a conversation
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { userId } = await auth();
     
     if (!userId) {
@@ -42,7 +44,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const message = await conversationService.addMessage(params.id, {
+    const message = await conversationService.addMessage(id, {
       role: body.role,
       content: body.content,
       model: body.model,

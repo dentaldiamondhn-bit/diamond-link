@@ -8,10 +8,11 @@ const supabase = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const patientId = params.id;
+    const { id } = await params;
+    const patientId = id;
 
     if (!patientId) {
       return NextResponse.json({ error: 'Patient ID is required' }, { status: 400 });

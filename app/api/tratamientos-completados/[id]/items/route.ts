@@ -5,11 +5,12 @@ import { CompletedTreatmentService } from '@/services/completedTreatmentService'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // First get the completed treatment to verify it exists
-    const treatment = await CompletedTreatmentService.getCompletedTreatmentById(params.id);
+    const treatment = await CompletedTreatmentService.getCompletedTreatmentById(id);
     
     if (!treatment) {
       return NextResponse.json(
@@ -31,9 +32,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Validate required fields
@@ -56,7 +58,7 @@ export async function POST(
     }
 
     // Verify the completed treatment exists
-    const treatment = await CompletedTreatmentService.getCompletedTreatmentById(params.id);
+    const treatment = await CompletedTreatmentService.getCompletedTreatmentById(id);
     if (!treatment) {
       return NextResponse.json(
         { error: 'Completed treatment not found' },
@@ -64,7 +66,7 @@ export async function POST(
       );
     }
 
-    const newItem = await CompletedTreatmentService.addTreatmentItem(params.id, body);
+    const newItem = await CompletedTreatmentService.addTreatmentItem(id, body);
     return NextResponse.json(newItem, { status: 201 });
   } catch (error) {
     console.error('Error in POST /api/tratamientos-completados/[id]/items:', error);

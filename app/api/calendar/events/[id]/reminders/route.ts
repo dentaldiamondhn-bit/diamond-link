@@ -4,15 +4,16 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: reminders, error } = await supabase
       .from('calendar_reminders')
       .select('*')
       .eq('item_type', 'event')
-      .or(`item_id.eq.${params.id},event_id.eq.${params.id}`) // Handle both schemas
+      .or(`item_id.eq.${id},event_id.eq.${id}`) // Handle both schemas
       .order('minutes_before', { ascending: true });
 
     if (error) {
@@ -27,9 +28,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     // TODO: Re-enable authentication once auth issues are resolved
     // const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -45,9 +47,9 @@ export async function POST(
       .insert(reminders.map((r: any) => ({
         ...r,
         // Handle both old schema (event_id) and new schema (item_id)
-        event_id: params.id, // For backward compatibility
+        event_id: id, // For backward compatibility
         item_type: 'event',
-        item_id: params.id, // For new multiple reminders system
+        item_id: id, // For new multiple reminders system
         created_by: 'temp-user' // TODO: Replace with actual user.id when auth is fixed
       })))
       .select()
@@ -65,9 +67,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     // TODO: Re-enable authentication once auth issues are resolved
     // const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -80,7 +83,7 @@ export async function DELETE(
       .from('calendar_reminders')
       .delete()
       .eq('item_type', 'event')
-      .or(`item_id.eq.${params.id},event_id.eq.${params.id}`) // Handle both schemas
+      .or(`item_id.eq.${id},event_id.eq.${id}`) // Handle both schemas
       // .eq('created_by', user.id); // TODO: Re-enable when auth is fixed
 
     if (error) {

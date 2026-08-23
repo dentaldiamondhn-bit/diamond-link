@@ -5,10 +5,11 @@ import { TreatmentService } from '@/services/treatmentService';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    const { id: rawId } = await params;
+    const id = parseInt(rawId);
     
     if (isNaN(id)) {
       return NextResponse.json(
