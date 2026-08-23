@@ -446,12 +446,13 @@ export class InventarioService {
     }
   }
 
-  static async createMarca(marca: { codigo: string; nombre: string; tipo?: string; distribuidor_id?: string | null }): Promise<any> {
+  static async createMarca(marca: { codigo: string; nombre: string; tipo?: string; subcategoria?: string; distribuidor_id?: string | null }): Promise<any> {
     try {
       const { data, error } = await supabase.from('marcas').insert([{
         codigo: marca.codigo,
         nombre: marca.nombre,
         tipo: marca.tipo || null,
+        subcategoria: marca.subcategoria || null,
         distribuidor_id: marca.distribuidor_id || null,
       }]).select().single();
       if (error) throw error;
@@ -469,7 +470,7 @@ export class InventarioService {
     }
   }
 
-  static async updateMarca(id: string, marca: { codigo?: string; nombre?: string; tipo?: string; distribuidor_id?: string | null }): Promise<any> {
+  static async updateMarca(id: string, marca: { codigo?: string; nombre?: string; tipo?: string; subcategoria?: string; distribuidor_id?: string | null }): Promise<any> {
     try {
       const { data: before } = await supabase.from('marcas').select('nombre, codigo').eq('id', id).single();
       const { data, error } = await supabase.from('marcas').update({

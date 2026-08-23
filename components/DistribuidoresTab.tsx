@@ -2,6 +2,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Distribuidor } from '@/types/distribuidores';
+import { Marca } from '@/types/marcas';
+
+interface Categoria {
+  id: string;
+  nombre: string;
+  subcategorias: { id: string; nombre: string }[];
+}
 
 export default function DistribuidoresTab() {
   const [items, setItems] = useState<Distribuidor[]>([]);
@@ -14,6 +21,12 @@ export default function DistribuidoresTab() {
     direccion: '', marcas_provistas: '', ultimos_items: '', notas: '',
   });
 
+  const [showAddMarca, setShowAddMarca] = useState(false);
+  const [marcasList, setMarcasList] = useState<Marca[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [marcaForm, setMarcaForm] = useState({ nombre: '', codigo: '', tipo: '', subcategoria: '' });
+  const [savingMarca, setSavingMarca] = useState(false);
+
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/inventario/distribuidores');
@@ -25,7 +38,20 @@ export default function DistribuidoresTab() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadMarcasYCategorias = useCallback(async () => {
+    try {
+      const [mRes, cRes] = await Promise.all([
+        fetch('/api/inventario/marcas'),
+        fetch('/api/inventario/categorias'),
+      ]);
+      if (mRes.ok) setMarcasList(await mRes.json());
+      if (cRes.ok) setCategorias(await cRes.json());
+    } catch (err) {
+      console.error('Error loading marcas/categorias:', err);
+    }
+  }, []);
+
+  useEffect(() => { load(); loadMarcasYCategorias(); }, [load, loadMarcasYCategorias]);
 
   const openNew = () => {
     setEditing(null);
@@ -78,6 +104,46 @@ export default function DistribuidoresTab() {
       console.error('Error deleting distribuidor:', err);
     }
   };
+
+  const saveMarcaFromDistribuidor = async () => {
+    if (!marcaForm.nombre.trim() || !marcaForm.codigo.trim()) return;
+    setSavingMarca(true);
+    try {
+      const res = await fetch('/api/inventario/marcas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codigo: marcaForm.codigo.toUpperCase(),
+          nombre: marcaForm.nombre.trim(),
+          tipo: marcaForm.tipo || null,
+          subcategoria: marcaForm.subcategoria || null,
+          distribuidor_id: editing?.id || null,
+        }),
+      });
+      if (res.ok) {
+        const newMarca = await res.json();
+        setMarcasList(prev => [...prev, newMarca]);
+        const nuevaMarca = `${marcaForm.nombre.trim()}${marcaForm.tipo ? ' - ' + marcaForm.tipo : ''}`;
+        const actual = form.marcas_provistas.trim();
+        setForm({
+          ...form,
+          marcas_provistas: actual ? `${actual}, ${nuevaMarca}` : nuevaMarca,
+        });
+        setMarcaForm({ nombre: '', codigo: '', tipo: '', subcategoria: '' });
+        setShowAddMarca(false);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Error al crear marca');
+      }
+    } catch (err) {
+      console.error('Error creating marca:', err);
+    } finally {
+      setSavingMarca(false);
+    }
+  };
+
+  const selectedCategoria = categorias.find(c => c.nombre === marcaForm.tipo);
+  const subcategoriasDisponibles = selectedCategoria?.subcategorias || [];
 
   const filtered = items.filter(d =>
     !search ||
@@ -231,6 +297,92 @@ export default function DistribuidoresTab() {
                     placeholder="Ej: Colgate, Kin, 3M..."
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMarca(!showAddMarca)}
+                    className="mt-2 text-sm text-emerald-600 hover:text-emerald-800 flex items-center gap-1"
+                  >
+                    <i className={`fas ${showAddMarca ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+                    Agregar Marca
+                  </button>
+
+                  {showAddMarca && (
+                    <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Nombre <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={marcaForm.nombre}
+                            onChange={(e) => setMarcaForm({ ...marcaForm, nombre: e.target.value })}
+                            placeholder="Ej: Colgate"
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Código <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={marcaForm.codigo}
+                            onChange={(e) => setMarcaForm({ ...marcaForm, codigo: e.target.value.toUpperCase() })}
+                            placeholder="Ej: CLG"
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Categoría</label>
+                          <select
+                            value={marcaForm.tipo}
+                            onChange={(e) => setMarcaForm({ ...marcaForm, tipo: e.target.value, subcategoria: '' })}
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Sin categoría</option>
+                            {categorias.map(c => (
+                              <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {subcategoriasDisponibles.length > 0 && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Subcategoría</label>
+                            <select
+                              value={marcaForm.subcategoria}
+                              onChange={(e) => setMarcaForm({ ...marcaForm, subcategoria: e.target.value })}
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                            >
+                              <option value="">Sin subcategoría</option>
+                              {subcategoriasDisponibles.map(s => (
+                                <option key={s.id} value={s.nombre}>{s.nombre}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddMarca(false); setMarcaForm({ nombre: '', codigo: '', tipo: '', subcategoria: '' }); }}
+                          className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 dark:text-gray-400"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveMarcaFromDistribuidor}
+                          disabled={!marcaForm.nombre.trim() || !marcaForm.codigo.trim() || savingMarca}
+                          className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          {savingMarca ? 'Guardando...' : 'Crear y Agregar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Últimos items comprados</label>

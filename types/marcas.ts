@@ -3,6 +3,7 @@ export interface Marca {
   codigo: string;
   nombre: string;
   tipo: string | null;
+  subcategoria: string | null;
   distribuidor_id: string | null;
   created_at: string;
   updated_at: string;
