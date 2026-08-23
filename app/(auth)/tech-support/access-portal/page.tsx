@@ -37,7 +37,6 @@ export default function TechSupportAccessPortal() {
         { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-user-injured', color: 'blue' },
         { href: '/patient-form', label: 'Nueva Historia', icon: 'fas fa-user-plus', color: 'green' },
         { href: '/odontogram-pilot', label: 'Odontograma', icon: 'fas fa-teeth', color: 'purple' },
-        { href: '/odontogram-pilot', label: 'Odontograma Pilot', icon: 'fas fa-teeth-open', color: 'indigo' },
         { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth', color: 'indigo' },
         { href: '/xray-viewer', label: 'Visor Rayos X', icon: 'fas fa-x-ray', color: 'pink' },
         { href: '/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye', color: 'teal' },
