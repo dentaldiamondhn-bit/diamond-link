@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     // Get the ID from query parameters
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('id');
+    const idsParam = searchParams.get('ids');
 
     // Initialize Clerk Admin API
     const clerk = createClerkClient({
@@ -13,7 +14,35 @@ export async function GET(request: NextRequest) {
     });
 
     let userList;
-    
+
+    if (idsParam) {
+      const ids = idsParam.split(',').map((id) => id.trim()).filter(Boolean);
+      const results = await Promise.allSettled(
+        ids.map((id) => clerk.users.getUser(id))
+      );
+
+      const transformedUsers = results
+        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+        .map((userResult) => {
+          const user = userResult.value;
+          return {
+            id: user.id,
+            first_name: user.firstName || '',
+            last_name: user.lastName || '',
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            email: user.emailAddresses?.[0]?.emailAddress || '',
+            role: user.publicMetadata?.role || user.privateMetadata?.role || 'STAFF',
+            department: user.publicMetadata?.department || user.privateMetadata?.department || '',
+            profileImageUrl: user.imageUrl || null,
+            created_at: user.createdAt ? new Date(user.createdAt).toISOString() : new Date().toISOString(),
+            updated_at: user.updatedAt ? new Date(user.updatedAt).toISOString() : new Date().toISOString(),
+          };
+        });
+
+      console.log('Batch user fetch results:', transformedUsers.length, '/', ids.length);
+      return NextResponse.json(transformedUsers);
+    }
+
     if (userId) {
       // Fetch specific user by ID
       const user = await clerk.users.getUser(userId);

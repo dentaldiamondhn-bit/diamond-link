@@ -6,6 +6,7 @@ import './globals.css'
 import BannerAlert from '@/components/BannerAlert'
 import AdminOverrideTimer from '@/components/AdminOverrideTimer'
 import { AdminOverrideProvider } from '@/contexts/AdminOverrideContext'
+import { QueryProvider } from '@/contexts/QueryProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -109,7 +110,9 @@ export default function RootLayout({
         <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
           <AdminOverrideProvider>
             <BannerAlert />
-            {children}
+            <QueryProvider>
+              {children}
+            </QueryProvider>
             <AdminOverrideTimer />
             <Analytics />
             <VercelAnalytics />
