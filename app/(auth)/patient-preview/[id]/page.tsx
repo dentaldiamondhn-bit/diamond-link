@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 
 // Isolated component to prevent authentication conflicts
-const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string }> = React.memo(({ documents, patientId }) => {
+const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string, removable?: boolean, onRemove?: (index: number) => void }> = React.memo(({ documents, patientId, removable = false, onRemove }) => {
   const [mounted, setMounted] = useState(false);
   
   useEffect(() => {
@@ -63,7 +63,8 @@ const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string
     <DocumentDisplay 
       documents={documents} 
       patientId={patientId}
-      removable={false}
+      removable={removable}
+      onRemove={onRemove}
     />
   );
 });
@@ -92,7 +93,68 @@ export default function PatientPreviewPage() {
   const [odontogram, setOdontogram] = useState<Odontogram | null>(null);
   const [orthoVersions, setOrthoVersions] = useState<OrthodonticVersion[]>([]);
   const [orthoVersionsLoading, setOrthoVersionsLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<{ url: string; source: 'patient' | 'orthodontic'; name: string } | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
   const { bypassHistoricalMode, setBypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
+
+  const handleDeleteDocument = (docUrl: string, source: 'patient' | 'orthodontic') => {
+    if (!patient?.paciente_id) return;
+    const urlParts = docUrl.split('/');
+    const rawName = decodeURIComponent(urlParts[urlParts.length - 1] || 'documento');
+    const cleanName = rawName.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/, '').replace(/^[0-9]+_/, '');
+
+    setDocumentToDelete({ url: docUrl, source, name: cleanName });
+    setDeleteSuccess(false);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!documentToDelete || !patient?.paciente_id) return;
+    const { url: docUrl, source } = documentToDelete;
+
+    try {
+      if (source === 'patient') {
+        const documentos = patient.documentos || [];
+        const docIndex = documentos.indexOf(docUrl);
+        if (docIndex === -1) return;
+        const urlParts = docUrl.split('/');
+        const decodedFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+        const filePath = `${patient.paciente_id}/${decodedFileName}`;
+        const res = await fetch('/api/delete-document', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patientId: patient.paciente_id, filePath, documentIndex: docIndex, documents: documentos }),
+        });
+        if (res.ok) {
+          setPatient(prev => prev ? { ...prev, documentos: prev.documentos.filter((_, i) => i !== docIndex) } : prev);
+          setDeleteSuccess(true);
+        }
+      } else if (source === 'orthodontic') {
+        const latestVersion = orthoVersions[0];
+        if (!latestVersion) return;
+        const documentos = latestVersion.documentosOrtodoncia || [];
+        const docIndex = documentos.indexOf(docUrl);
+        if (docIndex === -1) return;
+        const urlParts = docUrl.split('/');
+        const decodedFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+        const filePath = `${patient.paciente_id}/${decodedFileName}`;
+        const res = await fetch('/api/delete-orthodontic-document', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patientId: patient.paciente_id, filePath, documentIndex: docIndex, documents: documentos }),
+        });
+        if (res.ok) {
+          setOrthoVersions(prev => prev.map((v, i) => i === 0 ? { ...v, documentosOrtodoncia: v.documentosOrtodoncia.filter((_: any, idx: number) => idx !== docIndex) } : v));
+          setDeleteSuccess(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      setShowDeleteModal(false);
+      setDocumentToDelete(null);
+    }
+  };
 
   // Function to load historical mode setting from Supabase
   const loadHistoricalModeSetting = async () => {
@@ -1482,6 +1544,8 @@ export default function PatientPreviewPage() {
               <IsolatedDocumentDisplay 
                 documents={patient.documentos} 
                 patientId={patient.paciente_id}
+                removable={true}
+                onRemove={(index) => handleDeleteDocument(patient.documentos[index], 'patient')}
               />
             </div>
           </div>
@@ -1740,7 +1804,12 @@ export default function PatientPreviewPage() {
                 {version.documentosOrtodoncia && version.documentosOrtodoncia.length > 0 && (
                   <div className="mt-6">
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Documentos Subidos</p>
-                    <IsolatedDocumentDisplay documents={version.documentosOrtodoncia} patientId={patient.paciente_id} />
+                    <IsolatedDocumentDisplay 
+                      documents={version.documentosOrtodoncia} 
+                      patientId={patient.paciente_id}
+                      removable={true}
+                      onRemove={(index) => handleDeleteDocument(version.documentosOrtodoncia[index], 'orthodontic')}
+                    />
                   </div>
                 )}
 
@@ -2107,6 +2176,101 @@ export default function PatientPreviewPage() {
         isOpen={showWarningModal}
         onClose={() => setShowWarningModal(false)}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && documentToDelete && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full sm:mx-0 sm:h-10 sm:w-10 ${deleteSuccess ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <i className={`fas ${deleteSuccess ? 'fa-check-circle text-green-600' : 'fa-exclamation-triangle text-red-600'}`}></i>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      {deleteSuccess ? 'Documento Eliminado' : 'Eliminar Documento'}
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        {deleteSuccess
+                          ? `El documento "${documentToDelete.name}" ha sido eliminado exitosamente.`
+                          : `¿Está seguro de que desea eliminar el documento "${documentToDelete.name}"? Esta acción no se puede deshacer.`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                {!deleteSuccess ? (
+                  <>
+                    <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm" onClick={async () => {
+                      if (!documentToDelete || !patient?.paciente_id) return;
+                      const { url: docUrl, source } = documentToDelete;
+
+                      try {
+                        if (source === 'patient') {
+                          const documentos = patient.documentos || [];
+                          const docIndex = documentos.indexOf(docUrl);
+                          if (docIndex === -1) return;
+                          const urlParts = docUrl.split('/');
+                          const decodedFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+                          const filePath = `${patient.paciente_id}/${decodedFileName}`;
+                          const res = await fetch('/api/delete-document', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ patientId: patient.paciente_id, filePath, documentIndex: docIndex, documents: documentos }),
+                          });
+                          if (res.ok) {
+                            setPatient(prev => prev ? { ...prev, documentos: prev.documentos.filter((_, i) => i !== docIndex) } : prev);
+                            setDeleteSuccess(true);
+                          }
+                        } else if (source === 'orthodontic') {
+                          const latestVersion = orthoVersions[0];
+                          if (!latestVersion) return;
+                          const documentos = latestVersion.documentosOrtodoncia || [];
+                          const docIndex = documentos.indexOf(docUrl);
+                          if (docIndex === -1) return;
+                          const urlParts = docUrl.split('/');
+                          const decodedFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+                          const filePath = `${patient.paciente_id}/${decodedFileName}`;
+                          const res = await fetch('/api/delete-orthodontic-document', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ patientId: patient.paciente_id, filePath, documentIndex: docIndex, documents: documentos }),
+                          });
+                          if (res.ok) {
+                            setOrthoVersions(prev => prev.map((v, i) => i === 0 ? { ...v, documentosOrtodoncia: v.documentosOrtodoncia.filter((_: any, idx: number) => idx !== docIndex) } : v));
+                            setDeleteSuccess(true);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error deleting document:', error);
+                        setShowDeleteModal(false);
+                        setDocumentToDelete(null);
+                      }
+                    }}>
+                      Eliminar
+                    </button>
+                    <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={() => { setShowDeleteModal(false); setDocumentToDelete(null); }}>
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-white hover:bg-green-700 sm:w-auto sm:text-sm" onClick={() => { setShowDeleteModal(false); setDocumentToDelete(null); setDeleteSuccess(false); }}>
+                    <i className="fas fa-check mr-2"></i>Eliminado Exitosamente
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

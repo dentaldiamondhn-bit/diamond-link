@@ -2532,7 +2532,7 @@ function PatientFormContent() {
           <label htmlFor="obs" className="block mb-1 font-medium mt-4">Observaciones Adicionales:</label>
           <input type="text" id="obs" name="obs" className="input" value={obs} onChange={(e) => setObs(e.target.value)} />
 
-          <label htmlFor="visitas_dentista" className="block mb-1 font-medium mt-4">Visitas al dentista (frecuencia):</label>
+          <label htmlFor="visitas_dentista" className="block mb-1 font-medium mt-4">Última visita al odontólogo:</label>
           <input type="text" id="visitas_dentista" name="visitas_dentista" className="input" />
 
           <label htmlFor="obsgen" className="block mb-1 font-medium mt-4">Observaciones generales:</label>

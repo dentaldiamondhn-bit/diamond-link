@@ -1630,7 +1630,7 @@ function PatientSearchModal({ isOpen, onClose, onSelectPatient }: {
 }
 
 // Isolated component to prevent authentication conflicts
-const IsolatedDocumentDisplay: React.FC<{ documents: string[], removable?: boolean }> = React.memo(({ documents, removable = false }) => {
+const IsolatedDocumentDisplay: React.FC<{ documents: string[], removable?: boolean, onRemove?: (index: number) => void }> = React.memo(({ documents, removable = false, onRemove }) => {
   const [mounted, setMounted] = useState(false);
   
   useEffect(() => {
@@ -1649,6 +1649,7 @@ const IsolatedDocumentDisplay: React.FC<{ documents: string[], removable?: boole
     <DocumentDisplay 
       documents={documents} 
       removable={removable}
+      onRemove={onRemove}
     />
   );
 });
@@ -1677,6 +1678,11 @@ function TicketDetailModal({
     ticket.assignees?.map(a => a.user).filter(Boolean) || []
   );
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [localAttachments, setLocalAttachments] = useState<CreateTicketAttachmentData[]>([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<{ index: number; name: string } | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
   const hasChanges = draftStatus !== ticket.status || comment.trim() !== '' || editingAssignees;
 
   const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1684,6 +1690,7 @@ function TicketDetailModal({
     if (!files || files.length === 0 || !user?.id) return;
 
     setUploadingAttachment(true);
+    setUploadMessage(null);
     try {
       const formData = new FormData();
       formData.append('ticketId', ticket.id);
@@ -1695,21 +1702,34 @@ function TicketDetailModal({
       });
       const result = await res.json();
 
-      if (result.uploadedUrls) {
-        for (const url of result.uploadedUrls) {
-          const fileName = decodeURIComponent(url.split('/').pop() || 'documento');
-          await TicketService.addAttachment(ticket.id, {
-            attachment_type: 'document',
-            attachment_id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            attachment_title: fileName,
-            attachment_description: 'Documento adjuntado',
-            file_url: url,
-          });
-        }
-        onUpdate();
+      if (!res.ok || !result.uploadedUrls || result.uploadedUrls.length === 0) {
+        setUploadMessage({ type: 'error', text: result.error || 'Error al subir documentos' });
+        return;
       }
+
+      const newAttachments: CreateTicketAttachmentData[] = [];
+      for (let i = 0; i < result.uploadedUrls.length; i++) {
+        const url = result.uploadedUrls[i];
+        const originalName = files[i]?.name || 'documento';
+        const attachmentData: CreateTicketAttachmentData = {
+          attachment_type: 'document',
+          attachment_id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          attachment_title: originalName,
+          attachment_description: 'Documento adjuntado',
+          file_url: url,
+        };
+        await TicketService.addAttachment(ticket.id, attachmentData);
+        newAttachments.push(attachmentData);
+      }
+
+      setLocalAttachments(prev => [...prev, ...newAttachments]);
+      setUploadMessage({ type: 'success', text: `${newAttachments.length} documento(s) subido(s) correctamente` });
+      setTimeout(() => setUploadMessage(null), 4000);
+      onUpdate();
     } catch (err) {
       console.error('Error uploading attachment:', err);
+      setUploadMessage({ type: 'error', text: 'Error al subir documentos' });
+      setTimeout(() => setUploadMessage(null), 4000);
     } finally {
       setUploadingAttachment(false);
       e.target.value = '';
@@ -1717,6 +1737,49 @@ function TicketDetailModal({
   };
 
   const canReassign = userRole === UserRole.ADMIN || userRole === UserRole.TECH_SUPPORT || ticket.creator_id === user?.id;
+
+  const allAttachments = [...(ticket.attachments || []), ...localAttachments.map((a, i) => ({
+    id: a.attachment_id || `local-${i}`,
+    ticket_id: ticket.id,
+    ...a,
+  }))];
+
+  const handleDeleteAttachment = async (attachmentIndex: number) => {
+    const attachment = allAttachments[attachmentIndex];
+    if (!attachment) return;
+
+    const docUrl = attachment.file_url || '';
+    const urlParts = docUrl.split('/');
+    const rawName = decodeURIComponent(urlParts[urlParts.length - 1] || 'documento');
+    const cleanName = rawName.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_/, '').replace(/^[0-9]+_/, '');
+
+    setDocumentToDelete({ index: attachmentIndex, name: attachment.attachment_title || cleanName });
+    setDeleteSuccess(false);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteAttachment = async () => {
+    if (!documentToDelete) return;
+    const attachmentIndex = documentToDelete.index;
+    const attachment = allAttachments[attachmentIndex];
+    if (!attachment) return;
+
+    const result = await TicketService.deleteAttachment(attachment.id, attachment.file_url);
+    if (result.success) {
+      if (attachmentIndex < (ticket.attachments?.length || 0)) {
+        setLocalAttachments(prev => [...prev]);
+      } else {
+        setLocalAttachments(prev => prev.filter((_, i) => i !== attachmentIndex - (ticket.attachments?.length || 0)));
+      }
+      setDeleteSuccess(true);
+      onUpdate();
+    } else {
+      setUploadMessage({ type: 'error', text: 'Error al eliminar: ' + (result.error || 'desconocido') });
+      setTimeout(() => setUploadMessage(null), 4000);
+      setShowDeleteModal(false);
+      setDocumentToDelete(null);
+    }
+  };
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -1823,10 +1886,10 @@ function TicketDetailModal({
               <div>
                 <h3 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
                   <Paperclip className="w-5 h-5 text-emerald-600" />
-                  Adjuntos {ticket.attachments && ticket.attachments.length > 0 ? `(${ticket.attachments.length})` : ''}
+                  Adjuntos {allAttachments.length > 0 ? `(${allAttachments.length})` : ''}
                 </h3>
                 <div className="space-y-3">
-                  {ticket.attachments && ticket.attachments.map((attachment) => (
+                  {allAttachments.map((attachment, attachmentIdx) => (
                       <div key={attachment.id} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -1856,7 +1919,8 @@ function TicketDetailModal({
                               <div className="mb-3">
                                 <IsolatedDocumentDisplay 
                                   documents={attachment.file_url ? [attachment.file_url] : []}
-                                  removable={false}
+                                  removable={true}
+                                  onRemove={() => handleDeleteAttachment(attachmentIdx)}
                                 />
                               </div>
                             )}
@@ -1895,6 +1959,14 @@ function TicketDetailModal({
                         </div>
                       </div>
                     ))}
+                  {uploadMessage && (
+                    <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${
+                      uploadMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      {uploadMessage.type === 'success' ? '✓' : '⚠'}
+                      {uploadMessage.text}
+                    </div>
+                  )}
                   {/* Upload button */}
                   <label className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border-2 border-dashed border-slate-300 dark:border-slate-500 rounded-xl p-4 cursor-pointer transition-all group">
                     <input
@@ -2181,6 +2253,80 @@ function TicketDetailModal({
           </button>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && documentToDelete && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full sm:mx-0 sm:h-10 sm:w-10 ${deleteSuccess ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <i className={`fas ${deleteSuccess ? 'fa-check-circle text-green-600' : 'fa-exclamation-triangle text-red-600'}`}></i>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      {deleteSuccess ? 'Documento Eliminado' : 'Eliminar Documento'}
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        {deleteSuccess
+                          ? `El documento "${documentToDelete.name}" ha sido eliminado exitosamente.`
+                          : `¿Está seguro de que desea eliminar el documento "${documentToDelete.name}"? Esta acción no se puede deshacer.`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                {!deleteSuccess ? (
+                  <>
+                    <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm" onClick={async () => {
+                      if (!documentToDelete) return;
+                      const idx = documentToDelete.index;
+                      const currentAll = [...(ticket.attachments || []), ...localAttachments.map((a, i) => ({ id: a.attachment_id || `local-${i}`, ticket_id: ticket.id, ...a }))];
+                      const attachment = currentAll[idx];
+                      if (!attachment) return;
+
+                      const result = await TicketService.deleteAttachment(attachment.id, attachment.file_url);
+                      if (result.success) {
+                        if (idx < (ticket.attachments?.length || 0)) {
+                          const updatedAttachments = (ticket.attachments || []).filter((_: any, i: number) => i !== idx);
+                          ticket.attachments = updatedAttachments;
+                        } else {
+                          const localIdx = idx - (ticket.attachments?.length || 0);
+                          setLocalAttachments(prev => prev.filter((_, i) => i !== localIdx));
+                        }
+                        setDeleteSuccess(true);
+                        onUpdate();
+                      } else {
+                        setUploadMessage({ type: 'error', text: 'Error al eliminar: ' + (result.error || 'desconocido') });
+                        setTimeout(() => setUploadMessage(null), 4000);
+                        setShowDeleteModal(false);
+                        setDocumentToDelete(null);
+                      }
+                    }}>
+                      Eliminar
+                    </button>
+                    <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={() => { setShowDeleteModal(false); setDocumentToDelete(null); }}>
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-white hover:bg-green-700 sm:w-auto sm:text-sm" onClick={() => { setShowDeleteModal(false); setDocumentToDelete(null); setDeleteSuccess(false); }}>
+                    Eliminado Exitosamente
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

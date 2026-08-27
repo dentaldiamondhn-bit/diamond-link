@@ -809,4 +809,37 @@ export class TicketService {
       return { data: null, error };
     }
   }
+
+  static async deleteAttachment(attachmentId: string, fileUrl?: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase
+        .from('ticket_attachments')
+        .delete()
+        .eq('id', attachmentId);
+
+      if (error) {
+        console.error('Error deleting attachment from DB:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (fileUrl) {
+        try {
+          const urlParts = new URL(fileUrl);
+          const pathParts = urlParts.pathname.split('/');
+          const bucketIndex = pathParts.indexOf('ticket-documents');
+          if (bucketIndex !== -1) {
+            const filePath = pathParts.slice(bucketIndex + 1).join('/');
+            await supabase.storage.from('ticket-documents').remove([filePath]);
+          }
+        } catch (storageError) {
+          console.warn('Could not delete file from storage:', storageError);
+        }
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  }
 }

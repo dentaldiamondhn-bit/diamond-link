@@ -56,6 +56,9 @@ function DocumentsPageContent() {
   const [filter, setFilter] = useState<'all' | 'patient' | 'orthodontic' | 'signature' | 'dental-study'>('all');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<DocumentItem | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Get and validate patient ID
@@ -270,6 +273,76 @@ function DocumentsPageContent() {
 
   const closePreview = () => {
     setPreviewIndex(null);
+  };
+
+  const handleDeleteDocument = async (doc: DocumentItem) => {
+    if (!patient?.paciente_id) return;
+    setDocumentToDelete(doc);
+    setDeleteSuccess(false);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!documentToDelete || !patient?.paciente_id) return;
+    const doc = documentToDelete;
+
+    try {
+      if (doc.source === 'patient') {
+        const documentos = patient.documentos || [];
+        const docIndex = documentos.indexOf(doc.url);
+        if (docIndex === -1) return;
+
+        const urlParts = doc.url.split('/');
+        const decodedFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+        const filePath = `${patient.paciente_id}/${decodedFileName}`;
+
+        const res = await fetch('/api/delete-document', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientId: patient.paciente_id,
+            filePath,
+            documentIndex: docIndex,
+            documents: documentos,
+          }),
+        });
+
+        if (res.ok) {
+          setPatient(prev => prev ? { ...prev, documentos: prev.documentos.filter((_, i) => i !== docIndex) } : prev);
+          setDeleteSuccess(true);
+        }
+      } else if (doc.source === 'orthodontic' && orthodonticData) {
+        const documentos = orthodonticData.documentos_ortodoncia || [];
+        const docIndex = documentos.indexOf(doc.url);
+        if (docIndex === -1) return;
+
+        const urlParts = doc.url.split('/');
+        const decodedFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+        const filePath = `${patient.paciente_id}/${decodedFileName}`;
+
+        const res = await fetch('/api/delete-orthodontic-document', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientId: patient.paciente_id,
+            filePath,
+            documentIndex: docIndex,
+            documents: documentos,
+          }),
+        });
+
+        if (res.ok) {
+          setOrthodonticData((prev: any) => prev ? { ...prev, documentos_ortodoncia: prev.documentos_ortodoncia.filter((_: any, i: number) => i !== docIndex) } : prev);
+          setDeleteSuccess(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      setUploadMessage({ type: 'warning', text: 'Error al eliminar documento' });
+      setTimeout(() => setUploadMessage(null), 3000);
+      setShowDeleteModal(false);
+      setDocumentToDelete(null);
+    }
   };
 
   const handleQuickUpload = async () => {
@@ -580,13 +653,23 @@ function DocumentsPageContent() {
                     >
                       Ver
                     </button>
-                    <a
-                      href={doc.url}
-                      download={doc.fileName}
-                      className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 text-sm"
-                    >
-                      Descargar
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={doc.url}
+                        download={doc.fileName}
+                        className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 text-sm"
+                      >
+                        Descargar
+                      </a>
+                      {(doc.source === 'patient' || doc.source === 'orthodontic') && (
+                        <button
+                          onClick={() => handleDeleteDocument(doc)}
+                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
+                        >
+                          Borrar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -602,6 +685,109 @@ function DocumentsPageContent() {
           initialIndex={previewIndex}
           onClose={closePreview}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && documentToDelete && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full sm:mx-0 sm:h-10 sm:w-10 ${deleteSuccess ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <i className={`fas ${deleteSuccess ? 'fa-check-circle text-green-600' : 'fa-exclamation-triangle text-red-600'}`}></i>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                      {deleteSuccess ? 'Documento Eliminado' : 'Eliminar Documento'}
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {deleteSuccess
+                          ? `El documento "${documentToDelete.fileName}" ha sido eliminado exitosamente.`
+                          : `¿Está seguro de que desea eliminar el documento "${documentToDelete.fileName}"? Esta acción no se puede deshacer.`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                {!deleteSuccess ? (
+                  <>
+                    <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm" onClick={async () => {
+                      if (!documentToDelete || !patient?.paciente_id) return;
+                      const doc = documentToDelete;
+
+                      try {
+                        if (doc.source === 'patient') {
+                          const documentos = patient.documentos || [];
+                          const docIndex = documentos.indexOf(doc.url);
+                          if (docIndex === -1) return;
+
+                          const urlParts = doc.url.split('/');
+                          const decodedFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+                          const filePath = `${patient.paciente_id}/${decodedFileName}`;
+
+                          const res = await fetch('/api/delete-document', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ patientId: patient.paciente_id, filePath, documentIndex: docIndex, documents: documentos }),
+                          });
+
+                          if (res.ok) {
+                            setPatient(prev => prev ? { ...prev, documentos: prev.documentos.filter((_, i) => i !== docIndex) } : prev);
+                            setDeleteSuccess(true);
+                          } else {
+                            const result = await res.json();
+                            alert('Error: ' + (result.error || 'desconocido'));
+                          }
+                        } else if (doc.source === 'orthodontic' && orthodonticData) {
+                          const documentos = orthodonticData.documentos_ortodoncia || [];
+                          const docIndex = documentos.indexOf(doc.url);
+                          if (docIndex === -1) return;
+
+                          const urlParts = doc.url.split('/');
+                          const decodedFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+                          const filePath = `${patient.paciente_id}/${decodedFileName}`;
+
+                          const res = await fetch('/api/delete-orthodontic-document', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ patientId: patient.paciente_id, filePath, documentIndex: docIndex, documents: documentos }),
+                          });
+
+                          if (res.ok) {
+                            setOrthodonticData(prev => prev ? { ...prev, documentos_ortodoncia: prev.documentos_ortodoncia.filter((_, i) => i !== docIndex) } : prev);
+                            setDeleteSuccess(true);
+                          } else {
+                            const result = await res.json();
+                            alert('Error: ' + (result.error || 'desconocido'));
+                          }
+                        }
+                      } catch (error) {
+                        alert('Error al eliminar el documento');
+                      }
+                    }}>
+                      Eliminar
+                    </button>
+                    <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={() => { setShowDeleteModal(false); setDocumentToDelete(null); }}>
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-white hover:bg-green-700 sm:w-auto sm:text-sm" onClick={() => { setShowDeleteModal(false); setDocumentToDelete(null); setDeleteSuccess(false); }}>
+                    <i className="fas fa-check mr-2"></i>Eliminado Exitosamente
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

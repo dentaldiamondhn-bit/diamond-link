@@ -276,7 +276,9 @@ export class ChatService {
         sender_id: userId,
         content: data.content || 'Sin contenido',
         message_type: data.message_type || 'text',
-        reply_to_id: data.reply_to_id
+        reply_to_id: data.reply_to_id,
+        voice_note_url: data.voice_note_url,
+        voice_note_duration: data.voice_note_duration,
       })
       .select()
       .single();
@@ -391,13 +393,19 @@ export class ChatService {
       throw new Error('Message not found');
     }
 
-    const reactions = message.reactions || [];
-    const existingIndex = reactions.findIndex((r: any) => r.user_id === userId && r.emoji === emoji);
+    // Initialize reactions object if null or not an object
+    const reactions = message.reactions && typeof message.reactions === 'object' && !Array.isArray(message.reactions)
+      ? message.reactions
+      : {};
+
+    // Initialize array for this emoji if not exists
+    if (!reactions[emoji]) {
+      reactions[emoji] = [];
+    }
     
-    if (existingIndex >= 0) {
-      reactions.splice(existingIndex, 1);
-    } else {
-      reactions.push({ emoji, user_id: userId, created_at: new Date().toISOString() });
+    // Add userId if not already present
+    if (!reactions[emoji].includes(userId)) {
+      reactions[emoji].push(userId);
     }
 
     const { error } = await supabase
@@ -406,6 +414,42 @@ export class ChatService {
       .eq('id', messageId);
 
     if (error) throw error;
+    return { success: true };
+  }
+
+  static async removeReaction(messageId: string, userId: string, emoji: string) {
+    const { data: message } = await supabase
+      .from('chat_messages')
+      .select('reactions')
+      .eq('id', messageId)
+      .single();
+
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    // Initialize reactions object if null or not an object
+    const reactions = message.reactions && typeof message.reactions === 'object' && !Array.isArray(message.reactions)
+      ? message.reactions
+      : {};
+
+    // If the emoji exists in reactions, remove the userId
+    if (reactions[emoji]) {
+      reactions[emoji] = reactions[emoji].filter(id => id !== userId);
+      
+      // If the array becomes empty, remove the emoji key
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
+
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ reactions, updated_at: new Date().toISOString() })
+        .eq('id', messageId);
+
+      if (error) throw error;
+    }
+    // If emoji doesn't exist, nothing to remove
     return { success: true };
   }
 

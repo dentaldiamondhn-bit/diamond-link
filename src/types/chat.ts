@@ -10,6 +10,7 @@ export enum ChatMessageType {
   TEXT = 'text',
   FILE = 'file',
   IMAGE = 'image',
+  VOICE = 'voice',
   PATIENT_CASE = 'patient_case',
   SYSTEM = 'system'
 }
@@ -77,6 +78,9 @@ export interface ChatMessage {
   reactions: MessageReaction[];
   created_at: string;
   updated_at: string;
+  // Voice note fields
+  voice_note_url?: string;
+  voice_note_duration?: number; // in seconds
   
   // Relations
   sender?: ChatUser;

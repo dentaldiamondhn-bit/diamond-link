@@ -161,7 +161,7 @@ class ConsentimientoService {
   async uploadSignature(file: File, consentimientoId: string, type: 'paciente' | 'doctor'): Promise<string> {
     try {
       // Import the server action
-      const { uploadSignatureAction } = await import('../app/actions/uploadSignature');
+      const { uploadSignatureAction } = await import('@/app/actions/uploadSignature');
 
       // Convert File to base64 string
       const base64String = await new Promise((resolve, reject) => {

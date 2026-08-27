@@ -190,7 +190,7 @@ export function DocumentDisplay({ documents, onRemove, removable = false, patien
 
   return (
     <>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {documents.map((docUrl, index) => {
         const fileName = getFileName(docUrl);
         const fileType = getFileType(fileName);
@@ -264,24 +264,24 @@ export function DocumentDisplay({ documents, onRemove, removable = false, patien
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between space-x-2">
+              <div className="flex items-center gap-2 mt-2">
                 <button
                   type="button"
                   onClick={() => setPreviewIndex(index)}
-                  className="flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-all duration-200 hover:scale-105"
+                  className="flex-1 min-w-0 inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-all duration-200"
                 >
-                  <div className="w-5 h-5 mr-1 flex items-center justify-center">
+                  <div className="w-4 h-4 mr-1 flex-shrink-0 flex items-center justify-center">
                     <AnimatedVer />
                   </div>
-                  Ver
+                  <span className="truncate">Ver</span>
                 </button>
                 
-                {removable && patientId && (
+                {removable && (patientId || onRemove) && (
                   <button
                     type="button"
                     onClick={() => deleteDocument(index)}
                     disabled={deletingIndex === index}
-                    className={`flex-1 inline-flex items-center justify-center px-3 py-2 text-xs font-medium border rounded-md transition-all duration-200 hover:scale-105 ${
+                    className={`flex-1 min-w-0 inline-flex items-center justify-center px-3 py-2 text-xs font-medium border rounded-md transition-all duration-200 ${
                       deletingIndex === index
                         ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                         : 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100'
@@ -289,15 +289,15 @@ export function DocumentDisplay({ documents, onRemove, removable = false, patien
                   >
                     {deletingIndex === index ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-1"></div>
-                        Borrando...
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-1 flex-shrink-0"></div>
+                        <span className="truncate">Borrando...</span>
                       </>
                     ) : (
                       <>
-                        <div className="w-4 h-4 mr-1 flex items-center justify-center">
+                        <div className="w-4 h-4 mr-1 flex-shrink-0 flex items-center justify-center">
                           <AnimatedRubish />
                         </div>
-                        Borrar
+                        <span className="truncate">Borrar</span>
                       </>
                     )}
                   </button>

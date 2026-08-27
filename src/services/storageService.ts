@@ -144,6 +144,11 @@ export class StorageService {
     }
   }
 
+  static sanitizeFileName(name: string): string {
+    const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return normalized.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  }
+
   static async uploadDocuments(
     files: File[], 
     patientId: string
@@ -162,7 +167,8 @@ export class StorageService {
         // Generate unique filename
         const timestamp = new Date().getTime();
         const fileExtension = file.name.split('.').pop();
-        const fileName = `${patientId}_${timestamp}_${file.name}`;
+        const sanitizedName = StorageService.sanitizeFileName(file.name);
+        const fileName = `${patientId}_${timestamp}_${sanitizedName}`;
         
         // Detect MIME type if file.type is generic
         let mimeType = file.type;
@@ -288,7 +294,8 @@ export class StorageService {
         // Generate unique filename
         const timestamp = new Date().getTime();
         const fileExtension = file.name.split('.').pop();
-        const fileName = `${patientId}_${timestamp}_${file.name}`;
+        const sanitizedName = StorageService.sanitizeFileName(file.name);
+        const fileName = `${patientId}_${timestamp}_${sanitizedName}`;
         
         // Detect MIME type if file.type is generic
         let mimeType = file.type;
@@ -352,12 +359,8 @@ export class StorageService {
           fileExtension
         });
         
-        // Upload to Supabase storage using admin client to bypass RLS
-        // Use original file with corrected MIME type
+        // Upload to Supabase storage
         try {
-          console.log('Uploading file with MIME type:', mimeType);
-          
-          // Create a Blob with correct MIME type to force it
           const fileBlob = new Blob([file], { type: mimeType });
           
           const { data, error } = await supabaseAdmin.storage
@@ -446,7 +449,8 @@ export class StorageService {
         // Generate unique filename
         const timestamp = new Date().getTime();
         const fileExtension = file.name.split('.').pop();
-        const fileName = `${ticketId}_${timestamp}_${file.name}`;
+        const sanitizedName = StorageService.sanitizeFileName(file.name);
+        const fileName = `${ticketId}_${timestamp}_${sanitizedName}`;
         
         // Detect MIME type
         let mimeType = file.type;

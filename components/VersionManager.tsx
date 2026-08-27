@@ -91,6 +91,7 @@ const VersionManager: React.FC<VersionManagerProps> = ({
   const [saveError, setSaveError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
 
   // The "Actual" version is the one with the highest version number,
   // matching the badge logic used in the Timeline
@@ -175,6 +176,7 @@ const VersionManager: React.FC<VersionManagerProps> = ({
     if (!files || files.length === 0) return;
 
     setUploadError('');
+    setUploadSuccess('');
     setUploading(true);
     try {
       const formData = new FormData();
@@ -195,6 +197,8 @@ const VersionManager: React.FC<VersionManagerProps> = ({
 
       if (result.allDocuments) {
         setTemplate((prev) => ({ ...prev, documentosOrtodoncia: result.allDocuments }));
+        setUploadSuccess(`${files.length} documento(s) subido(s) correctamente`);
+        setTimeout(() => setUploadSuccess(''), 4000);
       }
     } catch (error) {
       console.error('Document upload error:', error);
@@ -543,6 +547,12 @@ const VersionManager: React.FC<VersionManagerProps> = ({
                       )}
                       {uploadError && (
                         <p className="mt-2 text-sm text-red-600 dark:text-red-400">{uploadError}</p>
+                      )}
+                      {uploadSuccess && (
+                        <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          {uploadSuccess}
+                        </p>
                       )}
                     </div>
 

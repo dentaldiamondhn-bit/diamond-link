@@ -101,6 +101,7 @@ export default function InventarioPage() {
     activo: true,
   });
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadMessage, setImageUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Filters for movimientos
   const [movFilterTipo, setMovFilterTipo] = useState<string>('');
@@ -383,6 +384,7 @@ export default function InventarioPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingImage(true);
+    setImageUploadMessage(null);
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -394,13 +396,15 @@ export default function InventarioPage() {
         } else {
           setNuevoItemForm(prev => ({ ...prev, imagen_url: url }));
         }
+        setImageUploadMessage({ type: 'success', text: 'Imagen subida correctamente' });
+        setTimeout(() => setImageUploadMessage(null), 4000);
       } else {
         const err = await res.json();
-        alert('Error al subir imagen: ' + (err.error || 'desconocido'));
+        setImageUploadMessage({ type: 'error', text: 'Error al subir imagen: ' + (err.error || 'desconocido') });
       }
     } catch (err) {
       console.error('Error uploading image:', err);
-      alert('Error al subir imagen');
+      setImageUploadMessage({ type: 'error', text: 'Error al subir imagen' });
     } finally {
       setUploadingImage(false);
     }
@@ -1039,6 +1043,20 @@ export default function InventarioPage() {
                       </span>
                     )}
                   </div>
+                  {imageUploadMessage && (
+                    <div className={`mt-2 p-2 rounded-lg text-xs flex items-center gap-2 ${
+                      imageUploadMessage.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      {imageUploadMessage.type === 'success' ? (
+                        <i className="fas fa-check-circle"></i>
+                      ) : (
+                        <i className="fas fa-exclamation-circle"></i>
+                      )}
+                      {imageUploadMessage.text}
+                    </div>
+                  )}
                   {editForm.imagen_url && (
                     <div className="mt-2">
                       <img
@@ -1400,6 +1418,20 @@ export default function InventarioPage() {
                       </span>
                     )}
                   </div>
+                  {imageUploadMessage && (
+                    <div className={`mt-2 p-2 rounded-lg text-xs flex items-center gap-2 ${
+                      imageUploadMessage.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      {imageUploadMessage.type === 'success' ? (
+                        <i className="fas fa-check-circle"></i>
+                      ) : (
+                        <i className="fas fa-exclamation-circle"></i>
+                      )}
+                      {imageUploadMessage.text}
+                    </div>
+                  )}
                   {nuevoItemForm.imagen_url && (
                     <div className="mt-2">
                       <img
