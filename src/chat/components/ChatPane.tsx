@@ -1,147 +1,150 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useChatStore } from '@/chat/store/chatStore';
+import { ChatRepository } from '@/chat/repository';
+import { useVoiceRecorder } from '@/chat/hooks/useVoiceRecorder';
+import { ChatMessageType } from '@/types/chat';
+import type { FileAttachmentData } from '@/types/chat';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import Composer from './Composer';
-import { useChatRealtime } from '@/chat/hooks/useChatRealtime';
-import { useVoiceRecorder } from '@/chat/hooks/useVoiceRecorder';
-import { ChatRepository } from '@/chat/repository';
 
-export const ChatPane = () => {
+interface ChatPaneProps {
+  className?: string;
+  sendTyping: (conversationId: string, isTyping: boolean) => void;
+}
+
+export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
   const {
     selectedConversationId,
-    messages: storeMessages,
-    users,
+    messages,
+    currentUserId,
+    setMessages,
+    addMessage,
     setLoading,
     setError,
-    setMessages, // Action to set messages for a conversation
+    markConversationRead,
   } = useChatStore();
-  const [scrollToBottom, setScrollToBottom] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { sendPresence } = useChatRealtime(selectedConversationId);
+
+  const endRef = useRef<HTMLDivElement>(null);
+  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+  const conversationRef = useRef<string | null>(null);
+  conversationRef.current = selectedConversationId;
+
   const { isRecording, audioBlob, audioUrl, duration, startRecording, stopRecording, reset } =
     useVoiceRecorder();
 
-  // Fetch messages when conversation changes
+  const selectedMessages = selectedConversationId ? messages[selectedConversationId] || [] : [];
+
+  // Load messages when conversation changes and scroll to bottom
   useEffect(() => {
-    if (!selectedConversationId) return;
-    const loadMessages = async () => {
+    if (!selectedConversationId || !currentUserId) return;
+    const convId = selectedConversationId;
+    let cancelled = false;
+
+    const load = async () => {
       try {
         setLoading(true);
-        const messages = await ChatRepository.getMessages(selectedConversationId);
-        // Update the store with the messages for this conversation
-        setMessages(selectedConversationId, messages);
-        // Scroll to bottom
-        setScrollToBottom(true);
+        const msgs = await ChatRepository.getMessages(currentUserId, convId);
+        if (!cancelled) setMessages(convId, msgs);
       } catch (err) {
         console.error('Failed to load messages:', err);
-        setError('Failed to load messages');
+        if (!cancelled) setError('No se pudieron cargar los mensajes');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    loadMessages();
-  }, [selectedConversationId, setLoading, setMessages, scrollToBottom]);
+    load();
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (scrollToBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      setScrollToBottom(false);
-    }
-  }, [scrollToBottom, storeMessages]);
-
-  // Update presence when component mounts/unmounts
-  useEffect(() => {
-    if (!selectedConversationId) return;
-    sendPresence('online');
     return () => {
-      sendPresence('offline');
+      cancelled = true;
     };
-  }, [selectedConversationId, sendPresence]);
+  }, [selectedConversationId, currentUserId, setMessages, setLoading, setError]);
 
-  // Handle typing indicators
+  // Scroll to latest when the message list grows / conversation changes
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [selectedConversationId, selectedMessages.length]);
+
+  // Clear "typing" flag once the user leaves the conversation or unmounts
+  useEffect(() => {
+    return () => {
+      const convId = conversationRef.current;
+      if (convId) sendTyping(convId, false);
+      if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    };
+  }, [sendTyping]);
+
   const handleTyping = useCallback(() => {
-    if (!selectedConversationId) return;
-    
-    ChatRepository.setTyping(selectedConversationId, true).catch(console.error);
-    
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    typingTimeoutRef.current = setTimeout(() => {
-      ChatRepository.setTyping(selectedConversationId, false).catch(console.error);
-    }, 1000);
-  }, [selectedConversationId]);
-  
-  // Clear timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
+    const convId = conversationRef.current;
+    if (!convId) return;
+    sendTyping(convId, true);
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => {
+      sendTyping(convId, false);
+    }, 1500);
+  }, [sendTyping]);
 
-  // Handle sending a message (text or voice)
-  const handleSendMessage = async (content: string, attachments: any[]) => {
-    if (!selectedConversationId) return;
-    try {
-      setLoading(true);
-      const messageData: any = {
-        conversation_id: selectedConversationId,
-        content,
-        message_type: attachments.length > 0 ? (attachments[0].type === 'voice' ? 'VOICE' : 'FILE') : 'TEXT',
-        attachments,
-      };
-
-      if (attachments.some((a) => a.type === 'voice')) {
-        const voiceAttachment = attachments.find((a) => a.type === 'voice');
-        messageData.voice_note_url = voiceAttachment.url;
-        messageData.voice_note_duration = voiceAttachment.duration;
+  const handleSend = useCallback(
+    async (content: string, attachments: FileAttachmentData[]) => {
+      const convId = conversationRef.current;
+      if (!currentUserId || !convId) return;
+      if (typingTimeout.current) {
+        clearTimeout(typingTimeout.current);
+        sendTyping(convId, false);
       }
 
-      await ChatRepository.sendMessage(messageData);
-      if (isRecording) {
-        await stopRecording();
-        reset();
+      let message_type = ChatMessageType.TEXT;
+      if (attachments.length > 0) {
+        message_type = attachments.every((a) => a.file_type.startsWith('image/'))
+          ? ChatMessageType.IMAGE
+          : ChatMessageType.FILE;
       }
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      setError('Failed to send message');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Handle voice recording toggle
-  const handleVoiceToggle = async () => {
+      try {
+        const message = await ChatRepository.sendMessage(currentUserId, {
+          conversation_id: convId,
+          content,
+          message_type,
+          attachments: attachments.length > 0 ? attachments : undefined,
+        });
+        if (message) addMessage(message, currentUserId, convId);
+      } catch (err) {
+        console.error('Failed to send message:', err);
+        setError('No se pudo enviar el mensaje');
+      }
+    },
+    [currentUserId, addMessage, sendTyping, setError]
+  );
+
+  const handleVoiceToggle = useCallback(async () => {
+    if (!currentUserId) return;
     if (isRecording) {
       await stopRecording();
       if (audioBlob && audioUrl) {
-        const fileName = `voice-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}.webm`;
+        const fileName = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.webm`;
         try {
           const url = await ChatRepository.uploadVoiceNote(audioBlob, fileName);
-          await handleSendMessage('', [
-            {
-              type: 'voice',
-              url,
-              name: 'voice_note.webm',
-              duration,
-            },
-          ]);
+          const convId = conversationRef.current;
+          if (convId) {
+            const message = await ChatRepository.sendMessage(currentUserId, {
+              conversation_id: convId,
+              content: '',
+              message_type: ChatMessageType.VOICE,
+              voice_note_url: url,
+              voice_note_duration: Math.max(1, Math.round(duration)),
+            });
+            if (message) addMessage(message, currentUserId, convId);
+          }
         } catch (err) {
           console.error('Failed to upload voice note:', err);
-          setError('Failed to upload voice note');
+          setError('No se pudo subir la nota de voz');
         } finally {
           reset();
         }
+      } else {
+        reset();
       }
     } else {
       try {
@@ -150,24 +153,40 @@ export const ChatPane = () => {
         console.warn('Microphone access denied:', err);
       }
     }
-  };
+  }, [
+    isRecording,
+    audioBlob,
+    audioUrl,
+    duration,
+    currentUserId,
+    stopRecording,
+    reset,
+    startRecording,
+    handleSend,
+    addMessage,
+    setError,
+  ]);
+
+  useEffect(() => {
+    if (selectedConversationId) markConversationRead(selectedConversationId);
+  }, [selectedMessages.length, selectedConversationId, markConversationRead]);
 
   return (
-    <div className="chat-pane flex h-full flex-col overflow-hidden bg-gray-50 dark:bg-gray-800">
-      <ChatHeader conversationId={selectedConversationId} className="border-b border-gray-200 dark:border-gray-700" />
-      <div className="flex-1 overflow-hidden">
-        <div className="relative flex-1 w-full overflow-y-auto p-4 space-y-4">
-          <MessageList messages={storeMessages[selectedConversationId] || []} />
-          <div ref={messagesEndRef} />
-        </div>
+    <div
+      className={`flex h-full flex-1 min-w-0 flex-col overflow-hidden bg-gray-50 dark:bg-gray-800 ${className}`}
+    >
+      <ChatHeader conversationId={selectedConversationId} />
+      <div className="flex-1 overflow-y-auto p-4">
+        <MessageList messages={selectedMessages} />
+        <div ref={endRef} />
       </div>
       <Composer
-        onSend={handleSendMessage}
+        conversationId={selectedConversationId}
+        onSend={handleSend}
+        onTyping={handleTyping}
         onVoiceToggle={handleVoiceToggle}
         isRecording={isRecording}
-        audioUrl={audioUrl}
         duration={duration}
-        className="border-t border-gray-200 dark:border-gray-700"
       />
     </div>
   );

@@ -22,7 +22,6 @@ import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCo
 import AnimatedFolder from '@/components/AnimatedFolder';
 import AnimatedUsers from '@/components/AnimatedUsers';
 import { usePathname } from 'next/navigation';
-import { useNotificationListener } from '@/hooks/useNotificationListener';
 import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
 import { SupportWidget } from '@/components/support/SupportWidget';
 
@@ -140,7 +139,7 @@ export default function AuthLayout({
         <UnifiedSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       </div>
                   {/* Main Content */}
-                  <div className="flex-1 xl:ml-0 overflow-auto flex flex-col print:overflow-visible print:h-auto">
+                  <div className="flex-1 xl:ml-0 min-h-0 overflow-auto flex flex-col print:overflow-visible print:h-auto">
                     {/* Header with User Info */}
                     <header className={`transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'} bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 py-3 print:hidden`}>
                     <div className="flex items-center justify-between">
@@ -399,7 +398,7 @@ export default function AuthLayout({
                   </header>
                   
                    {/* Page Content */}
-                   <div className="flex-1 overflow-auto print:overflow-visible print:h-auto">
+                   <div className="flex-1 min-h-0 overflow-auto print:overflow-visible print:h-auto">
                      <ErrorBoundary>
                        {children}
                      </ErrorBoundary>

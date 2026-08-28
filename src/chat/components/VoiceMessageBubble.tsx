@@ -18,10 +18,10 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
 
   // Load audio and generate waveform data
   useEffect(() => {
-    if (!message.voiceNoteUrl) return;
+    if (!message.voice_note_url) return;
 
     // Fetch the audio blob
-    fetch(message.voiceNoteUrl)
+    fetch(message.voice_note_url)
       .then(response => response.arrayBuffer())
       .then(arrayBuffer => {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -58,7 +58,13 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
       .catch(err => {
         console.error('Failed to load audio for waveform:', err);
       });
-  }, [message.voiceNoteUrl]);
+
+    const audio = audioRef.current;
+    if (audio) {
+      audio.src = message.voice_note_url ?? '';
+      audio.load();
+    }
+  }, [message.voice_note_url]);
 
   // Handle audio playback
   useEffect(() => {

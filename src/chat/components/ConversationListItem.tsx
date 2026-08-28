@@ -1,10 +1,17 @@
 'use client';
 
-import React from 'react';
-import { ChatConversation } from '@/types/chat';
+import React, { useMemo } from 'react';
+import { Pin, Archive } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
-import { Circle, Pin, Archive } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { ChatConversation } from '@/types/chat';
+import { useTranslations } from '@/chat/i18n/useTranslations';
+import {
+  getConversationDisplayName,
+  getConversationAvatar,
+  getInitials,
+  getAvatarColor,
+  formatConversationTime,
+} from '@/chat/utils';
 
 interface ConversationListItemProps {
   conversation: ChatConversation;
@@ -17,105 +24,100 @@ export const ConversationListItem = ({
   selected,
   onSelect,
 }: ConversationListItemProps) => {
-  const { users } = useChatStore();
+  const { t } = useTranslations();
+  const { users, presence, typing, currentUserId } = useChatStore();
 
-  // Determine display name and avatar
-  const participantIds = conversation.participantIds || [];
-  const currentUserId = users?.[Object.keys(users || {})[0]]?.id ?? '';
-  const otherParticipantId = participantIds.find((id) => id !== currentUserId);
-  const otherUser = users[otherParticipantId || ''];
+  const name = getConversationDisplayName(conversation, currentUserId, users);
+  const avatarUrl = getConversationAvatar(conversation, currentUserId, users);
 
-  const name =
-    conversation.participantNames?.[otherParticipantId || ''] ||
-    otherUser?.first_name +
-      ' ' +
-      otherUser?.last_name ||
-    'Unknown User';
-  const avatarUrl =
-    conversation.participantAvatars?.[otherParticipantId || ''] ||
-    otherUser?.profile_image_url ||
-    '/default-avatar.svg';
+  const isTyping = useMemo(() => {
+    const convTyping = typing[conversation.id] || {};
+    return Object.values(convTyping).some(Boolean);
+  }, [typing, conversation.id]);
 
-  const lastMessage = conversation.lastMessage;
-  const lastMessageText =
-    lastMessage && lastMessage.content
-      ? lastMessage.content.length > 30
-        ? lastMessage.content.slice(0, 30) + '...'
-        : lastMessage.content
-      : '';
+  const lastMessage = conversation.last_message;
+  const lastMessageText = useMemo(() => {
+    if (!lastMessage) return '';
+    if (lastMessage.is_deleted) return '';
+    switch (lastMessage.message_type) {
+      case 'voice':
+        return t('voiceMessage');
+      case 'image':
+        return t('imageMessage');
+      case 'file':
+        return t('fileMessage');
+      case 'patient_case':
+        return t('patientCase');
+      default:
+        return lastMessage.content || '';
+    }
+  }, [lastMessage, t]);
 
-  // Determine last message sender name for group conversations (optional)
-  const lastMessageSenderName =
-    lastMessage && lastMessage.senderId !== currentUserId
-      ? users[lastMessage.senderId]?.name
-      : undefined;
+  const onlineCount = useMemo(() => {
+    if (conversation.type !== 'group') return 0;
+    return (conversation.participants || [])
+      .map((p) => p.user_id)
+      .filter((id) => presence[id] === 'online').length;
+  }, [conversation, presence]);
+
+  const isDirectOnline =
+    conversation.type === 'direct' &&
+    (conversation.participants || [])
+      .filter((p) => p.user_id !== currentUserId)
+      .some((p) => presence[p.user_id] === 'online');
 
   return (
     <li
       onClick={onSelect}
       className={`cursor-pointer px-3 py-2.5 rounded-lg transition-colors ${
-        selected
-          ? 'bg-blue-100 dark:bg-blue-900'
-          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+        selected ? 'bg-blue-100 dark:bg-blue-900/60' : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'
       }`}
     >
-      <div className="flex items-start space-x-2">
+      <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0">
-          <img
-            src={avatarUrl}
-            alt={name}
-            className="w-8 h-8 rounded-full object-cover"
-          />
-          {/* Online indicator */}
-          {otherUser && (
-            <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-green-500 rounded-full border-1 border-white dark:border-gray-800"></div>
-          )}
-          {/* Selected indicator (optional) */}
-          {selected && (
-            <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-blue-500 rounded-full border-1 border-white dark:border-gray-900"></div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900 dark:text-white truncate max-w-xs">
-            {name}
-          </p>
-          {lastMessageText ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
-              {lastMessage && lastMessage.senderId !== currentUserId ? (
-                <>
-                  <span className="font-medium">{users[lastMessage.senderId]?.name ?? 'Unknown'}: </span>
-                  {lastMessageText}
-                </>
-              ) : (
-                lastMessageText
-              )}
-            </p>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={name} className="w-10 h-10 rounded-full object-cover" />
           ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
-              {/* No messages yet */}
-              <span className="italic">No messages</span>
-            </p>
+            <div
+              className={`w-10 h-10 rounded-full text-white flex items-center justify-center text-sm font-medium ${getAvatarColor(
+                name
+              )}`}
+            >
+              {getInitials(name)}
+            </div>
+          )}
+          {isDirectOnline && (
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-gray-800" />
+          )}
+          {conversation.type === 'group' && onlineCount > 0 && (
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-gray-800" />
           )}
         </div>
-        <div className="flex-shrink-0 flex-col justify-between text-xs text-gray-400 dark:text-gray-500">
-          <div className="mb-0.5">
-            {lastMessage ? formatDistanceToNow(new Date(lastMessage.createdAt), { addSuffix: true }) : ''}
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-medium text-gray-900 dark:text-white truncate">{name}</p>
+            <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+              {formatConversationTime(lastMessage?.created_at || conversation.last_message_at)}
+            </span>
           </div>
-          <div className="flex items-center space-x-1.5">
-            {/* Unread badge */}
-            {conversation.unreadCount > 0 && (
-              <span className="inline-flex h-4 w-4 items-center justify-center bg-red-500 text-xs text-white rounded-full">
-                {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
-              </span>
+          <div className="flex items-center justify-between gap-2">
+            {isTyping ? (
+              <p className="text-sm italic text-blue-500 truncate">{t('typing')}</p>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                {lastMessageText}
+              </p>
             )}
-            {/* Pinned icon */}
-            {conversation.pinned && (
-              <Pin className="h-3 w-3 text-yellow-400" title="Pinned" />
-            )}
-            {/* Archived icon */}
-            {conversation.archived && (
-              <Archive className="h-3 w-3 text-gray-400" title="Archived" />
-            )}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {(conversation.unread_count ?? 0) > 0 && (
+                <span className="inline-flex min-w-[1.25rem] h-5 items-center justify-center px-1 bg-blue-500 text-xs text-white rounded-full">
+                  {conversation.unread_count! > 99 ? '99+' : conversation.unread_count}
+                </span>
+              )}
+              {conversation.is_pinned && <Pin className="h-3 w-3 text-yellow-400" />}
+              {conversation.is_archived && <Archive className="h-3 w-3 text-gray-400" />}
+            </div>
           </div>
         </div>
       </div>

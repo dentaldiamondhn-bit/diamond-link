@@ -95,7 +95,7 @@ export const useVoiceRecorder = () => {
   }, []);
 
   const uploadVoiceNote = useCallback(async (blob: Blob, fileName: string) => {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .storage
       .from('chat-voice-notes')
       .upload(fileName, blob, {

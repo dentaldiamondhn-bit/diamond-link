@@ -126,7 +126,7 @@ export class ChatService {
 
   static async createConversation(userId: string, data: CreateConversationData) {
     let conversationName = data.name;
-    let conversationType = data.type;
+    const conversationType = data.type;
 
     if (data.type === 'direct' && data.participant_ids?.length === 1) {
       conversationName = null;
@@ -469,6 +469,30 @@ export class ChatService {
       .gt('created_at', participant?.last_read_at || '1970-01-01');
 
     return { data: count || 0 };
+  }
+
+  static async updateMessage(userId: string, messageId: string, updates: Partial<ChatMessage>) {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .update({ ...updates, is_edited: updates.content !== undefined ? true : undefined, updated_at: new Date().toISOString() })
+      .eq('id', messageId)
+      .eq('sender_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data: data as ChatMessage };
+  }
+
+  static async deleteMessage(userId: string, messageId: string) {
+    const { error } = await supabase
+      .from('chat_messages')
+      .update({ is_deleted: true, updated_at: new Date().toISOString() })
+      .eq('id', messageId)
+      .eq('sender_id', userId);
+
+    if (error) throw error;
+    return { success: true };
   }
 
   static async addParticipant(conversationId: string, userId: string, addedBy: string) {

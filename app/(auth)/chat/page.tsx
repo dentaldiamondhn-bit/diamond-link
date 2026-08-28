@@ -8,6 +8,7 @@ import { useNotification } from '@/contexts/NotificationContext';
 import { supabase } from '@/lib/supabase';
 import { ChatService } from '@/services/chatService';
 import { showBrowserNotification, requestNotificationPermission } from '@/lib/browserNotification';
+import { ChatLayout } from '@/chat/components/ChatLayout';
 
 const UserButton = dynamic(() => import('@clerk/nextjs').then(m => m.UserButton), { ssr: false });
 import {
@@ -29,7 +30,6 @@ import {
   MoreVertical,
   Phone,
   Video,
-  Info,
   X,
   File,
   Image,
@@ -59,8 +59,16 @@ import {
 } from 'lucide-react';
 
 export default function ChatPage() {
+  const useNewChat = process.env.NEXT_PUBLIC_USE_NEW_CHAT === 'true';
+  if (useNewChat) {
+    return <ChatLayout />;
+  }
+  return <ChatPageMonolith />;
+}
+
+function ChatPageMonolith() {
   const { user } = useUser();
-  const { theme } = useTheme();
+  useTheme();
   const { addNotification } = useNotification();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
@@ -70,7 +78,6 @@ export default function ChatPage() {
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showPatientCaseModal, setShowPatientCaseModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -87,7 +94,7 @@ export default function ChatPage() {
   const [callActive, setCallActive] = useState(false);
   const [callMuted, setCallMuted] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
-  const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [, setPermission] = useState<NotificationPermission>('default');
   const [pendingFiles, setPendingFiles] = useState<{ file: File; previewUrl: string }[]>([]);
   const [fileCaption, setFileCaption] = useState('');
   const permissionRequested = useRef(false);
@@ -169,7 +176,7 @@ export default function ChatPage() {
               }];
             });
           }
-        } catch {}
+} catch { /* ignore profile fetch errors */ }
       }
       if (Object.keys(newAvatars).length > 0) {
         setUserAvatars(prev => ({ ...prev, ...newAvatars }));
@@ -361,12 +368,6 @@ export default function ChatPage() {
     });
   };
 
-  const getUserName = (userId: string) => {
-    const user = allUsers.find(u => u.id === userId);
-    if (user) return `${user.first_name} ${user.last_name}`.trim() || 'Usuario';
-    return userId.slice(-8);
-  };
-
   const loadMessages = async (conversationId: string) => {
     try {
       setLoadingMessages(true);
@@ -483,11 +484,6 @@ export default function ChatPage() {
 
   const handleCall = (type: 'audio' | 'video') => {
     setShowCallModal(type);
-  };
-
-  const startCall = () => {
-    setShowCallModal(null);
-    setCallActive(true);
   };
 
   const endCall = () => {
@@ -789,13 +785,6 @@ export default function ChatPage() {
                 >
                   <Video className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 </button>
-                <button 
-                  onClick={() => setShowInfoPanel(!showInfoPanel)}
-                  className={`p-2 rounded-xl ${showInfoPanel ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                  title="Información"
-                >
-                  <Info className={`w-5 h-5 ${showInfoPanel ? 'text-emerald-600' : 'text-slate-600 dark:text-slate-400'}`} />
-                </button>
                 <div className="relative" ref={dropdownMenuRef}>
                   <button
                     onClick={() => setShowDropdownMenu(!showDropdownMenu)}
@@ -1093,50 +1082,6 @@ export default function ChatPage() {
             </div>
             </div>
 
-            {showInfoPanel && (
-              <div className="w-72 border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-y-auto flex-shrink-0">
-                <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                  <h3 className="font-semibold text-slate-800 dark:text-white">Información</h3>
-                </div>
-                <div className="p-4 space-y-4">
-                  <div>
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Participantes</p>
-                    <div className="space-y-2">
-                      {selectedConversation.participants?.map((p) => {
-                        const userInfo = allUsers.find(u => u.id === p.user_id);
-                        return (
-                          <div key={p.id} className="flex items-center gap-3">
-                            {userInfo?.profile_image_url ? (
-                              <img src={userInfo.profile_image_url} alt="" className="w-8 h-8 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
-                                <User className="w-4 h-4 text-white" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
-                                {userInfo ? `${userInfo.first_name} ${userInfo.last_name}` : p.user_id.slice(-8)}
-                              </p>
-                              <p className="text-xs text-slate-400 capitalize">{p.role}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Tipo</p>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 capitalize">{selectedConversation.type}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Creado</p>
-                    <p className="text-sm text-slate-700 dark:text-slate-300">
-                      {new Date(selectedConversation.created_at).toLocaleDateString('es-HN', { dateStyle: 'long' })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="hidden md:flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-900">
@@ -1381,14 +1326,9 @@ function PatientCaseModal({
 }) {
   const [patients, setPatients] = useState<any[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
-  const [linkType, setLinkType] = useState<PatientCaseLinkType>(PatientCaseLinkType.GENERAL);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  useEffect(() => {
-    loadPatients();
-  }, []);
 
   const loadPatients = async () => {
     setLoading(true);
@@ -1411,11 +1351,16 @@ function PatientCaseModal({
         }
         setLoading(false);
         return;
-      } catch {}
+      } catch { /* skip unsupported table */ }
     }
     setPatients([]);
     setLoading(false);
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadPatients();
+  }, []);
 
   const loadPatientAttachments = async (patientId: string) => {
     setLoading(true);
@@ -1443,6 +1388,7 @@ function PatientCaseModal({
 
   useEffect(() => {
     if (selectedPatient) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadPatientAttachments(selectedPatient.paciente_id);
     }
   }, [selectedPatient]);

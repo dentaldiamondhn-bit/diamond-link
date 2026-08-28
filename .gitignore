@@ -50,3 +50,4 @@ everything-claude-code/
 
 # Agent tooling workspace
 .mimocode/
+.eslintcache

@@ -1,274 +1,342 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useChatStore } from '@/chat/store/chatStore';
-import { Mic, Paperclip, Send, Plus, Bold, Italic, Underline, ListOrdered, List } from 'lucide-react';
-import { createEditor, EditorState, COMMAND_PRIORITY_EDITOR, $getRoot, ParagraphNode, TextNode } from 'lexical';
-import { HashtagPlugin } from '@lexical/react/LexicalHashtagPlugin';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Bold,
+  Italic,
+  Underline,
+  Mic,
+  Paperclip,
+  Send,
+  X,
+} from 'lucide-react';
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
-import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import {
+  CLEAR_EDITOR_COMMAND,
+  COMMAND_PRIORITY_LOW,
+  EditorState,
+  FORMAT_TEXT_COMMAND,
+  KEY_ENTER_COMMAND,
+  LexicalEditor,
+  $getRoot,
+} from 'lexical';
+import { HeadingNode } from '@lexical/rich-text';
+import { ListNode, ListItemNode } from '@lexical/list';
+import { ChatRepository } from '@/chat/repository';
+import { useTranslations } from '@/chat/i18n/useTranslations';
+import type { FileAttachmentData } from '@/types/chat';
 
 interface ComposerProps {
-  onSend: (content: string, attachments: any[]) => Promise<void>;
+  conversationId: string | null;
+  onSend: (content: string, attachments: FileAttachmentData[]) => Promise<void>;
+  onTyping: () => void;
   onVoiceToggle: () => Promise<void>;
-  onTyping?: () => void;
   isRecording: boolean;
-  audioUrl: string | null;
   duration: number;
+  disabled?: boolean;
+  className?: string;
 }
 
-export const Composer = ({
+const EDITOR_THEME = {
+  paragraph: 'chat-paragraph',
+  text: {
+    bold: 'chat-bold font-bold',
+    italic: 'chat-italic italic',
+    underline: 'chat-underline underline',
+  },
+  list: {
+    ul: 'chat-list-ul list-disc pl-5',
+    ol: 'chat-list-ol list-decimal pl-5',
+  },
+};
+
+interface LexicalToolbarProps {
+  textContent: string;
+  attachments: FileAttachmentData[];
+  onRemoveAttachment: (index: number) => void;
+  onSend: () => void;
+  onFilesSelected: (files: File[]) => void;
+  onVoiceToggle: () => Promise<void>;
+  isRecording: boolean;
+  duration: number;
+  disabled?: boolean;
+}
+
+const LexicalToolbar = ({
+  textContent,
+  attachments,
+  onRemoveAttachment,
   onSend,
+  onFilesSelected,
   onVoiceToggle,
-  onTyping,
   isRecording,
-  audioUrl,
   duration,
-}: ComposerProps) => {
-  const [showAttachments, setShowAttachments] = useState(false);
-  const [editorState, setEditorState] = useState<EditorState | null>(null);
-  const editorRef = useRef<ReturnType<typeof createEditor> | null>(null);
+  disabled,
+}: LexicalToolbarProps) => {
+  const { t } = useTranslations();
+  const [editor] = useLexicalComposerContext();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize editor
-  useEffect(() => {
-    const editor = createEditor({
-      namespace: 'ChatComposer',
-      theme: {
-        paragraph: 'chat-paragraph',
-        heading: {
-          h1: 'chat-heading h1',
-          h2: 'chat-heading h2',
-          h3: 'chat-heading h3',
-          h4: 'chat-heading h4',
-          h5: 'chat-heading h5',
-          h6: 'chat-heading h6',
-        },
-        list: 'chat-list',
-        listItem: 'chat-list-item',
-        quote: 'chat-quote',
-        code: 'chat-code',
-        codeHighlight: 'chat-code-highlight',
-        hashtag: 'chat-hashtag',
-        link: 'chat-link',
-        text: {
-          bold: 'chat-bold',
-          italic: 'chat-italic',
-          underline: 'chat-underline',
-          strikethrough: 'chat-strikethrough',
-          code: 'chat-code-text',
-        },
-      },
-      onError: (error) => {
-        console.error('Lexical Error: ', error);
-      },
-      nodes: [ParagraphNode, TextNode],
-      editable: true,
-    });
-
-    editorRef.current = editor;
-
-    // Set up editor state listener
-    const unsubscribe = editor.registerUpdateListener(({ editorState }) => {
-      setEditorState(editorState);
-    });
-
-    // Return cleanup function
-    return () => {
-      unsubscribe();
-      editorRef.current = null;
-    };
-  }, []);
-
-  const handleSend = async () => {
-    if (editorRef.current) {
-      try {
-        const text = editorRef.current.getEditorState().read(() => $getRoot().getTextContent());
-        
-        if (text.trim()) {
-          await onSend(text, []); // For now, no attachments
-          
-          // Clear editor after sending
-          editorRef.current.dispatchCommand(COMMAND_PRIORITY_EDITOR, {
-            type: 'INSERT_PARAGRAPH',
-          });
-        }
-      } catch (error) {
-        console.error('Failed to send message:', error);
-      }
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  // Simple toolbar buttons - in a real implementation, these would toggle formatting
-  const toolbarButtons = React.useMemo(() => [
-    {
-      icon: Bold,
-      format: 'bold',
-      title: 'Bold',
-      command: 'TOGGLE_BOLD',
-    },
-    {
-      icon: Italic,
-      format: 'italic',
-      title: 'Italic',
-      command: 'TOGGLE_ITALIC',
-    },
-    {
-      icon: Underline,
-      format: 'underline',
-      title: 'Underline',
-      command: 'TOGGLE_UNDERLINE',
-    },
-    {
-      icon: ListOrdered,
-      format: 'ordered-list',
-      title: 'Ordered List',
-      command: 'TOGGLE_ORDERED_LIST',
-    },
-    {
-      icon: List,
-      format: 'bulleted-list',
-      title: 'Bulleted List',
-      command: 'TOGGLE_BULLET_LIST',
-    },
-  ], []);
-
-  // Check if editor has content
-  const hasContent = React.useMemo(() => {
-    if (!editorState) return false;
-    const text = editorState.read(() => $getRoot().getTextContent());
-    return text.trim().length > 0;
-  }, [editorState]);
+  const formatButton = (
+    title: string,
+    onClick: () => void,
+    icon: React.ReactNode
+  ) => (
+    <button
+      key={title}
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+    >
+      {icon}
+    </button>
+  );
 
   return (
     <>
-      <div className="composer bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row sm:items-end space-y-3 sm:space-y-0 sm:space-x-4 p-3">
-          {/* Toolbar and Editor container */}
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              {toolbarButtons.map(({ icon: Icon, title, command }) => (
-                <button
-                  key={title}
-                  onClick={() => {
-                    editorRef.current?.dispatchCommand(COMMAND_PRIORITY_EDITOR, {
-                      type: command as any,
-                    });
-                  }}
-                  className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                  title={title}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                </button>
-              ))}
-              
-              {/* Voice button */}
-              <button
-                onClick={onVoiceToggle}
-                className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                  isRecording ? 'bg-red-500 text-white' : ''
-                }`}
-              >
-                <Mic className={`h-3.5 w-3.5 ${isRecording ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`} />
-              </button>
-            </div>
-
-            <div className="flex-1 min-h-[60px] relative">
-              {editorState ? (
-                <LexicalErrorBoundary
-                  onError={(error) => {
-                    console.error('Lexical Error: ', error);
-                  }}
-                  fallback={<div className="p-2 text-red-500 text-xs">Editor error occurred</div>}
-                >
-                  <div className="lexical-editor w-full h-full">
-                    <RichTextPlugin
-                      placeholder={<div className="italic text-gray-400 dark:text-gray-500 p-2 text-xs">Type a message...</div>}
-                      editorState={editorState}
-                      onEditorStateChange={setEditorState}
-                      contentEditable={<div
-                        className="lexical-editor w-full h-full p-2 border border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        contentEditable={true}
-                        suppressContentEditableWarning={true}
-                        spellCheck={false}
-                      />}
-                      ErrorBoundary={({ children }) => (
-                        <LexicalErrorBoundary
-                          onError={(error) => {
-                            console.error('Lexical Decorator Error: ', error);
-                          }}
-                          fallback={<div className="p-1 text-red-500">Decorator error</div>}
-                        >
-                          {children}
-                        </LexicalErrorBoundary>
-                      )}
-                    />
-                    <HistoryPlugin />
-                    <OnChangePlugin onChange={(editorState) => {
-                      // Handle onTyping callback
-                      onTyping?.();
-                      // Update editor state
-                      setEditorState(editorState);
-                    }} />
-                    <HashtagPlugin />
-                  </div>
-                </LexicalErrorBoundary>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 text-xs">
-                  Loading editor...
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Send and Attachments buttons */}
-          <div className="flex items-center space-x-2">
-            {/* Attachments button */}
-            <button
-              onClick={() => setShowAttachments(!showAttachments)}
-              className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-            </button>
-            
-            {/* Send button */}
-            <button
-              onClick={handleSend}
-              disabled={!hasContent}
-              className={`px-3 py-1.5 rounded bg-blue-500 text-white hover:bg-blue-600 ${
-                !hasContent ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Attachments menu (simple) */}
-      {showAttachments && (
-        <div className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10">
-          <div className="py-2">
-            <button
-              onClick={() => {
-                setShowAttachments(false);
-              }}
-              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <Paperclip className="mr-2 h-3.5 w-3.5" /> File
-            </button>
-          </div>
+      {isRecording && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg">
+          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <span className="text-sm text-red-500">{Math.ceil(duration)}s</span>
         </div>
       )}
+
+      <div className="flex items-center gap-1 flex-wrap">
+        {formatButton('Bold', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'), <Bold className="h-4 w-4" />)}
+        {formatButton('Italic', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic'), <Italic className="h-4 w-4" />)}
+        {formatButton('Underline', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline'), <Underline className="h-4 w-4" />)}
+
+        <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+        <button
+          type="button"
+          onClick={() =>
+            disabled
+              ? undefined
+              : fileInputRef.current
+                ? fileInputRef.current.click()
+                : undefined
+          }
+          disabled={disabled}
+          className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-40"
+          title={t('fileMessage')}
+        >
+          <Paperclip className="h-4 w-4" />
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length) onFilesSelected(files);
+            e.target.value = '';
+          }}
+        />
+
+        <button
+          type="button"
+          onClick={onVoiceToggle}
+          disabled={disabled}
+          className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 ${
+            isRecording ? 'bg-red-500 text-white hover:bg-red-600' : 'text-gray-600 dark:text-gray-300'
+          }`}
+          title={t('voiceMessage')}
+        >
+          <Mic className="h-4 w-4" />
+        </button>
+      </div>
+
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {attachments.map((att, i) => (
+            <span
+              key={`${att.file_url}-${i}`}
+              className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-200"
+            >
+              {att.file_name}
+              <button
+                type="button"
+                onClick={() => onRemoveAttachment(i)}
+                className="text-gray-400 hover:text-red-500"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onSend}
+        disabled={disabled || (!textContent.trim() && attachments.length === 0)}
+        className="flex-shrink-0 px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+        title={t('send')}
+      >
+        <Send className="h-4 w-4" />
+      </button>
     </>
+  );
+};
+
+const EnterToSendPlugin = ({ onSend }: { onSend: () => void }) => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_ENTER_COMMAND,
+      (event: KeyboardEvent) => {
+        if (event && !event.shiftKey) {
+          event.preventDefault();
+          onSend();
+          return true;
+        }
+        return false;
+      },
+      COMMAND_PRIORITY_LOW
+    );
+  }, [editor, onSend]);
+
+  return null;
+};
+
+export const Composer = ({
+  conversationId,
+  onSend,
+  onTyping,
+  onVoiceToggle,
+  isRecording,
+  duration,
+  disabled,
+  className = '',
+}: ComposerProps) => {
+  const { t } = useTranslations();
+  const [attachments, setAttachments] = useState<FileAttachmentData[]>([]);
+  const [textContent, setTextContent] = useState('');
+  const [sending, setSending] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const textRef = useRef('');
+  const editorRef = useRef<LexicalEditor | null>(null);
+
+  const handleChange = useCallback(
+    (editorState: EditorState, editor: LexicalEditor) => {
+      editorRef.current = editor;
+      const text = editorState.read(() => $getRoot().getTextContent());
+      textRef.current = text;
+      setTextContent(text);
+      if (text.trim()) onTyping();
+    },
+    [onTyping]
+  );
+
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      if (!conversationId || !files.length) return;
+      const prepared: FileAttachmentData[] = [];
+      for (const file of files) {
+        try {
+          const result = await ChatRepository.uploadFile(file, conversationId);
+          prepared.push({
+            file_name: result.fileName,
+            file_type: result.fileType,
+            file_size: result.fileSize,
+            file_url: result.url,
+          });
+        } catch (err) {
+          console.error('Failed to upload attachment:', err);
+        }
+      }
+      if (prepared.length) setAttachments((prev) => [...prev, ...prepared]);
+    },
+    [conversationId]
+  );
+
+  const send = useCallback(async () => {
+    if (disabled || sending || !conversationId) return;
+    const content = textRef.current.trim();
+    if (!content && attachments.length === 0) return;
+    setSending(true);
+    try {
+      await onSend(content, attachments);
+      editorRef.current?.dispatchCommand(CLEAR_EDITOR_COMMAND);
+      textRef.current = '';
+      setTextContent('');
+      setAttachments([]);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    } finally {
+      setSending(false);
+    }
+  }, [disabled, sending, conversationId, attachments, onSend]);
+
+  if (!conversationId) return null;
+
+  return (
+    <div className={`bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 ${className}`}>
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          handleFiles(Array.from(e.dataTransfer.files || []));
+        }}
+        className={`p-3 ${dragOver ? 'ring-2 ring-blue-400 rounded-lg' : ''}`}
+      >
+        <LexicalComposer
+          initialConfig={{
+            namespace: 'ChatComposer',
+            theme: EDITOR_THEME,
+            nodes: [HeadingNode, ListNode, ListItemNode],
+            onError: (error) => console.error('Lexical Error:', error),
+          }}
+        >
+          <div className="relative">
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              }
+              placeholder={
+                <div className="absolute top-2 left-3 pointer-events-none italic text-gray-400 dark:text-gray-500 text-sm">
+                  {t('typeMessage')}
+                </div>
+              }
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+          </div>
+          <HistoryPlugin />
+          <OnChangePlugin onChange={handleChange} />
+          <EnterToSendPlugin onSend={send} />
+          <div className="flex items-center justify-between mt-2 gap-3">
+            <LexicalToolbar
+              textContent={textContent}
+              attachments={attachments}
+              onRemoveAttachment={(i) =>
+                setAttachments((prev) => prev.filter((_, idx) => idx !== i))
+              }
+              onSend={send}
+              onFilesSelected={handleFiles}
+              onVoiceToggle={onVoiceToggle}
+              isRecording={isRecording}
+              duration={duration}
+              disabled={disabled || sending}
+            />
+          </div>
+        </LexicalComposer>
+      </div>
+    </div>
   );
 };
 

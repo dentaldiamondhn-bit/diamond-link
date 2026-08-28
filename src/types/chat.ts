@@ -75,7 +75,7 @@ export interface ChatMessage {
   reply_to_id: string | null;
   is_edited: boolean;
   is_deleted: boolean;
-  reactions: MessageReaction[];
+  reactions: MessageReaction;
   created_at: string;
   updated_at: string;
   // Voice note fields
@@ -89,11 +89,8 @@ export interface ChatMessage {
   patient_case_link?: ChatPatientCaseLink;
 }
 
-export interface MessageReaction {
-  emoji: string;
-  user_id: string;
-  created_at: string;
-}
+// Reactions stored as a JSONB object: { emoji: [userIds] }
+export type MessageReaction = Record<string, string[]>;
 
 export interface ChatAttachment {
   id: string;
@@ -150,6 +147,8 @@ export interface CreateMessageData {
   reply_to_id?: string;
   attachments?: FileAttachmentData[];
   patient_case_link?: PatientCaseLinkData;
+  voice_note_url?: string;
+  voice_note_duration?: number;
 }
 
 export interface FileAttachmentData {
