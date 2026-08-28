@@ -8,6 +8,7 @@ import {
   Mic,
   Paperclip,
   Send,
+  Smile,
   Underline,
   X,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ import {
   FORMAT_TEXT_COMMAND,
   KEY_ENTER_COMMAND,
   LexicalEditor,
+  $createTextNode,
   $getRoot,
 } from 'lexical';
 import { HeadingNode } from '@lexical/rich-text';
@@ -63,6 +65,17 @@ const EDITOR_THEME = {
   },
 };
 
+const COMPOSER_EMOJIS = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
+  '😊', '😇', '🙂', '😉', '😍', '🥰', '😘', '😗',
+  '😋', '😛', '🤪', '😎', '🤩', '🥳', '🤔', '🤗',
+  '😐', '😴', '🥺', '😢', '😭', '😤', '😡', '🥵',
+  '🥶', '🤯', '😱', '🤫', '🤭', '😒', '🙄', '😬',
+  '👍', '👎', '👏', '🙏', '💪', '🤝', '👋', '✌️',
+  '🤞', '👌', '❤️', '🧡', '💛', '💚', '💙', '💜',
+  '🖤', '💯', '🔥', '✨', '⭐', '🌹', '🎉', '⚡',
+];
+
 interface LexicalToolbarProps {
   textContent: string;
   attachments: FileAttachmentData[];
@@ -89,6 +102,7 @@ const LexicalToolbar = ({
   const { t } = useTranslations();
   const [editor] = useLexicalComposerContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showEmoji, setShowEmoji] = useState(false);
 
   const formatButton = (
     title: string,
@@ -160,6 +174,46 @@ const LexicalToolbar = ({
         >
           <Mic className="h-4 w-4" />
         </button>
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowEmoji((v) => !v)}
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${
+              showEmoji
+                ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
+                : 'text-gray-600 dark:text-gray-300'
+            }`}
+            title="Emoji"
+          >
+            <Smile className="h-4 w-4" />
+          </button>
+          {showEmoji && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowEmoji(false)} />
+              <div className="absolute bottom-full left-0 z-40 mb-2 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 shadow-xl">
+                <div className="grid max-h-56 grid-cols-8 gap-0.5 overflow-y-auto">
+                  {COMPOSER_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => {
+                        editor.update(() => {
+                          $getRoot().selectEnd().insertNodes([$createTextNode(emoji)]);
+                        });
+                        editor.focus();
+                        setShowEmoji(false);
+                      }}
+                      className="p-1 rounded text-lg leading-none hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {attachments.length > 0 && (
@@ -269,23 +323,34 @@ export const Composer = ({
     [conversationId]
   );
 
+  const clearEditor = useCallback(() => {
+    const editor = editorRef.current;
+    if (editor) {
+      editor.dispatchCommand(CLEAR_EDITOR_COMMAND);
+      editor.update(() => {
+        const root = $getRoot();
+        if (root.getTextContent()) root.clear();
+      });
+    }
+    textRef.current = '';
+    setTextContent('');
+    setAttachments([]);
+  }, []);
+
   const send = useCallback(async () => {
     if (disabled || sending || !conversationId) return;
     const content = textRef.current.trim();
     if (!content && attachments.length === 0) return;
+    clearEditor();
     setSending(true);
     try {
       await onSend(content, attachments, replyTo?.id);
-      editorRef.current?.dispatchCommand(CLEAR_EDITOR_COMMAND);
-      textRef.current = '';
-      setTextContent('');
-      setAttachments([]);
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
       setSending(false);
     }
-  }, [disabled, sending, conversationId, attachments, onSend, replyTo]);
+  }, [disabled, sending, conversationId, attachments, onSend, replyTo, clearEditor]);
 
   if (!conversationId) return null;
 

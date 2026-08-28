@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useChatStore } from '@/chat/store/chatStore';
+import { ChatRepository } from '@/chat/repository';
 import type { ChatMessage } from '@/types/chat';
 
 type PresenceEntry = { user_id: string; status: 'online' | 'offline' };
@@ -57,6 +58,11 @@ export const useChatRealtime = (
           addMessage(message, currentUserRef.current, selectedRef.current);
           if (message.sender_id !== currentUserRef.current) {
             onIncomingRef.current?.(message);
+            if (message.conversation_id === selectedRef.current) {
+              ChatRepository.markAsRead(currentUserRef.current, message.conversation_id).catch(
+                () => {}
+              );
+            }
           }
         }
       )

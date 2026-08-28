@@ -62,9 +62,48 @@ export class ChatService {
       }
     }
 
+    // Per-user unread counts: number of messages after my last_read_at.
+    const { data: myReadRows } = await supabase
+      .from('chat_participants')
+      .select('conversation_id, last_read_at')
+      .eq('user_id', userId)
+      .in('conversation_id', convIds);
+
+    const lastReadAt = new Map<string, string>();
+    let earliestReadAt: string | null = null;
+    for (const row of myReadRows || []) {
+      if (row.last_read_at) {
+        lastReadAt.set(row.conversation_id, row.last_read_at);
+        if (!earliestReadAt || row.last_read_at < earliestReadAt) {
+          earliestReadAt = row.last_read_at;
+        }
+      }
+    }
+
+    let unreadQuery = supabase
+      .from('chat_messages')
+      .select('conversation_id, created_at')
+      .in('conversation_id', convIds)
+      .neq('sender_id', userId)
+      .limit(1000);
+
+    if (earliestReadAt) {
+      unreadQuery = unreadQuery.gt('created_at', earliestReadAt);
+    }
+
+    const { data: unreadRows } = await unreadQuery;
+    const unreadByConv: Record<string, number> = {};
+    for (const msg of unreadRows || []) {
+      const readAt = lastReadAt.get(msg.conversation_id);
+      if (!readAt || new Date(msg.created_at).getTime() > new Date(readAt).getTime()) {
+        unreadByConv[msg.conversation_id] = (unreadByConv[msg.conversation_id] || 0) + 1;
+      }
+    }
+
     const data = (conversations || []).map(conv => ({
       ...conv,
-      last_message: latestByConv.get(conv.id) || null
+      last_message: latestByConv.get(conv.id) || null,
+      unread_count: unreadByConv[conv.id] || 0
     }));
 
     return { data: data as ChatConversation[] };
