@@ -3,11 +3,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bold,
+  CornerDownRight,
   Italic,
-  Underline,
   Mic,
   Paperclip,
   Send,
+  Underline,
   X,
 } from 'lucide-react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
@@ -30,15 +31,21 @@ import { HeadingNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
-import type { FileAttachmentData } from '@/types/chat';
+import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 
 interface ComposerProps {
   conversationId: string | null;
-  onSend: (content: string, attachments: FileAttachmentData[]) => Promise<void>;
+  onSend: (
+    content: string,
+    attachments: FileAttachmentData[],
+    replyToId?: string
+  ) => Promise<void>;
   onTyping: () => void;
   onVoiceToggle: () => Promise<void>;
   isRecording: boolean;
   duration: number;
+  replyTo?: ChatMessage | null;
+  onCancelReply?: () => void;
   disabled?: boolean;
   className?: string;
 }
@@ -216,6 +223,8 @@ export const Composer = ({
   onVoiceToggle,
   isRecording,
   duration,
+  replyTo,
+  onCancelReply,
   disabled,
   className = '',
 }: ComposerProps) => {
@@ -266,7 +275,7 @@ export const Composer = ({
     if (!content && attachments.length === 0) return;
     setSending(true);
     try {
-      await onSend(content, attachments);
+      await onSend(content, attachments, replyTo?.id);
       editorRef.current?.dispatchCommand(CLEAR_EDITOR_COMMAND);
       textRef.current = '';
       setTextContent('');
@@ -276,7 +285,7 @@ export const Composer = ({
     } finally {
       setSending(false);
     }
-  }, [disabled, sending, conversationId, attachments, onSend]);
+  }, [disabled, sending, conversationId, attachments, onSend, replyTo]);
 
   if (!conversationId) return null;
 
@@ -316,6 +325,25 @@ export const Composer = ({
               ErrorBoundary={LexicalErrorBoundary}
             />
           </div>
+          {replyTo && (
+            <div className="flex items-center gap-2 px-3 py-1.5 mb-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-sm">
+              <CornerDownRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />
+              <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-200">
+                <span className="text-xs font-medium text-blue-500 dark:text-blue-400">
+                  {t('replyingTo')}
+                </span>{' '}
+                {replyTo.content || t('fileMessage')}
+              </span>
+              <button
+                type="button"
+                onClick={onCancelReply}
+                className="p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                title={t('cancel')}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <HistoryPlugin />
           <OnChangePlugin onChange={handleChange} />
           <EnterToSendPlugin onSend={send} />

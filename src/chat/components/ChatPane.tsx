@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useVoiceRecorder } from '@/chat/hooks/useVoiceRecorder';
 import { ChatMessageType } from '@/types/chat';
-import type { FileAttachmentData } from '@/types/chat';
+import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import Composer from './Composer';
@@ -32,10 +32,17 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
   const conversationRef = useRef<string | null>(null);
   conversationRef.current = selectedConversationId;
 
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+
   const { isRecording, audioBlob, audioUrl, duration, startRecording, stopRecording, reset } =
     useVoiceRecorder();
 
   const selectedMessages = selectedConversationId ? messages[selectedConversationId] || [] : [];
+
+  // Drop any pending reply quote when switching conversations
+  useEffect(() => {
+    setReplyTo(null);
+  }, [selectedConversationId]);
 
   // Load messages when conversation changes and scroll to bottom
   useEffect(() => {
@@ -87,7 +94,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
   }, [sendTyping]);
 
   const handleSend = useCallback(
-    async (content: string, attachments: FileAttachmentData[]) => {
+    async (content: string, attachments: FileAttachmentData[], replyToId?: string) => {
       const convId = conversationRef.current;
       if (!currentUserId || !convId) return;
       if (typingTimeout.current) {
@@ -107,9 +114,13 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
           conversation_id: convId,
           content,
           message_type,
+          reply_to_id: replyToId,
           attachments: attachments.length > 0 ? attachments : undefined,
         });
-        if (message) addMessage(message, currentUserId, convId);
+        if (message) {
+          addMessage(message, currentUserId, convId);
+          setReplyTo(null);
+        }
       } catch (err) {
         console.error('Failed to send message:', err);
         setError('No se pudo enviar el mensaje');
@@ -177,7 +188,11 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
     >
       <ChatHeader conversationId={selectedConversationId} />
       <div className="flex-1 overflow-y-auto p-4">
-        <MessageList messages={selectedMessages} />
+        <MessageList
+          messages={selectedMessages}
+          onReplyTo={(msg) => setReplyTo(msg)}
+          replyToId={replyTo?.id ?? null}
+        />
         <div ref={endRef} />
       </div>
       <Composer
@@ -187,6 +202,8 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
         onVoiceToggle={handleVoiceToggle}
         isRecording={isRecording}
         duration={duration}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
       />
     </div>
   );

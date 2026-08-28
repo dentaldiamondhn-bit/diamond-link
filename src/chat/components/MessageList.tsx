@@ -49,9 +49,11 @@ const ALL_REACTIONS = [
 
 interface MessageListProps {
   messages: ChatMessage[];
+  onReplyTo?: (msg: ChatMessage) => void;
+  replyToId?: string | null;
 }
 
-export const MessageList = ({ messages }: MessageListProps) => {
+export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps) => {
   const { t } = useTranslations();
   const { users, currentUserId } = useChatStore();
 
@@ -155,6 +157,17 @@ export const MessageList = ({ messages }: MessageListProps) => {
     } catch (err) {
       console.error('Failed to delete message:', err);
     }
+  };
+
+  const handleReply = (msg: ChatMessage) => {
+    setActionMenuFor(null);
+    onReplyTo?.(msg);
+  };
+
+  const scrollToMessage = (msgId: string) => {
+    document
+      .querySelector(`[data-message-id="${msgId}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   const renderBubble = (msg: ChatMessage) => {
@@ -295,7 +308,7 @@ export const MessageList = ({ messages }: MessageListProps) => {
                         </div>
                         <div className="border-t border-gray-200 dark:border-gray-600" />
                         <button
-                          onClick={() => console.log('Reply to message:', msg.id)}
+                          onClick={() => handleReply(msg)}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
                           <Reply className="h-4 w-4" />
@@ -368,20 +381,22 @@ export const MessageList = ({ messages }: MessageListProps) => {
                         </div>
                       ) : (
                         <div
-                          className={`rounded-2xl px-3 py-2 ${
+                          className={`rounded-2xl px-3 py-2 transition-shadow ${
                             mine
                               ? 'bg-blue-500 text-white dark:bg-blue-600'
                               : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-                          }`}
+                          } ${replyToId === msg.id ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''}`}
                         >
                           {msg.reply_to_id && (
-                            <p
-                              className={`text-xs mb-1 truncate max-w-[200px] ${
-                                mine ? 'text-blue-100' : 'text-gray-500'
-                              }`}
+                            <button
+                              type="button"
+                              onClick={() => scrollToMessage(msg.reply_to_id!)}
+                              className={`block text-xs mb-1 truncate max-w-[200px] ${
+                                mine ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                              } hover:underline`}
                             >
                               ↪ {msg.reply_to?.content || '...'}
-                            </p>
+                            </button>
                           )}
                           <div className="flex items-center gap-1.5">
                             <div className="flex-1 min-w-0">{renderBubble(msg)}</div>
