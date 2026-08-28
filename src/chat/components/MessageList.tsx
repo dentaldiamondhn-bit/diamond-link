@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Plus,
   Reply,
   ChevronDown,
+  CornerDownRight,
   Edit,
   Trash2,
   Check,
@@ -64,6 +65,15 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
   const [emojiFullFor, setEmojiFullFor] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    []
+  );
 
   const isCurrentUser = (msg: ChatMessage) => msg.sender_id === currentUserId;
 
@@ -164,10 +174,43 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
     onReplyTo?.(msg);
   };
 
-  const scrollToMessage = (msgId: string) => {
+  // The server only embeds `reply_to` on full re-fetches; for realtime/fresh
+  // inserts it is missing, so fall back to the message already in this list.
+  const resolveReplyTarget = (msg: ChatMessage): ChatMessage | undefined =>
+    (msg.reply_to?.id ? (msg.reply_to as ChatMessage) : undefined) ||
+    messages.find((m) => m.id === msg.reply_to_id);
+
+  const replySenderName = (msg: ChatMessage): string => {
+    const target = resolveReplyTarget(msg);
+    if (!target) return '';
+    const sender = target.sender || users[target.sender_id];
+    return sender ? getUserDisplayName(sender) : '';
+  };
+
+  const replyPreviewText = (msg: ChatMessage): string => {
+    const target = resolveReplyTarget(msg);
+    if (!target) return '...';
+    switch (target.message_type) {
+      case 'image':
+        return t('imageMessage');
+      case 'file':
+        return t('fileMessage');
+      case 'voice':
+        return t('voiceMessage');
+      case 'patient_case':
+        return target.patient_case_link?.title || target.content || t('patientCase');
+      default:
+        return target.content || '...';
+    }
+  };
+
+  const handleJumpToMessage = (msgId: string) => {
     document
       .querySelector(`[data-message-id="${msgId}"]`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedId(msgId);
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightedId(null), 1600);
   };
 
   const renderBubble = (msg: ChatMessage) => {
@@ -264,7 +307,9 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
                 <div
                   key={msg.id}
                   data-message-id={msg.id}
-                  className={`group relative flex ${mine ? 'justify-end' : 'justify-start'} px-2`}
+                  className={`group relative flex ${
+                    mine ? 'justify-end' : 'justify-start'
+                  } px-2 ${highlightedId === msg.id ? 'rounded-2xl bg-blue-50 dark:bg-blue-900/30' : ''}`}
                 >
                   <div className={`flex items-end gap-2 max-w-[75%] ${mine ? 'flex-row-reverse' : ''}`}>
                     {actionMenuFor?.id === msg.id && (
@@ -390,12 +435,26 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
                           {msg.reply_to_id && (
                             <button
                               type="button"
-                              onClick={() => scrollToMessage(msg.reply_to_id!)}
-                              className={`block text-xs mb-1 truncate max-w-[200px] ${
+                              onClick={() => handleJumpToMessage(msg.reply_to_id!)}
+                              className={`mb-1 flex w-full max-w-[200px] items-center gap-1 rounded px-0.5 text-xs ${
                                 mine ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                              } hover:underline`}
+                              } ${
+                                mine
+                                  ? 'hover:bg-black/10'
+                                  : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+                              }`}
                             >
-                              ↪ {msg.reply_to?.content || '...'}
+                              <CornerDownRight className="h-3 w-3 flex-shrink-0" />
+                              {replySenderName(msg) && (
+                                <span
+                                  className={`flex-shrink-0 font-medium ${
+                                    mine ? 'text-blue-50' : 'text-gray-600 dark:text-gray-300'
+                                  }`}
+                                >
+                                  {replySenderName(msg)}:
+                                </span>
+                              )}
+                              <span className="min-w-0 truncate">{replyPreviewText(msg)}</span>
                             </button>
                           )}
                           <div className="flex items-center gap-1.5">
