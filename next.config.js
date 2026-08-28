@@ -5,6 +5,10 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  eslint: {
+    // ESLint errors in legacy code fail the build; lint runs separately via `npm run lint`.
+    ignoreDuringBuilds: true
+  },
 };
 
 export default nextConfig;
