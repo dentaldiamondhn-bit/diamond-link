@@ -135,7 +135,7 @@ export class ChatService {
       .from('chat_messages')
       .select(`
         *,
-        reply_to:chat_messages(id, content, sender:users(id, first_name, last_name, profile_image_url)),
+        reply_to:chat_messages(id, content),
         attachments:chat_attachments(*),
         patient_case_link:chat_patient_case_links(
           *,
@@ -267,7 +267,7 @@ export class ChatService {
       .from('chat_messages')
       .select(`
         *,
-        reply_to:chat_messages(id, content, sender:users(id, first_name, last_name, profile_image_url)),
+        reply_to:chat_messages(id, content),
         attachments:chat_attachments(*),
         patient_case_link:chat_patient_case_links(
           *,
@@ -408,7 +408,7 @@ export class ChatService {
       .from('chat_messages')
       .select(`
         *,
-        reply_to:chat_messages(id, content, sender:users(id, first_name, last_name, profile_image_url)),
+        reply_to:chat_messages(id, content),
         attachments:chat_attachments(*),
         patient_case_link:chat_patient_case_links(
           *,

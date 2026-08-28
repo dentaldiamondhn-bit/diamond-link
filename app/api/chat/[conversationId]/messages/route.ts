@@ -119,10 +119,7 @@ export async function POST(
         message_type: message_type || 'text',
         reply_to_id
       })
-      .select(`
-        *,
-        sender:users(id, email, first_name, last_name, profile_image_url)
-      `)
+      .select('*')
       .single();
 
     if (msgError) {
@@ -173,8 +170,7 @@ export async function POST(
       .from('chat_messages')
       .select(`
         *,
-        sender:users(id, email, first_name, last_name, profile_image_url),
-        reply_to:chat_messages(id, content, sender:users(id, email, first_name, last_name)),
+        reply_to:chat_messages(id, content),
         attachments:chat_attachments(*),
         patient_case_link:chat_patient_case_links(
           *,
