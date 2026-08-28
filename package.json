@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
-    "export": "NODE_OPTIONS='--max-old-space-size=4096' next export",
+    "build": "NODE_OPTIONS='--max-old-space-size=8192' next build",
+    "export": "NODE_OPTIONS='--max-old-space-size=8192' next export",
     "start": "next start",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "lint:check": "eslint . --ext .js,.jsx,.ts,.tsx",
