@@ -3,35 +3,9 @@ import { auth } from '@clerk/nextjs/server';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { isPathAllowed, normalizePath, FILE_ACCESS_CONFIG } from '@/config/file-access.config';
+import { logOperation } from '@/lib/file-access-log-store';
 
 export const dynamic = 'force-dynamic';
-
-// Operation log storage (in production, use a database)
-const operationLogs: Array<{
-  timestamp: Date;
-  userId: string;
-  agentId?: string;
-  operation: string;
-  filePath: string;
-  success: boolean;
-  reason?: string;
-}> = [];
-
-function logOperation(userId: string, operation: string, filePath: string, success: boolean, reason?: string, agentId?: string) {
-  if (FILE_ACCESS_CONFIG.globalSettings.enableLogging) {
-    operationLogs.push({
-      timestamp: new Date(),
-      userId,
-      agentId,
-      operation,
-      filePath,
-      success,
-      reason
-    });
-    
-    console.log(`[File Access Log] ${operation} ${filePath} by ${userId} ${agentId ? `(agent: ${agentId})` : ''} - ${success ? 'SUCCESS' : 'FAILED'}`);
-  }
-}
 
 // GET /api/agent/file-access - List files or read file
 export async function GET(request: NextRequest) {
@@ -86,7 +60,7 @@ export async function GET(request: NextRequest) {
           path: normalizedPath,
           size: stats.size
         });
-      } catch (error) {
+      } catch {
         logOperation(userId, operation, normalizedPath, false, 'File not found or cannot be read', agentId || undefined);
         return NextResponse.json({ error: 'File not found or cannot be read' }, { status: 404 });
       }
@@ -113,7 +87,7 @@ export async function GET(request: NextRequest) {
           files: fileList,
           path: dirPath
         });
-      } catch (error) {
+      } catch {
         logOperation(userId, operation, normalizedPath, false, 'Directory not found or cannot be listed', agentId || undefined);
         return NextResponse.json({ error: 'Directory not found or cannot be listed' }, { status: 404 });
       }
@@ -192,7 +166,7 @@ export async function POST(request: NextRequest) {
         path: normalizedPath,
         size: stats.size
       });
-    } catch (error) {
+    } catch {
       logOperation(userId, operation, normalizedPath, false, 'Failed to write file', agentId);
       return NextResponse.json({ error: 'Failed to write file' }, { status: 500 });
     }
@@ -253,31 +227,12 @@ export async function DELETE(request: NextRequest) {
         success: true, 
         path: normalizedPath
       });
-    } catch (error) {
+    } catch {
       logOperation(userId, 'delete', normalizedPath, false, 'File not found or cannot be deleted', agentId || undefined);
       return NextResponse.json({ error: 'File not found or cannot be deleted' }, { status: 404 });
     }
   } catch (error) {
     console.error('File access DELETE error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-// GET /api/agent/file-access/logs - Get operation logs (admin only)
-export async function GET_LOGS(request: NextRequest) {
-  try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // In production, check if user is admin
-    // For now, return all logs
-    return NextResponse.json({ 
-      logs: operationLogs.slice(-100) // Last 100 operations
-    });
-  } catch (error) {
-    console.error('File access logs error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
