@@ -154,7 +154,7 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 | WhatsApp UI tweaks | ✅ Group conversations show the multiple-users icon on a gray circle in the list + header (fallback only when no group `avatar_url`); no-chat-selected panel hides the header/composer and shows the WhatsApp default copy ("Tap a chat to start messaging." / "Selecciona un chat…") |
 | Full emoji library | ✅ `src/chat/data/emojiLibrary.ts` generated from `@emoji-mart/data` (1870 emojis, 8 WhatsApp-style categories); shared `EmojiPicker` (category nav + sticky headers) used by the composer and the reaction picker |
 | Chat-list delivery ticks | ✅ WhatsApp ✓/✓✓ (grey delivered / blue read) rendered under the timestamps in the conversation list via shared `getMessageReadStatus`; `getConversations` attaches reads to `last_message`, store `upsertMessageRead` refreshes the list-live even before a conversation is opened |
-| Commit | ✅ `021ad84` (virtualization), read receipts committed with it; checkmarks + read-receipt pipeline `99815aa`; group icon + default panel `7a5e89a`; full emoji library + list ticks `<next>` |
+| Commit | ✅ `021ad84` (virtualization), read receipts committed with it; checkmarks + read-receipt pipeline `99815aa`; group icon + default panel `7a5e89a`; full emoji library + list ticks `ce5d6c6` |
 
 ### Work State
 
@@ -167,7 +167,7 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 - Commits: `<next>` (full emoji library + list ticks), `7a5e89a` (group icon + default panel), `99815aa` (checkmarks + read-receipt pipeline), `7920a4a`, `cc3d538`, `08c0702`, `021ad84`, `b6e8ce6`, `e2aaa6b`, `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
 
 **Active**
-- Deploy `<next>` to Vercel so prod picks up the full emoji picker + chat-list delivery ticks, then verify read receipts / ticks end-to-end with two accounts on `app.dentaldiamondhn.com`.
+- Verify on `app.dentaldiamondhn.com` (deploy of commit `ce5d6c6` is live): full emoji picker in composer + reactions, and WhatsApp ✓/✓✓ ticks under chat-list timestamps (test with two accounts).
 
 **Blocked**
 - Full local `npm run build` still stalls at 4GB heap in the dev container (approved gate: `tsc` + ESLint; Vercel is the functional build check and is green).
