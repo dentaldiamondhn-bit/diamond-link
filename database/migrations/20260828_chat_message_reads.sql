@@ -5,14 +5,20 @@
 --   * read_at set when the recipient actually reads it
 --   * added to the realtime publication so the sender sees live read receipts
 --
+-- NOTE: the live DB already had a chat_message_reads table (from an earlier
+-- experiment) with UUID user_id + FK to auth.users -- incompatible with this
+-- app's Clerk TEXT user ids. DROP + recreate here is REQUIRED so the schema
+-- matches chat_participants (user_id TEXT, no auth FK).
+--
 -- RLS posture: the rest of the chat schema runs with RLS effectively open
 -- (anon client, Clerk auth, no Supabase session sync), so this table mirrors
--- that with permissive policies. No joins, no casts, no auth.uid() usage --
--- guarantees no operator/type resolution errors.
+-- that with permissive policies. No joins, no casts, no auth.uid() usage.
 --
--- Idempotent: safe to re-run if a previous attempt partially applied.
+-- Deterministic: safe to re-run.
 
-CREATE TABLE IF NOT EXISTS chat_message_reads (
+DROP TABLE IF EXISTS chat_message_reads CASCADE;
+
+CREATE TABLE chat_message_reads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id uuid NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
   conversation_id uuid NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
