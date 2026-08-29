@@ -306,12 +306,35 @@ export default function PatientFollowUpPage() {
     };
   }, [editingPacienteId]);
 
-  /* ---- fallback poll: guarantees notes surface without realtime ---- */
+  /* ---- fallback poll: one batched request so notes surface cross-user ---- */
+  const notesPollIdsRef = useRef<string[]>([]);
+  const notesPollBusyRef = useRef(false);
   useEffect(() => {
-    const fire = () => window.dispatchEvent(new Event('refresh-follow-up-notes'));
+    const fire = async () => {
+      if (notesPollBusyRef.current) return;
+      const ids = notesPollIdsRef.current;
+      if (ids.length === 0) return;
+      notesPollBusyRef.current = true;
+      try {
+        const res = await fetch(
+          `/api/patient-follow-up-notes?pacientes=${ids.join(',')}`,
+          { cache: 'no-store' }
+        );
+        const byPaciente = await res.json();
+        if (byPaciente && typeof byPaciente === 'object') {
+          window.dispatchEvent(
+            new CustomEvent('refresh-follow-up-notes', { detail: byPaciente })
+          );
+        }
+      } catch (err) {
+        console.error('Notes poll failed:', err);
+      } finally {
+        notesPollBusyRef.current = false;
+      }
+    };
     const id = window.setInterval(() => {
       if (document.visibilityState === 'visible') fire();
-    }, 6000);
+    }, 3000);
     window.addEventListener('focus', fire);
     return () => {
       window.clearInterval(id);
@@ -369,6 +392,11 @@ export default function PatientFollowUpPage() {
 
     return list;
   }, [patients, search, sortKey, sortDir]);
+
+  // Keep the fallback poll scoped to the currently displayed patients.
+  useEffect(() => {
+    notesPollIdsRef.current = filteredPatients.map(p => p.paciente_id);
+  }, [filteredPatients]);
 
   /* ---- actions --------------------------------------------------- */
   const handleToggle = async (
@@ -1125,7 +1153,15 @@ function CollapsedNoteRow({ note }: { note: any }) {
       className="group rounded-lg px-2 hover:bg-white/50 dark:hover:bg-gray-700/40 transition-colors"
     >
       <summary className="flex items-center gap-2 py-1.5 cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400 list-none [&::-webkit-details-marker]:hidden">
-        <StickyNote size={12} className="flex-shrink-0" />
+        <div className="w-5 h-5 rounded-full bg-teal-500/20 dark:bg-teal-400/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {note.user_image ? (
+            <img src={note.user_image} alt="" className="w-5 h-5 rounded-full object-cover" />
+          ) : (
+            <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300">
+              {(note.user_name || 'U').substring(0, 1).toUpperCase()}
+            </span>
+          )}
+        </div>
         <span className="truncate">{note.user_name || 'Usuario'}</span>
         <span className="text-gray-400 dark:text-gray-500 whitespace-nowrap">
           {new Date(note.created_at).toLocaleDateString('es-HN', {
@@ -1188,13 +1224,21 @@ function FollowUpNotes({
     refetchNotes().finally(() => setLoading(false));
   }, [refetchNotes, pacienteId]);
 
-  // Fallback refresh signal (single page-level interval). Guarantees notes
+  // Fallback refresh signal (single page-level batched request). Guarantees notes
   // surface within a few seconds even if the realtime websocket is unavailable.
   useEffect(() => {
-    const onRefresh = () => refetchNotes();
+    const onRefresh = (e: Event) => {
+      const detail = (e as CustomEvent<Record<string, any[]>>).detail;
+      if (detail?.[pacienteId]) {
+        const data = detail[pacienteId];
+        setNotes(prev => (notesEqual(prev, data) ? prev : data));
+      } else {
+        refetchNotes();
+      }
+    };
     window.addEventListener('refresh-follow-up-notes', onRefresh);
     return () => window.removeEventListener('refresh-follow-up-notes', onRefresh);
-  }, [refetchNotes]);
+  }, [refetchNotes, pacienteId]);
 
   // Realtime for notes scoped EXACTLY to this patient: notes now carry
   // paciente_id directly, so the realtime server filters other patients'

@@ -11,9 +11,36 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const followUpStatusId = searchParams.get('follow_up_status_id');
     const pacienteId = searchParams.get('paciente_id');
+    const pacientes = searchParams.get('pacientes');
 
-    if (!followUpStatusId && !pacienteId) {
+    if (!followUpStatusId && !pacienteId && !pacientes) {
       return NextResponse.json({ error: 'follow_up_status_id or paciente_id is required' }, { status: 400 });
+    }
+
+    // Batch mode: return { [paciente_id]: notes[] } for the fallback poll.
+    if (pacientes) {
+      const ids = pacientes.split(',').map(s => s.trim()).filter(Boolean);
+      const byPaciente: Record<string, any[]> = {};
+      for (const id of ids) byPaciente[id] = [];
+      if (ids.length === 0) return NextResponse.json(byPaciente);
+
+      const { data, error } = await supabase
+        .from('patient_follow_up_notes')
+        .select('*')
+        .in('paciente_id', ids)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching follow-up notes (batch):', error);
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      for (const note of (data || [])) {
+        if (note.paciente_id && byPaciente[note.paciente_id]) {
+          byPaciente[note.paciente_id].push(note);
+        }
+      }
+      return NextResponse.json(byPaciente);
     }
 
     let query = supabase
