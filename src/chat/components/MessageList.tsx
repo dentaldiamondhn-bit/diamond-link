@@ -64,6 +64,7 @@ interface MessageListProps {
   messages: ChatMessage[];
   onReplyTo?: (msg: ChatMessage) => void;
   replyToId?: string | null;
+  participantUserIds?: string[];
 }
 
 interface RowProps {
@@ -76,6 +77,7 @@ interface RowProps {
   editingContent: string;
   actionMenuFor: { id: string; position: 'above' | 'below' } | null;
   readReceipts: Record<string, ChatUser[]>;
+  otherParticipantCount: number;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   onToggleReaction: (msg: ChatMessage, emoji: string) => void;
   onPickReaction: (msgId: string | null, emoji: string) => void;
@@ -108,6 +110,7 @@ const MessageRow = function MessageRow({
     actionMenuFor,
     t,
     readReceipts,
+    otherParticipantCount,
     onToggleReaction,
     onPickReaction,
     onJump,
@@ -260,6 +263,27 @@ const MessageRow = function MessageRow({
         {extra > 0 && (
           <span className="text-[9px] text-gray-400 dark:text-gray-500 -ml-0.5">+{extra}</span>
         )}
+      </span>
+    );
+  };
+
+  // WhatsApp-style status for MY messages: ✓ sent → ✓✓ delivered → ✓✓ blue read.
+  const renderReadStatus = (m: ChatMessage) => {
+    const others = (m.reads || []).filter((r) => r.user_id !== currentUserId);
+    const readCount = others.filter((r) => !!r.read_at).length;
+    const deliveredCount = others.filter((r) => !!r.delivered_at).length;
+    const need = Math.max(otherParticipantCount, readCount, deliveredCount);
+    const isRead = need > 0 && readCount >= need;
+    const isDelivered = need > 0 && deliveredCount >= need;
+    return (
+      <span
+        className={`flex items-center leading-none ${
+          isRead ? 'text-blue-500 dark:text-blue-400' : 'text-gray-300 dark:text-gray-500'
+        }`}
+        title={isRead ? 'Leído' : isDelivered ? 'Entregado' : 'Enviado'}
+      >
+        <Check className="h-3 w-3" strokeWidth={2.5} />
+        {isDelivered && <Check className="h-3 w-3 -ml-1" strokeWidth={2.5} />}
       </span>
     );
   };
@@ -448,6 +472,8 @@ const MessageRow = function MessageRow({
               </span>
             )}
 
+            {mine && renderReadStatus(msg)}
+
             {mine && datum.isLast && readReceipts[msg.id] && renderReadAvatars(readReceipts[msg.id])}
 
             {Object.entries(reactions).length > 0 && (
@@ -474,7 +500,7 @@ const MessageRow = function MessageRow({
   );
 };
 
-export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps) => {
+export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds }: MessageListProps) => {
   const { locale } = useTranslations();
   const { users, currentUserId } = useChatStore();
 
@@ -552,6 +578,11 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
     }
     return map;
   }, [otherReadsByMessage, users]);
+
+  const otherParticipantCount = useMemo(
+    () => (participantUserIds || []).length,
+    [participantUserIds]
+  );
 
   const handleToggleReaction = useCallback(
     async (msg: ChatMessage, emoji: string) => {
@@ -707,6 +738,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
       editingContent,
       actionMenuFor,
       readReceipts,
+      otherParticipantCount,
       t: memoizedT,
       onToggleReaction: handleToggleReaction,
       onPickReaction: handlePickReaction,
@@ -731,6 +763,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
       editingContent,
       actionMenuFor,
       readReceipts,
+      otherParticipantCount,
       memoizedT,
       handleToggleReaction,
       handlePickReaction,

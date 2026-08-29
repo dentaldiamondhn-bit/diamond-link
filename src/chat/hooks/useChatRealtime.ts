@@ -63,6 +63,10 @@ export const useChatRealtime = (
               ChatRepository.markAsRead(currentUserRef.current, message.conversation_id).catch(
                 () => {}
               );
+            } else {
+              ChatRepository.markDelivered(currentUserRef.current, message.conversation_id).catch(
+                () => {}
+              );
             }
           }
         }

@@ -97,6 +97,11 @@ export class ChatRepository {
     await ChatService.markConversationRead(conversationId, userId);
   }
 
+  /** Record delivery of a conversation's messages (grey delivered checks) */
+  static async markDelivered(userId: string, conversationId: string) {
+    await ChatService.markDelivered(conversationId, userId);
+  }
+
   /** Get unread count for a conversation */
   static async getUnreadCount(userId: string, conversationId: string): Promise<number> {
     const result = await ChatService.getUnreadCount(conversationId, userId);

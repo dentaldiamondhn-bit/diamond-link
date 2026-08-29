@@ -322,11 +322,7 @@ export class ChatService {
     })) as ChatMessage[];
   }
 
-  /**
-   * Record that a user read (and received) the messages in a conversation:
-   * bump last_read_at and upsert read-receipt rows for every message not sent
-   * by the user.
-   */
+  /** Mark a conversation as read (bump last_read_at + record per-message reads) */
   static async markConversationRead(conversationId: string, userId: string) {
     await supabase
       .from('chat_participants')
@@ -360,6 +356,53 @@ export class ChatService {
       // still the source of truth for unread counts.
       console.error(
         'Failed to record message reads:',
+        err?.message || err,
+        err?.code,
+        err?.details
+      );
+    }
+  }
+
+  /**
+   * Record that a user RECEIVED (but has not necessarily read) the messages in
+   * a conversation. Used when a message arrives via realtime while the
+   * conversation is not open, so the sender sees a grey delivered check.
+   * Rows already present are left untouched (never clobber an existing read).
+   */
+  static async markDelivered(conversationId: string, userId: string) {
+    try {
+      const { data: unreadMsgs } = await supabase
+        .from('chat_messages')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .neq('sender_id', userId)
+        .eq('is_deleted', false);
+      if (!unreadMsgs || unreadMsgs.length === 0) return;
+
+      const { data: existing } = await supabase
+        .from('chat_message_reads')
+        .select('message_id')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', userId)
+        .in('message_id', unreadMsgs.map((m) => m.id));
+
+      const existingIds = new Set((existing || []).map((r) => r.message_id));
+      const rows = unreadMsgs
+        .filter((m) => !existingIds.has(m.id))
+        .map((m) => ({
+          message_id: m.id,
+          conversation_id: conversationId,
+          user_id: userId,
+          delivered_at: new Date().toISOString(),
+          read_at: null,
+        }));
+
+      if (rows.length > 0) {
+        await supabase.from('chat_message_reads').insert(rows);
+      }
+    } catch (err: any) {
+      console.error(
+        'Failed to record message delivery:',
         err?.message || err,
         err?.code,
         err?.details

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useVoiceRecorder } from '@/chat/hooks/useVoiceRecorder';
@@ -19,6 +19,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
   const {
     selectedConversationId,
     messages,
+    conversations,
     currentUserId,
     setMessages,
     addMessage,
@@ -37,6 +38,15 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
     useVoiceRecorder();
 
   const selectedMessages = selectedConversationId ? messages[selectedConversationId] || [] : [];
+
+  // Other participants of the selected conversation (for delivered/read states).
+  const otherParticipantIds = useMemo(() => {
+    if (!selectedConversationId) return [];
+    const conv = conversations.find((c) => c.id === selectedConversationId);
+    return (conv?.participants || [])
+      .map((p) => p.user_id)
+      .filter((id) => id !== currentUserId);
+  }, [conversations, selectedConversationId, currentUserId]);
 
   // Drop any pending reply quote when switching conversations
   useEffect(() => {
@@ -187,6 +197,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
           messages={selectedMessages}
           onReplyTo={(msg) => setReplyTo(msg)}
           replyToId={replyTo?.id ?? null}
+          participantUserIds={otherParticipantIds}
         />
       </div>
       <Composer

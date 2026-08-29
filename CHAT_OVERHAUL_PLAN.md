@@ -150,7 +150,7 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 | Invalid `GET_LOGS` route export | ✅ Moved store to `src/lib/file-access-log-store.ts` + real `/logs` route (`16600bb`) |
 | Verification gate | ✅ `npx tsc --noEmit` clean + 0 ESLint errors |
 | Virtualize `<MessageList>` (Phase 4) | ✅ react-window v2 (`List` + `useDynamicRowHeight` + `useListCallbackRef`); per-conversation remount via `key`; scroll-to-latest; jump-to-original uses `scrollToRow` (`021ad84`) |
-| Read-receipt avatars (Phase 4) | ✅ `chat_message_reads` table (migration pending apply), `reads` per message, live via realtime channel; stacked mini-avatars on my latest message's meta row |
+| Read-receipts (Phase 4) | ✅ `chat_message_reads` table (`message_id`+`user_id` UNIQUE, `delivered_at`/`read_at`), live via realtime channel; WhatsApp-style ✓/✓✓ (grey delivered / blue read) on my sent messages **plus** stacked reader avatars on my latest message (`participantUserIds` from store for the final check) |
 | Commit | ✅ `021ad84` (virtualization), read receipts committed with it |
 
 ### Work State
