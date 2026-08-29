@@ -9,7 +9,7 @@ import { StickyNote, ChevronDown } from 'lucide-react';
 import PatientOverviewModal from '@/components/PatientOverviewModal';
 import GlobalWhatsAppEdit from '@/components/GlobalWhatsAppEdit';
 import { FormattingToolbar } from '@/components/FormattingToolbar';
-import { supabase } from '@/lib/supabase';
+import { realtimeSupabase, supabase } from '@/lib/supabase';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -230,7 +230,13 @@ export default function PatientFollowUpPage() {
 
   /* ---- real-time subscription to patient_follow_up_status -------- */
   useEffect(() => {
-    const channel = supabase
+    // Clear any stale Supabase auth session that would make realtime connect
+    // as `authenticated` with an invalid JWT (Realtime then rejects silently).
+    supabase.auth.signOut().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const channel = realtimeSupabase
       .channel('patient_follow_up_status_changes')
       .on(
         'postgres_changes',
@@ -259,14 +265,14 @@ export default function PatientFollowUpPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      realtimeSupabase.removeChannel(channel);
     };
   }, []);
 
   /* ---- realtime subscription to whatsapp_message_history for the open editor ---- */
   useEffect(() => {
     if (!editingPacienteId) return;
-    const channel = supabase
+    const channel = realtimeSupabase
       .channel(`whatsapp_message_history:${editingPacienteId}`)
       .on(
         'postgres_changes',
@@ -302,7 +308,7 @@ export default function PatientFollowUpPage() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      realtimeSupabase.removeChannel(channel);
     };
   }, [editingPacienteId]);
 
@@ -1245,7 +1251,7 @@ function FollowUpNotes({
   // events for us (no client-side guard needed).
   useEffect(() => {
     if (!pacienteId) return;
-    const channel = supabase
+    const channel = realtimeSupabase
       .channel(`patient_follow_up_notes:${pacienteId}`)
       .on(
         'postgres_changes',
@@ -1279,7 +1285,7 @@ function FollowUpNotes({
       .subscribe((status) => {
         console.log('[notes-realtime]', pacienteId, status);
       });
-    return () => { supabase.removeChannel(channel); };
+    return () => { realtimeSupabase.removeChannel(channel); };
   }, [pacienteId]);
 
   const ensureStatusId = async (): Promise<string | null> => {

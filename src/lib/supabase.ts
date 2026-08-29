@@ -26,6 +26,27 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 export { createClient }
 
+// Sessionless anon client for Realtime only. Stale persisted Supabase auth
+// sessions (e.g. from older flows) make realtime connect as `authenticated`
+// with an invalid/expired JWT, which the Realtime server rejects silently.
+// This forces every realtime connection to use the `anon` role, which the
+// permissive RLS policies explicitly allow.
+export const realtimeSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    detectSessionInUrl: false,
+    autoRefreshToken: false,
+  },
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+})
+
 export function createServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
