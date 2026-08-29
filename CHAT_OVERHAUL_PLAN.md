@@ -165,8 +165,7 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 - Commits: `<next>` (group icon + default panel), `99815aa` (checkmarks + read-receipt pipeline), `7920a4a`, `cc3d538`, `08c0702`, `021ad84`, `b6e8ce6`, `e2aaa6b`, `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
 
 **Active**
-- Ship the group-icon/no-selection panel commit (stage above) and deploy to Vercel so prod picks up checkmarks, read receipts, and the new default panel.
-- Verify read receipts end-to-end with two accounts once deployed (migration `database/migrations/20260828_chat_message_reads.sql` already applied — "Success. No rows returned").
+- Verify read receipts end-to-end with two accounts on the deployed app (`app.dentaldiamondhn.com` — deploy `7a5e89a` alias, migration already applied).
 
 **Blocked**
 - Full local `npm run build` still stalls at 4GB heap in the dev container (approved gate: `tsc` + ESLint; Vercel is the functional build check and is green).
