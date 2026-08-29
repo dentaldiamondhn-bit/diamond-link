@@ -45,7 +45,11 @@ export const ChatHeader = ({ conversationId, className = '' }: ChatHeaderProps) 
     >
       <div className="flex items-center gap-3 min-w-0">
         <div className="relative flex-shrink-0">
-          {avatarUrl ? (
+          {conversation?.type === 'group' && !conversation.avatar_url ? (
+            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+              <UsersIcon className="h-5 w-5 text-gray-500 dark:text-gray-300" />
+            </div>
+          ) : avatarUrl ? (
             <img src={avatarUrl} alt={name} className="w-10 h-10 rounded-full object-cover" />
           ) : (
             <div

@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MessagesSquare } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useVoiceRecorder } from '@/chat/hooks/useVoiceRecorder';
+import { useTranslations } from '@/chat/i18n/useTranslations';
 import { ChatMessageType } from '@/types/chat';
 import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 import ChatHeader from './ChatHeader';
@@ -16,6 +18,7 @@ interface ChatPaneProps {
 }
 
 export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
+  const { t } = useTranslations();
   const {
     selectedConversationId,
     messages,
@@ -190,26 +193,44 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
     <div
       className={`flex h-full flex-1 min-w-0 flex-col overflow-hidden bg-gray-50 dark:bg-gray-800 ${className}`}
     >
-      <ChatHeader conversationId={selectedConversationId} />
-      <div className="flex-1 min-h-0 overflow-hidden p-4">
-        <MessageList
-          key={selectedConversationId ?? 'none'}
-          messages={selectedMessages}
-          onReplyTo={(msg) => setReplyTo(msg)}
-          replyToId={replyTo?.id ?? null}
-          participantUserIds={otherParticipantIds}
-        />
-      </div>
-      <Composer
-        conversationId={selectedConversationId}
-        onSend={handleSend}
-        onTyping={handleTyping}
-        onVoiceToggle={handleVoiceToggle}
-        isRecording={isRecording}
-        duration={duration}
-        replyTo={replyTo}
-        onCancelReply={() => setReplyTo(null)}
-      />
+      {selectedConversationId ? (
+        <>
+          <ChatHeader conversationId={selectedConversationId} />
+          <div className="flex-1 min-h-0 overflow-hidden p-4">
+            <MessageList
+              key={selectedConversationId}
+              messages={selectedMessages}
+              onReplyTo={(msg) => setReplyTo(msg)}
+              replyToId={replyTo?.id ?? null}
+              participantUserIds={otherParticipantIds}
+            />
+          </div>
+          <Composer
+            conversationId={selectedConversationId}
+            onSend={handleSend}
+            onTyping={handleTyping}
+            onVoiceToggle={handleVoiceToggle}
+            isRecording={isRecording}
+            duration={duration}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
+          />
+        </>
+      ) : (
+        <div className="flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
+          <div className="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+            <MessagesSquare className="h-10 w-10 text-gray-400 dark:text-gray-300" />
+          </div>
+          <div>
+            <p className="text-xl font-medium text-gray-700 dark:text-gray-200">
+              {t('selectConversation')}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {t('selectConversationHint')}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

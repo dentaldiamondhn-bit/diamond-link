@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Pin, Archive } from 'lucide-react';
+import { Pin, Archive, Users as UsersIcon } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatConversation } from '@/types/chat';
 import { useTranslations } from '@/chat/i18n/useTranslations';
@@ -75,7 +75,11 @@ export const ConversationListItem = ({
     >
       <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0">
-          {avatarUrl ? (
+          {conversation.type === 'group' && !conversation.avatar_url ? (
+            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+              <UsersIcon className="h-5 w-5 text-gray-500 dark:text-gray-300" />
+            </div>
+          ) : avatarUrl ? (
             <img src={avatarUrl} alt={name} className="w-10 h-10 rounded-full object-cover" />
           ) : (
             <div

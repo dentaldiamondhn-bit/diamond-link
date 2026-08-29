@@ -151,20 +151,22 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 | Verification gate | ✅ `npx tsc --noEmit` clean + 0 ESLint errors |
 | Virtualize `<MessageList>` (Phase 4) | ✅ react-window v2 (`List` + `useDynamicRowHeight` + `useListCallbackRef`); per-conversation remount via `key`; scroll-to-latest; jump-to-original uses `scrollToRow` (`021ad84`) |
 | Read-receipts (Phase 4) | ✅ `chat_message_reads` table (`message_id`+`user_id` UNIQUE, `delivered_at`/`read_at`), live via realtime channel; WhatsApp-style ✓/✓✓ (grey delivered / blue read) on my sent messages **plus** stacked reader avatars on my latest message (`participantUserIds` from store for the final check) |
-| Commit | ✅ `021ad84` (virtualization), read receipts committed with it |
+| WhatsApp UI tweaks | ✅ Group conversations show the multiple-users icon on a gray circle in the list + header (fallback only when no group `avatar_url`); no-chat-selected panel hides the header/composer and shows the WhatsApp default copy ("Tap a chat to start messaging." / "Selecciona un chat…") |
+| Commit | ✅ `021ad84` (virtualization), read receipts committed with it; checkmarks + read-receipt pipeline `99815aa`; group icon + default panel `<next>` |
 
 ### Work State
 
 **Completed**
 - **Phase 2 (partial 70%)** — realtime consolidated in `useChatRealtime`; `reactions JSONB` + voice migration applied (`database/migrations/20260827_chat_extensions.sql`); **server-computed per-user unread counts** (`getConversations`) + mark-as-read on delivery while conversation is open; **`chat_message_reads` table + read-delivery upserts** (`markConversationRead`). Typing indicator still pending.
 - **Phase 3 (partial 60%)** — Lexical composer (bold/italic/underline), drag-&-drop + multi-file upload, voice notes, **emoji picker**, **optimistic send-clear**, reply-quote bar. Lists/code/mentions + draft persistence pending.
-- **Phase 4 (≈95%)** — grouping, reactions (one per user), unified hover action menu (above/below positioning), inline edit, **quote/reply fully wired** (composer quote bar → `reply_to_id` → bubble preview `Sender: snippet` → click-to-jump with highlight), **virtualized `<MessageList>`** (react-window v2 dynamic heights, per-conversation reset, scroll-to-latest / jump-to-row), **read-receipt avatars** (live via `chat_message_reads` realtime channel).
+- **Phase 4 (≈95%)** — grouping, reactions (one per user), unified hover action menu (above/below positioning), inline edit, **quote/reply fully wired** (composer quote bar → `reply_to_id` → bubble preview `Sender: snippet` → click-to-jump with highlight), **virtualized `<MessageList>`** (react-window v2 dynamic heights, per-conversation reset, scroll-to-latest / jump-to-row), **read-receipt avatars + WhatsApp ✓/✓✓ checkmarks** (live via `chat_message_reads` realtime channel), default no-chat-selected panel + gray users-icon group avatars.
 - **Phase 7 (partial)** — i18n layer (`en`/`es`, typed keys incl. `moreActions`, `replyingTo`).
 - **Production** — feature flag activated (`NEXT_PUBLIC_USE_NEW_CHAT=true`), Vercel deploy green, `GET_LOGS` route fixed, `.eslintcache` gitignored, action-menu refactor shipped.
-- Commits: `021ad84` (head), `b6e8ce6`, `e2aaa6b`, `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
+- Commits: `<next>` (group icon + default panel), `99815aa` (checkmarks + read-receipt pipeline), `7920a4a`, `cc3d538`, `08c0702`, `021ad84`, `b6e8ce6`, `e2aaa6b`, `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
 
 **Active**
-- Apply `database/migrations/20260828_chat_message_reads.sql` in the Supabase dashboard (SQL editor) — read receipts only light up once the table + realtime publication exist. Code is defensive (reads silently empty if the table is missing).
+- Ship the group-icon/no-selection panel commit (stage above) and deploy to Vercel so prod picks up checkmarks, read receipts, and the new default panel.
+- Verify read receipts end-to-end with two accounts once deployed (migration `database/migrations/20260828_chat_message_reads.sql` already applied — "Success. No rows returned").
 
 **Blocked**
 - Full local `npm run build` still stalls at 4GB heap in the dev container (approved gate: `tsc` + ESLint; Vercel is the functional build check and is green).
@@ -197,7 +199,9 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/chat --cache --format st
 - `app/(auth)/chat/page.tsx` — `NEXT_PUBLIC_USE_NEW_CHAT` gate (active); info panel removed.
 - `app/(auth)/layout.tsx` — `min-h-0` on both overflow wrappers.
 - `database/migrations/20260827_chat_extensions.sql` — applied to Supabase.
-- `database/migrations/20260828_chat_message_reads.sql` — **pending** apply in the Supabase dashboard (table, RLS via `chat_check_access`, realtime publication).
+- `database/migrations/20260828_chat_message_reads.sql` — **applied** to Supabase (successful run; drop+recreate with permissive RLS + realtime publication; pre-existing incompatible table fixed by `7920a4a` + `08c0702`).
+- `src/chat/components/ConversationListItem.tsx` / `ChatHeader.tsx` — group conversations render a gray circle with the `Users` icon when no group `avatar_url` exists.
+- `src/chat/components/ChatPane.tsx` — when no conversation is selected: header + composer hidden and WhatsApp-style default panel shown (gray circle + "Tap a chat to start messaging.").
 - `next.config.js` / `package.json` — `eslint.ignoreDuringBuilds`, 8GB build heap.
 - `app/api/agent/file-access/route.ts`, `app/api/logs/route.ts`, `src/lib/file-access-log-store.ts` — file-access tracking (Phase 0/10 tooling).
 - `src/types/chat.ts` — `ChatMessageRead` type + `reads` field on `ChatMessage`.
