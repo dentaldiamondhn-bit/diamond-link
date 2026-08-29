@@ -63,15 +63,16 @@ export const ConversationListItem = ({
 
   // WhatsApp-style ✓/✓✓ for the last message of the conversation (only when
   // it was sent by me), matching the bubble render under the timestamp.
-  const otherParticipantCount = useMemo(
-    () =>
-      (conversation.participants || []).filter((p) => p.user_id !== currentUserId).length,
+  const otherParticipantIds = useMemo(
+    () => (conversation.participants || [])
+      .filter((p) => p.user_id !== currentUserId)
+      .map((p) => p.user_id),
     [conversation.participants, currentUserId]
   );
   const lastMessageStatus = getMessageReadStatus(
     conversation.last_message,
     currentUserId,
-    otherParticipantCount
+    otherParticipantIds
   );
 
   const onlineCount = useMemo(() => {

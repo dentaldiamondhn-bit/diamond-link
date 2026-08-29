@@ -69,7 +69,7 @@ interface RowProps {
   editingContent: string;
   actionMenuFor: { id: string; position: 'above' | 'below' } | null;
   readReceipts: Record<string, ChatUser[]>;
-  otherParticipantCount: number;
+  otherParticipantIds: string[];
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   onToggleReaction: (msg: ChatMessage, emoji: string) => void;
   onPickReaction: (msgId: string | null, emoji: string) => void;
@@ -102,7 +102,7 @@ const MessageRow = function MessageRow({
     actionMenuFor,
     t,
     readReceipts,
-    otherParticipantCount,
+    otherParticipantIds,
     onToggleReaction,
     onPickReaction,
     onJump,
@@ -261,7 +261,7 @@ const MessageRow = function MessageRow({
 
   // WhatsApp-style status for MY messages: ✓ sent → ✓✓ delivered → ✓✓ blue read.
   const renderReadStatus = (m: ChatMessage) => {
-    const status = getMessageReadStatus(m, currentUserId, otherParticipantCount);
+    const status = getMessageReadStatus(m, currentUserId, otherParticipantIds);
     const isRead = status === 'read';
     const isDelivered = status === 'delivered';
     return (
@@ -568,10 +568,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     return map;
   }, [otherReadsByMessage, users]);
 
-  const otherParticipantCount = useMemo(
-    () => (participantUserIds || []).length,
-    [participantUserIds]
-  );
+  const otherParticipantIds = useMemo(() => participantUserIds || [], [participantUserIds]);
 
   const handleToggleReaction = useCallback(
     async (msg: ChatMessage, emoji: string) => {
@@ -727,7 +724,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       editingContent,
       actionMenuFor,
       readReceipts,
-      otherParticipantCount,
+      otherParticipantIds,
       t: memoizedT,
       onToggleReaction: handleToggleReaction,
       onPickReaction: handlePickReaction,
@@ -752,7 +749,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       editingContent,
       actionMenuFor,
       readReceipts,
-      otherParticipantCount,
+      otherParticipantIds,
       memoizedT,
       handleToggleReaction,
       handlePickReaction,

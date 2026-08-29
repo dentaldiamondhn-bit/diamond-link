@@ -105,15 +105,17 @@ export function formatConversationTime(iso: string | null | undefined): string {
 export function getMessageReadStatus(
   message: ChatMessage | null | undefined,
   currentUserId: string | null,
-  otherParticipantCount: number
+  otherParticipantIds: string[]
 ): 'sent' | 'delivered' | 'read' | null {
   if (!message || !currentUserId || message.sender_id !== currentUserId) return null;
-  const others = (message.reads || []).filter((r) => r.user_id !== currentUserId);
+  const participantSet = new Set(otherParticipantIds);
+  const others = (message.reads || []).filter((r) => participantSet.has(r.user_id));
+  const need = otherParticipantIds.length;
+  if (need <= 0 || others.length === 0) return 'sent';
   const readCount = others.filter((r) => !!r.read_at).length;
   const deliveredCount = others.filter((r) => !!r.delivered_at).length;
-  const need = Math.max(otherParticipantCount, readCount, deliveredCount);
-  if (need > 0 && readCount >= need) return 'read';
-  if (need > 0 && deliveredCount >= need) return 'delivered';
+  if (readCount >= need) return 'read';
+  if (deliveredCount >= need) return 'delivered';
   return 'sent';
 }
 
