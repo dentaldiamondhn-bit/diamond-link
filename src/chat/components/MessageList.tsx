@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Plus,
@@ -14,10 +14,13 @@ import {
   CloudDownload,
   Briefcase,
 } from 'lucide-react';
+import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
+import type { RowComponentProps } from 'react-window';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
-import type { ChatMessage } from '@/types/chat';
+import { interpolate, translations, type TranslationKey } from '@/chat/i18n/translations';
+import type { ChatMessage, ChatUser } from '@/types/chat';
 import { getUserDisplayName, getInitials, getAvatarColor } from '@/chat/utils';
 import VoiceMessageBubble from './VoiceMessageBubble';
 
@@ -35,6 +38,8 @@ const GROUP_THRESHOLD_MS = 5 * 60 * 1000;
 
 const ACTION_MENU_HEIGHT_PX = 220;
 
+const DEFAULT_ROW_HEIGHT = 48;
+
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const FREQUENT_REACTIONS = ['🔥', '👏', '😘', '🎉'];
@@ -48,147 +53,94 @@ const ALL_REACTIONS = [
   '🌟', '⭐', '☀️', '🐝', '🐣', '🍩', '🍕', '⚡',
 ];
 
+interface RowDatum {
+  msg: ChatMessage;
+  mine: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
 interface MessageListProps {
   messages: ChatMessage[];
   onReplyTo?: (msg: ChatMessage) => void;
   replyToId?: string | null;
 }
 
-export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps) => {
-  const { t } = useTranslations();
-  const { users, currentUserId } = useChatStore();
+interface RowProps {
+  rows: RowDatum[];
+  users: Record<string, ChatUser>;
+  currentUserId: string | null;
+  replyToId?: string | null;
+  highlightedId: string | null;
+  editingId: string | null;
+  editingContent: string;
+  actionMenuFor: { id: string; position: 'above' | 'below' } | null;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+  onToggleReaction: (msg: ChatMessage, emoji: string) => void;
+  onPickReaction: (msgId: string | null, emoji: string) => void;
+  onJump: (msgId: string) => void;
+  onReply: (msg: ChatMessage) => void;
+  onDelete: (msgId: string) => void;
+  onOpenMenu: (msgId: string, e: React.MouseEvent<HTMLButtonElement>) => void;
+  onCloseMenu: () => void;
+  onStartEdit: (msg: ChatMessage) => void;
+  onCancelEdit: () => void;
+  onCommitEdit: (msg: ChatMessage) => void;
+  onEditContentChange: (value: string) => void;
+  onOpenEmojiFull: (msgId: string) => void;
+}
 
-  const [actionMenuFor, setActionMenuFor] = useState<{
-    id: string;
-    position: 'above' | 'below';
-  } | null>(null);
-  const [emojiFullFor, setEmojiFullFor] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingContent, setEditingContent] = useState('');
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (highlightTimer.current) clearTimeout(highlightTimer.current);
-    },
-    []
-  );
-
-  const isCurrentUser = (msg: ChatMessage) => msg.sender_id === currentUserId;
-
-  const groups = useMemo(() => {
-    if (!messages.length) return [];
-    const result: { userId: string; messages: ChatMessage[] }[] = [];
-    let current: { userId: string; messages: ChatMessage[] } | null = null;
-
-    for (const msg of messages) {
-      if (
-        current &&
-        msg.sender_id === current.userId &&
-        new Date(msg.created_at).getTime() -
-          new Date(current.messages[current.messages.length - 1].created_at).getTime() <=
-          GROUP_THRESHOLD_MS
-      ) {
-        current.messages.push(msg);
-      } else {
-        current = { userId: msg.sender_id, messages: [msg] };
-        result.push(current);
-      }
-    }
-    return result;
-  }, [messages]);
-
-  const hasUserReacted = (msg: ChatMessage, emoji: string) =>
-    (msg.reactions?.[emoji] || []).includes(currentUserId ?? '');
-
-  const handleToggleReaction = async (msg: ChatMessage, emoji: string) => {
-    if (!currentUserId) return;
-    try {
-      if (hasUserReacted(msg, emoji)) {
-        await ChatRepository.removeReaction(currentUserId, msg.id, emoji);
-        return;
-      }
-      const existing = Object.entries(msg.reactions || {}).find(([, ids]) =>
-        ids.includes(currentUserId)
-      );
-      if (existing && existing[0] !== emoji) {
-        await ChatRepository.removeReaction(currentUserId, msg.id, existing[0]);
-      }
-      await ChatRepository.addReaction(currentUserId, msg.id, emoji);
-    } catch (err) {
-      console.error('Failed to toggle reaction:', err);
-    }
-  };
-
-  const handlePickReaction = (msgId: string | null, emoji: string) => {
-    const msg = messages.find((m) => m.id === msgId);
-    if (msg) handleToggleReaction(msg, emoji);
-    setActionMenuFor(null);
-    setEmojiFullFor(null);
-  };
-
-  const openActionMenu = (msgId: string, e: React.MouseEvent<HTMLButtonElement>) => {
-    const rowEl = e.currentTarget.closest('[data-message-id]') as HTMLElement | null;
-    const scroller = getScrollParent(rowEl);
-    let position: 'above' | 'below' = 'above';
-    if (rowEl && scroller) {
-      const rowRect = rowEl.getBoundingClientRect();
-      const scrollerRect = scroller.getBoundingClientRect();
-      const rowMidY = rowRect.top + rowRect.height / 2;
-      const centerY = scrollerRect.top + scrollerRect.height / 2;
-      const preferBelow = rowMidY <= centerY;
-      const spaceAbove = rowRect.top - scrollerRect.top;
-      const spaceBelow = scrollerRect.bottom - rowRect.bottom;
-      if (preferBelow && spaceBelow >= ACTION_MENU_HEIGHT_PX) position = 'below';
-      else if (!preferBelow && spaceAbove >= ACTION_MENU_HEIGHT_PX) position = 'above';
-      else if (spaceBelow >= ACTION_MENU_HEIGHT_PX) position = 'below';
-      else position = 'above';
-    }
-    setActionMenuFor({ id: msgId, position });
-  };
-
-  const handleEdit = async (msg: ChatMessage) => {
-    if (!currentUserId || !editingContent.trim()) return;
-    try {
-      await ChatRepository.updateMessage(currentUserId, msg.id, { content: editingContent.trim() });
-      setEditingId(null);
-      setEditingContent('');
-    } catch (err) {
-      console.error('Failed to edit message:', err);
-    }
-  };
-
-  const handleDelete = async (msg: ChatMessage) => {
-    if (!currentUserId) return;
-    if (!window.confirm(t('deleteMessageConfirm'))) return;
-    try {
-      await ChatRepository.deleteMessage(currentUserId, msg.id);
-    } catch (err) {
-      console.error('Failed to delete message:', err);
-    }
-  };
-
-  const handleReply = (msg: ChatMessage) => {
-    setActionMenuFor(null);
-    onReplyTo?.(msg);
-  };
+const MessageRow = function MessageRow({
+  index,
+  style,
+  ariaAttributes,
+  ...rowProps
+}: RowComponentProps<RowProps>) {
+  const {
+    rows,
+    users,
+    currentUserId,
+    replyToId,
+    highlightedId,
+    editingId,
+    editingContent,
+    actionMenuFor,
+    t,
+    onToggleReaction,
+    onPickReaction,
+    onJump,
+    onReply,
+    onDelete,
+    onOpenMenu,
+    onCloseMenu,
+    onStartEdit,
+    onCancelEdit,
+    onCommitEdit,
+    onEditContentChange,
+    onOpenEmojiFull,
+  } = rowProps;
+  const datum = rows[index];
+  if (!datum) return null;
+  const msg = datum.msg;
+  const mine = datum.mine;
+  const reactions = msg.reactions || {};
+  const hasUserReacted = (emoji: string) => (reactions[emoji] || []).includes(currentUserId ?? '');
 
   // The server only embeds `reply_to` on full re-fetches; for realtime/fresh
   // inserts it is missing, so fall back to the message already in this list.
-  const resolveReplyTarget = (msg: ChatMessage): ChatMessage | undefined =>
-    (msg.reply_to?.id ? (msg.reply_to as ChatMessage) : undefined) ||
-    messages.find((m) => m.id === msg.reply_to_id);
+  const resolveReplyTarget = (m: ChatMessage): ChatMessage | undefined =>
+    (m.reply_to?.id ? (m.reply_to as ChatMessage) : undefined) ||
+    rows.find((r) => r.msg.id === m.reply_to_id)?.msg;
 
-  const replySenderName = (msg: ChatMessage): string => {
-    const target = resolveReplyTarget(msg);
+  const replySenderName = (m: ChatMessage): string => {
+    const target = resolveReplyTarget(m);
     if (!target) return '';
     const sender = target.sender || users[target.sender_id];
     return sender ? getUserDisplayName(sender) : '';
   };
 
-  const replyPreviewText = (msg: ChatMessage): string => {
-    const target = resolveReplyTarget(msg);
+  const replyPreviewText = (m: ChatMessage): string => {
+    const target = resolveReplyTarget(m);
     if (!target) return '...';
     switch (target.message_type) {
       case 'image':
@@ -204,23 +156,14 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
     }
   };
 
-  const handleJumpToMessage = (msgId: string) => {
-    document
-      .querySelector(`[data-message-id="${msgId}"]`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setHighlightedId(msgId);
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-    highlightTimer.current = setTimeout(() => setHighlightedId(null), 1600);
-  };
-
-  const renderBubble = (msg: ChatMessage) => {
-    switch (msg.message_type) {
+  const renderBubble = (m: ChatMessage) => {
+    switch (m.message_type) {
       case 'voice':
-        return <VoiceMessageBubble message={msg} isCurrentUser={isCurrentUser(msg)} />;
+        return <VoiceMessageBubble message={m} isCurrentUser={mine} />;
       case 'image':
         return (
           <div className="space-y-2">
-            {(msg.attachments || []).map((att) => (
+            {(m.attachments || []).map((att) => (
               <img
                 key={att.id}
                 src={att.file_url}
@@ -228,13 +171,13 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
                 className="max-w-[240px] rounded-xl cursor-pointer hover:opacity-90"
               />
             ))}
-            {msg.content && <p className="text-sm">{msg.content}</p>}
+            {m.content && <p className="text-sm">{m.content}</p>}
           </div>
         );
       case 'file':
         return (
           <div className="space-y-2">
-            {(msg.attachments || []).map((att) => (
+            {(m.attachments || []).map((att) => (
               <a
                 key={att.id}
                 href={att.file_url}
@@ -246,7 +189,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
                 {att.file_name}
               </a>
             ))}
-            {msg.content && <p className="text-sm">{msg.content}</p>}
+            {m.content && <p className="text-sm">{m.content}</p>}
           </div>
         );
       case 'patient_case':
@@ -256,20 +199,22 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
             <div>
               <p className="font-medium text-sm">{t('patientCase')}</p>
               <p className="text-sm">
-                {msg.patient_case_link?.title || msg.content || t('patientCase')}
+                {m.patient_case_link?.title || m.content || t('patientCase')}
               </p>
             </div>
           </div>
         );
       default:
-        return <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>;
+        return <p className="whitespace-pre-wrap break-words text-sm">{m.content}</p>;
     }
   };
 
   const renderAvatar = (userId: string) => {
     const user = users[userId];
     if (user?.profile_image_url) {
-      return <img src={user.profile_image_url} alt="" className="w-8 h-8 rounded-full object-cover" />;
+      return (
+        <img src={user.profile_image_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+      );
     }
     const displayName = getUserDisplayName(user);
     return (
@@ -283,252 +228,483 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
     );
   };
 
+  return (
+<div
+        style={style}
+        data-message-id={msg.id}
+        role={ariaAttributes.role}
+        aria-posinset={ariaAttributes['aria-posinset']}
+        aria-setsize={ariaAttributes['aria-setsize']}
+        className={`group relative flex px-2 ${
+          datum.isLast ? 'pb-4' : 'pb-1'
+        } ${
+          mine ? 'justify-end' : 'justify-start'
+        } ${highlightedId === msg.id ? 'rounded-2xl bg-blue-50 dark:bg-blue-900/30' : ''}`}
+      >
+        <div className={`flex items-end gap-2 max-w-[75%] ${mine ? 'flex-row-reverse' : ''}`}>
+        {actionMenuFor?.id === msg.id && (
+          <div
+            className={`absolute z-20 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-xl overflow-hidden ${
+              actionMenuFor.position === 'below' ? 'top-full mt-2' : 'bottom-full mb-2'
+            } ${mine ? 'right-0' : 'left-0'}`}
+          >
+            <div className="flex items-center px-1.5 py-1.5">
+              {QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => onPickReaction(msg.id, emoji)}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
+                >
+                  {emoji}
+                </button>
+              ))}
+              <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+              {FREQUENT_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => onPickReaction(msg.id, emoji)}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
+                >
+                  {emoji}
+                </button>
+              ))}
+              <button
+                onClick={() => onOpenEmojiFull(msg.id)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300"
+                title={t('addReaction')}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="border-t border-gray-200 dark:border-gray-600" />
+            <button
+              onClick={() => onReply(msg)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <Reply className="h-4 w-4" />
+              {t('reply')}
+            </button>
+            {mine && editingId !== msg.id && (
+              <button
+                onClick={() => onStartEdit(msg)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <Edit className="h-4 w-4" />
+                {t('editMessage')}
+              </button>
+            )}
+            {mine && (
+              <button
+                onClick={() => onDelete(msg.id)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+              >
+                <Trash2 className="h-4 w-4" />
+                {t('deleteMessage')}
+              </button>
+            )}
+          </div>
+        )}
+        {!mine && datum.isFirst && renderAvatar(msg.sender_id)}
+        <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'} min-w-0`}>
+          {!mine && datum.isFirst && msg.sender_id !== currentUserId && (
+            <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
+              {getUserDisplayName(users[msg.sender_id])}
+            </span>
+          )}
+
+          {editingId === msg.id ? (
+            <div className="flex items-center gap-1 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1">
+              <input
+                type="text"
+                value={editingContent}
+                onChange={(e) => onEditContentChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onCommitEdit(msg);
+                  if (e.key === 'Escape') onCancelEdit();
+                }}
+                autoFocus
+                className="text-sm w-48 outline-none bg-transparent text-gray-900 dark:text-white"
+              />
+              <button
+                onClick={() => onCommitEdit(msg)}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-green-600"
+                title={t('save')}
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={onCancelEdit}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
+                title={t('cancel')}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div
+              className={`rounded-2xl px-3 py-2 transition-shadow ${
+                mine
+                  ? 'bg-blue-500 text-white dark:bg-blue-600'
+                  : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
+              } ${replyToId === msg.id ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''}`}
+            >
+              {msg.reply_to_id && (
+                <button
+                  type="button"
+                  onClick={() => onJump(msg.reply_to_id!)}
+                  className={`mb-1 flex w-full max-w-[200px] items-center gap-1 rounded px-0.5 text-xs ${
+                    mine ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                  } ${
+                    mine ? 'hover:bg-black/10' : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <CornerDownRight className="h-3 w-3 flex-shrink-0" />
+                  {replySenderName(msg) && (
+                    <span
+                      className={`flex-shrink-0 font-medium ${
+                        mine ? 'text-blue-50' : 'text-gray-600 dark:text-gray-300'
+                      }`}
+                    >
+                      {replySenderName(msg)}:
+                    </span>
+                  )}
+                  <span className="min-w-0 truncate">{replyPreviewText(msg)}</span>
+                </button>
+              )}
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 min-w-0">{renderBubble(msg)}</div>
+                <button
+                  onClick={(e) =>
+                    actionMenuFor?.id === msg.id ? onCloseMenu() : onOpenMenu(msg.id, e)
+                  }
+                  className={`flex-shrink-0 p-1 rounded-full transition-opacity ${
+                    mine
+                      ? 'text-blue-100 hover:bg-black/10'
+                      : 'text-gray-400 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  } ${
+                    actionMenuFor?.id === msg.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'
+                  }`}
+                  title={t('moreActions')}
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {msg.is_edited && (
+                <span
+                  className={`block text-[10px] mt-1 ${
+                    mine ? 'text-blue-100' : 'text-gray-400'
+                  }`}
+                >
+                  {t('edited')}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div
+            className={`flex items-center gap-2 mt-0.5 text-xs text-gray-400 dark:text-gray-500 ${
+              mine ? 'flex-row-reverse' : ''
+            }`}
+          >
+            {datum.isLast && (
+              <span className="text-[10px]">
+                {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+              </span>
+            )}
+
+            {Object.entries(reactions).length > 0 && (
+              <div className="flex items-center gap-1 mt-0.5">
+                {Object.entries(reactions).map(([emoji, userIds]) => (
+                  <button
+                    key={emoji}
+                    onClick={() => onToggleReaction(msg, emoji)}
+                    className={`px-1.5 py-0.5 rounded-full text-xs border flex items-center gap-0.5 ${
+                      hasUserReacted(emoji)
+                        ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-300'
+                        : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600'
+                    }`}
+                  >
+                    {emoji} {userIds.length}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps) => {
+  const { locale } = useTranslations();
+  const { users, currentUserId } = useChatStore();
+
+  const [list, setList] = useListCallbackRef();
+  const rowHeight = useDynamicRowHeight({ defaultRowHeight: DEFAULT_ROW_HEIGHT });
+
+  const [actionMenuFor, setActionMenuFor] = useState<{
+    id: string;
+    position: 'above' | 'below';
+  } | null>(null);
+  const [emojiFullFor, setEmojiFullFor] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didInitialScroll = useRef(false);
+
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    []
+  );
+
+  // Stable t identity (locale-aware) so row memoization holds across renders.
+  const memoizedT = useCallback(
+    (key: TranslationKey, params?: Record<string, string | number>) =>
+      interpolate(translations[locale][key], params),
+    [locale]
+  );
+
+  const rows = useMemo<RowDatum[]>(() => {
+    if (!messages.length) return [];
+    const result: RowDatum[] = [];
+    let prev: ChatMessage | null = null;
+    for (const msg of messages) {
+      const sameSender =
+        prev !== null &&
+        msg.sender_id === prev.sender_id &&
+        new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() <=
+          GROUP_THRESHOLD_MS;
+      result.push({
+        msg,
+        mine: msg.sender_id === currentUserId,
+        isFirst: !sameSender,
+        isLast: true,
+      });
+      if (prev) result[result.length - 2].isLast = !sameSender;
+      prev = msg;
+    }
+    return result;
+  }, [messages, currentUserId]);
+
+  const handleToggleReaction = useCallback(
+    async (msg: ChatMessage, emoji: string) => {
+      if (!currentUserId) return;
+      try {
+        const reacted = (msg.reactions?.[emoji] || []).includes(currentUserId);
+        if (reacted) {
+          await ChatRepository.removeReaction(currentUserId, msg.id, emoji);
+          return;
+        }
+        const existing = Object.entries(msg.reactions || {}).find(([, ids]) =>
+          ids.includes(currentUserId)
+        );
+        if (existing && existing[0] !== emoji) {
+          await ChatRepository.removeReaction(currentUserId, msg.id, existing[0]);
+        }
+        await ChatRepository.addReaction(currentUserId, msg.id, emoji);
+      } catch (err) {
+        console.error('Failed to toggle reaction:', err);
+      }
+    },
+    [currentUserId]
+  );
+
+  const handlePickReaction = useCallback(
+    (msgId: string | null, emoji: string) => {
+      const msg = rows.find((r) => r.msg.id === msgId)?.msg;
+      if (msg) handleToggleReaction(msg, emoji);
+      setActionMenuFor(null);
+      setEmojiFullFor(null);
+    },
+    [rows, handleToggleReaction]
+  );
+
+  const openActionMenu = useCallback(
+    (msgId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+      const rowEl = e.currentTarget.closest('[data-message-id]') as HTMLElement | null;
+      const scroller = getScrollParent(rowEl);
+      let position: 'above' | 'below' = 'above';
+      if (rowEl && scroller) {
+        const rowRect = rowEl.getBoundingClientRect();
+        const scrollerRect = scroller.getBoundingClientRect();
+        const rowMidY = rowRect.top + rowRect.height / 2;
+        const centerY = scrollerRect.top + scrollerRect.height / 2;
+        const preferBelow = rowMidY <= centerY;
+        const spaceAbove = rowRect.top - scrollerRect.top;
+        const spaceBelow = scrollerRect.bottom - rowRect.bottom;
+        if (preferBelow && spaceBelow >= ACTION_MENU_HEIGHT_PX) position = 'below';
+        else if (!preferBelow && spaceAbove >= ACTION_MENU_HEIGHT_PX) position = 'above';
+        else if (spaceBelow >= ACTION_MENU_HEIGHT_PX) position = 'below';
+        else position = 'above';
+      }
+      setActionMenuFor({ id: msgId, position });
+    },
+    []
+  );
+
+  const handleEdit = useCallback(
+    async (msg: ChatMessage) => {
+      if (!currentUserId || !editingContent.trim()) return;
+      try {
+        await ChatRepository.updateMessage(currentUserId, msg.id, {
+          content: editingContent.trim(),
+        });
+        setEditingId(null);
+        setEditingContent('');
+      } catch (err) {
+        console.error('Failed to edit message:', err);
+      }
+    },
+    [currentUserId, editingContent]
+  );
+
+  const handleDelete = useCallback(
+    async (msgId: string) => {
+      if (!currentUserId) return;
+      if (!window.confirm(memoizedT('deleteMessageConfirm'))) return;
+      try {
+        await ChatRepository.deleteMessage(currentUserId, msgId);
+      } catch (err) {
+        console.error('Failed to delete message:', err);
+      }
+    },
+    [currentUserId, memoizedT]
+  );
+
+  const handleReply = useCallback(
+    (msg: ChatMessage) => {
+      setActionMenuFor(null);
+      onReplyTo?.(msg);
+    },
+    [onReplyTo]
+  );
+
+  const handleJumpToMessage = useCallback(
+    (msgId: string) => {
+      const targetIndex = rows.findIndex((r) => r.msg.id === msgId);
+      if (targetIndex >= 0) {
+        list?.scrollToRow({ index: targetIndex, align: 'center', behavior: 'smooth' });
+      }
+      setHighlightedId(msgId);
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+      highlightTimer.current = setTimeout(() => setHighlightedId(null), 1600);
+    },
+    [list, rows]
+  );
+
+  const onCloseMenu = useCallback(() => setActionMenuFor(null), []);
+  const onStartEdit = useCallback(
+    (msg: ChatMessage) => {
+      setEditingId(msg.id);
+      setEditingContent(msg.content);
+    },
+    []
+  );
+  const onCancelEdit = useCallback(() => {
+    setEditingId(null);
+    setEditingContent('');
+  }, []);
+  const onOpenEmojiFull = useCallback(
+    (msgId: string) => {
+      setEmojiFullFor(msgId);
+      setActionMenuFor(null);
+    },
+    []
+  );
+
+  // Scroll to latest on mount; afterwards only auto-scroll while the user is
+  // already near the bottom (such as receiving a new message while reading).
+  useEffect(() => {
+    if (!list || !rows.length) return;
+    if (!didInitialScroll.current) {
+      didInitialScroll.current = true;
+      list.scrollToRow({ index: rows.length - 1, align: 'end', behavior: 'auto' });
+      return;
+    }
+    const el = list.element;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (nearBottom) {
+      list.scrollToRow({ index: rows.length - 1, align: 'end', behavior: 'auto' });
+    }
+  }, [list, rows.length]);
+
+  const rowProps = useMemo<RowProps>(
+    () => ({
+      rows,
+      users,
+      currentUserId,
+      replyToId,
+      highlightedId,
+      editingId,
+      editingContent,
+      actionMenuFor,
+      t: memoizedT,
+      onToggleReaction: handleToggleReaction,
+      onPickReaction: handlePickReaction,
+      onJump: handleJumpToMessage,
+      onReply: handleReply,
+      onDelete: handleDelete,
+      onOpenMenu: openActionMenu,
+      onCloseMenu,
+      onStartEdit,
+      onCancelEdit,
+      onCommitEdit: handleEdit,
+      onEditContentChange: setEditingContent,
+      onOpenEmojiFull,
+    }),
+    [
+      rows,
+      users,
+      currentUserId,
+      replyToId,
+      highlightedId,
+      editingId,
+      editingContent,
+      actionMenuFor,
+      memoizedT,
+      handleToggleReaction,
+      handlePickReaction,
+      handleJumpToMessage,
+      handleReply,
+      handleDelete,
+      openActionMenu,
+      onCloseMenu,
+      onStartEdit,
+      onCancelEdit,
+      handleEdit,
+      onOpenEmojiFull,
+    ]
+  );
+
   if (!messages.length) {
     return (
-      <div className="flex flex-col items-center justify-center h-full py-16 text-center">
-        <p className="text-lg font-medium text-gray-500 dark:text-gray-400">{t('emptyMessages')}</p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('sendFirstMessage')}</p>
+      <div className="flex h-full flex-col items-center justify-center py-16 text-center">
+        <p className="text-lg font-medium text-gray-500 dark:text-gray-400">
+          {memoizedT('emptyMessages')}
+        </p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+          {memoizedT('sendFirstMessage')}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col space-y-4">
-      {groups.map((group, gi) => {
-        return (
-          <div key={`${group.userId}-${gi}`} className="space-y-1">
-            {group.messages.map((msg, mi) => {
-              const first = mi === 0;
-              const last = mi === group.messages.length - 1;
-              const mine = isCurrentUser(msg);
-              const reactions = msg.reactions || {};
-
-              return (
-                <div
-                  key={msg.id}
-                  data-message-id={msg.id}
-                  className={`group relative flex ${
-                    mine ? 'justify-end' : 'justify-start'
-                  } px-2 ${highlightedId === msg.id ? 'rounded-2xl bg-blue-50 dark:bg-blue-900/30' : ''}`}
-                >
-                  <div className={`flex items-end gap-2 max-w-[75%] ${mine ? 'flex-row-reverse' : ''}`}>
-                    {actionMenuFor?.id === msg.id && (
-                      <div
-                        className={`absolute z-20 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-xl overflow-hidden ${
-                          actionMenuFor.position === 'below'
-                            ? 'top-full mt-2'
-                            : 'bottom-full mb-2'
-                        } ${mine ? 'right-0' : 'left-0'}`}
-                      >
-                        <div className="flex items-center px-1.5 py-1.5">
-                          {QUICK_REACTIONS.map((emoji) => (
-                            <button
-                              key={emoji}
-                              onClick={() => handlePickReaction(msg.id, emoji)}
-                              className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                          <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5" />
-                          {FREQUENT_REACTIONS.map((emoji) => (
-                            <button
-                              key={emoji}
-                              onClick={() => handlePickReaction(msg.id, emoji)}
-                              className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                          <button
-                            onClick={() => {
-                              setEmojiFullFor(msg.id);
-                              setActionMenuFor(null);
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300"
-                            title={t('addReaction')}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="border-t border-gray-200 dark:border-gray-600" />
-                        <button
-                          onClick={() => handleReply(msg)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        >
-                          <Reply className="h-4 w-4" />
-                          {t('reply')}
-                        </button>
-                        {mine && editingId !== msg.id && (
-                          <button
-                            onClick={() => {
-                              setEditingId(msg.id);
-                              setEditingContent(msg.content);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            <Edit className="h-4 w-4" />
-                            {t('editMessage')}
-                          </button>
-                        )}
-                        {mine && (
-                          <button
-                            onClick={() => handleDelete(msg)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            {t('deleteMessage')}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {!mine && first && renderAvatar(msg.sender_id)}
-                    <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'} min-w-0`}>
-                      {!mine && first && msg.sender_id !== currentUserId && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
-                          {getUserDisplayName(users[msg.sender_id])}
-                        </span>
-                      )}
-
-                      {editingId === msg.id ? (
-                        <div className="flex items-center gap-1 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1">
-                          <input
-                            type="text"
-                            value={editingContent}
-                            onChange={(e) => setEditingContent(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleEdit(msg);
-                              if (e.key === 'Escape') {
-                                setEditingId(null);
-                                setEditingContent('');
-                              }
-                            }}
-                            autoFocus
-                            className="text-sm w-48 outline-none bg-transparent text-gray-900 dark:text-white"
-                          />
-                          <button
-                            onClick={() => handleEdit(msg)}
-                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-green-600"
-                            title={t('save')}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingId(null);
-                              setEditingContent('');
-                            }}
-                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
-                            title={t('cancel')}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          className={`rounded-2xl px-3 py-2 transition-shadow ${
-                            mine
-                              ? 'bg-blue-500 text-white dark:bg-blue-600'
-                              : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-                          } ${replyToId === msg.id ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''}`}
-                        >
-                          {msg.reply_to_id && (
-                            <button
-                              type="button"
-                              onClick={() => handleJumpToMessage(msg.reply_to_id!)}
-                              className={`mb-1 flex w-full max-w-[200px] items-center gap-1 rounded px-0.5 text-xs ${
-                                mine ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                              } ${
-                                mine
-                                  ? 'hover:bg-black/10'
-                                  : 'hover:bg-gray-100 dark:hover:bg-gray-600'
-                              }`}
-                            >
-                              <CornerDownRight className="h-3 w-3 flex-shrink-0" />
-                              {replySenderName(msg) && (
-                                <span
-                                  className={`flex-shrink-0 font-medium ${
-                                    mine ? 'text-blue-50' : 'text-gray-600 dark:text-gray-300'
-                                  }`}
-                                >
-                                  {replySenderName(msg)}:
-                                </span>
-                              )}
-                              <span className="min-w-0 truncate">{replyPreviewText(msg)}</span>
-                            </button>
-                          )}
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex-1 min-w-0">{renderBubble(msg)}</div>
-                            <button
-                              onClick={(e) =>
-                                actionMenuFor?.id === msg.id
-                                  ? setActionMenuFor(null)
-                                  : openActionMenu(msg.id, e)
-                              }
-                              className={`flex-shrink-0 p-1 rounded-full transition-opacity ${
-                                mine
-                                  ? 'text-blue-100 hover:bg-black/10'
-                                  : 'text-gray-400 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                              } ${
-                                actionMenuFor?.id === msg.id
-                                  ? 'opacity-100'
-                                  : 'opacity-40 group-hover:opacity-100'
-                              }`}
-                              title={t('moreActions')}
-                            >
-                              <ChevronDown className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                          {msg.is_edited && (
-                            <span
-                              className={`block text-[10px] mt-1 ${
-                                mine ? 'text-blue-100' : 'text-gray-400'
-                              }`}
-                            >
-                              {t('edited')}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div
-                        className={`flex items-center gap-2 mt-0.5 text-xs text-gray-400 dark:text-gray-500 ${
-                          mine ? 'flex-row-reverse' : ''
-                        }`}
-                      >
-                        {last && (
-                          <span className="text-[10px]">
-                            {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                          </span>
-                        )}
-
-                        {Object.entries(reactions).length > 0 && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {Object.entries(reactions).map(([emoji, userIds]) => (
-                              <button
-                                key={emoji}
-                                onClick={() => handleToggleReaction(msg, emoji)}
-                                className={`px-1.5 py-0.5 rounded-full text-xs border flex items-center gap-0.5 ${
-                                  hasUserReacted(msg, emoji)
-                                    ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-300'
-                                    : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600'
-                                }`}
-                              >
-                                {emoji} {userIds.length}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        </div>
-                    </div>
-                    </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
+    <div className="flex h-full flex-col">
+      <List
+        className="flex-1"
+        listRef={setList}
+        rowCount={rows.length}
+        rowHeight={rowHeight}
+        rowComponent={MessageRow}
+        rowProps={rowProps}
+        overscanCount={8}
+      />
 
       {emojiFullFor && (
         <div
@@ -541,7 +717,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
           >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                {t('addReaction')}
+                {memoizedT('addReaction')}
               </h3>
               <button
                 onClick={() => setEmojiFullFor(null)}

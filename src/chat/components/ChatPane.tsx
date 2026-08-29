@@ -27,7 +27,6 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
     markConversationRead,
   } = useChatStore();
 
-  const endRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<NodeJS.Timeout | null>(null);
   const conversationRef = useRef<string | null>(null);
   conversationRef.current = selectedConversationId;
@@ -68,11 +67,6 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
       cancelled = true;
     };
   }, [selectedConversationId, currentUserId, setMessages, setLoading, setError]);
-
-  // Scroll to latest when the message list grows / conversation changes
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'auto' });
-  }, [selectedConversationId, selectedMessages.length]);
 
   // Clear "typing" flag once the user leaves the conversation or unmounts
   useEffect(() => {
@@ -187,13 +181,13 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
       className={`flex h-full flex-1 min-w-0 flex-col overflow-hidden bg-gray-50 dark:bg-gray-800 ${className}`}
     >
       <ChatHeader conversationId={selectedConversationId} />
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 min-h-0 overflow-hidden p-4">
         <MessageList
+          key={selectedConversationId ?? 'none'}
           messages={selectedMessages}
           onReplyTo={(msg) => setReplyTo(msg)}
           replyToId={replyTo?.id ?? null}
         />
-        <div ref={endRef} />
       </div>
       <Composer
         conversationId={selectedConversationId}
