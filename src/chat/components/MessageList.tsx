@@ -272,7 +272,7 @@ const MessageRow = function MessageRow({
         title={isRead ? 'Leído' : isDelivered ? 'Entregado' : 'Enviado'}
       >
         <Check className="h-3 w-3" strokeWidth={2.5} />
-        {isDelivered && <Check className="h-3 w-3 -ml-1" strokeWidth={2.5} />}
+        {status !== 'sent' && <Check className="h-3 w-3 -ml-1" strokeWidth={2.5} />}
       </span>
     );
   };

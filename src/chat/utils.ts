@@ -21,6 +21,13 @@ export function getInitials(name: string): string {
   return parts[0]?.[0]?.toUpperCase() || '?';
 }
 
+/** Human-readable file size (e.g. "3.2 MB"). */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function getAvatarColor(name: string): string {
   const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];

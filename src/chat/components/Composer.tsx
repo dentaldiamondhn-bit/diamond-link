@@ -34,6 +34,8 @@ import { ListNode, ListItemNode } from '@lexical/list';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import EmojiPicker from './EmojiPicker';
+import AttachmentTray from './AttachmentTray';
+import type { PendingAttachment } from './AttachmentTray';
 import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 
 interface ComposerProps {
@@ -69,8 +71,7 @@ const EDITOR_THEME = {
 
 interface LexicalToolbarProps {
   textContent: string;
-  attachments: FileAttachmentData[];
-  onRemoveAttachment: (index: number) => void;
+  hasAttachments: boolean;
   onSend: () => void;
   onFilesSelected: (files: File[]) => void;
   onVoiceToggle: () => Promise<void>;
@@ -81,8 +82,7 @@ interface LexicalToolbarProps {
 
 const LexicalToolbar = ({
   textContent,
-  attachments,
-  onRemoveAttachment,
+  hasAttachments,
   onSend,
   onFilesSelected,
   onVoiceToggle,
@@ -199,30 +199,10 @@ const LexicalToolbar = ({
         </div>
       </div>
 
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {attachments.map((att, i) => (
-            <span
-              key={`${att.file_url}-${i}`}
-              className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-200"
-            >
-              {att.file_name}
-              <button
-                type="button"
-                onClick={() => onRemoveAttachment(i)}
-                className="text-gray-400 hover:text-red-500"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
       <button
         type="button"
         onClick={onSend}
-        disabled={disabled || (!textContent.trim() && attachments.length === 0)}
+        disabled={disabled || (!textContent.trim() && !hasAttachments)}
         className="flex-shrink-0 px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
         title={t('send')}
       >
@@ -266,12 +246,33 @@ export const Composer = ({
   className = '',
 }: ComposerProps) => {
   const { t } = useTranslations();
-  const [attachments, setAttachments] = useState<FileAttachmentData[]>([]);
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [textContent, setTextContent] = useState('');
   const [sending, setSending] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const textRef = useRef('');
   const editorRef = useRef<LexicalEditor | null>(null);
+  const pendingRef = useRef<PendingAttachment[]>([]);
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
+
+  // Revoke object URLs on unmount to avoid leaks.
+  useEffect(() => {
+    return () => {
+      pendingRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    };
+  }, []);
+
+  // Clear pending attachments + editor when switching conversations.
+  useEffect(() => {
+    setPending((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      return [];
+    });
+    setActiveIndex(0);
+  }, [conversationId]);
 
   const handleChange = useCallback(
     (editorState: EditorState, editor: LexicalEditor) => {
@@ -284,26 +285,28 @@ export const Composer = ({
     [onTyping]
   );
 
-  const handleFiles = useCallback(
-    async (files: File[]) => {
-      if (!conversationId || !files.length) return;
-      const prepared: FileAttachmentData[] = [];
-      for (const file of files) {
-        try {
-          const result = await ChatRepository.uploadFile(file, conversationId);
-          prepared.push({
-            file_name: result.fileName,
-            file_type: result.fileType,
-            file_size: result.fileSize,
-            file_url: result.url,
-          });
-        } catch (err) {
-          console.error('Failed to upload attachment:', err);
-        }
-      }
-      if (prepared.length) setAttachments((prev) => [...prev, ...prepared]);
+  // Stage selected files into the attachment tray (no upload yet).
+  const handleFiles = useCallback((files: File[]) => {
+    if (!files.length) return;
+    const created = files.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    }));
+    setPending((prev) => [...prev, ...created]);
+  }, []);
+
+  const removePending = useCallback(
+    (index: number) => {
+      const target = pending[index];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      setPending((prev) => prev.filter((_, i) => i !== index));
+      setActiveIndex((current) => Math.max(0, Math.min(current, pending.length - 2)));
     },
-    [conversationId]
+    [pending]
   );
 
   const clearEditor = useCallback(() => {
@@ -317,23 +320,41 @@ export const Composer = ({
     }
     textRef.current = '';
     setTextContent('');
-    setAttachments([]);
+    setPending((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      return [];
+    });
+    setActiveIndex(0);
   }, []);
 
   const send = useCallback(async () => {
     if (disabled || sending || !conversationId) return;
     const content = textRef.current.trim();
-    if (!content && attachments.length === 0) return;
-    clearEditor();
+    if (!content && pending.length === 0) return;
     setSending(true);
     try {
-      await onSend(content, attachments, replyTo?.id);
+      const uploaded: FileAttachmentData[] = [];
+      for (const att of pending) {
+        try {
+          const result = await ChatRepository.uploadFile(att.file, conversationId);
+          uploaded.push({
+            file_name: result.fileName,
+            file_type: result.fileType,
+            file_size: result.fileSize,
+            file_url: result.url,
+          });
+        } catch (err) {
+          console.error('Failed to upload attachment:', err);
+        }
+      }
+      clearEditor();
+      await onSend(content, uploaded, replyTo?.id);
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
       setSending(false);
     }
-  }, [disabled, sending, conversationId, attachments, onSend, replyTo, clearEditor]);
+  }, [disabled, sending, conversationId, pending, onSend, replyTo, clearEditor]);
 
   if (!conversationId) return null;
 
@@ -352,6 +373,12 @@ export const Composer = ({
         }}
         className={`p-3 ${dragOver ? 'ring-2 ring-blue-400 rounded-lg' : ''}`}
       >
+        <AttachmentTray
+          attachments={pending}
+          activeIndex={activeIndex}
+          onChangeIndex={setActiveIndex}
+          onRemove={removePending}
+        />
         <LexicalComposer
           initialConfig={{
             namespace: 'ChatComposer',
@@ -398,10 +425,7 @@ export const Composer = ({
           <div className="flex items-center justify-between mt-2 gap-3">
             <LexicalToolbar
               textContent={textContent}
-              attachments={attachments}
-              onRemoveAttachment={(i) =>
-                setAttachments((prev) => prev.filter((_, idx) => idx !== i))
-              }
+              hasAttachments={pending.length > 0}
               onSend={send}
               onFilesSelected={handleFiles}
               onVoiceToggle={onVoiceToggle}
