@@ -81,14 +81,24 @@ export const useChatRealtime = (
             removeMessage(message.id);
             return;
           }
-          updateMessage(message.id, {
+          // Realtime UPDATE payloads only include the PK + changed columns
+          // (default replica identity), so absent fields are UNCHANGED — spread
+          // only what the event actually carries to avoid clobbering existing
+          // reactions/voice metadata with undefined on an edit.
+          const partial = {
             content: message.content,
             is_edited: message.is_edited,
             is_deleted: message.is_deleted,
             reactions: message.reactions,
             voice_note_url: message.voice_note_url,
             voice_note_duration: message.voice_note_duration,
-          });
+          };
+          updateMessage(
+            message.id,
+            Object.fromEntries(
+              Object.entries(partial).filter(([, v]) => v !== undefined)
+            )
+          );
         }
       )
       .on(
@@ -137,22 +147,42 @@ export const useChatRealtime = (
         created_at: raw.created_at,
       };
     };
+    // UPDATE events only carry PK + changed columns unless the table uses
+    // REPLICA IDENTITY FULL. If the payload is missing message_id/user_id, fetch
+    // the full row by id so the delivered→read flip still reaches the sender.
+    const applyRead = async (raw: any) => {
+      if (!raw?.id) return;
+      const read = normalizeRead(raw);
+      if (read) {
+        upsertMessageRead(read.message_id, read);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from('chat_message_reads')
+          .select('*')
+          .eq('id', raw.id)
+          .maybeSingle();
+        const resolved = normalizeRead(data as any);
+        if (resolved) upsertMessageRead(resolved.message_id, resolved);
+      } catch {
+        // non-fatal: read state will settle on next message fetch
+      }
+    };
     const readChannel = supabase
       .channel('chat-reads')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_message_reads' } as const,
         (payload: any) => {
-          const read = normalizeRead(payload?.new);
-          if (read) upsertMessageRead(read.message_id, read);
+          if (payload?.new) void applyRead(payload.new);
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'chat_message_reads' } as const,
         (payload: any) => {
-          const read = normalizeRead(payload?.new);
-          if (read) upsertMessageRead(read.message_id, read);
+          if (payload?.new) void applyRead(payload.new);
         }
       )
       .subscribe();

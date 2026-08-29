@@ -9,6 +9,8 @@ import {
   getConversationAvatar,
   getInitials,
   getAvatarColor,
+  getTypingUserIds,
+  getTypingLabel,
 } from '@/chat/utils';
 
 interface ChatHeaderProps {
@@ -28,9 +30,10 @@ export const ChatHeader = ({ conversationId, className = '' }: ChatHeaderProps) 
     (p) => p.user_id !== currentUserId
   );
 
-  const isTyping =
-    !!conversationId &&
-    Object.values(typing[conversationId] || {}).some(Boolean);
+  const typingUserIds = getTypingUserIds(conversation, typing, currentUserId);
+  const typingLabel = getTypingLabel(typingUserIds, users, t);
+
+  const isTyping = typingLabel !== null;
 
   const onlineCount = (conversation?.participants || []).filter(
     (p) => presence[p.user_id] === 'online'
@@ -69,7 +72,7 @@ export const ChatHeader = ({ conversationId, className = '' }: ChatHeaderProps) 
           <p className="font-medium text-gray-900 dark:text-white truncate">{name}</p>
           <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
             {isTyping ? (
-              <span className="italic text-blue-500">{t('typing')}</span>
+              <span className="italic text-blue-500 truncate">{typingLabel}</span>
             ) : conversation?.type === 'group' ? (
               <span className="flex items-center gap-1">
                 <UsersIcon className="h-3 w-3" />

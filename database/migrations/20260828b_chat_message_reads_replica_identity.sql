@@ -1,0 +1,13 @@
+-- Read-receipt realtime fix (Phase 4 bug):
+--
+-- Supabase Realtime `postgres_changes` UPDATE events only include the primary
+-- key plus the columns that changed in the WAL record (unless the table uses
+-- REPLICA IDENTITY FULL). `chat_message_reads` has PK `id`, so a delivered→read
+-- transition (which changes `delivered_at`/`read_at` but NOT `message_id`/`
+-- user_id`) produced an UPDATE payload missing `message_id` and `user_id` —
+-- the client's `normalizeRead` dropped it, so the sender's ticks never turned
+-- blue live.
+--
+-- REPLICA IDENTITY FULL makes every UPDATE/DELETE payload include ALL columns.
+-- Safe, deterministic, re-runnable.
+ALTER TABLE chat_message_reads REPLICA IDENTITY FULL;

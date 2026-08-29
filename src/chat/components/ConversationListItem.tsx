@@ -12,6 +12,8 @@ import {
   getAvatarColor,
   formatConversationTime,
   getMessageReadStatus,
+  getTypingUserIds,
+  getTypingLabel,
 } from '@/chat/utils';
 
 interface ConversationListItemProps {
@@ -35,6 +37,11 @@ export const ConversationListItem = ({
     const convTyping = typing[conversation.id] || {};
     return Object.values(convTyping).some(Boolean);
   }, [typing, conversation.id]);
+
+  const typingLabel = useMemo(
+    () => getTypingLabel(getTypingUserIds(conversation, typing, currentUserId), users, t),
+    [conversation, typing, currentUserId, users, t]
+  );
 
   const lastMessage = conversation.last_message;
   const lastMessageText = useMemo(() => {
@@ -144,7 +151,7 @@ export const ConversationListItem = ({
           </div>
           <div className="flex items-center justify-between gap-2">
             {isTyping ? (
-              <p className="text-sm italic text-blue-500 truncate">{t('typing')}</p>
+              <p className="text-sm italic text-blue-500 truncate">{typingLabel}</p>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                 {lastMessageText}

@@ -4,6 +4,7 @@ import type {
   ChatParticipant,
   ChatUser,
 } from '@/types/chat';
+import type { TranslationKey } from '@/chat/i18n/translations';
 
 const AVATAR_COLORS = [
   'bg-emerald-500',
@@ -107,4 +108,33 @@ export function getMessageReadStatus(
   if (need > 0 && readCount >= need) return 'read';
   if (need > 0 && deliveredCount >= need) return 'delivered';
   return 'sent';
+}
+
+type TFunction = (key: TranslationKey, params?: Record<string, string | number>) => string;
+
+/** User ids currently typing in a conversation (excluding the current user). */
+export function getTypingUserIds(
+  conversation: ChatConversation | null,
+  typing: Record<string, Record<string, boolean>>,
+  currentUserId: string | null
+): string[] {
+  if (!conversation) return [];
+  const convTyping = typing[conversation.id] || {};
+  return Object.entries(convTyping)
+    .filter(([userId, isTyping]) => isTyping && userId !== currentUserId)
+    .map(([userId]) => userId);
+}
+
+/** Localized "Name is typing..." / "Name1, Name2 are typing..." label. */
+export function getTypingLabel(
+  typingUserIds: string[],
+  users: Record<string, ChatUser>,
+  t: TFunction
+): string | null {
+  if (typingUserIds.length === 0) return null;
+  const names = typingUserIds.map((id) => getUserDisplayName(users[id])).filter(Boolean);
+  if (names.length === 0) return null;
+  if (names.length === 1) return `${names[0]} ${t('typing')}`;
+  if (names.length === 2) return `${names[0]}, ${names[1]} ${t('typingMulti')}`;
+  return `${names[0]} ${t('typingAndMore', { n: names.length - 1 })} ${t('typingMulti')}`;
 }

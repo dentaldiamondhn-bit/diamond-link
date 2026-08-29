@@ -539,4 +539,19 @@ html, body {
 
 .animate-pulse-text {
   animation: pulse-text 2.5s ease-in-out infinite 0.3s;
+
+@keyframes typing-dot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
 }

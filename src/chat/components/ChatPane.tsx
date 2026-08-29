@@ -10,6 +10,7 @@ import { ChatMessageType } from '@/types/chat';
 import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
+import TypingIndicator from './TypingIndicator';
 import Composer from './Composer';
 
 interface ChatPaneProps {
@@ -205,6 +206,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
               participantUserIds={otherParticipantIds}
             />
           </div>
+          <TypingIndicator conversationId={selectedConversationId} />
           <Composer
             conversationId={selectedConversationId}
             onSend={handleSend}
