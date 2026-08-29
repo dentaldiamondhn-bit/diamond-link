@@ -35,19 +35,11 @@ export async function POST(request: NextRequest) {
 
     const BUCKET = 'chat-uploads';
 
-    // Ensure bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some(b => b.name === BUCKET);
-    if (!bucketExists) {
-      const { error: createErr } = await supabase.storage.createBucket(BUCKET, {
-        public: true,
-        fileSizeLimit: 10485760,
-        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf']
-      });
-      if (createErr) {
-        return NextResponse.json({ error: `Failed to create bucket: ${createErr.message}` }, { status: 500 });
-      }
-    }
+    // Bucket is provisioned by migration
+    // (supabase/migrations/20260807000200_create_missing_storage_buckets.sql), not
+    // at runtime: the anon client cannot list/create buckets under storage.buckets
+    // RLS, so a runtime createBucket here always fails with
+    // "new row violates row-level security policy".
 
     // Upload to Supabase Storage
     const bytes = await file.arrayBuffer();
