@@ -15,7 +15,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
-import type { RowComponentProps } from 'react-window';
+import type { RowComponentProps, ListImperativeAPI } from 'react-window';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
@@ -33,6 +33,39 @@ function getScrollParent(el: HTMLElement | null): HTMLElement | null {
     node = node.parentElement;
   }
   return null;
+}
+
+// react-window renders rows top-first using the default estimated height and
+// measures the real heights asynchronously (ResizeObserver), so a single
+// scrollToRow on mount lands too high — short chats even compute scrollTop 0
+// and stay at the top. Re-pin scrollTop to scrollHeight each frame until the
+// measured heights (and thus the total content height) stop growing.
+function pinListToBottom(list: ListImperativeAPI) {
+  const el = list.element;
+  if (!el) return;
+  let raf = 0;
+  let lastScrollHeight = -1;
+  const startedAt = performance.now();
+  const stop = () => {
+    cancelAnimationFrame(raf);
+    el.removeEventListener('wheel', stop);
+    el.removeEventListener('touchstart', stop);
+  };
+  el.addEventListener('wheel', stop, { once: true, passive: true });
+  el.addEventListener('touchstart', stop, { once: true, passive: true });
+  const frame = () => {
+    const scrollHeight = el.scrollHeight;
+    const nearBottom = scrollHeight - el.scrollTop - el.clientHeight <= 4;
+    if (scrollHeight === lastScrollHeight && nearBottom) return stop();
+    if (performance.now() - startedAt > 1500) {
+      el.scrollTop = el.scrollHeight;
+      return stop();
+    }
+    if (scrollHeight !== lastScrollHeight) lastScrollHeight = scrollHeight;
+    el.scrollTop = el.scrollHeight;
+    raf = requestAnimationFrame(frame);
+  };
+  raf = requestAnimationFrame(frame);
 }
 
 const GROUP_THRESHOLD_MS = 5 * 60 * 1000;
@@ -702,7 +735,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     if (!list || !rows.length) return;
     if (!didInitialScroll.current) {
       didInitialScroll.current = true;
-      list.scrollToRow({ index: rows.length - 1, align: 'end', behavior: 'auto' });
+      pinListToBottom(list);
       return;
     }
     const el = list.element;
