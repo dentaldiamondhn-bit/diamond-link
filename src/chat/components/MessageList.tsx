@@ -36,15 +36,18 @@ function getScrollParent(el: HTMLElement | null): HTMLElement | null {
 }
 
 // react-window renders rows top-first using the default estimated height and
-// measures the real heights asynchronously (ResizeObserver), so a single
-// scrollToRow on mount lands too high — short chats even compute scrollTop 0
-// and stay at the top. Re-pin scrollTop to scrollHeight each frame until the
-// measured heights (and thus the total content height) stop growing.
-function pinListToBottom(list: ListImperativeAPI) {
+// measures the real heights asynchronously (ResizeObserver) — the measured
+// heights only start arriving AFTER the bottom rows are scrolled into view.
+// A single scrollToRow therefore lands on the estimated position (scrollTop 0
+// for short chats). Re-pin to scrollHeight each frame until the measured
+// content height integrates and the bottom stays settled for a few frames.
+function pinListToBottom(list: ListImperativeAPI, lastRowIndex: number) {
   const el = list.element;
   if (!el) return;
+  list.scrollToRow({ index: lastRowIndex, align: 'end', behavior: 'auto' });
   let raf = 0;
   let lastScrollHeight = -1;
+  let stableFrames = 0;
   const startedAt = performance.now();
   const stop = () => {
     cancelAnimationFrame(raf);
@@ -55,14 +58,15 @@ function pinListToBottom(list: ListImperativeAPI) {
   el.addEventListener('touchstart', stop, { once: true, passive: true });
   const frame = () => {
     const scrollHeight = el.scrollHeight;
-    const nearBottom = scrollHeight - el.scrollTop - el.clientHeight <= 4;
-    if (scrollHeight === lastScrollHeight && nearBottom) return stop();
-    if (performance.now() - startedAt > 1500) {
-      el.scrollTop = el.scrollHeight;
-      return stop();
+    if (scrollHeight === lastScrollHeight) stableFrames += 1;
+    else {
+      stableFrames = 0;
+      lastScrollHeight = scrollHeight;
     }
-    if (scrollHeight !== lastScrollHeight) lastScrollHeight = scrollHeight;
     el.scrollTop = el.scrollHeight;
+    const atBottom = el.clientHeight > 0 && scrollHeight - el.scrollTop - el.clientHeight <= 4;
+    const settled = atBottom && stableFrames >= 8;
+    if (settled || performance.now() - startedAt > 3000) return stop();
     raf = requestAnimationFrame(frame);
   };
   raf = requestAnimationFrame(frame);
@@ -734,8 +738,9 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   useEffect(() => {
     if (!list || !rows.length) return;
     if (!didInitialScroll.current) {
+      if (!list.element) return;
       didInitialScroll.current = true;
-      pinListToBottom(list);
+      pinListToBottom(list, rows.length - 1);
       return;
     }
     const el = list.element;
