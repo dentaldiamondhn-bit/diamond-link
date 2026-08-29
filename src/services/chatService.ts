@@ -149,16 +149,14 @@ export class ChatService {
 
     if (msgError) throw msgError;
 
-    await supabase
-      .from('chat_participants')
-      .update({ last_read_at: new Date().toISOString() })
-      .eq('conversation_id', conversationId)
-      .eq('user_id', userId);
+    const reads = await ChatService.getReadsByConversation(conversationId);
+
+    await ChatService.markConversationRead(conversationId, userId);
 
     return {
       data: {
         conversation: conversation as ChatConversation,
-        messages: (messages || []) as ChatMessage[]
+        messages: ChatService.attachReads(messages || [], reads)
       }
     };
   }
@@ -287,13 +285,81 @@ export class ChatService {
 
     if (error) throw error;
 
+    const reads = await ChatService.getReadsByConversation(conversationId);
+
+    await ChatService.markConversationRead(conversationId, userId);
+
+    return { data: ChatService.attachReads(data || [], reads) };
+  }
+
+  /**
+   * Fetch read-receipt rows for a conversation (defensive: returns [] if the
+   * chat_message_reads table is not migrated yet, so message loading never
+   * breaks).
+   */
+  static async getReadsByConversation(conversationId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('chat_message_reads')
+        .select('*')
+        .eq('conversation_id', conversationId);
+      if (error) throw error;
+      return data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Group read rows by message_id and attach them to each message. */
+  static attachReads(messages: ChatMessage[], reads: any[]) {
+    const byMessage: Record<string, any[]> = {};
+    for (const read of reads || []) {
+      (byMessage[read.message_id] ||= []).push(read);
+    }
+    return (messages || []).map((m) => ({
+      ...m,
+      reads: byMessage[m.id] || [],
+    })) as ChatMessage[];
+  }
+
+  /**
+   * Record that a user read (and received) the messages in a conversation:
+   * bump last_read_at and upsert read-receipt rows for every message not sent
+   * by the user.
+   */
+  static async markConversationRead(conversationId: string, userId: string) {
     await supabase
       .from('chat_participants')
       .update({ last_read_at: new Date().toISOString() })
       .eq('conversation_id', conversationId)
       .eq('user_id', userId);
 
-    return { data: (data || []) as ChatMessage[] };
+    try {
+      const { data: unreadMsgs } = await supabase
+        .from('chat_messages')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .neq('sender_id', userId)
+        .eq('is_deleted', false);
+
+      const now = new Date().toISOString();
+      if (unreadMsgs && unreadMsgs.length > 0) {
+        const rows = unreadMsgs.map((m) => ({
+          message_id: m.id,
+          conversation_id: conversationId,
+          user_id: userId,
+          delivered_at: now,
+          read_at: now,
+        }));
+        await supabase.from('chat_message_reads').upsert(rows, {
+          onConflict: 'message_id,user_id',
+        });
+      }
+    } catch (err) {
+      // chat_message_reads table may not be migrated yet; last_read_at is
+      // still the source of truth for unread counts.
+      console.error('Failed to record message reads:', err);
+    }
   }
 
   static async sendMessage(userId: string, data: CreateMessageData) {

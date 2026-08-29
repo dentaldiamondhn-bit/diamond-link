@@ -87,6 +87,18 @@ export interface ChatMessage {
   reply_to?: ChatMessage;
   attachments?: ChatAttachment[];
   patient_case_link?: ChatPatientCaseLink;
+  reads?: ChatMessageRead[];
+}
+
+// Per-user delivery/read state for a single message.
+export interface ChatMessageRead {
+  id: string;
+  message_id: string;
+  conversation_id: string;
+  user_id: string;
+  delivered_at: string | null;
+  read_at: string | null;
+  created_at: string;
 }
 
 // Reactions stored as a JSONB object: { emoji: [userIds] }

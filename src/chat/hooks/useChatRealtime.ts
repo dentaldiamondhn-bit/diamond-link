@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
-import type { ChatMessage } from '@/types/chat';
+import type { ChatMessage, ChatMessageRead } from '@/types/chat';
 
 type PresenceEntry = { user_id: string; status: 'online' | 'offline' };
 
@@ -26,6 +26,7 @@ export const useChatRealtime = (
   const addMessage = useChatStore((s) => s.addMessage);
   const updateMessage = useChatStore((s) => s.updateMessage);
   const removeMessage = useChatStore((s) => s.removeMessage);
+  const upsertMessageRead = useChatStore((s) => s.upsertMessageRead);
   const setPresence = useChatStore((s) => s.setPresence);
   const setTyping = useChatStore((s) => s.setTyping);
 
@@ -118,6 +119,40 @@ export const useChatRealtime = (
       )
       .subscribe();
 
+    // 3b. Read receipts → update the matching message in the store so the
+    // sender sees live read avatars. RLS filters delivery to participants.
+    const normalizeRead = (raw: any): ChatMessageRead | null => {
+      if (!raw?.message_id || !raw?.user_id) return null;
+      return {
+        id: raw.id,
+        message_id: raw.message_id,
+        conversation_id: raw.conversation_id,
+        user_id: raw.user_id,
+        delivered_at: raw.delivered_at || null,
+        read_at: raw.read_at || null,
+        created_at: raw.created_at,
+      };
+    };
+    const readChannel = supabase
+      .channel('chat-reads')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_message_reads' } as const,
+        (payload: any) => {
+          const read = normalizeRead(payload?.new);
+          if (read) upsertMessageRead(read.message_id, read);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'chat_message_reads' } as const,
+        (payload: any) => {
+          const read = normalizeRead(payload?.new);
+          if (read) upsertMessageRead(read.message_id, read);
+        }
+      )
+      .subscribe();
+
     // 4. Presence: online/offline + typing (broadcast).
     // Realtime presence keys map to the socket; keep a key->userId map so
     // 'leave' events (which drop the payload) can resolve who went offline.
@@ -161,9 +196,10 @@ export const useChatRealtime = (
       supabase.removeChannel(msgChannel);
       supabase.removeChannel(convChannel);
       supabase.removeChannel(partChannel);
+      supabase.removeChannel(readChannel);
       supabase.removeChannel(presenceChannel);
     };
-  }, [currentUserId, setPresence, setTyping, addMessage, updateMessage, removeMessage]);
+  }, [currentUserId, setPresence, setTyping, addMessage, updateMessage, removeMessage, upsertMessageRead]);
 
   /** Broadcast typing state to everyone on the presence channel */
   const sendTyping = useCallback((conversationId: string, isTyping: boolean) => {

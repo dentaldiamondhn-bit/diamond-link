@@ -4,7 +4,7 @@ Tracking document for the chat suite overhaul. Contains the **original matrix
 phase plan** (Fluxer-inspired chat for Dental Diamond Link) verbatim, overlaid
 with current build status, per-phase progress, and next steps.
 
-> Last updated: 2026-08-28 · Latest commit: `e2aaa6b` · branch `master` (pushed, up to date with `origin/master`)
+> Last updated: 2026-08-28 · Latest commit: `021ad84` · branch `master` (pushed, up to date with `origin/master`)
 
 ---
 
@@ -59,9 +59,9 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 |-------|--------|-----------------------------|------------------------------|-----------------------------------|------------------------|
 | **0 – Preparation** | ✅ | Set up tooling, repo structure, baseline metrics | • Existing `pages/chat` (Supabase + custom service).<br>• No dedicated UI library. | • Create `/src/chat` folder (React components, hooks, store).<br>• Add `pnpm` workspace (or keep npm/yarn) for shared UI libs.<br>• Define API contract with Supabase (unchanged). | - Initialize storybook or component sandbox.<br>- Set up ESLint/Prettier for new chat code.<br>- Define a small "chat API" wrapper (`getConversations`, `sendMessage`, etc.) that isolates Supabase calls. |
 | **1 – Layout & Navigation** | ✅ | Replace the monolithic page with a split-layout (sidebar + chat pane) using reusable components | • One big `ChatPage` component handling sidebar, list, messages, input, modals.<br>• CSS is inline Tailwind classes; no clear component boundaries. | • `<ChatLayout>` → `<Sidebar>` + `<ChatPane>`.<br>• Sidebar: `<ConversationList>` component (virtualized if needed).<br>• ChatPane: `<ChatHeader>`, `<MessageList>`, `<Composer>`.<br>• Use CSS variables or a Token file for colors (Fluxer-style). | - Extract `ConversationItem`, `MessageBubble`, `Composer`.<br>- Add `useConversationStore` (Zustand/Jotai) for list + selection.<br>- Responsive breakpoints (sidebar hidden <md).<br>- Keyboard navigation (Tab, Arrows, Enter). |
-| **2 – Message Model & Realtime** | ◑ (60%) | Centralize realtime subscriptions; extend message model with reactions, read receipts, typing | • Separate `useEffect`s for messages, conversations, participants.<br>• Message shape: `{id, content, message_type, attachments, …}`.<br>• No reactions, no read receipts beyond unread count. | • Unified Realtime channel (`chat:{convId}`): `message_insert` (with `reactions[]`, `read_by[]`), `message_update`, presence events.<br>• Schema: `reactions: [{emoji, userIds}]`, `read_at`, `delivered_at`, `typing` (ephemeral). | - Migrations: `chat_messages.reactions JSONB`, `read_at`, `delivered_at`.<br>- `chat_message_reads` upserts / trigger for `read_at`.<br>- `useRealtimeSubscription` → `{messages, typingUsers, onlineUsers}`.<br>- Typing indicator below composer; read-receipt avatar row. |
+| **2 – Message Model & Realtime** | ◑ (70%) | Centralize realtime subscriptions; extend message model with reactions, read receipts, typing | • Separate `useEffect`s for messages, conversations, participants.<br>• Message shape: `{id, content, message_type, attachments, …}`.<br>• No reactions, no read receipts beyond unread count. | • Unified Realtime channel (`chat:{convId}`): `message_insert` (with `reactions[]`, `read_by[]`), `message_update`, presence events.<br>• Schema: `reactions: [{emoji, userIds}]`, `read_at`, `delivered_at`, `typing` (ephemeral). | - Migrations: `chat_messages.reactions JSONB`, `read_at`, `delivered_at`.<br>- `chat_message_reads` upserts / trigger for `read_at`.<br>- `useRealtimeSubscription` → `{messages, typingUsers, onlineUsers}`.<br>- Typing indicator below composer; read-receipt avatar row. |
 | **3 – Rich-Text Composer** | ◑ (60%) | Replace plain `<textarea>` with Lexical editor (formatting, quotes, mentions, drag-&-drop, emoji) | • Simple `<textarea>` + emoji picker.<br>• No markdown, quote/reply, in-composer preview. | • `<RichTextComposer>` on Lexical (`@lexical/react`): bold/italic/underline, lists, code, quote, `@user`, attachment preview, emoji, Ctrl+Enter.<br>• Optimistic UI: message appears locally, then server ID. | - Install `lexical` + `@lexical/react` `rich-text` / `link` / `list` / `markdown` / `overflow` plugins.<br>- `ChatComposer` plugin calling `sendMessage`.<br>- Drag-&-drop attachment upload via Supabase storage.<br>- Persist drafts in store. |
-| **4 – Message UI Enhancements** | ◑ (≈90%) | Message grouping, reactions, avatars, edit, quote/reply, message actions | • One-by-one rendering; avatars only on sender change.<br>• No reaction/edit/quote UI. | • Virtualized `<MessageList>`; grouping consecutive same-sender messages (avatar once); reactions row (optimistic toggle); hover action menu (reply/quote/edit/delete/react-more); inline edit with `edited_at`; quote/reply block + link in sent bubble; read-receipt avatars. | - DB columns `edited_at`, `reply_to_id` (FK).<br>- API: `PATCH /api/chat/messages/:id`, reactions endpoint.<br>- `<MessageBubble>` by message_type (text/image/file/patient_case/system).<br>- Custom popover action menu; accessible reaction tray. |
+| **4 – Message UI Enhancements** | ✅ (≈95%) | Message grouping, reactions, avatars, edit, quote/reply, message actions | • One-by-one rendering; avatars only on sender change.<br>• No reaction/edit/quote UI. | • Virtualized `<MessageList>`; grouping consecutive same-sender messages (avatar once); reactions row (optimistic toggle); hover action menu (reply/quote/edit/delete/react-more); inline edit with `edited_at`; quote/reply block + link in sent bubble; read-receipt avatars. | - DB columns `edited_at`, `reply_to_id` (FK).<br>- API: `PATCH /api/chat/messages/:id`, reactions endpoint.<br>- `<MessageBubble>` by message_type (text/image/file/patient_case/system).<br>- Custom popover action menu; accessible reaction tray. |
 | **5 – Notifications & Push** | ⏳ | Full Web-Push: service worker, VAPID, background sync, Android tray | • `showBrowserNotification` only when tab focused.<br>• No SW / push server / offline notifications. | • VAPID pair in `.env`; `/api/push/subscribe` → `push_subscriptions` table; send via Edge Function or Node service when recipient offline; SW `push` handler with `data.conversationId`, onClick navigates; permission flow on first load; Android tray automatic. | - `push_subscriptions` table (`endpoint`, `p256dh`, `auth`, `user_id`).<br>- Edge Function `notify-new-message` + queue/cron or direct `web-push` after message insert.<br>- `Notification.requestPermission()` → `/api/push/subscribe`.<br>- Self-hosted SW (`/sw.js`, scope `/chat/`). |
 | **6 – PWA & Installability** | ⏳ | Add manifest, offline caching, install prompt (standalone app) | • No manifest, SW, or installability. | • `manifest.json` (name "Diamond Link Chat", start_url `/chat/`, icons, standalone).<br>• SW precaches `/chat/*`, `/_next/*` (Workbox cache-first).<br>• `beforeinstallprompt` → "Install Chat" button.<br>• Offline banner: "You're offline – messages will send when reconnected". | - Create `/public/manifest.json`; link in `<Head>`.<br>- Keep SSR (`output: 'export'` NOT used).<br>- `next-pwa` or custom static SW.<br>- Lighthouse PWA audit. |
 | **7 – Theming, Dark Mode & I18n** | ◑ (60%) | Design-token system (Fluxer-like) + multi-language EN/ES | • Theme context toggles a couple colors.<br>• Strings hard-coded. | • Generate `color-system.css` / `message-layout.css` from `theme.json` (CSS variables `--fd-color-primary`, etc.).<br>• Lingui (or lightweight i18n) with `en.json`/`es.json`; language selector stored in Supabase `users.locale`. | - `src/chat/theme.json` tokens + `generate-theme.js`.<br>- Global `chat.css` import.<br>- `@lingui/core` + `@lingui/react` (or `react-intl`) + `<I18nProvider>`.<br>- Language switcher in `<Settings>`. |
@@ -149,33 +149,34 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 | Vercel production deploy | ✅ `eslint.ignoreDuringBuilds` + 8GB build heap; `vercel --prod` green (`6475b67`, `1e9ffbe`) |
 | Invalid `GET_LOGS` route export | ✅ Moved store to `src/lib/file-access-log-store.ts` + real `/logs` route (`16600bb`) |
 | Verification gate | ✅ `npx tsc --noEmit` clean + 0 ESLint errors |
-| Commit | ✅ `e2aaa6b` |
+| Virtualize `<MessageList>` (Phase 4) | ✅ react-window v2 (`List` + `useDynamicRowHeight` + `useListCallbackRef`); per-conversation remount via `key`; scroll-to-latest; jump-to-original uses `scrollToRow` (`021ad84`) |
+| Read-receipt avatars (Phase 4) | ✅ `chat_message_reads` table (migration pending apply), `reads` per message, live via realtime channel; stacked mini-avatars on my latest message's meta row |
+| Commit | ✅ `021ad84` (virtualization), read receipts committed with it |
 
 ### Work State
 
 **Completed**
-- **Phase 2 (partial 60%)** — realtime consolidated in `useChatRealtime`; `reactions JSONB` + voice migration applied (`database/migrations/20260827_chat_extensions.sql`); **server-computed per-user unread counts** (`getConversations`) + mark-as-read on delivery while conversation is open. Read/delivery receipts + typing indicator still pending.
+- **Phase 2 (partial 70%)** — realtime consolidated in `useChatRealtime`; `reactions JSONB` + voice migration applied (`database/migrations/20260827_chat_extensions.sql`); **server-computed per-user unread counts** (`getConversations`) + mark-as-read on delivery while conversation is open; **`chat_message_reads` table + read-delivery upserts** (`markConversationRead`). Typing indicator still pending.
 - **Phase 3 (partial 60%)** — Lexical composer (bold/italic/underline), drag-&-drop + multi-file upload, voice notes, **emoji picker**, **optimistic send-clear**, reply-quote bar. Lists/code/mentions + draft persistence pending.
-- **Phase 4 (≈90%)** — grouping, reactions (one per user), unified hover action menu (above/below positioning), inline edit, **quote/reply fully wired** (composer quote bar → `reply_to_id` → bubble preview `Sender: snippet` → click-to-jump with highlight). Virtualized list + read-receipt avatars pending.
+- **Phase 4 (≈95%)** — grouping, reactions (one per user), unified hover action menu (above/below positioning), inline edit, **quote/reply fully wired** (composer quote bar → `reply_to_id` → bubble preview `Sender: snippet` → click-to-jump with highlight), **virtualized `<MessageList>`** (react-window v2 dynamic heights, per-conversation reset, scroll-to-latest / jump-to-row), **read-receipt avatars** (live via `chat_message_reads` realtime channel).
 - **Phase 7 (partial)** — i18n layer (`en`/`es`, typed keys incl. `moreActions`, `replyingTo`).
 - **Production** — feature flag activated (`NEXT_PUBLIC_USE_NEW_CHAT=true`), Vercel deploy green, `GET_LOGS` route fixed, `.eslintcache` gitignored, action-menu refactor shipped.
-- Commits: `e2aaa6b` (head), `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
+- Commits: `021ad84` (head), `b6e8ce6`, `e2aaa6b`, `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
 
 **Active**
-- None — all current work committed and pushed to `origin/master`.
+- Apply `database/migrations/20260828_chat_message_reads.sql` in the Supabase dashboard (SQL editor) — read receipts only light up once the table + realtime publication exist. Code is defensive (reads silently empty if the table is missing).
 
 **Blocked**
 - Full local `npm run build` still stalls at 4GB heap in the dev container (approved gate: `tsc` + ESLint; Vercel is the functional build check and is green).
 - Phases 5 (push), 6 (PWA), 9 (bundle), 10 (QA/rollout) not started.
 
 ### Next Move
-1. Deploy the latest reply / emoji / unread-count work to Vercel (`vercel --prod`) and verify live.
-2. Finish **Phase 4**: virtualized `<MessageList>` (react-window) + read-receipt avatars.
-3. Finish **Phase 2**: typing-indicator UI + `chat_message_reads` read/delivery receipts.
-4. **Phase 3** leftovers (lists / code / mentions) — skip if not needed.
-5. Start **Phase 5** (push notifications / Service Worker) — the biggest remaining user-facing win.
-6. Then **Phase 6 / 9** (PWA installability, bundle splitting), and finally **Phase 10** QA/rollout (deactivate-flag hammer + regression pass).
-7. Keep the gate: `npx tsc --noEmit` + scoped ESLint below.
+1. Apply `database/migrations/20260828_chat_message_reads.sql` in the Supabase dashboard.
+2. Finish **Phase 2**: typing-indicator UI (presence broadcast already wired in `useChatRealtime`).
+3. **Phase 3** leftovers (lists / code / mentions) — skip if not needed.
+4. Start **Phase 5** (push notifications / Service Worker) — the biggest remaining user-facing win.
+5. Then **Phase 6 / 9** (PWA installability, bundle splitting), and finally **Phase 10** QA/rollout (deactivate-flag hammer + regression pass).
+6. Keep the gate: `npx tsc --noEmit` + scoped ESLint below.
 
 ### Verification Gate
 ```bash
@@ -184,17 +185,19 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/chat --cache --format st
 ```
 
 ### Relevant Files
-- `src/chat/components/MessageList.tsx` — chevron toggle, unified action menu, reactions, reply preview bar (`Sender: snippet`), click-to-jump + 1.6s highlight, above/below positioning.
+- `src/chat/components/MessageList.tsx` — react-window v2 virtualized list (`List` + `useDynamicRowHeight` + `useListCallbackRef`), grouping, unified action menu, reactions, reply preview bar, click-to-jump + highlight, read-receipt avatars on last-mine message.
 - `src/chat/components/Composer.tsx` — Lexical editor, reply-quote bar (`replyTo`/`onCancelReply`), emoji picker (`Smile`, 64 emoji), optimistic send-clear, drag-drop upload, voice note.
-- `src/chat/components/ChatPane.tsx` — `replyTo` state, `handleSend` passes `reply_to_id`, flex root, mark-as-read on conversation open.
-- `src/chat/hooks/useChatRealtime.ts` — consolidated realtime (messages/conversations/participants/presence/typing) + mark-as-read on delivery while open.
-- `src/services/chatService.ts` — `reply_to:chat_messages(id, content)` select (no `users` embed — no FK), per-user unread counts from `last_read_at`, GET messages.
-- `src/chat/store/chatStore.ts` — Zustand store (Phase 1); `users` map for client-side sender lookup.
+- `src/chat/components/ChatPane.tsx` — `replyTo` state, `handleSend` passes `reply_to_id`, flex root, mark-as-read on conversation open; message-list remount per conversation (`key`).
+- `src/chat/hooks/useChatRealtime.ts` — consolidated realtime (messages/conversations/participants/**`chat_message_reads`**/presence/typing) + mark-as-read on delivery while open.
+- `src/services/chatService.ts` — `reply_to:chat_messages(id, content)` select (no `users` embed — no FK), per-user unread counts from `last_read_at`, `getReadsByConversation` + `attachReads`, centralized `markConversationRead` (last_read_at + `chat_message_reads` upserts).
+- `src/chat/repository.ts` — data layer (messages, conversations, `markAsRead` → `markConversationRead`).
+- `src/chat/store/chatStore.ts` — Zustand store (Phase 1); `users` map for client-side sender lookup; `upsertMessageRead` merges live read receipts into messages.
 - `src/chat/i18n/translations.ts` + `useTranslations.ts` — `moreActions`, `replyingTo` (`en`/`es`).
 - `src/chat/components/ChatLayout.tsx` — `h-full` root, bootstrap, debounced reload.
 - `app/(auth)/chat/page.tsx` — `NEXT_PUBLIC_USE_NEW_CHAT` gate (active); info panel removed.
 - `app/(auth)/layout.tsx` — `min-h-0` on both overflow wrappers.
 - `database/migrations/20260827_chat_extensions.sql` — applied to Supabase.
+- `database/migrations/20260828_chat_message_reads.sql` — **pending** apply in the Supabase dashboard (table, RLS via `chat_check_access`, realtime publication).
 - `next.config.js` / `package.json` — `eslint.ignoreDuringBuilds`, 8GB build heap.
 - `app/api/agent/file-access/route.ts`, `app/api/logs/route.ts`, `src/lib/file-access-log-store.ts` — file-access tracking (Phase 0/10 tooling).
-- `src/chat/repository.ts` — data layer (messages, conversations, `markAsRead`).
+- `src/types/chat.ts` — `ChatMessageRead` type + `reads` field on `ChatMessage`.

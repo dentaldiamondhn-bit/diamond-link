@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import type { ChatConversation, ChatMessage, ChatUser } from '@/types/chat';
+import type { ChatConversation, ChatMessage, ChatMessageRead, ChatUser } from '@/types/chat';
 
 export interface ChatStoreState {
   currentUserId: string | null;
@@ -26,6 +26,7 @@ export interface ChatStoreState {
   ) => void;
   updateMessage: (messageId: string, partial: Partial<ChatMessage>) => void;
   removeMessage: (messageId: string) => void;
+  upsertMessageRead: (messageId: string, read: ChatMessageRead) => void;
   setSelectedConversation: (id: string | null) => void;
   markConversationRead: (conversationId: string) => void;
   setUsers: (users: Record<string, ChatUser>) => void;
@@ -142,6 +143,29 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
             ...state.messages,
             [convId]: list.filter((m) => m.id !== messageId),
           },
+        };
+      }
+      return state;
+    }),
+
+  upsertMessageRead: (messageId, read) =>
+    set((state) => {
+      for (const [convId, list] of Object.entries(state.messages)) {
+        if (!list.some((m) => m.id === messageId)) continue;
+        const mergeReads = (m: ChatMessage): ChatMessage => ({
+          ...m,
+          reads: [...(m.reads || []).filter((r) => r.user_id !== read.user_id), read],
+        });
+        return {
+          messages: {
+            ...state.messages,
+            [convId]: list.map((m) => (m.id === messageId ? mergeReads(m) : m)),
+          },
+          conversations: state.conversations.map((c) =>
+            c.last_message && c.last_message.id === messageId
+              ? { ...c, last_message: mergeReads(c.last_message) }
+              : c
+          ),
         };
       }
       return state;

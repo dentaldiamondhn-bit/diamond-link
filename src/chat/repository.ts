@@ -92,13 +92,9 @@ export class ChatRepository {
     await ChatService.removeReaction(messageId, userId, emoji);
   }
 
-  /** Mark a conversation as read (update last_read_at in participants) */
+  /** Mark a conversation as read (bump last_read_at + record per-message reads) */
   static async markAsRead(userId: string, conversationId: string) {
-    await supabase
-      .from('chat_participants')
-      .update({ last_read_at: new Date().toISOString() })
-      .eq('conversation_id', conversationId)
-      .eq('user_id', userId);
+    await ChatService.markConversationRead(conversationId, userId);
   }
 
   /** Get unread count for a conversation */

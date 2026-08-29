@@ -75,6 +75,7 @@ interface RowProps {
   editingId: string | null;
   editingContent: string;
   actionMenuFor: { id: string; position: 'above' | 'below' } | null;
+  readReceipts: Record<string, ChatUser[]>;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   onToggleReaction: (msg: ChatMessage, emoji: string) => void;
   onPickReaction: (msgId: string | null, emoji: string) => void;
@@ -106,6 +107,7 @@ const MessageRow = function MessageRow({
     editingContent,
     actionMenuFor,
     t,
+    readReceipts,
     onToggleReaction,
     onPickReaction,
     onJump,
@@ -225,6 +227,40 @@ const MessageRow = function MessageRow({
       >
         {getInitials(displayName)}
       </div>
+    );
+  };
+
+  // Stacked mini-avatars of who has read my latest message (WhatsApp-style).
+  const renderReadAvatars = (readers: ChatUser[]) => {
+    if (!readers.length) return null;
+    const shown = readers.slice(0, 2);
+    const extra = readers.length - shown.length;
+    return (
+      <span className="flex items-center">
+        {shown.map((user, i) => (
+          <span
+            key={user.id}
+            className={`w-4 h-4 rounded-full ring-2 ring-gray-50 dark:ring-gray-800 overflow-hidden ${
+              i > 0 ? '-ml-1' : ''
+            }`}
+          >
+            {user.profile_image_url ? (
+              <img src={user.profile_image_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span
+                className={`w-full h-full flex items-center justify-center text-[8px] text-white font-medium ${getAvatarColor(
+                  getUserDisplayName(user)
+                )}`}
+              >
+                {getInitials(getUserDisplayName(user))}
+              </span>
+            )}
+          </span>
+        ))}
+        {extra > 0 && (
+          <span className="text-[9px] text-gray-400 dark:text-gray-500 -ml-0.5">+{extra}</span>
+        )}
+      </span>
     );
   };
 
@@ -412,6 +448,8 @@ const MessageRow = function MessageRow({
               </span>
             )}
 
+            {mine && datum.isLast && readReceipts[msg.id] && renderReadAvatars(readReceipts[msg.id])}
+
             {Object.entries(reactions).length > 0 && (
               <div className="flex items-center gap-1 mt-0.5">
                 {Object.entries(reactions).map(([emoji, userIds]) => (
@@ -489,6 +527,31 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
     }
     return result;
   }, [messages, currentUserId]);
+
+  // For my messages: the other participants who have read them, by user id.
+  const otherReadsByMessage = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    if (!currentUserId) return map;
+    for (const datum of rows) {
+      if (!datum.mine) continue;
+      const readers = (datum.msg.reads || [])
+        .filter((r) => r.read_at && r.user_id !== currentUserId)
+        .map((r) => r.user_id);
+      if (readers.length) map[datum.msg.id] = readers;
+    }
+    return map;
+  }, [rows, currentUserId]);
+
+  // Resolve reader ids to user records for rendering.
+  const readReceipts = useMemo(() => {
+    const map: Record<string, ChatUser[]> = {};
+    for (const [messageId, ids] of Object.entries(otherReadsByMessage)) {
+      map[messageId] = ids
+        .map((id) => users[id])
+        .filter((u): u is ChatUser => Boolean(u));
+    }
+    return map;
+  }, [otherReadsByMessage, users]);
 
   const handleToggleReaction = useCallback(
     async (msg: ChatMessage, emoji: string) => {
@@ -643,6 +706,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
       editingId,
       editingContent,
       actionMenuFor,
+      readReceipts,
       t: memoizedT,
       onToggleReaction: handleToggleReaction,
       onPickReaction: handlePickReaction,
@@ -666,6 +730,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId }: MessageListProps
       editingId,
       editingContent,
       actionMenuFor,
+      readReceipts,
       memoizedT,
       handleToggleReaction,
       handlePickReaction,
