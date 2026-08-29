@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { follow_up_status_id, message, user_id, user_name, user_image } = body;
+    const { follow_up_status_id, message, user_id, user_name, user_image, paciente_id } = body;
 
     if (!follow_up_status_id || !message) {
       return NextResponse.json({ error: 'follow_up_status_id and message are required' }, { status: 400 });
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       .from('patient_follow_up_notes')
       .insert({
         follow_up_status_id,
+        paciente_id: paciente_id || null,
         user_id: user_id || null,
         user_name: user_name || null,
         user_image: user_image || null,
