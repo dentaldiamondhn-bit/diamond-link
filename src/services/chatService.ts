@@ -62,6 +62,25 @@ export class ChatService {
       }
     }
 
+    // Read receipts for the last message of each conversation, so the list can
+    // render ✓/✓✓ ticks on load (defensive: never breaks the list if missing).
+    const lastMsgIds = Array.from(latestByConv.values()).map((m) => m.id);
+    let lastMsgReads: any[] = [];
+    if (lastMsgIds.length > 0) {
+      try {
+        const { data: readsData } = await supabase
+          .from('chat_message_reads')
+          .select('*')
+          .in('message_id', lastMsgIds);
+        lastMsgReads = readsData || [];
+      } catch (err: any) {
+        console.error(
+          'Failed to load read receipts for conversation list:',
+          err?.message || err
+        );
+      }
+    }
+
     // Per-user unread counts: number of messages after my last_read_at.
     const { data: myReadRows } = await supabase
       .from('chat_participants')
@@ -100,11 +119,16 @@ export class ChatService {
       }
     }
 
-    const data = (conversations || []).map(conv => ({
-      ...conv,
-      last_message: latestByConv.get(conv.id) || null,
-      unread_count: unreadByConv[conv.id] || 0
-    }));
+    const data = (conversations || []).map(conv => {
+      const lastMessage = latestByConv.get(conv.id) || null;
+      return {
+        ...conv,
+        last_message: lastMessage
+          ? ChatService.attachReads([lastMessage], lastMsgReads)[0]
+          : null,
+        unread_count: unreadByConv[conv.id] || 0
+      };
+    });
 
     return { data: data as ChatConversation[] };
   }

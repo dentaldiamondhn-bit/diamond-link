@@ -62,6 +62,14 @@ const en = {
   systemMessage: 'System',
   noMessages: 'No messages',
   voiceMessage: 'Voice message',
+  groupPeople: 'Smileys & People',
+  groupNature: 'Animals & Nature',
+  groupFoods: 'Food & Drink',
+  groupActivity: 'Activity',
+  groupPlaces: 'Travel & Places',
+  groupObjects: 'Objects',
+  groupSymbols: 'Symbols',
+  groupFlags: 'Flags',
 } as const;
 
 const es: Record<keyof typeof en, string> = {
@@ -115,6 +123,14 @@ const es: Record<keyof typeof en, string> = {
   systemMessage: 'Sistema',
   noMessages: 'Sin mensajes',
   voiceMessage: 'Nota de voz',
+  groupPeople: 'Emoticonos y Personas',
+  groupNature: 'Animales y Naturaleza',
+  groupFoods: 'Comida y Bebida',
+  groupActivity: 'Actividades',
+  groupPlaces: 'Viajes y Destinos',
+  groupObjects: 'Objetos',
+  groupSymbols: 'Símbolos',
+  groupFlags: 'Banderas',
 };
 
 export type TranslationKey = keyof typeof en;

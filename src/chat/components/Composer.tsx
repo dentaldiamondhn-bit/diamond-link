@@ -33,6 +33,7 @@ import { HeadingNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import EmojiPicker from './EmojiPicker';
 import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 
 interface ComposerProps {
@@ -65,16 +66,6 @@ const EDITOR_THEME = {
   },
 };
 
-const COMPOSER_EMOJIS = [
-  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
-  '😊', '😇', '🙂', '😉', '😍', '🥰', '😘', '😗',
-  '😋', '😛', '🤪', '😎', '🤩', '🥳', '🤔', '🤗',
-  '😐', '😴', '🥺', '😢', '😭', '😤', '😡', '🥵',
-  '🥶', '🤯', '😱', '🤫', '🤭', '😒', '🙄', '😬',
-  '👍', '👎', '👏', '🙏', '💪', '🤝', '👋', '✌️',
-  '🤞', '👌', '❤️', '🧡', '💛', '💚', '💙', '💜',
-  '🖤', '💯', '🔥', '✨', '⭐', '🌹', '🎉', '⚡',
-];
 
 interface LexicalToolbarProps {
   textContent: string;
@@ -191,25 +182,17 @@ const LexicalToolbar = ({
           {showEmoji && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setShowEmoji(false)} />
-              <div className="absolute bottom-full left-0 z-40 mb-2 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 shadow-xl">
-                <div className="grid max-h-56 grid-cols-8 gap-0.5 overflow-y-auto">
-                  {COMPOSER_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => {
-                        editor.update(() => {
-                          $getRoot().selectEnd().insertNodes([$createTextNode(emoji)]);
-                        });
-                        editor.focus();
-                        setShowEmoji(false);
-                      }}
-                      className="p-1 rounded text-lg leading-none hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+              <div className="absolute bottom-full left-0 z-40 mb-2 w-80 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 shadow-xl">
+                <EmojiPicker
+                  className="h-64"
+                  onSelect={(emoji) => {
+                    editor.update(() => {
+                      $getRoot().selectEnd().insertNodes([$createTextNode(emoji)]);
+                    });
+                    editor.focus();
+                    setShowEmoji(false);
+                  }}
+                />
               </div>
             </>
           )}

@@ -21,8 +21,9 @@ import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { interpolate, translations, type TranslationKey } from '@/chat/i18n/translations';
 import type { ChatMessage, ChatUser } from '@/types/chat';
-import { getUserDisplayName, getInitials, getAvatarColor } from '@/chat/utils';
+import { getUserDisplayName, getInitials, getAvatarColor, getMessageReadStatus } from '@/chat/utils';
 import VoiceMessageBubble from './VoiceMessageBubble';
+import EmojiPicker from './EmojiPicker';
 
 function getScrollParent(el: HTMLElement | null): HTMLElement | null {
   let node = el?.parentElement ?? null;
@@ -43,15 +44,6 @@ const DEFAULT_ROW_HEIGHT = 48;
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const FREQUENT_REACTIONS = ['🔥', '👏', '😘', '🎉'];
-
-const ALL_REACTIONS = [
-  '👍', '👎', '👌', '🤝', '✌️', '🙏', '👋', '💪',
-  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
-  '😆', '😊', '😍', '😘', '😎', '🤔', '😮', '😢',
-  '😂', '😭', '🥳', '🎉', '🔥', '✨', '💯', '🎯',
-  '💖', '💗', '💘', '💔', '🦋', '🌹', '🍀', '🌈',
-  '🌟', '⭐', '☀️', '🐝', '🐣', '🍩', '🍕', '⚡',
-];
 
 interface RowDatum {
   msg: ChatMessage;
@@ -269,12 +261,9 @@ const MessageRow = function MessageRow({
 
   // WhatsApp-style status for MY messages: ✓ sent → ✓✓ delivered → ✓✓ blue read.
   const renderReadStatus = (m: ChatMessage) => {
-    const others = (m.reads || []).filter((r) => r.user_id !== currentUserId);
-    const readCount = others.filter((r) => !!r.read_at).length;
-    const deliveredCount = others.filter((r) => !!r.delivered_at).length;
-    const need = Math.max(otherParticipantCount, readCount, deliveredCount);
-    const isRead = need > 0 && readCount >= need;
-    const isDelivered = need > 0 && deliveredCount >= need;
+    const status = getMessageReadStatus(m, currentUserId, otherParticipantCount);
+    const isRead = status === 'read';
+    const isDelivered = status === 'delivered';
     return (
       <span
         className={`flex items-center leading-none ${
@@ -813,7 +802,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
             className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 {memoizedT('addReaction')}
               </h3>
@@ -824,17 +813,10 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
-            <div className="grid grid-cols-8 gap-1 max-h-80 overflow-y-auto pr-1">
-              {ALL_REACTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => handlePickReaction(emojiFullFor, emoji)}
-                  className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-xl"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
+            <EmojiPicker
+              className="h-64 w-80"
+              onSelect={(emoji) => handlePickReaction(emojiFullFor, emoji)}
+            />
           </div>
         </div>
       )}

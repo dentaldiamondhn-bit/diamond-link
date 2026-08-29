@@ -152,32 +152,33 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 | Virtualize `<MessageList>` (Phase 4) | ✅ react-window v2 (`List` + `useDynamicRowHeight` + `useListCallbackRef`); per-conversation remount via `key`; scroll-to-latest; jump-to-original uses `scrollToRow` (`021ad84`) |
 | Read-receipts (Phase 4) | ✅ `chat_message_reads` table (`message_id`+`user_id` UNIQUE, `delivered_at`/`read_at`), live via realtime channel; WhatsApp-style ✓/✓✓ (grey delivered / blue read) on my sent messages **plus** stacked reader avatars on my latest message (`participantUserIds` from store for the final check) |
 | WhatsApp UI tweaks | ✅ Group conversations show the multiple-users icon on a gray circle in the list + header (fallback only when no group `avatar_url`); no-chat-selected panel hides the header/composer and shows the WhatsApp default copy ("Tap a chat to start messaging." / "Selecciona un chat…") |
-| Commit | ✅ `021ad84` (virtualization), read receipts committed with it; checkmarks + read-receipt pipeline `99815aa`; group icon + default panel `<next>` |
+| Full emoji library | ✅ `src/chat/data/emojiLibrary.ts` generated from `@emoji-mart/data` (1870 emojis, 8 WhatsApp-style categories); shared `EmojiPicker` (category nav + sticky headers) used by the composer and the reaction picker |
+| Chat-list delivery ticks | ✅ WhatsApp ✓/✓✓ (grey delivered / blue read) rendered under the timestamps in the conversation list via shared `getMessageReadStatus`; `getConversations` attaches reads to `last_message`, store `upsertMessageRead` refreshes the list-live even before a conversation is opened |
+| Commit | ✅ `021ad84` (virtualization), read receipts committed with it; checkmarks + read-receipt pipeline `99815aa`; group icon + default panel `7a5e89a`; full emoji library + list ticks `<next>` |
 
 ### Work State
 
 **Completed**
 - **Phase 2 (partial 70%)** — realtime consolidated in `useChatRealtime`; `reactions JSONB` + voice migration applied (`database/migrations/20260827_chat_extensions.sql`); **server-computed per-user unread counts** (`getConversations`) + mark-as-read on delivery while conversation is open; **`chat_message_reads` table + read-delivery upserts** (`markConversationRead`). Typing indicator still pending.
-- **Phase 3 (partial 60%)** — Lexical composer (bold/italic/underline), drag-&-drop + multi-file upload, voice notes, **emoji picker**, **optimistic send-clear**, reply-quote bar. Lists/code/mentions + draft persistence pending.
-- **Phase 4 (≈95%)** — grouping, reactions (one per user), unified hover action menu (above/below positioning), inline edit, **quote/reply fully wired** (composer quote bar → `reply_to_id` → bubble preview `Sender: snippet` → click-to-jump with highlight), **virtualized `<MessageList>`** (react-window v2 dynamic heights, per-conversation reset, scroll-to-latest / jump-to-row), **read-receipt avatars + WhatsApp ✓/✓✓ checkmarks** (live via `chat_message_reads` realtime channel), default no-chat-selected panel + gray users-icon group avatars.
-- **Phase 7 (partial)** — i18n layer (`en`/`es`, typed keys incl. `moreActions`, `replyingTo`).
+- **Phase 3 (partial 60%)** — Lexical composer (bold/italic/underline), drag-&-drop + multi-file upload, voice notes, **full emoji picker** (1870 emojis, category nav, sticky headers — also used for reactions), **optimistic send-clear**, reply-quote bar. Lists/code/mentions + draft persistence pending.
+- **Phase 4 (≈95%)** — grouping, reactions (one per user), unified hover action menu (above/below positioning), inline edit, **quote/reply fully wired** (composer quote bar → `reply_to_id` → bubble preview `Sender: snippet` → click-to-jump with highlight), **virtualized `<MessageList>`** (react-window v2 dynamic heights, per-conversation reset, scroll-to-latest / jump-to-row), **read-receipt avatars + WhatsApp ✓/✓✓ checkmarks** (live via `chat_message_reads` realtime channel, incl. the conversation list under each timestamp), default no-chat-selected panel + gray users-icon group avatars.
+- **Phase 7 (partial)** — i18n layer (`en`/`es`, typed keys incl. `moreActions`, `replyingTo`, emoji category names).
 - **Production** — feature flag activated (`NEXT_PUBLIC_USE_NEW_CHAT=true`), Vercel deploy green, `GET_LOGS` route fixed, `.eslintcache` gitignored, action-menu refactor shipped.
-- Commits: `<next>` (group icon + default panel), `99815aa` (checkmarks + read-receipt pipeline), `7920a4a`, `cc3d538`, `08c0702`, `021ad84`, `b6e8ce6`, `e2aaa6b`, `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
+- Commits: `<next>` (full emoji library + list ticks), `7a5e89a` (group icon + default panel), `99815aa` (checkmarks + read-receipt pipeline), `7920a4a`, `cc3d538`, `08c0702`, `021ad84`, `b6e8ce6`, `e2aaa6b`, `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
 
 **Active**
-- Verify read receipts end-to-end with two accounts on the deployed app (`app.dentaldiamondhn.com` — deploy `7a5e89a` alias, migration already applied).
+- Deploy `<next>` to Vercel so prod picks up the full emoji picker + chat-list delivery ticks, then verify read receipts / ticks end-to-end with two accounts on `app.dentaldiamondhn.com`.
 
 **Blocked**
 - Full local `npm run build` still stalls at 4GB heap in the dev container (approved gate: `tsc` + ESLint; Vercel is the functional build check and is green).
 - Phases 5 (push), 6 (PWA), 9 (bundle), 10 (QA/rollout) not started.
 
 ### Next Move
-1. Apply `database/migrations/20260828_chat_message_reads.sql` in the Supabase dashboard.
-2. Finish **Phase 2**: typing-indicator UI (presence broadcast already wired in `useChatRealtime`).
-3. **Phase 3** leftovers (lists / code / mentions) — skip if not needed.
-4. Start **Phase 5** (push notifications / Service Worker) — the biggest remaining user-facing win.
-5. Then **Phase 6 / 9** (PWA installability, bundle splitting), and finally **Phase 10** QA/rollout (deactivate-flag hammer + regression pass).
-6. Keep the gate: `npx tsc --noEmit` + scoped ESLint below.
+1. Finish **Phase 2**: typing-indicator UI (presence broadcast already wired in `useChatRealtime`).
+2. **Phase 3** leftovers (lists / code / mentions) — skip if not needed.
+3. Start **Phase 5** (push notifications / Service Worker) — the biggest remaining user-facing win.
+4. Then **Phase 6 / 9** (PWA installability, bundle splitting), and finally **Phase 10** QA/rollout (deactivate-flag hammer + regression pass).
+5. Keep the gate: `npx tsc --noEmit` + scoped ESLint below.
 
 ### Verification Gate
 ```bash
@@ -186,13 +187,15 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/chat --cache --format st
 ```
 
 ### Relevant Files
-- `src/chat/components/MessageList.tsx` — react-window v2 virtualized list (`List` + `useDynamicRowHeight` + `useListCallbackRef`), grouping, unified action menu, reactions, reply preview bar, click-to-jump + highlight, read-receipt avatars on last-mine message.
-- `src/chat/components/Composer.tsx` — Lexical editor, reply-quote bar (`replyTo`/`onCancelReply`), emoji picker (`Smile`, 64 emoji), optimistic send-clear, drag-drop upload, voice note.
+- `src/chat/components/MessageList.tsx` — react-window v2 virtualized list (`List` + `useDynamicRowHeight` + `useListCallbackRef`), grouping, unified action menu, reactions, reply preview bar, click-to-jump + highlight, read-receipt avatars on last-mine message; reaction picker uses the full `EmojiPicker`.
+- `src/chat/components/EmojiPicker.tsx` + `src/chat/data/emojiLibrary.ts` — full Unicode emoji picker (1870 emojis, 8 categories, category nav + sticky headers); library generated from `@emoji-mart/data` (commit `<next>`).
+- `src/chat/components/Composer.tsx` — Lexical editor, reply-quote bar (`replyTo`/`onCancelReply`), full emoji picker (`Smile`), optimistic send-clear, drag-drop upload, voice note.
 - `src/chat/components/ChatPane.tsx` — `replyTo` state, `handleSend` passes `reply_to_id`, flex root, mark-as-read on conversation open; message-list remount per conversation (`key`).
 - `src/chat/hooks/useChatRealtime.ts` — consolidated realtime (messages/conversations/participants/**`chat_message_reads`**/presence/typing) + mark-as-read on delivery while open.
-- `src/services/chatService.ts` — `reply_to:chat_messages(id, content)` select (no `users` embed — no FK), per-user unread counts from `last_read_at`, `getReadsByConversation` + `attachReads`, centralized `markConversationRead` (last_read_at + `chat_message_reads` upserts).
+- `src/services/chatService.ts` — `reply_to:chat_messages(id, content)` select (no `users` embed — no FK), per-user unread counts from `last_read_at`, `getReadsByConversation` + `attachReads`, centralized `markConversationRead` (last_read_at + `chat_message_reads` upserts); `getConversations` attaches reads to `last_message` for list ticks.
 - `src/chat/repository.ts` — data layer (messages, conversations, `markAsRead` → `markConversationRead`).
-- `src/chat/store/chatStore.ts` — Zustand store (Phase 1); `users` map for client-side sender lookup; `upsertMessageRead` merges live read receipts into messages.
+- `src/chat/store/chatStore.ts` — Zustand store (Phase 1); `users` map for client-side sender lookup; `upsertMessageRead` merges live read receipts into messages **and** the conversation `last_message` (list ticks live even before opening a chat).
+- `src/chat/utils.ts` — shared `getMessageReadStatus` (sent/delivered/read) used by bubbles + chat list.
 - `src/chat/i18n/translations.ts` + `useTranslations.ts` — `moreActions`, `replyingTo` (`en`/`es`).
 - `src/chat/components/ChatLayout.tsx` — `h-full` root, bootstrap, debounced reload.
 - `app/(auth)/chat/page.tsx` — `NEXT_PUBLIC_USE_NEW_CHAT` gate (active); info panel removed.

@@ -150,25 +150,29 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
 
   upsertMessageRead: (messageId, read) =>
     set((state) => {
-      for (const [convId, list] of Object.entries(state.messages)) {
+      const mergeReads = (m: ChatMessage): ChatMessage => ({
+        ...m,
+        reads: [...(m.reads || []).filter((r) => r.user_id !== read.user_id), read],
+      });
+
+      const messages = { ...state.messages };
+      let foundInList = false;
+      for (const [convId, list] of Object.entries(messages)) {
         if (!list.some((m) => m.id === messageId)) continue;
-        const mergeReads = (m: ChatMessage): ChatMessage => ({
-          ...m,
-          reads: [...(m.reads || []).filter((r) => r.user_id !== read.user_id), read],
-        });
-        return {
-          messages: {
-            ...state.messages,
-            [convId]: list.map((m) => (m.id === messageId ? mergeReads(m) : m)),
-          },
-          conversations: state.conversations.map((c) =>
-            c.last_message && c.last_message.id === messageId
-              ? { ...c, last_message: mergeReads(c.last_message) }
-              : c
-          ),
-        };
+        foundInList = true;
+        messages[convId] = list.map((m) => (m.id === messageId ? mergeReads(m) : m));
       }
-      return state;
+
+      const conversations = state.conversations.map((c) =>
+        c.last_message && c.last_message.id === messageId
+          ? { ...c, last_message: mergeReads(c.last_message) }
+          : c
+      );
+      const updatedReads =
+        conversations.some((c, i) => c !== state.conversations[i]) || foundInList;
+      if (!updatedReads) return state;
+
+      return { messages, conversations };
     }),
 
   setSelectedConversation: (id) =>

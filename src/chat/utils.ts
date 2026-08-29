@@ -1,4 +1,9 @@
-import type { ChatConversation, ChatParticipant, ChatUser } from '@/types/chat';
+import type {
+  ChatConversation,
+  ChatMessage,
+  ChatParticipant,
+  ChatUser,
+} from '@/types/chat';
 
 const AVATAR_COLORS = [
   'bg-emerald-500',
@@ -82,4 +87,24 @@ export function formatConversationTime(iso: string | null | undefined): string {
   if (isToday) return d.toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' });
   if (isYesterday) return 'Ayer';
   return d.toLocaleDateString('es-HN', { day: '2-digit', month: '2-digit' });
+}
+
+/**
+ * WhatsApp-style delivery status for MY messages: 'sent' (single grey tick),
+ * 'delivered' (double grey tick), 'read' (double blue tick). Returns null for
+ * messages from the current user that are not theirs (or no data).
+ */
+export function getMessageReadStatus(
+  message: ChatMessage | null | undefined,
+  currentUserId: string | null,
+  otherParticipantCount: number
+): 'sent' | 'delivered' | 'read' | null {
+  if (!message || !currentUserId || message.sender_id !== currentUserId) return null;
+  const others = (message.reads || []).filter((r) => r.user_id !== currentUserId);
+  const readCount = others.filter((r) => !!r.read_at).length;
+  const deliveredCount = others.filter((r) => !!r.delivered_at).length;
+  const need = Math.max(otherParticipantCount, readCount, deliveredCount);
+  if (need > 0 && readCount >= need) return 'read';
+  if (need > 0 && deliveredCount >= need) return 'delivered';
+  return 'sent';
 }

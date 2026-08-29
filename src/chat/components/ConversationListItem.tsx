@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Pin, Archive, Users as UsersIcon } from 'lucide-react';
+import { Pin, Archive, Check, Users as UsersIcon } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatConversation } from '@/types/chat';
 import { useTranslations } from '@/chat/i18n/useTranslations';
@@ -11,6 +11,7 @@ import {
   getInitials,
   getAvatarColor,
   formatConversationTime,
+  getMessageReadStatus,
 } from '@/chat/utils';
 
 interface ConversationListItemProps {
@@ -52,6 +53,19 @@ export const ConversationListItem = ({
         return lastMessage.content || '';
     }
   }, [lastMessage, t]);
+
+  // WhatsApp-style ✓/✓✓ for the last message of the conversation (only when
+  // it was sent by me), matching the bubble render under the timestamp.
+  const otherParticipantCount = useMemo(
+    () =>
+      (conversation.participants || []).filter((p) => p.user_id !== currentUserId).length,
+    [conversation.participants, currentUserId]
+  );
+  const lastMessageStatus = getMessageReadStatus(
+    conversation.last_message,
+    currentUserId,
+    otherParticipantCount
+  );
 
   const onlineCount = useMemo(() => {
     if (conversation.type !== 'group') return 0;
@@ -101,9 +115,32 @@ export const ConversationListItem = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <p className="font-medium text-gray-900 dark:text-white truncate">{name}</p>
-            <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-              {formatConversationTime(lastMessage?.created_at || conversation.last_message_at)}
-            </span>
+            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                {formatConversationTime(lastMessage?.created_at || conversation.last_message_at)}
+              </span>
+              {lastMessageStatus && (
+                <span
+                  className={`flex items-center leading-none ${
+                    lastMessageStatus === 'read'
+                      ? 'text-blue-500 dark:text-blue-400'
+                      : 'text-gray-300 dark:text-gray-500'
+                  }`}
+                  title={
+                    lastMessageStatus === 'read'
+                      ? 'Leído'
+                      : lastMessageStatus === 'delivered'
+                        ? 'Entregado'
+                        : 'Enviado'
+                  }
+                >
+                  <Check className="h-3 w-3" strokeWidth={2.5} />
+                  {lastMessageStatus !== 'sent' && (
+                    <Check className="h-3 w-3 -ml-1" strokeWidth={2.5} />
+                  )}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between gap-2">
             {isTyping ? (
