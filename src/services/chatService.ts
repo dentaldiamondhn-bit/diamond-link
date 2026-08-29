@@ -355,10 +355,15 @@ export class ChatService {
           onConflict: 'message_id,user_id',
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       // chat_message_reads table may not be migrated yet; last_read_at is
       // still the source of truth for unread counts.
-      console.error('Failed to record message reads:', err);
+      console.error(
+        'Failed to record message reads:',
+        err?.message || err,
+        err?.code,
+        err?.details
+      );
     }
   }
 
