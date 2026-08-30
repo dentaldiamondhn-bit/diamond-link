@@ -86,6 +86,14 @@ export const ChatHeader = ({ conversationId, className = '' }: ChatHeaderProps) 
       </div>
 
       <div className="flex items-center gap-1 flex-shrink-0">
+        {process.env.NODE_ENV === 'development' && (
+          <span
+            title="Local dev build stamp"
+            className="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-amber-600 dark:text-amber-400"
+          >
+            DEV R4
+          </span>
+        )}
         <button
           className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           title={t('searchPlaceholder')}

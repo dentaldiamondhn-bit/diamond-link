@@ -102,8 +102,36 @@ export default function RootLayout({
                   window.addEventListener('beforeunload', function() {
                     overlay.style.display = 'flex';
                   });
-                })();
-              `,
+})();
+                 // On localhost, nuke the service worker + caches so a stale
+                 // bundle can never keep running. Dev chunk URLs are stable
+                 // names (chat/page.js), so an aggressive cache-first SW
+                 // freezes whatever was first compiled. Remove it entirely.
+                 (function () {
+                   try {
+                     if ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') && 'serviceWorker' in navigator) {
+                       var killed = sessionStorage.getItem('_dl_sw_killed');
+                       navigator.serviceWorker.getRegistrations().then(function (regs) {
+                         var hadSw = !!(regs && regs.length);
+                         var unregs = (regs || []).map(function (r) { return r.unregister(); });
+                         return Promise.all(unregs).then(function () {
+                           if ('caches' in window) {
+                             return caches.keys().then(function (keys) {
+                               return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                             });
+                           }
+                           return true;
+                         }).then(function () {
+                           if (hadSw && !killed) {
+                             sessionStorage.setItem('_dl_sw_killed', '1');
+                             location.reload();
+                           }
+                         });
+                       }).catch(function () {});
+                     }
+                   } catch (e) {}
+                 })();
+               `,
             }}
           />
         </head>
