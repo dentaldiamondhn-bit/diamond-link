@@ -1204,7 +1204,11 @@ function FollowUpNotes({
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [showInput, setShowInput] = useState(false);
+  const [rtStatus, setRtStatus] = useState<string | null>(null);
+  const [lastPollAt, setLastPollAt] = useState<number>(0);
+  const pollBusyRef = useRef(false);
   const statusIdRef = useRef<string | undefined>(initialStatusId);
+  const BUILD_TAG = '2c93434+selfpoll';
 
   useEffect(() => {
     statusIdRef.current = initialStatusId;
@@ -1229,6 +1233,27 @@ function FollowUpNotes({
     setLoading(true);
     refetchNotes().finally(() => setLoading(false));
   }, [refetchNotes, pacienteId]);
+
+  // Self-contained poll: this component refreshes its OWN notes every 3s,
+  // independent of the page-level batched poll and of the realtime
+  // websocket. Guarantees cross-user notes within a few seconds even when
+  // realtime is unavailable or misconfigured on a given client.
+  useEffect(() => {
+    if (!pacienteId) return;
+    const tick = async () => {
+      if (pollBusyRef.current) return;
+      pollBusyRef.current = true;
+      try {
+        const before = Date.now();
+        await refetchNotes();
+        setLastPollAt(Math.round((Date.now() - before) / 1000));
+      } finally {
+        pollBusyRef.current = false;
+      }
+    };
+    const id = window.setInterval(() => { void tick(); }, 3000);
+    return () => window.clearInterval(id);
+  }, [pacienteId, refetchNotes]);
 
   // Fallback refresh signal (single page-level batched request). Guarantees notes
   // surface within a few seconds even if the realtime websocket is unavailable.
@@ -1284,6 +1309,7 @@ function FollowUpNotes({
       )
       .subscribe((status) => {
         console.log('[notes-realtime]', pacienteId, status);
+        setRtStatus(status);
       });
     return () => { realtimeSupabase.removeChannel(channel); };
   }, [pacienteId]);
@@ -1370,6 +1396,16 @@ function FollowUpNotes({
           {showInput ? 'Cancelar' : '+ Agregar'}
         </button>
       </div>
+
+      <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-2 font-mono">
+        {BUILD_TAG} · sync:&nbsp;
+        <span className={rtStatus === 'SUBSCRIBED' ? 'text-green-500 font-bold' : 'text-amber-500'}>
+          {rtStatus ?? 'connecting'}
+        </span>
+        <span className="text-gray-400">
+          {' '}· poll: {lastPollAt !== 0 ? `${lastPollAt}s` : '...'}
+        </span>
+      </p>
 
       {loading && (
         <p className="text-xs text-gray-400 dark:text-gray-500 py-1">Cargando notas...</p>
