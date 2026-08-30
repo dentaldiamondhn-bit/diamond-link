@@ -9,13 +9,14 @@ export interface VoiceRecordingResult {
 
 /**
  * Pick the first MediaRecorder mime type the browser actually supports.
- * `audio/webm` (Chrome/Android/Firefox) is not supported by Safari/iOS,
- * which prefers `audio/mp4` — passing an unsupported mime type to the
- * MediaRecorder constructor throws. Falls back to the browser default.
+ * `audio/mp4` is tried FIRST because Safari/iOS can neither record WebM nor
+ * play WebM/Opus back in `<audio>`, so a webm recording sent to an iOS
+ * recipient would be silent on their device. Chrome/Android can play mp4, so
+ * mp4 maximizes cross-device compatibility. Falls back to the browser default.
  */
 function pickMimeType(): string {
   if (typeof MediaRecorder === 'undefined' || !('isTypeSupported' in MediaRecorder)) return '';
-  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+  const candidates = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
   for (const candidate of candidates) {
     if (MediaRecorder.isTypeSupported(candidate)) return candidate;
   }
@@ -27,17 +28,46 @@ function pickMimeType(): string {
  *
  * `stopRecording()` resolves with `{ blob, url, duration }` (or `null`) so the
  * caller can upload synchronously without racing the async `onstop` event or
- * relying on a stale React closure of the blob state.
+ * relying on a stale React closure of the blob state. Pausing/resuming and
+ * cancelling (discard without uploading) are supported.
  */
 export const useVoiceRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
   const startTimeRef = useRef<number>(0);
+  const pauseStartedAtRef = useRef<number>(0);
+  const pausedTotalRef = useRef<number>(0);
   const mimeRef = useRef<string>('');
   const tickRef = useRef<number | null>(null);
+  const discardRef = useRef(false);
   const stopResolveRef = useRef<((result: VoiceRecordingResult | null) => void) | null>(null);
+
+  const elapsedSeconds = useCallback(
+    () => (Date.now() - startTimeRef.current - pausedTotalRef.current) / 1000,
+    []
+  );
+
+  const clearTicker = useCallback(() => {
+    if (tickRef.current !== null) {
+      window.clearInterval(tickRef.current);
+      tickRef.current = null;
+    }
+  }, []);
+
+  const startTicker = useCallback(() => {
+    clearTicker();
+    tickRef.current = window.setInterval(() => {
+      setDuration(elapsedSeconds());
+    }, 250);
+  }, [clearTicker, elapsedSeconds]);
+
+  const stopTracks = () => {
+    mediaRecorderRef.current?.stream?.getTracks().forEach((track) => track.stop());
+    mediaRecorderRef.current = null;
+  };
 
   // Request microphone permission and initialize MediaRecorder
   const initRecorder = useCallback(async () => {
@@ -57,11 +87,16 @@ export const useVoiceRecorder = () => {
     };
 
     mediaRecorder.onstop = () => {
-      if (tickRef.current !== null) {
-        window.clearInterval(tickRef.current);
-        tickRef.current = null;
+      clearTicker();
+      if (discardRef.current) {
+        discardRef.current = false;
+        audioChunksRef.current = [];
+        setDuration(0);
+        stopResolveRef.current?.(null);
+        stopResolveRef.current = null;
+        return;
       }
-      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      const elapsed = elapsedSeconds();
       setDuration(elapsed);
       const blobType = mimeRef.current || 'audio/webm';
       const blob = new Blob(audioChunksRef.current, { type: blobType });
@@ -70,7 +105,7 @@ export const useVoiceRecorder = () => {
       stopResolveRef.current?.({ blob, url, duration: elapsed });
       stopResolveRef.current = null;
     };
-  }, []);
+  }, [clearTicker, elapsedSeconds]);
 
   const startRecording = useCallback(async () => {
     if (!mediaRecorderRef.current) {
@@ -80,13 +115,34 @@ export const useVoiceRecorder = () => {
     if (!recorder || recorder.state !== 'inactive') return;
     audioChunksRef.current = [];
     startTimeRef.current = Date.now();
+    pausedTotalRef.current = 0;
+    pauseStartedAtRef.current = 0;
+    discardRef.current = false;
     recorder.start();
     setIsRecording(true);
+    setIsPaused(false);
     setDuration(0);
-    tickRef.current = window.setInterval(() => {
-      setDuration((Date.now() - startTimeRef.current) / 1000);
-    }, 500);
-  }, [initRecorder]);
+    startTicker();
+  }, [initRecorder, startTicker]);
+
+  const pauseRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== 'recording' || isPaused) return;
+    recorder.pause();
+    pauseStartedAtRef.current = Date.now();
+    setIsPaused(true);
+    clearTicker();
+  }, [isPaused, clearTicker]);
+
+  const resumeRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== 'paused') return;
+    pausedTotalRef.current += Date.now() - pauseStartedAtRef.current;
+    pauseStartedAtRef.current = 0;
+    recorder.resume();
+    setIsPaused(false);
+    startTicker();
+  }, [startTicker]);
 
   const stopRecording = useCallback(() => {
     return new Promise<VoiceRecordingResult | null>((resolve) => {
@@ -95,27 +151,40 @@ export const useVoiceRecorder = () => {
         stopResolveRef.current = resolve;
         recorder.stop();
         setIsRecording(false);
+        setIsPaused(false);
       } else {
         resolve(null);
       }
     });
   }, []);
 
+  /** Discard the current recording without uploading it. */
+  const cancelRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && (recorder.state === 'recording' || recorder.state === 'paused')) {
+      discardRef.current = true;
+      recorder.stop();
+    }
+    clearTicker();
+    setDuration(0);
+    setIsRecording(false);
+    setIsPaused(false);
+    audioChunksRef.current = [];
+    stopResolveRef.current?.(null);
+    stopResolveRef.current = null;
+    stopTracks();
+  }, [clearTicker]);
+
   const play = useCallback((blob: Blob) => {
     return new Promise<void>((resolve) => {
       const audio = new Audio(URL.createObjectURL(blob));
-      audio.onended = () => {
+      const cleanup = () => {
         URL.revokeObjectURL(audio.src);
         resolve();
       };
-      audio.onerror = () => {
-        URL.revokeObjectURL(audio.src);
-        resolve();
-      };
-      audio.play().catch(() => {
-        URL.revokeObjectURL(audio.src);
-        resolve();
-      });
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
+      audio.play().catch(cleanup);
     });
   }, []);
 
@@ -141,26 +210,25 @@ export const useVoiceRecorder = () => {
   }, []);
 
   const reset = useCallback(() => {
-    if (tickRef.current !== null) {
-      window.clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
+    clearTicker();
     setDuration(0);
     setIsRecording(false);
+    setIsPaused(false);
     audioChunksRef.current = [];
     stopResolveRef.current = null;
-    const recorder = mediaRecorderRef.current;
-    if (recorder) {
-      recorder.stream?.getTracks().forEach((track) => track.stop());
-      mediaRecorderRef.current = null;
-    }
-  }, []);
+    discardRef.current = false;
+    stopTracks();
+  }, [clearTicker]);
 
   return {
     isRecording,
+    isPaused,
     duration,
     startRecording,
+    pauseRecording,
+    resumeRecording,
     stopRecording,
+    cancelRecording,
     play,
     uploadVoiceNote,
     reset,

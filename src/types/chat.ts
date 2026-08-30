@@ -88,6 +88,10 @@ export interface ChatMessage {
   attachments?: ChatAttachment[];
   patient_case_link?: ChatPatientCaseLink;
   reads?: ChatMessageRead[];
+
+  // Client-only optimistic-send metadata (not persisted).
+  local_state?: 'pending' | 'failed';
+  upload_progress?: number;
 }
 
 // Per-user delivery/read state for a single message.

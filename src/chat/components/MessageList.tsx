@@ -15,6 +15,8 @@ import {
   FileText,
   Briefcase,
   Mic,
+  Loader2,
+  XCircle,
 } from 'lucide-react';
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps, ListImperativeAPI } from 'react-window';
@@ -101,7 +103,8 @@ function pinListToBottom(list: ListImperativeAPI, lastRowIndex: number) {
 
 const GROUP_THRESHOLD_MS = 5 * 60 * 1000;
 
-const ACTION_MENU_HEIGHT_PX = 220;
+const ACTION_MENU_HEIGHT_PX = 300;
+const ACTION_MENU_WIDTH_PX = 224;
 
 const DEFAULT_ROW_HEIGHT = 48;
 
@@ -136,22 +139,17 @@ interface RowProps {
   highlightedId: string | null;
   editingId: string | null;
   editingContent: string;
-  actionMenuFor: { id: string; position: 'above' | 'below' } | null;
+  actionMenuId: string | null;
   readReceipts: Record<string, ChatUser[]>;
   otherParticipantIds: string[];
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   onToggleReaction: (msg: ChatMessage, emoji: string) => void;
-  onPickReaction: (msgId: string | null, emoji: string) => void;
   onJump: (msgId: string) => void;
-  onReply: (msg: ChatMessage) => void;
-  onDelete: (msgId: string) => void;
   onOpenMenu: (msgId: string, e: React.MouseEvent<HTMLButtonElement>) => void;
   onCloseMenu: () => void;
-  onStartEdit: (msg: ChatMessage) => void;
   onCancelEdit: () => void;
   onCommitEdit: (msg: ChatMessage) => void;
   onEditContentChange: (value: string) => void;
-  onOpenEmojiFull: (msgId: string) => void;
   onOpenLightbox: (msg: ChatMessage, index: number) => void;
 }
 
@@ -169,22 +167,17 @@ const MessageRow = function MessageRow({
     highlightedId,
     editingId,
     editingContent,
-    actionMenuFor,
+    actionMenuId,
     t,
     readReceipts,
     otherParticipantIds,
     onToggleReaction,
-    onPickReaction,
     onJump,
-    onReply,
-    onDelete,
     onOpenMenu,
     onCloseMenu,
-    onStartEdit,
     onCancelEdit,
     onCommitEdit,
     onEditContentChange,
-    onOpenEmojiFull,
     onOpenLightbox,
   } = rowProps;
   const datum = rows[index];
@@ -250,14 +243,14 @@ const MessageRow = function MessageRow({
         )}
         {isVideoAtt(att) && !overlayCount && (
           <span className="absolute inset-0 flex items-center justify-center bg-black/20">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white">
-              <Play className="h-3 w-3 fill-current" />
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white">
+              <Play className="h-2.5 w-2.5 fill-current" />
             </span>
           </span>
         )}
         {overlayCount ? (
           <span className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <span className="text-sm font-semibold text-white">+{overlayCount}</span>
+            <span className="text-xs font-semibold text-white">+{overlayCount}</span>
           </span>
         ) : null}
       </button>
@@ -265,23 +258,23 @@ const MessageRow = function MessageRow({
 
     let grid: React.ReactNode = null;
     if (count === 1) {
-      grid = renderTile(atts[0], 0, 'aspect-square h-[84px] w-[84px]');
+      grid = renderTile(atts[0], 0, 'aspect-square h-[42px] w-[42px]');
     } else if (count === 2) {
       grid = (
-        <div className="grid w-[114px] grid-cols-2 gap-1">
+        <div className="grid w-[74px] grid-cols-2 gap-0.5">
           {atts.map((a, i) => renderTile(a, i, 'aspect-square'))}
         </div>
       );
     } else if (count === 3) {
       grid = (
-        <div className="grid h-[114px] w-[172px] grid-cols-2 grid-rows-2 gap-1">
+        <div className="grid h-[74px] w-[112px] grid-cols-2 grid-rows-2 gap-0.5">
           {renderTile(atts[0], 0, 'row-span-2 h-full')}
           {atts.slice(1, 3).map((a, i) => renderTile(a, i + 1, 'aspect-square'))}
         </div>
       );
     } else {
       grid = (
-        <div className="grid w-[114px] grid-cols-2 gap-1">
+        <div className="grid w-[74px] grid-cols-2 gap-0.5">
           {atts.slice(0, 4).map((a, i) =>
             i === 3 && count > 4
               ? renderTile(a, i, 'aspect-square', count - 4)
@@ -303,16 +296,16 @@ const MessageRow = function MessageRow({
                 href={doc.file_url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex w-full max-w-[180px] items-center gap-2 rounded-xl bg-white/15 p-2 transition-colors hover:bg-white/25 dark:bg-black/15 dark:hover:bg-black/25"
+                className="flex w-full max-w-[120px] items-center gap-2 rounded-xl bg-white/15 p-2 transition-colors hover:bg-white/25 dark:bg-black/15 dark:hover:bg-black/25"
               >
                 <div
-                  className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-white ${meta.bg}`}
+                  className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-white ${meta.bg}`}
                 >
-                  <FileText className="h-4 w-4" />
+                  <FileText className="h-3.5 w-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="max-w-[120px] truncate text-xs font-medium">{doc.file_name}</p>
-                  <p className="text-[10px] opacity-70">{formatFileSize(doc.file_size)}</p>
+                  <p className="max-w-[70px] truncate text-[11px] font-medium">{doc.file_name}</p>
+                  <p className="text-[9px] opacity-70">{formatFileSize(doc.file_size)}</p>
                 </div>
               </a>
             );
@@ -431,68 +424,6 @@ const MessageRow = function MessageRow({
         } ${highlightedId === msg.id ? 'rounded-2xl bg-blue-50 dark:bg-blue-900/30' : ''}`}
       >
         <div className={`flex items-end gap-2 max-w-[75%] ${mine ? 'flex-row-reverse' : ''}`}>
-        {actionMenuFor?.id === msg.id && (
-          <div
-            className={`absolute z-20 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-xl overflow-hidden ${
-              actionMenuFor.position === 'below' ? 'top-full mt-2' : 'bottom-full mb-2'
-            } ${mine ? 'right-0' : 'left-0'}`}
-          >
-            <div className="flex items-center px-1.5 py-1.5">
-              {QUICK_REACTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => onPickReaction(msg.id, emoji)}
-                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
-                >
-                  {emoji}
-                </button>
-              ))}
-              <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5" />
-              {FREQUENT_REACTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => onPickReaction(msg.id, emoji)}
-                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
-                >
-                  {emoji}
-                </button>
-              ))}
-              <button
-                onClick={() => onOpenEmojiFull(msg.id)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300"
-                title={t('addReaction')}
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="border-t border-gray-200 dark:border-gray-600" />
-            <button
-              onClick={() => onReply(msg)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <Reply className="h-4 w-4" />
-              {t('reply')}
-            </button>
-            {mine && editingId !== msg.id && (
-              <button
-                onClick={() => onStartEdit(msg)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <Edit className="h-4 w-4" />
-                {t('editMessage')}
-              </button>
-            )}
-            {mine && (
-              <button
-                onClick={() => onDelete(msg.id)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-              >
-                <Trash2 className="h-4 w-4" />
-                {t('deleteMessage')}
-              </button>
-            )}
-          </div>
-        )}
         {!mine && datum.isFirst && renderAvatar(msg.sender_id)}
         <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'} min-w-0`}>
           {!mine && datum.isFirst && msg.sender_id !== currentUserId && (
@@ -535,7 +466,9 @@ const MessageRow = function MessageRow({
                 mine
                   ? 'bg-blue-500 text-white dark:bg-blue-600'
                   : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-              } ${replyToId === msg.id ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''}`}
+              } ${msg.local_state === 'pending' ? 'opacity-70' : ''} ${
+                replyToId === msg.id ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''
+              }`}
             >
               {msg.reply_to_id && (
                 <button
@@ -564,14 +497,14 @@ const MessageRow = function MessageRow({
                 <div className="flex-1 min-w-0">{renderBubble(msg)}</div>
                 <button
                   onClick={(e) =>
-                    actionMenuFor?.id === msg.id ? onCloseMenu() : onOpenMenu(msg.id, e)
+                    actionMenuId === msg.id ? onCloseMenu() : onOpenMenu(msg.id, e)
                   }
                   className={`flex-shrink-0 p-1 rounded-full transition-opacity ${
                     mine
                       ? 'text-blue-100 hover:bg-black/10'
                       : 'text-gray-400 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                   } ${
-                    actionMenuFor?.id === msg.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'
+                    actionMenuId === msg.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'
                   }`}
                   title={t('moreActions')}
                 >
@@ -601,7 +534,21 @@ const MessageRow = function MessageRow({
               </span>
             )}
 
-            {mine && renderReadStatus(msg)}
+            {mine && msg.local_state === 'pending' && (
+              <span className="flex items-center gap-1 text-[10px] text-blue-200 dark:text-blue-300">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                {Math.min(Math.max(Math.round(msg.upload_progress ?? 0), 0), 100)}%
+              </span>
+            )}
+
+            {mine && msg.local_state === 'failed' && (
+              <span className="flex items-center gap-1 text-[10px] text-red-400">
+                <XCircle className="h-3 w-3" />
+                {t('sendFailed')}
+              </span>
+            )}
+
+            {mine && !msg.local_state && renderReadStatus(msg)}
 
             {mine && datum.isLast && readReceipts[msg.id] && renderReadAvatars(readReceipts[msg.id])}
 
@@ -635,10 +582,12 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
 
   const [list, setList] = useListCallbackRef();
   const rowHeight = useDynamicRowHeight({ defaultRowHeight: DEFAULT_ROW_HEIGHT });
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [actionMenuFor, setActionMenuFor] = useState<{
     id: string;
-    position: 'above' | 'below';
+    left: number;
+    top: number;
   } | null>(null);
   const [emojiFullFor, setEmojiFullFor] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -748,26 +697,72 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
 
   const openActionMenu = useCallback(
     (msgId: string, e: React.MouseEvent<HTMLButtonElement>) => {
-      const rowEl = e.currentTarget.closest('[data-message-id]') as HTMLElement | null;
+      const trigger = e.currentTarget;
+      const rowEl = trigger.closest('[data-message-id]') as HTMLElement | null;
       const scroller = getScrollParent(rowEl);
+      const triggerRect = trigger.getBoundingClientRect();
+      const scrollerRect = scroller?.getBoundingClientRect();
+      const datum = rows.find((r) => r.msg.id === msgId);
+
+      // Prefer opening below the trigger; fall back above when there isn't
+      // enough space inside the scroll container.
       let position: 'above' | 'below' = 'above';
-      if (rowEl && scroller) {
-        const rowRect = rowEl.getBoundingClientRect();
-        const scrollerRect = scroller.getBoundingClientRect();
-        const rowMidY = rowRect.top + rowRect.height / 2;
-        const centerY = scrollerRect.top + scrollerRect.height / 2;
-        const preferBelow = rowMidY <= centerY;
-        const spaceAbove = rowRect.top - scrollerRect.top;
-        const spaceBelow = scrollerRect.bottom - rowRect.bottom;
-        if (preferBelow && spaceBelow >= ACTION_MENU_HEIGHT_PX) position = 'below';
-        else if (!preferBelow && spaceAbove >= ACTION_MENU_HEIGHT_PX) position = 'above';
-        else if (spaceBelow >= ACTION_MENU_HEIGHT_PX) position = 'below';
-        else position = 'above';
+      if (rowEl && scrollerRect) {
+        const scrollerTop = scrollerRect.top;
+        const scrollerBottom = scrollerRect.bottom;
+        const enoughBelow = scrollerBottom - triggerRect.bottom >= ACTION_MENU_HEIGHT_PX;
+        const enoughAbove = triggerRect.top - scrollerTop >= ACTION_MENU_HEIGHT_PX;
+        if (enoughBelow) position = 'below';
+        else if (enoughAbove) position = 'above';
+        else {
+          const spaceBelow = scrollerBottom - triggerRect.bottom;
+          const spaceAbove = triggerRect.top - scrollerTop;
+          position = spaceBelow >= spaceAbove ? 'below' : 'above';
+        }
       }
-      setActionMenuFor({ id: msgId, position });
+
+      const MENU_W = ACTION_MENU_WIDTH_PX;
+      const MENU_H = ACTION_MENU_HEIGHT_PX;
+      const edgeBuffer = 8;
+      const leftMin = Math.max(scrollerRect?.left ?? edgeBuffer, edgeBuffer);
+      const leftMax = Math.min(scrollerRect?.right ?? window.innerWidth - edgeBuffer, window.innerWidth - edgeBuffer) - MENU_W;
+      const alignRight = datum?.mine === true;
+      const rawLeft = alignRight ? triggerRect.right - MENU_W + 4 : triggerRect.left - 4;
+      const left = Math.round(Math.min(Math.max(rawLeft, leftMin), leftMax));
+      const topMin = edgeBuffer;
+      const topMax = window.innerHeight - MENU_H - edgeBuffer;
+      const rawTop =
+        position === 'below' ? triggerRect.bottom + 4 : triggerRect.top - MENU_H - 4;
+      const top = Math.round(Math.min(Math.max(rawTop, topMin), Math.max(topMin, topMax)));
+
+      // Convert viewport coords to the container coordinate space the overlay
+      // lives in.
+      const ref = containerRef.current?.getBoundingClientRect();
+      setActionMenuFor({
+        id: msgId,
+        left: ref ? left - ref.left : left,
+        top: ref ? top - ref.top : top,
+      });
     },
-    []
+    [rows]
   );
+
+  // Close the floating action menu on scroll, resize or Escape.
+  useEffect(() => {
+    if (!actionMenuFor) return;
+    const close = () => setActionMenuFor(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [actionMenuFor]);
 
   const handleEdit = useCallback(
     async (msg: ChatMessage) => {
@@ -881,22 +876,17 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       highlightedId,
       editingId,
       editingContent,
-      actionMenuFor,
+      actionMenuId: actionMenuFor?.id ?? null,
       readReceipts,
       otherParticipantIds,
       t: memoizedT,
       onToggleReaction: handleToggleReaction,
-      onPickReaction: handlePickReaction,
       onJump: handleJumpToMessage,
-      onReply: handleReply,
-      onDelete: handleDelete,
       onOpenMenu: openActionMenu,
       onCloseMenu,
-      onStartEdit,
       onCancelEdit,
       onCommitEdit: handleEdit,
       onEditContentChange: setEditingContent,
-      onOpenEmojiFull,
       onOpenLightbox: handleOpenLightbox,
     }),
     [
@@ -912,16 +902,11 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       otherParticipantIds,
       memoizedT,
       handleToggleReaction,
-      handlePickReaction,
       handleJumpToMessage,
-      handleReply,
-      handleDelete,
       openActionMenu,
       onCloseMenu,
-      onStartEdit,
       onCancelEdit,
       handleEdit,
-      onOpenEmojiFull,
       handleOpenLightbox,
     ]
   );
@@ -940,7 +925,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   }
 
   return (
-    <div className="relative flex h-full flex-col">
+    <div ref={containerRef} className="relative flex h-full flex-col">
       <List
         className="flex-1"
         listRef={setList}
@@ -950,6 +935,78 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
         rowProps={rowProps}
         overscanCount={8}
       />
+
+      {actionMenuFor && (
+        <div className="absolute inset-0 z-30" onClick={onCloseMenu}>
+          {(() => {
+            const actionMsg = rows.find((r) => r.msg.id === actionMenuFor.id)?.msg;
+            if (!actionMsg) return null;
+            const mine = actionMsg.sender_id === currentUserId;
+            return (
+              <div
+                className="absolute w-[224px] overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600"
+                style={{ left: actionMenuFor.left, top: actionMenuFor.top }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center px-1.5 py-1.5">
+                  {QUICK_REACTIONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => handlePickReaction(actionMsg.id, emoji)}
+                      className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                  <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+                  {FREQUENT_REACTIONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => handlePickReaction(actionMsg.id, emoji)}
+                      className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => onOpenEmojiFull(actionMsg.id)}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300"
+                    title={memoizedT('addReaction')}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="border-t border-gray-200 dark:border-gray-600" />
+                <button
+                  onClick={() => handleReply(actionMsg)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  <Reply className="h-4 w-4" />
+                  {memoizedT('reply')}
+                </button>
+                {mine && editingId !== actionMsg.id && (
+                  <button
+                    onClick={() => onStartEdit(actionMsg)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    <Edit className="h-4 w-4" />
+                    {memoizedT('editMessage')}
+                  </button>
+                )}
+                {mine && (
+                  <button
+                    onClick={() => handleDelete(actionMsg.id)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {memoizedT('deleteMessage')}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {lightbox && (
         <MediaLightbox

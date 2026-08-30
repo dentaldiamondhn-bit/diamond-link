@@ -10,8 +10,12 @@ import {
   Italic,
   Mic,
   Paperclip,
+  Pause,
+  Play,
   Send,
   Smile,
+  Square,
+  Trash2,
   Underline,
   X,
 } from 'lucide-react';
@@ -35,25 +39,32 @@ import {
 import { HeadingNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { $generateHtmlFromNodes } from '@lexical/html';
-import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { htmlToText } from '@/chat/utils';
 import EmojiPicker from './EmojiPicker';
 import AttachmentTray from './AttachmentTray';
 import type { PendingAttachment } from './AttachmentTray';
-import type { ChatMessage, FileAttachmentData } from '@/types/chat';
+import type { ChatMessage } from '@/types/chat';
 
 interface ComposerProps {
   conversationId: string | null;
   onSend: (
     content: string,
-    attachments: FileAttachmentData[],
+    items: PendingAttachment[],
     replyToId?: string
   ) => Promise<void>;
   onTyping: () => void;
-  onVoiceToggle: () => Promise<void>;
+  onVoiceStart: () => Promise<void>;
+  onVoiceStop: () => Promise<void>;
+  onVoicePauseToggle: () => void;
+  onVoiceCancel: () => void;
+  onVoiceSend: () => Promise<void>;
+  onVoiceDiscard: () => void;
   isRecording: boolean;
+  isPaused: boolean;
   duration: number;
+  hasPendingVoice: boolean;
+  voiceDuration: number;
   replyTo?: ChatMessage | null;
   onCancelReply?: () => void;
   disabled?: boolean;
@@ -79,9 +90,17 @@ interface LexicalToolbarProps {
   hasAttachments: boolean;
   onSend: () => void;
   onFilesSelected: (files: File[]) => void;
-  onVoiceToggle: () => Promise<void>;
+  onVoiceStart: () => Promise<void>;
+  onVoiceStop: () => Promise<void>;
+  onVoicePauseToggle: () => void;
+  onVoiceCancel: () => void;
+  onVoiceSend: () => Promise<void>;
+  onVoiceDiscard: () => void;
   isRecording: boolean;
+  isPaused: boolean;
   duration: number;
+  hasPendingVoice: boolean;
+  voiceDuration: number;
   disabled?: boolean;
 }
 
@@ -90,9 +109,17 @@ const LexicalToolbar = ({
   hasAttachments,
   onSend,
   onFilesSelected,
-  onVoiceToggle,
+  onVoiceStart,
+  onVoiceStop,
+  onVoicePauseToggle,
+  onVoiceCancel,
+  onVoiceSend,
+  onVoiceDiscard,
   isRecording,
+  isPaused,
   duration,
+  hasPendingVoice,
+  voiceDuration,
   disabled,
 }: LexicalToolbarProps) => {
   const { t } = useTranslations();
@@ -102,6 +129,15 @@ const LexicalToolbar = ({
   const docInputRef = useRef<HTMLInputElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+
+  const formatTime = (s: number) => {
+    const total = Math.max(0, Math.floor(s));
+    const mm = Math.floor(total / 60)
+      .toString()
+      .padStart(2, '0');
+    const ss = (total % 60).toString().padStart(2, '0');
+    return `${mm}:${ss}`;
+  };
 
   const formatButton = (
     title: string,
@@ -134,12 +170,69 @@ const LexicalToolbar = ({
 
   return (
     <>
-      {isRecording && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg">
-          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-sm text-red-500">{Math.ceil(duration)}s</span>
+      {!isRecording && hasPendingVoice && (
+        <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-2 py-1 dark:bg-gray-700">
+          <span className="flex h-2 w-2 items-center justify-center">
+            <span className="h-2 w-2 rounded-full bg-gray-400" />
+          </span>
+          <span className="w-12 text-sm font-medium text-gray-600 tabular-nums dark:text-gray-200">
+            {formatTime(voiceDuration)}
+          </span>
+          <button
+            type="button"
+            onClick={onVoiceDiscard}
+            title={t('cancelRecording')}
+            className="p-1 rounded text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-black/20"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onVoiceSend}
+            title={t('send')}
+            className="ml-1 rounded-full bg-blue-500 p-1.5 text-white hover:bg-blue-600"
+          >
+            <Send className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
+
+      {isRecording ? (
+        <div className="flex items-center gap-1.5 rounded-lg bg-red-50 px-2 py-1 dark:bg-red-900/20">
+          {isPaused ? (
+            <Pause className="h-3 w-3 flex-shrink-0 text-red-500" />
+          ) : (
+            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+          )}
+          <span className="w-12 text-sm font-medium text-red-500 tabular-nums">
+            {formatTime(duration)}
+          </span>
+          <button
+            type="button"
+            onClick={onVoicePauseToggle}
+            title={isPaused ? t('resumeRecording') : t('pauseRecording')}
+            className="p-1 rounded text-red-500 hover:bg-red-100 dark:hover:bg-black/20"
+          >
+            {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={onVoiceStop}
+            title={t('stopRecording')}
+            className="p-1 rounded text-red-500 hover:bg-red-100 dark:hover:bg-black/20"
+          >
+            <Square className="h-3.5 w-3.5 fill-current" />
+          </button>
+          <button
+            type="button"
+            onClick={onVoiceCancel}
+            title={t('cancelRecording')}
+            className="p-1 rounded text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-black/20"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex items-center gap-1 flex-wrap">
         {formatButton('Bold', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'), <Bold className="h-4 w-4" />)}
@@ -231,17 +324,19 @@ const LexicalToolbar = ({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={onVoiceToggle}
-          disabled={disabled}
-          className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 ${
-            isRecording ? 'bg-red-500 text-white hover:bg-red-600' : 'text-gray-600 dark:text-gray-300'
-          }`}
-          title={t('voiceMessage')}
-        >
-          <Mic className="h-4 w-4" />
-        </button>
+        {!isRecording && (
+          <button
+            type="button"
+            onClick={onVoiceStart}
+            disabled={disabled}
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 ${
+              isRecording ? 'bg-red-500 text-white hover:bg-red-600' : 'text-gray-600 dark:text-gray-300'
+            }`}
+            title={t('voiceMessage')}
+          >
+            <Mic className="h-4 w-4" />
+          </button>
+        )}
 
         <div className="relative">
           <button
@@ -314,9 +409,17 @@ export const Composer = ({
   conversationId,
   onSend,
   onTyping,
-  onVoiceToggle,
+  onVoiceStart,
+  onVoiceStop,
+  onVoicePauseToggle,
+  onVoiceCancel,
+  onVoiceSend,
+  onVoiceDiscard,
   isRecording,
+  isPaused,
   duration,
+  hasPendingVoice,
+  voiceDuration,
   replyTo,
   onCancelReply,
   disabled,
@@ -433,7 +536,8 @@ export const Composer = ({
         return;
       }
       // Group staged attachments by their (per-item) caption so each caption
-      // becomes one message. Uploads happen here, before the message sends.
+      // becomes one message. The upload + optimistic bubble now happen in the
+      // parent (ChatPane), so the bubble pops into the thread immediately.
       const groups = new Map<string, PendingAttachment[]>();
       for (const att of staged) {
         const key = att.caption.trim();
@@ -442,21 +546,7 @@ export const Composer = ({
         groups.set(key, list);
       }
       for (const [caption, atts] of groups) {
-        const uploaded: FileAttachmentData[] = [];
-        for (const att of atts) {
-          try {
-            const result = await ChatRepository.uploadFile(att.file, conversationId);
-            uploaded.push({
-              file_name: result.fileName,
-              file_type: result.fileType,
-              file_size: result.fileSize,
-              file_url: result.url,
-            });
-          } catch (err) {
-            console.error('Failed to upload attachment:', err);
-          }
-        }
-        if (uploaded.length) await onSend(caption, uploaded, replyId);
+        await onSend(caption, atts, replyId);
       }
       clearEditor();
     } catch (err) {
@@ -543,9 +633,17 @@ export const Composer = ({
               hasAttachments={pending.length > 0}
               onSend={send}
               onFilesSelected={handleFiles}
-              onVoiceToggle={onVoiceToggle}
+              onVoiceStart={onVoiceStart}
+              onVoiceStop={onVoiceStop}
+              onVoicePauseToggle={onVoicePauseToggle}
+              onVoiceCancel={onVoiceCancel}
+              onVoiceSend={onVoiceSend}
+              onVoiceDiscard={onVoiceDiscard}
               isRecording={isRecording}
+              isPaused={isPaused}
               duration={duration}
+              hasPendingVoice={hasPendingVoice}
+              voiceDuration={voiceDuration}
               disabled={disabled || sending}
             />
           </div>

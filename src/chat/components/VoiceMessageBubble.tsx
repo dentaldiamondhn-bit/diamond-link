@@ -12,15 +12,26 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(message.voice_note_duration || 0);
   const [currentTime, setCurrentTime] = useState(0);
   const [waveformData, setWaveformData] = useState<number[] | null>(null);
 
-  // Load audio and generate waveform data
+  // Point the <audio> element at this message's URL. State resets on remount
+  // (the row below keyed by message id), so no state is set here.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.src = message.voice_note_url ?? '';
+      audio.load();
+    }
+  }, [message.voice_note_url]);
+
+  // Navigate Metadata + waveform generation. The waveform is purely visual
+  // decoration — if decodeAudioData fails (unsupported codec for WebAudio,
+  // slow network, etc.) playback still works via the <audio> element.
   useEffect(() => {
     if (!message.voice_note_url) return;
 
-    // Fetch the audio blob
     fetch(message.voice_note_url)
       .then(response => response.arrayBuffer())
       .then(arrayBuffer => {
@@ -28,20 +39,11 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
         return audioContext.decodeAudioData(arrayBuffer);
       })
       .then(audioBuffer => {
-        setDuration(audioBuffer.duration);
-        // Generate waveform data (simplified: we'll take samples)
-        const offlineCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const buffer = offlineCtx.createBuffer(
-          audioBuffer.numberOfChannels,
-          audioBuffer.length,
-          audioBuffer.sampleRate
-        );
-        buffer.copyFromChannel(audioBuffer.getChannelData(0), 0);
-
-        // Downsample to 100 points for waveform
+        setDuration(Math.floor(audioBuffer.duration) || message.voice_note_duration || audioBuffer.duration);
+        // Generate waveform data (simplified: sample magnitudes)
+        const channelData = audioBuffer.getChannelData(0);
         const waveformLength = 100;
-        const channelData = buffer.getChannelData(0);
-        const step = Math.floor(channelData.length / waveformLength);
+        const step = Math.floor(channelData.length / waveformLength) || 1;
         const sampled: number[] = [];
         for (let i = 0; i < waveformLength; i++) {
           let sum = 0;
@@ -55,28 +57,33 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
         }
         setWaveformData(sampled);
       })
-      .catch(err => {
-        console.error('Failed to load audio for waveform:', err);
+      .catch(() => {
+        setWaveformData(null);
       });
+  }, [message.voice_note_url, message.voice_note_duration]);
 
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = message.voice_note_url ?? '';
-      audio.load();
-    }
-  }, [message.voice_note_url]);
-
-  // Handle audio playback
+  // Handle audio playback events
   useEffect(() => {
     if (!audioRef.current) return;
 
     audioRef.current.ontimeupdate = () => {
-      setCurrentTime(audioRef.current.currentTime);
+      setCurrentTime(audioRef.current?.currentTime ?? 0);
+    };
+
+    audioRef.current.onloadedmetadata = () => {
+      const audio = audioRef.current;
+      if (audio && Number.isFinite(audio.duration)) {
+        setDuration(Math.floor(audio.duration));
+      }
     };
 
     audioRef.current.onended = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+    };
+
+    audioRef.current.onerror = () => {
+      setIsPlaying(false);
     };
   }, []);
 
@@ -91,21 +98,19 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
     const width = canvas.width;
     const height = canvas.height;
 
-    // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
-    // Set waveform style
-    ctx.fillStyle = isCurrentUser ? '#4f46e5' : '#60a5fa'; // Indigo-600 for user, Blue-400 for others
+    ctx.fillStyle = isCurrentUser ? '#2563eb' : '#4f46e5';
     ctx.strokeStyle = ctx.fillStyle;
 
     const barWidth = width / waveformData.length;
-    const maxHeight = height * 0.8; // Leave some padding
+    const maxHeight = height * 0.8;
     const xOffset = 0;
 
     ctx.beginPath();
     waveformData.forEach((value, index) => {
       const x = xOffset + index * barWidth;
-      const barHeight = value * maxHeight;
+      const barHeight = Math.max(2, value * maxHeight);
       const y = height - barHeight;
 
       if (index === 0) {
@@ -116,22 +121,31 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
     });
     ctx.stroke();
 
-    // Optional: fill under the curve
     ctx.lineTo(width, height);
     ctx.lineTo(0, height);
     ctx.closePath();
-    ctx.fillStyle = isCurrentUser ? '#4f46e520' : '#60a5fa20'; // 20% opacity
+    ctx.fillStyle = isCurrentUser ? '#2563eb20' : '#4f46e520';
     ctx.fill();
   }, [waveformData, isCurrentUser]);
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (!audio.paused) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
     }
-    setIsPlaying(!isPlaying);
+    if (!audio.src) {
+      audio.src = message.voice_note_url ?? '';
+      audio.load();
+    }
+    const attempt = audio.play();
+    if (attempt && typeof attempt.then === 'function') {
+      attempt.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    } else {
+      setIsPlaying(true);
+    }
   };
 
   return (
@@ -146,19 +160,22 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
       <div className="flex items-center space-x-2">
         <button
           onClick={togglePlay}
-          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+          className={`p-1 rounded ${
+            isCurrentUser ? 'hover:bg-white/20' : 'hover:bg-gray-200 dark:hover:bg-gray-600'
+          }`}
+          aria-label="Play voice note"
         >
           {isPlaying ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12l-3 3v-6l3-3z" />
             </svg>
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5v14l11-7z" />
             </svg>
           )}
         </button>
-        <span className="text-sm">
+        <span className="text-xs tabular-nums">
           {`${Math.floor(currentTime)}s / ${Math.floor(duration)}s`}
         </span>
       </div>
