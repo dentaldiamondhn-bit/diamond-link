@@ -38,13 +38,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ 
         message: 'No active odontogram-pilot found',
         odontogram: null 
-      });
+      }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     return NextResponse.json({ 
       message: 'Odontogram-pilot found',
       odontogram 
-    });
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error in GET /api/odontogram-pilot/active:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

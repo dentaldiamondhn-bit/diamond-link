@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 });
     }
 
-    return NextResponse.json({ quotes: quotes || [] });
+    return NextResponse.json({ quotes: quotes || [] }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error in GET /api/presupuestos:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

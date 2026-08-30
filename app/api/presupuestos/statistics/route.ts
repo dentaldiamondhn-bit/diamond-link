@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       valor_promedio: valorPromedio
     };
 
-    return NextResponse.json(statistics);
+    return NextResponse.json(statistics, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Unexpected error in presupuesto statistics API:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

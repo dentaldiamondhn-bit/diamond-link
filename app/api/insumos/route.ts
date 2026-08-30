@@ -8,15 +8,15 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       const insumos = await TreatmentService.searchInsumos(search);
-      return NextResponse.json(insumos);
+      return NextResponse.json(insumos, { headers: { 'Cache-Control': 'no-store' } });
     } else {
       const insumos = await TreatmentService.getInsumos();
-      return NextResponse.json(insumos);
+      return NextResponse.json(insumos, { headers: { 'Cache-Control': 'no-store' } });
     }
   } catch (error) {
     console.error('Error in GET /api/insumos:', error);
     if (error instanceof Error && error.message.includes('does not exist')) {
-      return NextResponse.json([], { status: 200 });
+      return NextResponse.json([], { status: 200, headers: { 'Cache-Control': 'no-store' } });
     }
     return NextResponse.json(
       {

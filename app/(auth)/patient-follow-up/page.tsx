@@ -1241,10 +1241,8 @@ function FollowUpNotes({
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [showInput, setShowInput] = useState(false);
-  const [lastPollAt, setLastPollAt] = useState<number>(0);
   const pollBusyRef = useRef(false);
   const statusIdRef = useRef<string | undefined>(initialStatusId);
-  const BUILD_TAG = '4-nocache';
 
   useEffect(() => {
     statusIdRef.current = initialStatusId;
@@ -1280,9 +1278,7 @@ function FollowUpNotes({
       if (pollBusyRef.current) return;
       pollBusyRef.current = true;
       try {
-        const before = Date.now();
         await refetchNotes();
-        setLastPollAt(Math.round((Date.now() - before) / 1000));
       } finally {
         pollBusyRef.current = false;
       }
@@ -1444,13 +1440,6 @@ function FollowUpNotes({
         </button>
       </div>
 
-      <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-2 font-mono">
-        {BUILD_TAG} · live:&nbsp;
-        <span className="text-gray-400">
-          poll: {lastPollAt !== 0 ? `${lastPollAt}s` : '...'}
-        </span>
-      </p>
-
       {loading && (
         <p className="text-xs text-gray-400 dark:text-gray-500 py-1">Cargando notas...</p>
       )}
@@ -1463,16 +1452,8 @@ function FollowUpNotes({
         <NoteRow note={newestNote} />
       )}
 
-      {olderNotes.length > 0 && (
-        <div className="pt-1 border-t border-gray-100 dark:border-gray-700/60">
-          {olderNotes.map(note => (
-            <CollapsedNoteRow key={note.id} note={note} />
-          ))}
-        </div>
-      )}
-
       {showInput && (
-        <div className="flex gap-2 mt-1">
+        <div className="flex gap-2 mt-2 mb-1">
           <div className="w-7 h-7 rounded-full bg-teal-500/20 dark:bg-teal-400/20 flex items-center justify-center flex-shrink-0 mt-1">
             {user?.imageUrl ? (
               <img src={user.imageUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
@@ -1509,6 +1490,14 @@ function FollowUpNotes({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {olderNotes.length > 0 && (
+        <div className="pt-1 border-t border-gray-100 dark:border-gray-700/60">
+          {olderNotes.map(note => (
+            <CollapsedNoteRow key={note.id} note={note} />
+          ))}
         </div>
       )}
     </div>

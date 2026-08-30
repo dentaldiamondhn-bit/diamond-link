@@ -9,10 +9,10 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       const paquetes = await TreatmentService.searchPaquetes(search);
-      return NextResponse.json(paquetes);
+      return NextResponse.json(paquetes, { headers: { 'Cache-Control': 'no-store' } });
     } else {
       const paquetes = await TreatmentService.getPaquetes();
-      return NextResponse.json(paquetes);
+      return NextResponse.json(paquetes, { headers: { 'Cache-Control': 'no-store' } });
     }
   } catch (error) {
     console.error('Error in GET /api/paquetes:', error);

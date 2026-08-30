@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       // Check if it's a "relation does not exist" error
       if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
         console.log('tratamientos table does not exist, returning empty array');
-        return NextResponse.json({ treatments: [] });
+        return NextResponse.json({ treatments: [] }, { headers: { 'Cache-Control': 'no-store' } });
       }
       return NextResponse.json({ error: 'Failed to fetch treatments' }, { status: 500 });
     }
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ 
       treatments: treatments || [],
       specialties: specialties
-    });
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error in GET /api/tratamientos/quotes:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

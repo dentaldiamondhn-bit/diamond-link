@@ -33,7 +33,7 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch patient' }, { status: 500 });
     }
 
-    return NextResponse.json(patient);
+    return NextResponse.json(patient, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error in GET /api/patients/[id]:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
