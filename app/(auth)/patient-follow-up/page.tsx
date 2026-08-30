@@ -269,6 +269,43 @@ export default function PatientFollowUpPage() {
     };
   }, []);
 
+  // Notes realtime is a SINGLE global channel for the whole table, never one
+  // per patient. A per-patient channel ("patient_follow_up_notes:<uuid>")
+  // explodes past Supabase's 100-channel-per-connection cap once many patients
+  // are open -> joins TIMED_OUT/CLOSED. Exactly what the original hit.
+  useEffect(() => {
+    const channel = realtimeSupabase
+      .channel('follow-up-notes-global')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'patient_follow_up_notes' },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const id = (payload.old as any)?.id;
+            const pacienteId = (payload.old as any)?.paciente_id as string | undefined;
+            if (!pacienteId || !id) return;
+            window.dispatchEvent(
+              new CustomEvent('follow-up-notes-event', { detail: { pacienteId, type: 'DELETE', id } })
+            );
+            return;
+          }
+          const row = payload.new as any;
+          if (!row?.id) return;
+          const pacienteId = (row.paciente_id ?? (payload.old as any)?.paciente_id) as string | undefined;
+          if (!pacienteId) return;
+          window.dispatchEvent(
+            new CustomEvent('follow-up-notes-event', {
+              detail: { pacienteId, type: payload.eventType, note: row },
+            })
+          );
+        }
+      )
+      .subscribe();
+    return () => {
+      realtimeSupabase.removeChannel(channel);
+    };
+  }, []);
+
   /* ---- realtime subscription to whatsapp_message_history for the open editor ---- */
   useEffect(() => {
     if (!editingPacienteId) return;
@@ -1204,11 +1241,10 @@ function FollowUpNotes({
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [showInput, setShowInput] = useState(false);
-  const [rtStatus, setRtStatus] = useState<string | null>(null);
   const [lastPollAt, setLastPollAt] = useState<number>(0);
   const pollBusyRef = useRef(false);
   const statusIdRef = useRef<string | undefined>(initialStatusId);
-  const BUILD_TAG = '2c93434+selfpoll';
+  const BUILD_TAG = '3-global-ch';
 
   useEffect(() => {
     statusIdRef.current = initialStatusId;
@@ -1271,48 +1307,59 @@ function FollowUpNotes({
     return () => window.removeEventListener('refresh-follow-up-notes', onRefresh);
   }, [refetchNotes, pacienteId]);
 
-  // Realtime for notes scoped EXACTLY to this patient: notes now carry
-  // paciente_id directly, so the realtime server filters other patients'
-  // events for us (no client-side guard needed).
+  // Socket-level diagnostics: log the websocket URL and every open/close/error
+  // so we can tell whether the browser's realtime socket actually connects
+  // (vs. per-channel joins timing out on a firewall-blocked transport).
   useEffect(() => {
     if (!pacienteId) return;
-    const channel = realtimeSupabase
-      .channel(`patient_follow_up_notes:${pacienteId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'patient_follow_up_notes',
-          filter: `paciente_id=eq.${pacienteId}`,
-        },
-        (payload) => {
-          if (payload.eventType === 'DELETE') {
-            const deletedId = (payload.old as any)?.id;
-            if (deletedId) setNotes(prev => prev.filter(n => n.id !== deletedId));
-            return;
-          }
-          const row = payload.new as any;
-          if (!row?.id) return;
-          if (payload.eventType === 'INSERT') {
-            console.log('[notes-realtime] INSERT', pacienteId, row.id);
-            setNotes(prev => {
-              if (prev.some(n => n.id === row.id)) return prev;
-              return [...prev, row].sort(
-                (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-              );
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setNotes(prev => prev.map(n => n.id === row.id ? row : n));
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('[notes-realtime]', pacienteId, status);
-        setRtStatus(status);
+    const rt = realtimeSupabase.realtime;
+    if (!(rt as any)._diagAttached) {
+      (rt as any)._diagAttached = true;
+      console.log('[rt-socket] endpoint', rt.endpointURL(), 'state', rt.connectionState());
+      rt.stateChangeCallbacks.open.push(() =>
+        console.log('[rt-socket] OPEN', rt.endpointURL(), 'channels', rt.channels.length)
+      );
+      rt.stateChangeCallbacks.close.push((reason?: string, code?: number) =>
+        console.log('[rt-socket] CLOSED', code, reason, 'channels', rt.channels.length)
+      );
+      rt.stateChangeCallbacks.error.push((e: any) =>
+        console.log('[rt-socket] ERROR', e?.type ?? e, 'state', rt.connectionState())
+      );
+      rt.stateChangeCallbacks.message.push((m: any) => {
+        if (m?.ref === '1') console.log('[rt-socket] FIRST MSG', JSON.stringify(m).slice(0, 200));
       });
-    return () => { realtimeSupabase.removeChannel(channel); };
+    }
   }, [pacienteId]);
+
+  // Notes realtime comes from ONE page-level channel for the whole table (see
+  // "follow-up-notes-global" in the page component). Events are relayed here
+  // via CustomEvent so the subscription count never grows with the number of
+  // open patients — a per-patient channel trips Supabase's 100-channel-per-
+  // connection cap the moment more than ~100 patients render at once.
+  useEffect(() => {
+    if (!pacienteId) return;
+    const onEvent = (e: Event) => {
+      const detail = (e as CustomEvent<{ pacienteId: string; type: string; note?: any; id?: string }>).detail;
+      if (!detail || detail.pacienteId !== pacienteId) return;
+      if (detail.type === 'DELETE') {
+        if (detail.id) setNotes(prev => prev.filter(n => n.id !== detail.id));
+      } else if (detail.type === 'INSERT') {
+        const row = detail.note;
+        if (!row?.id) return;
+        setNotes(prev => {
+          if (prev.some(n => n.id === row.id)) return prev;
+          return [...prev, row].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        });
+      } else {
+        // UPDATE: payload carries only changed columns — refetch for the truth.
+        refetchNotes();
+      }
+    };
+    window.addEventListener('follow-up-notes-event', onEvent);
+    return () => window.removeEventListener('follow-up-notes-event', onEvent);
+  }, [pacienteId, refetchNotes]);
 
   const ensureStatusId = async (): Promise<string | null> => {
     if (statusIdRef.current) return statusIdRef.current;
@@ -1398,12 +1445,9 @@ function FollowUpNotes({
       </div>
 
       <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-2 font-mono">
-        {BUILD_TAG} · sync:&nbsp;
-        <span className={rtStatus === 'SUBSCRIBED' ? 'text-green-500 font-bold' : 'text-amber-500'}>
-          {rtStatus ?? 'connecting'}
-        </span>
+        {BUILD_TAG} · live:&nbsp;
         <span className="text-gray-400">
-          {' '}· poll: {lastPollAt !== 0 ? `${lastPollAt}s` : '...'}
+          poll: {lastPollAt !== 0 ? `${lastPollAt}s` : '...'}
         </span>
       </p>
 
