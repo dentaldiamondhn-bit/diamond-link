@@ -94,13 +94,10 @@ interface LexicalToolbarProps {
   onVoiceStop: () => Promise<void>;
   onVoicePauseToggle: () => void;
   onVoiceCancel: () => void;
-  onVoiceSend: () => Promise<void>;
-  onVoiceDiscard: () => void;
   isRecording: boolean;
   isPaused: boolean;
   duration: number;
   hasPendingVoice: boolean;
-  voiceDuration: number;
   disabled?: boolean;
 }
 
@@ -113,13 +110,10 @@ const LexicalToolbar = ({
   onVoiceStop,
   onVoicePauseToggle,
   onVoiceCancel,
-  onVoiceSend,
-  onVoiceDiscard,
   isRecording,
   isPaused,
   duration,
   hasPendingVoice,
-  voiceDuration,
   disabled,
 }: LexicalToolbarProps) => {
   const { t } = useTranslations();
@@ -170,33 +164,6 @@ const LexicalToolbar = ({
 
   return (
     <>
-      {!isRecording && hasPendingVoice && (
-        <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-2 py-1 dark:bg-gray-700">
-          <span className="flex h-2 w-2 items-center justify-center">
-            <span className="h-2 w-2 rounded-full bg-gray-400" />
-          </span>
-          <span className="w-12 text-sm font-medium text-gray-600 tabular-nums dark:text-gray-200">
-            {formatTime(voiceDuration)}
-          </span>
-          <button
-            type="button"
-            onClick={onVoiceDiscard}
-            title={t('cancelRecording')}
-            className="p-1 rounded text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-black/20"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onVoiceSend}
-            title={t('send')}
-            className="ml-1 rounded-full bg-blue-500 p-1.5 text-white hover:bg-blue-600"
-          >
-            <Send className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
       {isRecording ? (
         <div className="flex items-center gap-1.5 rounded-lg bg-red-50 px-2 py-1 dark:bg-red-900/20">
           {isPaused ? (
@@ -324,7 +291,7 @@ const LexicalToolbar = ({
           />
         </div>
 
-        {!isRecording && (
+        {!isRecording && !hasPendingVoice && (
           <button
             type="button"
             onClick={onVoiceStart}
@@ -455,6 +422,15 @@ export const Composer = ({
     setActiveIndex(0);
   }, [conversationId]);
 
+  const formatTime = (s: number) => {
+    const total = Math.max(0, Math.floor(s));
+    const mm = Math.floor(total / 60)
+      .toString()
+      .padStart(2, '0');
+    const ss = (total % 60).toString().padStart(2, '0');
+    return `${mm}:${ss}`;
+  };
+
   const handleChange = useCallback(
     (editorState: EditorState, editor: LexicalEditor) => {
       editorRef.current = editor;
@@ -584,6 +560,38 @@ export const Composer = ({
           onClose={clearEditor}
           sending={sending}
         />
+        {!isRecording && hasPendingVoice && (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/30">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-white">
+                <Mic className="h-4 w-4" />
+              </span>
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                {t('voiceMessage')}
+              </span>
+              <span className="text-sm text-gray-500 tabular-nums dark:text-gray-300">
+                {formatTime(voiceDuration)}
+              </span>
+              <button
+                type="button"
+                onClick={onVoiceDiscard}
+                title={t('cancelRecording')}
+                className="ml-1 p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-black/20"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={onVoiceSend}
+              title={t('send')}
+              className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600"
+            >
+              <Send className="h-4 w-4" />
+              {t('send')}
+            </button>
+          </div>
+        )}
         <LexicalComposer
           initialConfig={{
             namespace: 'ChatComposer',
@@ -637,13 +645,10 @@ export const Composer = ({
               onVoiceStop={onVoiceStop}
               onVoicePauseToggle={onVoicePauseToggle}
               onVoiceCancel={onVoiceCancel}
-              onVoiceSend={onVoiceSend}
-              onVoiceDiscard={onVoiceDiscard}
               isRecording={isRecording}
               isPaused={isPaused}
               duration={duration}
               hasPendingVoice={hasPendingVoice}
-              voiceDuration={voiceDuration}
               disabled={disabled || sending}
             />
           </div>

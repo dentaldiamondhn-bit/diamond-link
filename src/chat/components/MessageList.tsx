@@ -243,14 +243,14 @@ const MessageRow = function MessageRow({
         )}
         {isVideoAtt(att) && !overlayCount && (
           <span className="absolute inset-0 flex items-center justify-center bg-black/20">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white">
-              <Play className="h-2.5 w-2.5 fill-current" />
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/50 text-white">
+              <Play className="h-2 w-2 fill-current" />
             </span>
           </span>
         )}
         {overlayCount ? (
           <span className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <span className="text-xs font-semibold text-white">+{overlayCount}</span>
+            <span className="text-[10px] font-semibold text-white">+{overlayCount}</span>
           </span>
         ) : null}
       </button>
@@ -258,23 +258,23 @@ const MessageRow = function MessageRow({
 
     let grid: React.ReactNode = null;
     if (count === 1) {
-      grid = renderTile(atts[0], 0, 'aspect-square h-[42px] w-[42px]');
+      grid = renderTile(atts[0], 0, 'aspect-square h-[32px] w-[32px]');
     } else if (count === 2) {
       grid = (
-        <div className="grid w-[74px] grid-cols-2 gap-0.5">
+        <div className="grid w-[56px] grid-cols-2 gap-0.5">
           {atts.map((a, i) => renderTile(a, i, 'aspect-square'))}
         </div>
       );
     } else if (count === 3) {
       grid = (
-        <div className="grid h-[74px] w-[112px] grid-cols-2 grid-rows-2 gap-0.5">
+        <div className="grid h-[56px] w-[88px] grid-cols-2 grid-rows-2 gap-0.5">
           {renderTile(atts[0], 0, 'row-span-2 h-full')}
           {atts.slice(1, 3).map((a, i) => renderTile(a, i + 1, 'aspect-square'))}
         </div>
       );
     } else {
       grid = (
-        <div className="grid w-[74px] grid-cols-2 gap-0.5">
+        <div className="grid w-[56px] grid-cols-2 gap-0.5">
           {atts.slice(0, 4).map((a, i) =>
             i === 3 && count > 4
               ? renderTile(a, i, 'aspect-square', count - 4)
@@ -296,7 +296,7 @@ const MessageRow = function MessageRow({
                 href={doc.file_url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex w-full max-w-[120px] items-center gap-2 rounded-xl bg-white/15 p-2 transition-colors hover:bg-white/25 dark:bg-black/15 dark:hover:bg-black/25"
+                className="flex w-full max-w-[92px] items-center gap-2 rounded-xl bg-white/15 p-2 transition-colors hover:bg-white/25 dark:bg-black/15 dark:hover:bg-black/25"
               >
                 <div
                   className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-white ${meta.bg}`}
@@ -304,7 +304,7 @@ const MessageRow = function MessageRow({
                   <FileText className="h-3.5 w-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="max-w-[70px] truncate text-[11px] font-medium">{doc.file_name}</p>
+                  <p className="max-w-[52px] truncate text-[10px] font-medium">{doc.file_name}</p>
                   <p className="text-[9px] opacity-70">{formatFileSize(doc.file_size)}</p>
                 </div>
               </a>
@@ -724,24 +724,35 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       const MENU_W = ACTION_MENU_WIDTH_PX;
       const MENU_H = ACTION_MENU_HEIGHT_PX;
       const edgeBuffer = 8;
-      const leftMin = Math.max(scrollerRect?.left ?? edgeBuffer, edgeBuffer);
-      const leftMax = Math.min(scrollerRect?.right ?? window.innerWidth - edgeBuffer, window.innerWidth - edgeBuffer) - MENU_W;
       const alignRight = datum?.mine === true;
+
+      // Clamp strictly inside the visible list area (already excludes the chat
+      // header and side bars) so the menu can never be cut off by the header
+      // or the pane edges.
+      const viewportLeft = scrollerRect?.left ?? edgeBuffer;
+      const viewportRight = (scrollerRect?.right ?? window.innerWidth) - MENU_W;
+      const viewportTop = scrollerRect?.top ?? edgeBuffer;
+      const viewportBottom = (scrollerRect?.bottom ?? window.innerHeight) - MENU_H;
+
       const rawLeft = alignRight ? triggerRect.right - MENU_W + 4 : triggerRect.left - 4;
-      const left = Math.round(Math.min(Math.max(rawLeft, leftMin), leftMax));
-      const topMin = edgeBuffer;
-      const topMax = window.innerHeight - MENU_H - edgeBuffer;
+      const safeLeft =
+        viewportRight > viewportLeft
+          ? Math.min(Math.max(viewportLeft + edgeBuffer, rawLeft), viewportRight - edgeBuffer)
+          : rawLeft;
       const rawTop =
         position === 'below' ? triggerRect.bottom + 4 : triggerRect.top - MENU_H - 4;
-      const top = Math.round(Math.min(Math.max(rawTop, topMin), Math.max(topMin, topMax)));
+      const safeTop =
+        viewportBottom > viewportTop
+          ? Math.min(Math.max(viewportTop + edgeBuffer, rawTop), viewportBottom - edgeBuffer)
+          : rawTop;
 
       // Convert viewport coords to the container coordinate space the overlay
       // lives in.
       const ref = containerRef.current?.getBoundingClientRect();
       setActionMenuFor({
         id: msgId,
-        left: ref ? left - ref.left : left,
-        top: ref ? top - ref.top : top,
+        left: ref ? Math.round(safeLeft - ref.left) : Math.round(safeLeft),
+        top: ref ? Math.round(safeTop - ref.top) : Math.round(safeTop),
       });
     },
     [rows]
