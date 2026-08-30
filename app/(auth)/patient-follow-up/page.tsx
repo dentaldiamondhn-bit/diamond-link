@@ -1244,7 +1244,7 @@ function FollowUpNotes({
   const [lastPollAt, setLastPollAt] = useState<number>(0);
   const pollBusyRef = useRef(false);
   const statusIdRef = useRef<string | undefined>(initialStatusId);
-  const BUILD_TAG = '3-global-ch';
+  const BUILD_TAG = '4-nocache';
 
   useEffect(() => {
     statusIdRef.current = initialStatusId;
@@ -1252,7 +1252,7 @@ function FollowUpNotes({
 
   const refetchNotes = useCallback(() => {
     if (!pacienteId) return Promise.resolve();
-    return fetch(`/api/patient-follow-up-notes?paciente_id=${pacienteId}`)
+    return fetch(`/api/patient-follow-up-notes?paciente_id=${pacienteId}`, { cache: 'no-store' })
       .then(r => r.json())
       .then((data) => {
         if (!Array.isArray(data)) {

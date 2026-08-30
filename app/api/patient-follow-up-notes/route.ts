@@ -6,6 +6,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const jsonNoCache = (body: unknown, status = 200) =>
+  NextResponse.json(body, {
+    status,
+    headers: { 'Cache-Control': 'no-store' },
+  });
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -14,7 +20,7 @@ export async function GET(request: NextRequest) {
     const pacientes = searchParams.get('pacientes');
 
     if (!followUpStatusId && !pacienteId && !pacientes) {
-      return NextResponse.json({ error: 'follow_up_status_id or paciente_id is required' }, { status: 400 });
+      return jsonNoCache({ error: 'follow_up_status_id or paciente_id is required' }, 400);
     }
 
     // Batch mode: return { [paciente_id]: notes[] } for the fallback poll.
@@ -22,7 +28,7 @@ export async function GET(request: NextRequest) {
       const ids = pacientes.split(',').map(s => s.trim()).filter(Boolean);
       const byPaciente: Record<string, any[]> = {};
       for (const id of ids) byPaciente[id] = [];
-      if (ids.length === 0) return NextResponse.json(byPaciente);
+      if (ids.length === 0) return jsonNoCache(byPaciente);
 
       const { data, error } = await supabase
         .from('patient_follow_up_notes')
@@ -32,7 +38,7 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error('Error fetching follow-up notes (batch):', error);
-        return NextResponse.json({ error: error.message }, { status: 400 });
+        return jsonNoCache({ error: error.message }, 400);
       }
 
       for (const note of (data || [])) {
@@ -40,7 +46,7 @@ export async function GET(request: NextRequest) {
           byPaciente[note.paciente_id].push(note);
         }
       }
-      return NextResponse.json(byPaciente);
+      return jsonNoCache(byPaciente);
     }
 
     let query = supabase
@@ -56,7 +62,7 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('paciente_id', pacienteId);
       const statusIds = (statusRows || []).map((s: any) => s.id);
-      if (statusIds.length === 0) return NextResponse.json([]);
+      if (statusIds.length === 0) return jsonNoCache([]);
       query = query.in('follow_up_status_id', statusIds);
     }
 
@@ -64,10 +70,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching follow-up notes:', error);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return jsonNoCache({ error: error.message }, 400);
     }
 
-    return NextResponse.json(data || []);
+    return jsonNoCache(data || []);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Data fetched:', data);
-    return NextResponse.json({ data });
+    return NextResponse.json(
+      { data },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (error) {
     console.error('Server error:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 });

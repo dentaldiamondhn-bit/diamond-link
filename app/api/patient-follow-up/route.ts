@@ -140,10 +140,13 @@ export async function GET(request: NextRequest) {
       follow_up_status: statusMap.get(p.paciente_id) || null,
     }));
 
-    return NextResponse.json({
-      message: 'Follow-up patients retrieved successfully',
-      data: withStatus,
-    });
+    return NextResponse.json(
+      {
+        message: 'Follow-up patients retrieved successfully',
+        data: withStatus,
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (error) {
     console.error('Error in GET /api/patient-follow-up:', error);
     return NextResponse.json(
