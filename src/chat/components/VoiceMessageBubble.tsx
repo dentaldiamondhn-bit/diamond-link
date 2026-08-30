@@ -160,6 +160,7 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
 
   return (
     <div className="flex items-center space-x-3">
+      <audio ref={audioRef} preload="auto" />
       {/* Waveform canvas */}
       <canvas
         ref={canvasRef}

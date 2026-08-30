@@ -1,5 +1,8 @@
-const CACHE_NAME = 'diamond-link-v7';
-const STATIC_CACHE_ROUTES = ['/_next/static/'];
+const CACHE_NAME = 'diamond-link-v8';
+// Only files whose URL carries a long content hash are immutable (safe to
+// cache-first). In dev, Next keeps STABLE names like `chat/page.js`, so those
+// must always hit the network or the browser would run frozen old code.
+const HAS_SUCCESS_BY_NAME = /[A-Za-z0-9_-]{16,}\.(?:js|css|woff2?|png|jpg|jpeg|webp|avif|gif|svg|ico)$/;
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -47,9 +50,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Hashed build assets (_next/static/...): cache-first. These files are
-  // content-hashed and immutable, so serving stale copies is safe and fast.
-  if (STATIC_CACHE_ROUTES.some((route) => url.pathname.startsWith(route))) {
+  // Hashed build assets: cache-first. These files are content-hashed and
+  // immutable, so serving stale copies is safe and fast. Un-hashed paths
+  // (dev bundles, route page chunks) fall through to the network-first
+  // handling below so changes always reach the client.
+  if (url.pathname.startsWith('/_next/static/') && HAS_SUCCESS_BY_NAME.test(url.pathname)) {
     event.respondWith(
       caches.match(event.request).then(
         (cached) =>
