@@ -15,9 +15,9 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
   const [duration, setDuration] = useState(message.voice_note_duration || 0);
   const [currentTime, setCurrentTime] = useState(0);
   const [waveformData, setWaveformData] = useState<number[] | null>(null);
+  const [playError, setPlayError] = useState(false);
 
-  // Point the <audio> element at this message's URL. State resets on remount
-  // (the row below keyed by message id), so no state is set here.
+  // Hint the codec from the URL extension so browsers don't have to sniff.
   useEffect(() => {
     const audio = audioRef.current;
     if (audio) {
@@ -80,10 +80,12 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
     audioRef.current.onended = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      setPlayError(false);
     };
 
     audioRef.current.onerror = () => {
       setIsPlaying(false);
+      setPlayError(true);
     };
   }, []);
 
@@ -142,7 +144,15 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
     }
     const attempt = audio.play();
     if (attempt && typeof attempt.then === 'function') {
-      attempt.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      attempt
+        .then(() => {
+          setIsPlaying(true);
+          setPlayError(false);
+        })
+        .catch(() => {
+          setIsPlaying(false);
+          setPlayError(true);
+        });
     } else {
       setIsPlaying(true);
     }
@@ -179,6 +189,15 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
           {`${Math.floor(currentTime)}s / ${Math.floor(duration)}s`}
         </span>
       </div>
+      {playError && (
+        <span
+          className={`text-[10px] font-medium ${
+            isCurrentUser ? 'text-red-200' : 'text-red-500'
+          }`}
+        >
+          Not supported on this device
+        </span>
+      )}
     </div>
   );
 };

@@ -535,14 +535,14 @@ const MessageRow = function MessageRow({
             )}
 
             {mine && msg.local_state === 'pending' && (
-              <span className="flex items-center gap-1 text-[10px] text-blue-200 dark:text-blue-300">
+              <span className="flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-400/15 dark:text-blue-300">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                {Math.min(Math.max(Math.round(msg.upload_progress ?? 0), 0), 100)}%
+                {t('sending')} {Math.min(Math.max(Math.round(msg.upload_progress ?? 0), 0), 100)}%
               </span>
             )}
 
             {mine && msg.local_state === 'failed' && (
-              <span className="flex items-center gap-1 text-[10px] text-red-400">
+              <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-400/15 dark:text-red-400">
                 <XCircle className="h-3 w-3" />
                 {t('sendFailed')}
               </span>

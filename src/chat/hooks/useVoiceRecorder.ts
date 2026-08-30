@@ -8,6 +8,47 @@ export interface VoiceRecordingResult {
 }
 
 /**
+ * Re-encode audio to MP3 when the recording container isn't already broadly
+ * playable. WebM/Opus (Chrome/Android/Firefox) is NOT playable on iOS/Safari,
+ * so a webm note recorded on a PC would be silent on an iPhone receiver. MP3
+ * plays on every browser. MP4/AAC (iOS recordings) already plays everywhere,
+ * so those are kept as-is to avoid needless re-encoding.
+ * Falls back to the original blob if decoding/encoding fails.
+ */
+async function toUniversallyPlayable(blob: Blob): Promise<Blob> {
+  if (/mp4|aac|m4a|mpeg|mp3/i.test(blob.type)) return blob;
+  try {
+    const { Mp3Encoder } = await import('@breezystack/lamejs');
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    const sampleRate = audioBuffer.sampleRate;
+    const samples = audioBuffer.getChannelData(0);
+    const pcm = new Int16Array(samples.length);
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    const encoder = new Mp3Encoder(1, sampleRate, 96);
+    const chunkSize = 1152;
+    const parts: BlobPart[] = [];
+    for (let i = 0; i < pcm.length; i += chunkSize) {
+      const chunk = encoder.encodeBuffer(pcm.subarray(i, i + chunkSize));
+      if (chunk.length > 0) parts.push(new Uint8Array(chunk));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    const end = encoder.flush();
+    if (end.length > 0) parts.push(new Uint8Array(end));
+    if (parts.length > 0) {
+      return new Blob(parts, { type: 'audio/mpeg' });
+    }
+  } catch (err) {
+    console.warn('Voice transcode to MP3 failed; sending original format.', err);
+  }
+  return blob;
+}
+
+/**
  * Pick the first MediaRecorder mime type the browser actually supports.
  * `audio/mp4` is tried FIRST because Safari/iOS can neither record WebM nor
  * play WebM/Opus back in `<audio>`, so a webm recording sent to an iOS
@@ -99,11 +140,16 @@ export const useVoiceRecorder = () => {
       const elapsed = elapsedSeconds();
       setDuration(elapsed);
       const blobType = mimeRef.current || 'audio/webm';
-      const blob = new Blob(audioChunksRef.current, { type: blobType });
-      const url = URL.createObjectURL(blob);
+      const rawBlob = new Blob(audioChunksRef.current, { type: blobType });
       audioChunksRef.current = [];
-      stopResolveRef.current?.({ blob, url, duration: elapsed });
-      stopResolveRef.current = null;
+
+      // Transcode to a universally playable format before resolving so the
+      // caller uploads something every recipient can replay.
+      void toUniversallyPlayable(rawBlob).then((finalBlob) => {
+        const url = URL.createObjectURL(finalBlob);
+        stopResolveRef.current?.({ blob: finalBlob, url, duration: elapsed });
+        stopResolveRef.current = null;
+      });
     };
   }, [clearTicker, elapsedSeconds]);
 

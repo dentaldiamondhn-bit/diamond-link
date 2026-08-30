@@ -319,13 +319,16 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
     setPendingVoice(null);
 
     try {
-      const ext = result.blob.type.includes('mp4')
+      const type = (result.blob.type || '').toLowerCase();
+      const ext = type.includes('mp4')
         ? 'm4a'
-        : result.blob.type.includes('ogg')
-          ? 'ogg'
-          : result.blob.type.includes('aac')
-            ? 'aac'
-            : 'webm';
+        : type.includes('aac')
+          ? 'aac'
+          : type.includes('ogg')
+            ? 'ogg'
+            : type.includes('mpeg') || type.includes('mp3')
+              ? 'mp3'
+              : 'webm';
       const fileName = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
       updateMessage(tmpId, { upload_progress: 60 });
       const url = await ChatRepository.uploadVoiceNote(result.blob, fileName);
