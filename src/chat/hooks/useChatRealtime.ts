@@ -56,19 +56,41 @@ export const useChatRealtime = (
         (payload: any) => {
           const message = payload.new;
           if (!message || !message.id) return;
-          addMessage(message, currentUserRef.current, selectedRef.current);
-          if (message.sender_id !== currentUserRef.current) {
-            onIncomingRef.current?.(message);
-            if (message.conversation_id === selectedRef.current) {
-              ChatRepository.markAsRead(currentUserRef.current, message.conversation_id).catch(
-                () => {}
-              );
-            } else {
-              ChatRepository.markDelivered(currentUserRef.current, message.conversation_id).catch(
-                () => {}
-              );
+          // Realtime INSERT payloads carry only the raw chat_messages row, so
+          // attachments would be missing and media bubbles would render empty.
+          // Fetch the joined row before adding so collages/attachments appear
+          // instantly (mirrors what the send response and GET already return).
+          void (async () => {
+            const { data: full } = await supabase
+              .from('chat_messages')
+              .select(
+                `*,
+                reply_to:chat_messages(id, content),
+                attachments:chat_attachments(*),
+                patient_case_link:chat_patient_case_links(
+                  *,
+                  patient:patients(paciente_id, nombre_completo)
+                )`
+              )
+              .eq('id', message.id)
+              .maybeSingle();
+            const resolved = (full || message) as ChatMessage;
+            addMessage(resolved, currentUserRef.current, selectedRef.current);
+            if (resolved.sender_id !== currentUserRef.current) {
+              onIncomingRef.current?.(resolved);
+              if (resolved.conversation_id === selectedRef.current) {
+                ChatRepository.markAsRead(
+                  currentUserRef.current,
+                  resolved.conversation_id
+                ).catch(() => {});
+              } else {
+                ChatRepository.markDelivered(
+                  currentUserRef.current,
+                  resolved.conversation_id
+                ).catch(() => {});
+              }
             }
-          }
+          })();
         }
       )
       .on(

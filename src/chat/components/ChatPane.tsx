@@ -38,7 +38,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
 
-  const { isRecording, audioBlob, audioUrl, duration, startRecording, stopRecording, reset } =
+  const { isRecording, duration, startRecording, stopRecording, reset } =
     useVoiceRecorder();
 
   const selectedMessages = selectedConversationId ? messages[selectedConversationId] || [] : [];
@@ -140,11 +140,16 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
   const handleVoiceToggle = useCallback(async () => {
     if (!currentUserId) return;
     if (isRecording) {
-      await stopRecording();
-      if (audioBlob && audioUrl) {
-        const fileName = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.webm`;
+      const result = await stopRecording();
+      if (result) {
         try {
-          const url = await ChatRepository.uploadVoiceNote(audioBlob, fileName);
+          const ext = result.blob.type.includes('mp4')
+            ? 'm4a'
+            : result.blob.type.includes('ogg')
+              ? 'ogg'
+              : 'webm';
+          const fileName = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+          const url = await ChatRepository.uploadVoiceNote(result.blob, fileName);
           const convId = conversationRef.current;
           if (convId) {
             const message = await ChatRepository.sendMessage(currentUserId, {
@@ -152,7 +157,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
               content: '',
               message_type: ChatMessageType.VOICE,
               voice_note_url: url,
-              voice_note_duration: Math.max(1, Math.round(duration)),
+              voice_note_duration: Math.max(1, Math.round(result.duration)),
             });
             if (message) addMessage(message, currentUserId, convId);
           }
@@ -174,14 +179,10 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
     }
   }, [
     isRecording,
-    audioBlob,
-    audioUrl,
-    duration,
     currentUserId,
     stopRecording,
     reset,
     startRecording,
-    handleSend,
     addMessage,
     setError,
   ]);
@@ -192,7 +193,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
 
   return (
     <div
-      className={`flex h-full flex-1 min-w-0 flex-col overflow-hidden bg-gray-50 dark:bg-gray-800 ${className}`}
+      className={`relative flex h-full flex-1 min-w-0 flex-col overflow-hidden bg-gray-50 dark:bg-gray-800 ${className}`}
     >
       {selectedConversationId ? (
         <>

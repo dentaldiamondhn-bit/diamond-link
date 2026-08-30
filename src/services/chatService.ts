@@ -9,6 +9,22 @@ import {
   ChatFilters
 } from '@/types/chat';
 
+/**
+ * Extract `{ bucket, path }` from a Supabase Storage public object URL, e.g.
+ * `https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>?token=...`.
+ * Returns null for non-storage or otherwise malformed URLs.
+ */
+function storageObjectFromUrl(url: string | null | undefined): { bucket: string; path: string } | null {
+  if (!url) return null;
+  const marker = '/storage/v1/object/public/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  const rest = url.slice(idx + marker.length).split('?')[0];
+  const slash = rest.indexOf('/');
+  if (slash === -1) return null;
+  return { bucket: rest.slice(0, slash), path: rest.slice(slash + 1) };
+}
+
 export class ChatService {
   static async getConversations(userId: string, filters?: ChatFilters) {
     // First, get conversation IDs where user is a participant
@@ -661,7 +677,45 @@ export class ChatService {
     return { data: data as ChatMessage };
   }
 
+  /**
+   * Soft-delete a message gated to its sender, ALSO removing the underlying
+   * storage objects (voice notes + file attachments) from their buckets.
+   * @example
+   *   url = ".../storage/v1/object/public/chat-voice-notes/voice-1700000000000-xz.webm"
+   *   -> { bucket: "chat-voice-notes", path: "voice-1700000000000-xz.webm" }
+   */
   static async deleteMessage(userId: string, messageId: string) {
+    const { data: msg, error: fetchError } = await supabase
+      .from('chat_messages')
+      .select('id, voice_note_url, attachments:chat_attachments(*)')
+      .eq('id', messageId)
+      .eq('sender_id', userId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!msg) throw new Error('Message not found');
+
+    const targets = new Map<string, string[]>();
+    const pushTarget = (obj: { bucket: string; path: string } | null) => {
+      if (!obj) return;
+      const paths = targets.get(obj.bucket) ?? [];
+      paths.push(obj.path);
+      targets.set(obj.bucket, paths);
+    };
+
+    pushTarget(storageObjectFromUrl((msg as { voice_note_url?: string })?.voice_note_url));
+    for (const att of (msg as { attachments?: { file_url?: string }[] })?.attachments || []) {
+      pushTarget(storageObjectFromUrl(att.file_url));
+    }
+
+    for (const [bucket, paths] of targets) {
+      try {
+        await supabase.storage.from(bucket).remove(paths);
+      } catch (e) {
+        console.error(`Failed to remove storage objects from bucket "${bucket}":`, e);
+      }
+    }
+
     const { error } = await supabase
       .from('chat_messages')
       .update({ is_deleted: true, updated_at: new Date().toISOString() })

@@ -5,6 +5,25 @@ import type {
   ChatUser,
 } from '@/types/chat';
 import type { TranslationKey } from '@/chat/i18n/translations';
+import DOMPurify from 'dompurify';
+
+/** Heuristic: does this string contain actual HTML tags (vs plain text)? */
+export function isHtmlContent(content: string): boolean {
+  return /<\/?[a-zA-Z][^>]*>/.test(content);
+}
+
+/** Sanitize untrusted message HTML before rendering (allows basic text formatting). */
+export function purifyHtml(html: string): string {
+  return DOMPurify.sanitize(html);
+}
+
+/** Strip tags to plain text for previews / editing UIs. */
+export function htmlToText(html: string): string {
+  if (!html) return '';
+  const el = document.createElement('div');
+  el.innerHTML = DOMPurify.sanitize(html);
+  return el.textContent || '';
+}
 
 const AVATAR_COLORS = [
   'bg-emerald-500',
@@ -26,6 +45,25 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Visual metadata for a document (icon bg color) inferred from MIME/extension. */
+export function getFileKindMeta(fileType: string, fileName: string): { bg: string } {
+  const type = (fileType || '').toLowerCase();
+  const ext = (fileName.split('.').pop() || '').toLowerCase();
+  if (type.includes('pdf') || ext === 'pdf') return { bg: 'bg-red-500' };
+  if (type.includes('word') || ext === 'doc' || ext === 'docx') return { bg: 'bg-blue-500' };
+  if (type.includes('excel') || type.includes('sheet') || ['xls', 'xlsx', 'csv'].includes(ext)) {
+    return { bg: 'bg-emerald-500' };
+  }
+  if (type.includes('presentation') || type.includes('powerpoint') || ['ppt', 'pptx'].includes(ext)) {
+    return { bg: 'bg-orange-500' };
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return { bg: 'bg-purple-500' };
+  if (type.startsWith('audio/')) return { bg: 'bg-pink-500' };
+  if (type.startsWith('video/')) return { bg: 'bg-indigo-500' };
+  if (type.startsWith('text/') || ['txt', 'md', 'log'].includes(ext)) return { bg: 'bg-stone-500' };
+  return { bg: 'bg-gray-500' };
 }
 
 export function getAvatarColor(name: string): string {

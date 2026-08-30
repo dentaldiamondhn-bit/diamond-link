@@ -14,6 +14,7 @@ import {
   getMessageReadStatus,
   getTypingUserIds,
   getTypingLabel,
+  htmlToText,
 } from '@/chat/utils';
 
 interface ConversationListItemProps {
@@ -57,7 +58,7 @@ export const ConversationListItem = ({
       case 'patient_case':
         return t('patientCase');
       default:
-        return lastMessage.content || '';
+        return htmlToText(lastMessage.content || '') || '';
     }
   }, [lastMessage, t]);
 

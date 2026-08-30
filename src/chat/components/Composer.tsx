@@ -3,7 +3,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bold,
+  Camera,
   CornerDownRight,
+  FileText,
+  Image as ImageIcon,
   Italic,
   Mic,
   Paperclip,
@@ -31,8 +34,10 @@ import {
 } from 'lexical';
 import { HeadingNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
+import { $generateHtmlFromNodes } from '@lexical/html';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import { htmlToText } from '@/chat/utils';
 import EmojiPicker from './EmojiPicker';
 import AttachmentTray from './AttachmentTray';
 import type { PendingAttachment } from './AttachmentTray';
@@ -92,8 +97,11 @@ const LexicalToolbar = ({
 }: LexicalToolbarProps) => {
   const { t } = useTranslations();
   const [editor] = useLexicalComposerContext();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   const formatButton = (
     title: string,
@@ -111,6 +119,19 @@ const LexicalToolbar = ({
     </button>
   );
 
+  const openCamera = () => {
+    setShowAttachMenu(false);
+    cameraInputRef.current?.click();
+  };
+  const openMedia = () => {
+    setShowAttachMenu(false);
+    mediaInputRef.current?.click();
+  };
+  const openDocs = () => {
+    setShowAttachMenu(false);
+    docInputRef.current?.click();
+  };
+
   return (
     <>
       {isRecording && (
@@ -127,32 +148,88 @@ const LexicalToolbar = ({
 
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
 
-        <button
-          type="button"
-          onClick={() =>
-            disabled
-              ? undefined
-              : fileInputRef.current
-                ? fileInputRef.current.click()
-                : undefined
-          }
-          disabled={disabled}
-          className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-40"
-          title={t('fileMessage')}
-        >
-          <Paperclip className="h-4 w-4" />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            if (files.length) onFilesSelected(files);
-            e.target.value = '';
-          }}
-        />
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => (disabled ? undefined : setShowAttachMenu((v) => !v))}
+            disabled={disabled}
+            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 ${
+              showAttachMenu
+                ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
+                : 'text-gray-600 dark:text-gray-300'
+            }`}
+            title={t('fileMessage')}
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
+          {showAttachMenu && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowAttachMenu(false)} />
+              <div className="absolute bottom-full left-0 z-40 mb-2 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl">
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <Camera className="h-4 w-4 text-teal-500" />
+                  {t('attachCamera')}
+                </button>
+                <button
+                  type="button"
+                  onClick={openMedia}
+                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <ImageIcon className="h-4 w-4 text-teal-500" />
+                  {t('attachPhotosVideos')}
+                </button>
+                <button
+                  type="button"
+                  onClick={openDocs}
+                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <FileText className="h-4 w-4 text-teal-500" />
+                  {t('attachDocument')}
+                </button>
+              </div>
+            </>
+          )}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              if (files.length) onFilesSelected(files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={mediaInputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              if (files.length) onFilesSelected(files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={docInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.rtf,.zip,application/*,text/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              if (files.length) onFilesSelected(files);
+              e.target.value = '';
+            }}
+          />
+        </div>
 
         <button
           type="button"
@@ -252,6 +329,7 @@ export const Composer = ({
   const [sending, setSending] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const textRef = useRef('');
+  const htmlRef = useRef('');
   const editorRef = useRef<LexicalEditor | null>(null);
   const pendingRef = useRef<PendingAttachment[]>([]);
   useEffect(() => {
@@ -279,13 +357,14 @@ export const Composer = ({
       editorRef.current = editor;
       const text = editorState.read(() => $getRoot().getTextContent());
       textRef.current = text;
+      htmlRef.current = editorState.read(() => $generateHtmlFromNodes(editor, null));
       setTextContent(text);
       if (text.trim()) onTyping();
     },
     [onTyping]
   );
 
-  // Stage selected files into the attachment tray (no upload yet).
+  // Stage selected files into the storage overlay (no upload yet).
   const handleFiles = useCallback((files: File[]) => {
     if (!files.length) return;
     const created = files.map((file) => ({
@@ -295,8 +374,16 @@ export const Composer = ({
       name: file.name,
       type: file.type,
       size: file.size,
+      caption: '',
     }));
     setPending((prev) => [...prev, ...created]);
+    setActiveIndex((current) => current + created.length);
+  }, []);
+
+  const updateCaption = useCallback((index: number, caption: string) => {
+    setPending((prev) =>
+      prev.map((att, i) => (i === index ? { ...att, caption } : att))
+    );
   }, []);
 
   const removePending = useCallback(
@@ -319,6 +406,7 @@ export const Composer = ({
       });
     }
     textRef.current = '';
+    htmlRef.current = '';
     setTextContent('');
     setPending((prev) => {
       prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
@@ -330,25 +418,47 @@ export const Composer = ({
   const send = useCallback(async () => {
     if (disabled || sending || !conversationId) return;
     const content = textRef.current.trim();
-    if (!content && pending.length === 0) return;
+    const htmlContent = htmlRef.current.trim() || content;
+    const staged = pending;
+    const replyId = replyTo?.id;
+    if (!content && staged.length === 0) return;
     setSending(true);
     try {
-      const uploaded: FileAttachmentData[] = [];
-      for (const att of pending) {
-        try {
-          const result = await ChatRepository.uploadFile(att.file, conversationId);
-          uploaded.push({
-            file_name: result.fileName,
-            file_type: result.fileType,
-            file_size: result.fileSize,
-            file_url: result.url,
-          });
-        } catch (err) {
-          console.error('Failed to upload attachment:', err);
+      // Text-only message when no attachment is staged.
+      if (staged.length === 0) {
+        if (content) {
+          clearEditor();
+          await onSend(htmlContent, [], replyId);
         }
+        return;
+      }
+      // Group staged attachments by their (per-item) caption so each caption
+      // becomes one message. Uploads happen here, before the message sends.
+      const groups = new Map<string, PendingAttachment[]>();
+      for (const att of staged) {
+        const key = att.caption.trim();
+        const list = groups.get(key) ?? [];
+        list.push(att);
+        groups.set(key, list);
+      }
+      for (const [caption, atts] of groups) {
+        const uploaded: FileAttachmentData[] = [];
+        for (const att of atts) {
+          try {
+            const result = await ChatRepository.uploadFile(att.file, conversationId);
+            uploaded.push({
+              file_name: result.fileName,
+              file_type: result.fileType,
+              file_size: result.fileSize,
+              file_url: result.url,
+            });
+          } catch (err) {
+            console.error('Failed to upload attachment:', err);
+          }
+        }
+        if (uploaded.length) await onSend(caption, uploaded, replyId);
       }
       clearEditor();
-      await onSend(content, uploaded, replyTo?.id);
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
@@ -378,6 +488,11 @@ export const Composer = ({
           activeIndex={activeIndex}
           onChangeIndex={setActiveIndex}
           onRemove={removePending}
+          onCaptionChange={updateCaption}
+          onAddFiles={handleFiles}
+          onSend={send}
+          onClose={clearEditor}
+          sending={sending}
         />
         <LexicalComposer
           initialConfig={{
@@ -407,7 +522,7 @@ export const Composer = ({
                 <span className="text-xs font-medium text-blue-500 dark:text-blue-400">
                   {t('replyingTo')}
                 </span>{' '}
-                {replyTo.content || t('fileMessage')}
+                {htmlToText(replyTo.content || '') || t('fileMessage')}
               </span>
               <button
                 type="button"

@@ -1,77 +1,102 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
-export interface VoiceNote {
+export interface VoiceRecordingResult {
   blob: Blob;
   url: string;
   duration: number; // in seconds
 }
 
 /**
- * Hook to handle voice recording using MediaRecorder API.
- * Returns an object with methods to start, stop, play, and upload voice notes.
+ * Pick the first MediaRecorder mime type the browser actually supports.
+ * `audio/webm` (Chrome/Android/Firefox) is not supported by Safari/iOS,
+ * which prefers `audio/mp4` — passing an unsupported mime type to the
+ * MediaRecorder constructor throws. Falls back to the browser default.
+ */
+function pickMimeType(): string {
+  if (typeof MediaRecorder === 'undefined' || !('isTypeSupported' in MediaRecorder)) return '';
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+  for (const candidate of candidates) {
+    if (MediaRecorder.isTypeSupported(candidate)) return candidate;
+  }
+  return '';
+}
+
+/**
+ * Hook to handle voice recording using the MediaRecorder API.
+ *
+ * `stopRecording()` resolves with `{ blob, url, duration }` (or `null`) so the
+ * caller can upload synchronously without racing the async `onstop` event or
+ * relying on a stale React closure of the blob state.
  */
 export const useVoiceRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
   const startTimeRef = useRef<number>(0);
+  const mimeRef = useRef<string>('');
+  const tickRef = useRef<number | null>(null);
+  const stopResolveRef = useRef<((result: VoiceRecordingResult | null) => void) | null>(null);
 
   // Request microphone permission and initialize MediaRecorder
   const initRecorder = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-        // Calculate duration approximately: we can use the number of chunks and sample rate? 
-        // For simplicity, we'll estimate based on recording time.
-        const elapsed = (Date.now() - startTimeRef.current) / 1000;
-        setDuration(elapsed);
-        // Reset chunks for next recording
-        audioChunksRef.current = [];
-      };
-    } catch (err) {
-      console.error('Error accessing microphone:', err);
-      throw err;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Microphone API unavailable in this browser');
     }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = pickMimeType();
+    mimeRef.current = mime;
+    const mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    mediaRecorderRef.current = mediaRecorder;
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      if (tickRef.current !== null) {
+        window.clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      setDuration(elapsed);
+      const blobType = mimeRef.current || 'audio/webm';
+      const blob = new Blob(audioChunksRef.current, { type: blobType });
+      const url = URL.createObjectURL(blob);
+      audioChunksRef.current = [];
+      stopResolveRef.current?.({ blob, url, duration: elapsed });
+      stopResolveRef.current = null;
+    };
   }, []);
 
   const startRecording = useCallback(async () => {
     if (!mediaRecorderRef.current) {
       await initRecorder();
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
-      audioChunksRef.current = [];
-      startTimeRef.current = Date.now();
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-    }
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== 'inactive') return;
+    audioChunksRef.current = [];
+    startTimeRef.current = Date.now();
+    recorder.start();
+    setIsRecording(true);
+    setDuration(0);
+    tickRef.current = window.setInterval(() => {
+      setDuration((Date.now() - startTimeRef.current) / 1000);
+    }, 500);
   }, [initRecorder]);
 
-  const stopRecording = useCallback(async () => {
-    return new Promise<void>((resolve) => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        mediaRecorderRef.current.stop();
+  const stopRecording = useCallback(() => {
+    return new Promise<VoiceRecordingResult | null>((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state === 'recording') {
+        stopResolveRef.current = resolve;
+        recorder.stop();
         setIsRecording(false);
-        // Resolve after a short delay to ensure onstop fired
-        setTimeout(resolve, 100);
       } else {
-        resolve();
+        resolve(null);
       }
     });
   }, []);
@@ -99,7 +124,7 @@ export const useVoiceRecorder = () => {
       .storage
       .from('chat-voice-notes')
       .upload(fileName, blob, {
-        contentType: 'audio/webm',
+        contentType: blob.type || 'audio/webm',
         upsert: false,
       });
 
@@ -107,7 +132,6 @@ export const useVoiceRecorder = () => {
       throw error;
     }
 
-    // Get public URL
     const { data: urlData } = supabase
       .storage
       .from('chat-voice-notes')
@@ -117,24 +141,23 @@ export const useVoiceRecorder = () => {
   }, []);
 
   const reset = useCallback(() => {
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
+    if (tickRef.current !== null) {
+      window.clearInterval(tickRef.current);
+      tickRef.current = null;
     }
-    setAudioBlob(null);
-    setAudioUrl(null);
     setDuration(0);
     setIsRecording(false);
     audioChunksRef.current = [];
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stream?.getTracks().forEach(track => track.stop());
+    stopResolveRef.current = null;
+    const recorder = mediaRecorderRef.current;
+    if (recorder) {
+      recorder.stream?.getTracks().forEach((track) => track.stop());
       mediaRecorderRef.current = null;
     }
-  }, [audioUrl]);
+  }, []);
 
   return {
     isRecording,
-    audioBlob,
-    audioUrl,
     duration,
     startRecording,
     stopRecording,

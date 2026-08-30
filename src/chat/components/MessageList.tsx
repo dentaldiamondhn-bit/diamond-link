@@ -11,8 +11,10 @@ import {
   Trash2,
   Check,
   X,
-  CloudDownload,
+  Play,
+  FileText,
   Briefcase,
+  Mic,
 } from 'lucide-react';
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps, ListImperativeAPI } from 'react-window';
@@ -20,10 +22,35 @@ import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { interpolate, translations, type TranslationKey } from '@/chat/i18n/translations';
-import type { ChatMessage, ChatUser } from '@/types/chat';
-import { getUserDisplayName, getInitials, getAvatarColor, getMessageReadStatus } from '@/chat/utils';
+import type { ChatMessage, ChatUser, FileAttachmentData } from '@/types/chat';
+import {
+  getUserDisplayName,
+  getInitials,
+  getAvatarColor,
+  getMessageReadStatus,
+  formatFileSize,
+  getFileKindMeta,
+  isHtmlContent,
+  purifyHtml,
+  htmlToText,
+} from '@/chat/utils';
 import VoiceMessageBubble from './VoiceMessageBubble';
 import EmojiPicker from './EmojiPicker';
+import MediaLightbox from './MediaLightbox';
+
+/** Renders plain text or sanitized formatted HTML message content. */
+const FormattedText = ({ text }: { text: string }) => {
+  if (!text) return null;
+  if (!isHtmlContent(text)) {
+    return <div className="whitespace-pre-wrap break-words text-sm">{text}</div>;
+  }
+  return (
+    <div
+      className="whitespace-pre-wrap break-words text-sm"
+      dangerouslySetInnerHTML={{ __html: purifyHtml(text) }}
+    />
+  );
+};
 
 function getScrollParent(el: HTMLElement | null): HTMLElement | null {
   let node = el?.parentElement ?? null;
@@ -82,6 +109,11 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const FREQUENT_REACTIONS = ['🔥', '👏', '😘', '🎉'];
 
+const isMediaAtt = (a: FileAttachmentData) =>
+  a.file_type.startsWith('image/') || a.file_type.startsWith('video/');
+
+const isVideoAtt = (a: FileAttachmentData) => a.file_type.startsWith('video/');
+
 interface RowDatum {
   msg: ChatMessage;
   mine: boolean;
@@ -120,6 +152,7 @@ interface RowProps {
   onCommitEdit: (msg: ChatMessage) => void;
   onEditContentChange: (value: string) => void;
   onOpenEmojiFull: (msgId: string) => void;
+  onOpenLightbox: (msg: ChatMessage, index: number) => void;
 }
 
 const MessageRow = function MessageRow({
@@ -152,6 +185,7 @@ const MessageRow = function MessageRow({
     onCommitEdit,
     onEditContentChange,
     onOpenEmojiFull,
+    onOpenLightbox,
   } = rowProps;
   const datum = rows[index];
   if (!datum) return null;
@@ -184,10 +218,108 @@ const MessageRow = function MessageRow({
       case 'voice':
         return t('voiceMessage');
       case 'patient_case':
-        return target.patient_case_link?.title || target.content || t('patientCase');
+        return target.patient_case_link?.title || htmlToText(target.content) || t('patientCase');
       default:
-        return target.content || '...';
+        return htmlToText(target.content) || '...';
     }
+  };
+
+  // Sent Media Grid Layout: media attachments of one message render as a
+  // single collage bubble (adaptive tiles). Tapping a tile opens the lightbox.
+  const renderMediaCollage = (m: ChatMessage) => {
+    const atts = (m.attachments || []).filter(isMediaAtt);
+    const docAtts = (m.attachments || []).filter((a) => !isMediaAtt(a));
+    const count = atts.length;
+
+    const renderTile = (
+      att: FileAttachmentData,
+      i: number,
+      className: string,
+      overlayCount?: number
+    ) => (
+      <button
+        key={att.file_url}
+        type="button"
+        onClick={() => onOpenLightbox(m, i)}
+        className={`relative block overflow-hidden rounded-lg bg-gray-900/10 outline-none dark:bg-black/30 ${className}`}
+      >
+        {att.file_type.startsWith('image/') ? (
+          <img src={att.file_url} alt={att.file_name} className="h-full w-full object-cover" />
+        ) : (
+          <video src={att.file_url} className="h-full w-full object-cover" muted preload="metadata" />
+        )}
+        {isVideoAtt(att) && !overlayCount && (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white">
+              <Play className="h-3 w-3 fill-current" />
+            </span>
+          </span>
+        )}
+        {overlayCount ? (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/60">
+            <span className="text-sm font-semibold text-white">+{overlayCount}</span>
+          </span>
+        ) : null}
+      </button>
+    );
+
+    let grid: React.ReactNode = null;
+    if (count === 1) {
+      grid = renderTile(atts[0], 0, 'aspect-square h-[84px] w-[84px]');
+    } else if (count === 2) {
+      grid = (
+        <div className="grid w-[114px] grid-cols-2 gap-1">
+          {atts.map((a, i) => renderTile(a, i, 'aspect-square'))}
+        </div>
+      );
+    } else if (count === 3) {
+      grid = (
+        <div className="grid h-[114px] w-[172px] grid-cols-2 grid-rows-2 gap-1">
+          {renderTile(atts[0], 0, 'row-span-2 h-full')}
+          {atts.slice(1, 3).map((a, i) => renderTile(a, i + 1, 'aspect-square'))}
+        </div>
+      );
+    } else {
+      grid = (
+        <div className="grid w-[114px] grid-cols-2 gap-1">
+          {atts.slice(0, 4).map((a, i) =>
+            i === 3 && count > 4
+              ? renderTile(a, i, 'aspect-square', count - 4)
+              : renderTile(a, i, 'aspect-square')
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {grid}
+        {docAtts.length > 0 &&
+          docAtts.map((doc) => {
+            const meta = getFileKindMeta(doc.file_type, doc.file_name);
+            return (
+              <a
+                key={doc.id}
+                href={doc.file_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex w-full max-w-[180px] items-center gap-2 rounded-xl bg-white/15 p-2 transition-colors hover:bg-white/25 dark:bg-black/15 dark:hover:bg-black/25"
+              >
+                <div
+                  className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-white ${meta.bg}`}
+                >
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="max-w-[120px] truncate text-xs font-medium">{doc.file_name}</p>
+                  <p className="text-[10px] opacity-70">{formatFileSize(doc.file_size)}</p>
+                </div>
+              </a>
+            );
+          })}
+        {m.content && <FormattedText text={m.content} />}
+      </div>
+    );
   };
 
   const renderBubble = (m: ChatMessage) => {
@@ -195,37 +327,8 @@ const MessageRow = function MessageRow({
       case 'voice':
         return <VoiceMessageBubble message={m} isCurrentUser={mine} />;
       case 'image':
-        return (
-          <div className="space-y-2">
-            {(m.attachments || []).map((att) => (
-              <img
-                key={att.id}
-                src={att.file_url}
-                alt={att.file_name}
-                className="max-w-[240px] rounded-xl cursor-pointer hover:opacity-90"
-              />
-            ))}
-            {m.content && <p className="text-sm">{m.content}</p>}
-          </div>
-        );
       case 'file':
-        return (
-          <div className="space-y-2">
-            {(m.attachments || []).map((att) => (
-              <a
-                key={att.id}
-                href={att.file_url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 text-sm hover:underline"
-              >
-                <CloudDownload className="h-4 w-4" />
-                {att.file_name}
-              </a>
-            ))}
-            {m.content && <p className="text-sm">{m.content}</p>}
-          </div>
-        );
+        return renderMediaCollage(m);
       case 'patient_case':
         return (
           <div className="flex items-start gap-2">
@@ -233,13 +336,13 @@ const MessageRow = function MessageRow({
             <div>
               <p className="font-medium text-sm">{t('patientCase')}</p>
               <p className="text-sm">
-                {m.patient_case_link?.title || m.content || t('patientCase')}
+                {m.patient_case_link?.title || htmlToText(m.content) || t('patientCase')}
               </p>
             </div>
           </div>
         );
       default:
-        return <p className="whitespace-pre-wrap break-words text-sm">{m.content}</p>;
+        return <FormattedText text={m.content} />;
     }
   };
 
@@ -541,6 +644,9 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ msg: ChatMessage; index: number } | null>(null);
+  const [deleteForId, setDeleteForId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didInitialScroll = useRef(false);
 
@@ -679,17 +785,28 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     [currentUserId, editingContent]
   );
 
-  const handleDelete = useCallback(
-    async (msgId: string) => {
-      if (!currentUserId) return;
-      if (!window.confirm(memoizedT('deleteMessageConfirm'))) return;
-      try {
-        await ChatRepository.deleteMessage(currentUserId, msgId);
-      } catch (err) {
-        console.error('Failed to delete message:', err);
-      }
-    },
-    [currentUserId, memoizedT]
+  const handleDelete = useCallback((msgId: string) => {
+    setActionMenuFor(null);
+    setEmojiFullFor(null);
+    setDeleteForId(msgId);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!currentUserId || !deleteForId || deleting) return;
+    setDeleting(true);
+    try {
+      await ChatRepository.deleteMessage(currentUserId, deleteForId);
+      setDeleteForId(null);
+    } catch (err) {
+      console.error('Failed to delete message:', err);
+    } finally {
+      setDeleting(false);
+    }
+  }, [currentUserId, deleteForId, deleting]);
+
+  const deleteForMsg = useMemo(
+    () => messages.find((m) => m.id === deleteForId) ?? null,
+    [messages, deleteForId]
   );
 
   const handleReply = useCallback(
@@ -717,7 +834,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const onStartEdit = useCallback(
     (msg: ChatMessage) => {
       setEditingId(msg.id);
-      setEditingContent(msg.content);
+      setEditingContent(htmlToText(msg.content));
     },
     []
   );
@@ -732,6 +849,10 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     },
     []
   );
+
+  const handleOpenLightbox = useCallback((msg: ChatMessage, index: number) => {
+    setLightbox({ msg, index });
+  }, []);
 
   // Scroll to latest on mount; afterwards only auto-scroll while the user is
   // already near the bottom (such as receiving a new message while reading).
@@ -776,6 +897,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       onCommitEdit: handleEdit,
       onEditContentChange: setEditingContent,
       onOpenEmojiFull,
+      onOpenLightbox: handleOpenLightbox,
     }),
     [
       rows,
@@ -800,6 +922,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       onCancelEdit,
       handleEdit,
       onOpenEmojiFull,
+      handleOpenLightbox,
     ]
   );
 
@@ -817,7 +940,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <List
         className="flex-1"
         listRef={setList}
@@ -827,6 +950,93 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
         rowProps={rowProps}
         overscanCount={8}
       />
+
+      {lightbox && (
+        <MediaLightbox
+          items={(lightbox.msg.attachments || []).filter(isMediaAtt)}
+          index={lightbox.index}
+          onIndexChange={(index) => setLightbox({ msg: lightbox.msg, index })}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+
+      {deleteForMsg && (
+        <div
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
+          onClick={() => !deleting && setDeleteForId(null)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            {(() => {
+              const mediaAtt = (deleteForMsg.attachments || []).find(isMediaAtt);
+              const docAtt = (deleteForMsg.attachments || []).find((a) => !isMediaAtt(a));
+              return (
+                <div className="flex h-32 items-center justify-center overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  {mediaAtt ? (
+                    mediaAtt.file_type.startsWith('image/') ? (
+                      <img
+                        src={mediaAtt.file_url}
+                        alt={mediaAtt.file_name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <video
+                        src={mediaAtt.file_url}
+                        className="h-full w-full object-cover"
+                        muted
+                        preload="metadata"
+                      />
+                    )
+                  ) : deleteForMsg.message_type === 'voice' ? (
+                    <Mic className="h-10 w-10 text-gray-400 dark:text-gray-500" />
+                  ) : docAtt ? (
+                    <FileText className="h-10 w-10 text-gray-400 dark:text-gray-500" />
+                  ) : deleteForMsg.content ? (
+                    <span className="max-w-[85%] overflow-hidden text-sm text-gray-600 dark:text-gray-300 line-clamp-3 px-4">
+                      <FormattedText text={deleteForMsg.content} />
+                    </span>
+                  ) : (
+                    <Briefcase className="h-10 w-10 text-gray-400 dark:text-gray-500" />
+                  )}
+                </div>
+              );
+            })()}
+            <div className="p-6">
+              <h3 className="text-center text-base font-medium text-gray-900 dark:text-white">
+                {memoizedT('deleteMessage')}
+              </h3>
+              <p className="mt-2 text-center text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                {memoizedT('deleteMessageConfirm')}
+                {(() => {
+                  const hasFiles =
+                    !!deleteForMsg.attachments?.length || !!deleteForMsg.voice_note_url;
+                  return hasFiles ? ` ${memoizedT('deleteMessageFilesNote')}` : '';
+                })()}
+              </p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setDeleteForId(null)}
+                  disabled={deleting}
+                  className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  {memoizedT('cancel')}
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={deleting}
+                  className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-40"
+                >
+                  {memoizedT('deleteMessage')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {emojiFullFor && (
         <div
