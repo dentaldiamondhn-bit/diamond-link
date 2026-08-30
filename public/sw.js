@@ -1,4 +1,4 @@
-const CACHE_NAME = 'diamond-link-v4';
+const CACHE_NAME = 'diamond-link-v5';
 const STATIC_CACHE_ROUTES = ['/_next/static/'];
 
 self.addEventListener('install', (event) => {
