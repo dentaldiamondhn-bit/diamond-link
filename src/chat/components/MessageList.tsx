@@ -608,14 +608,28 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const { users, currentUserId } = useChatStore();
 
   const [list, setList] = useListCallbackRef();
-  // Reset the dynamic-height cache whenever the set of messages structurally
-  // changes (a message is added/removed). Without this, deleted rows leave stale
-  // index-keyed heights, so the row before a deletion renders at the wrong size.
   const rowSignature = useMemo(
     () => messages.map((m) => m.id).join('|'),
     [messages]
   );
-  const rowHeight = useDynamicRowHeight({ defaultRowHeight: DEFAULT_ROW_HEIGHT, key: rowSignature });
+  // Reset the dynamic-height cache ONLY when the list structurally shrinks (a
+  // deletion re-indexes rows, so stale index-keyed heights would render the row
+  // before a removal at the wrong size). Pure appends keep existing row heights
+  // otherwise valid. Resetting on every send was what made the chat scroll up on
+  // both sender and receiver: the cache blow re-estimated every row with the
+  // default height, so the bottom pin landed wrongly and hid the new message.
+  const removalKeyRef = useRef(0);
+  const prevSignatureRef = useRef(rowSignature);
+  if (prevSignatureRef.current !== rowSignature) {
+    const prevCount = prevSignatureRef.current ? prevSignatureRef.current.split('|').length : 0;
+    const newCount = rowSignature ? rowSignature.split('|').length : 0;
+    if (newCount < prevCount) removalKeyRef.current += 1;
+    prevSignatureRef.current = rowSignature;
+  }
+  const rowHeight = useDynamicRowHeight({
+    defaultRowHeight: DEFAULT_ROW_HEIGHT,
+    key: `removal-${removalKeyRef.current}`,
+  });
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [actionMenuFor, setActionMenuFor] = useState<{
