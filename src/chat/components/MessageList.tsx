@@ -103,10 +103,7 @@ function pinListToBottom(list: ListImperativeAPI, lastRowIndex: number) {
 
 const GROUP_THRESHOLD_MS = 5 * 60 * 1000;
 
-// The overlay (emoji row + reply + edit + delete) is ~175px tall. Keeping the
-// constant close to the real height keeps the menu visually anchored to the
-// trigger instead of floating high above it.
-const ACTION_MENU_HEIGHT_PX = 190;
+const ACTION_MENU_HEIGHT_PX = 300;
 const ACTION_MENU_WIDTH_PX = 224;
 
 const DEFAULT_ROW_HEIGHT = 48;
@@ -737,26 +734,24 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       const viewportTop = scrollerRect?.top ?? edgeBuffer;
       const viewportBottom = (scrollerRect?.bottom ?? window.innerHeight) - MENU_H;
 
+      // Anchor the menu right at the trigger, clamped into the pane.
       const rawLeft = alignRight ? triggerRect.right - MENU_W + 4 : triggerRect.left - 4;
-      const safeLeft =
+      const rawTop =
+        position === 'below' ? triggerRect.bottom + 4 : triggerRect.top - MENU_H - 4;
+      const x =
         viewportRight > viewportLeft
           ? Math.min(Math.max(viewportLeft + edgeBuffer, rawLeft), viewportRight - edgeBuffer)
           : rawLeft;
-      const rawTop =
-        position === 'below' ? triggerRect.bottom + 4 : triggerRect.top - MENU_H - 4;
-      const safeTop =
+      const y =
         viewportBottom > viewportTop
           ? Math.min(Math.max(viewportTop + edgeBuffer, rawTop), viewportBottom - edgeBuffer)
           : rawTop;
 
-      // Convert viewport coords to the container coordinate space the overlay
-      // lives in.
-      const ref = containerRef.current?.getBoundingClientRect();
-      setActionMenuFor({
-        id: msgId,
-        left: ref ? Math.round(safeLeft - ref.left) : Math.round(safeLeft),
-        top: ref ? Math.round(safeTop - ref.top) : Math.round(safeTop),
-      });
+      // Position in *viewport* coordinates and render the overlay as
+      // position:fixed. That makes the clamp exact (viewportMath == render
+      // space) so the menu can never be pushed outside the visible pane or
+      // land away from its trigger.
+      setActionMenuFor({ id: msgId, left: Math.round(x), top: Math.round(y) });
     },
     [rows]
   );
@@ -951,7 +946,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       />
 
       {actionMenuFor && (
-        <div className="absolute inset-0 z-30" onClick={onCloseMenu}>
+        <div className="fixed inset-0 z-40" onClick={onCloseMenu}>
           {(() => {
             const actionMsg = rows.find((r) => r.msg.id === actionMenuFor.id)?.msg;
             if (!actionMsg) return null;

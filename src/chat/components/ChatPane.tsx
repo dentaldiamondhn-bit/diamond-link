@@ -186,6 +186,25 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
       addMessage(optimistic, currentUserId, convId);
       setReplyTo(null);
 
+      // Release the tray's preview object URLs once the outbound message is
+      // replaced by (or falls back to) the persisted one. The optimistic
+      // bubble still renders from these URLs until then.
+      const releasePreviews = () => {
+        for (const att of items) URL.revokeObjectURL(att.previewUrl);
+      };
+
+      // Live progress: storage has no per-byte callback, so while the upload
+      // is in flight we nudge the % upward so the sender sees it moving.
+      let progress = items.length > 0 ? 0 : 100;
+      const progressTimer = window.setInterval(() => {
+        if (progress >= 90) {
+          window.clearInterval(progressTimer);
+          return;
+        }
+        progress = Math.min(90, progress + 2 + Math.random() * 4);
+        updateMessage(tmpId, { upload_progress: progress });
+      }, 320);
+
       try {
         // Upload files through the server route; swap each optimistic preview
         // for its real public URL as it completes and advance the % readout.
@@ -202,34 +221,8 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
           } catch (err) {
             console.error('Failed to upload attachment:', err);
           }
-          const remaining = items.slice(i + 1).map((a, j) => ({
-            id: `ua-${i + 1 + j}-${tmpId}`,
-            message_id: tmpId,
-            file_name: a.name,
-            file_type: a.type,
-            file_size: a.size,
-            file_url: a.previewUrl,
-            thumbnail_url: null,
-            uploaded_by: currentUserId,
-            created_at: optimistic.created_at,
-          }));
-          updateMessage(tmpId, {
-            attachments: [
-              ...realAtts.map((r, j) => ({
-                id: `ua-${j}-${tmpId}`,
-                message_id: tmpId,
-                file_name: r.file_name,
-                file_type: r.file_type,
-                file_size: r.file_size,
-                file_url: r.file_url,
-                thumbnail_url: null,
-                uploaded_by: currentUserId,
-                created_at: optimistic.created_at,
-              })),
-              ...remaining,
-            ],
-            upload_progress: items.length > 0 ? Math.round(((i + 1) / items.length) * 90) : 100,
-          });
+          progress = items.length > 0 ? Math.round(((i + 1) / items.length) * 90) : 100;
+          updateMessage(tmpId, { upload_progress: progress });
         }
 
         const message = await ChatRepository.sendMessage(currentUserId, {
@@ -249,6 +242,9 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
         console.error('Failed to send message:', err);
         updateMessage(tmpId, { local_state: 'failed' });
         setError('No se pudo enviar el mensaje');
+      } finally {
+        window.clearInterval(progressTimer);
+        releasePreviews();
       }
     },
     [
@@ -318,6 +314,16 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
     addMessage(optimistic, currentUserId, convId);
     setPendingVoice(null);
 
+    let progress = 30;
+    const progressTimer = window.setInterval(() => {
+      if (progress >= 88) {
+        window.clearInterval(progressTimer);
+        return;
+      }
+      progress = Math.min(88, progress + 2 + Math.random() * 4);
+      updateMessage(tmpId, { upload_progress: progress });
+    }, 280);
+
     try {
       const type = (result.blob.type || '').toLowerCase();
       const ext = type.includes('mp4')
@@ -352,6 +358,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
       updateMessage(tmpId, { local_state: 'failed' });
       setError('No se pudo subir la nota de voz');
     } finally {
+      window.clearInterval(progressTimer);
       reset();
     }
   }, [
