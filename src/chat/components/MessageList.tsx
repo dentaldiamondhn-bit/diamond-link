@@ -604,6 +604,7 @@ const MessageRow = function MessageRow({
 
 export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds }: MessageListProps) => {
   const { locale } = useTranslations();
+  const removeMessage = useChatStore((s) => s.removeMessage);
   const { users, currentUserId } = useChatStore();
 
   const [list, setList] = useListCallbackRef();
@@ -842,14 +843,18 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     if (!currentUserId || !deleteForId || deleting) return;
     setDeleting(true);
     try {
-      await ChatRepository.deleteMessage(currentUserId, deleteForId);
+      const id = deleteForId;
+      await ChatRepository.deleteMessage(currentUserId, id);
+      // Remove locally right away so the list reflects the deletion immediately,
+      // regardless of the realtime round-trip (idempotent if realtime also fires).
+      removeMessage(id);
       setDeleteForId(null);
     } catch (err) {
       console.error('Failed to delete message:', err);
     } finally {
       setDeleting(false);
     }
-  }, [currentUserId, deleteForId, deleting]);
+  }, [currentUserId, deleteForId, deleting, removeMessage]);
 
   const deleteForMsg = useMemo(
     () => messages.find((m) => m.id === deleteForId) ?? null,

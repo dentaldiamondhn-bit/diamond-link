@@ -13,7 +13,7 @@ export default function MentionPlugin({ enabled = true }: { enabled?: boolean })
   const [editor] = useLexicalComposerContext();
   const { users, currentUserId } = useChatStore();
   const [query, setQuery] = useState<string | null>(null);
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [anchor, setAnchor] = useState<{ bottom: number; left: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const candidates = useMemo(() => {
@@ -67,7 +67,7 @@ export default function MentionPlugin({ enabled = true }: { enabled?: boolean })
     if (!enabled) return;
     return editor.registerUpdateListener(({ editorState }) => {
       let nextQuery: string | null = null;
-      let nextAnchor: { top: number; left: number } | null = null;
+      let nextAnchor: { bottom: number; left: number } | null = null;
       editorState.read(() => {
         const sel = $getSelection();
         if (!$isRangeSelection(sel) || !sel.isCollapsed()) return;
@@ -81,25 +81,17 @@ export default function MentionPlugin({ enabled = true }: { enabled?: boolean })
         const q = prefix.slice(at + 1);
         if (q.length > 24 || q.includes('\n')) return;
         nextQuery = q;
-        const topLevel = (anchorNode as TextNode).getTopLevelElementOrThrow();
-        const key = topLevel.getKey();
-        const dom = editor.getElementByKey(key);
-        if (dom) {
-          const rect = dom.getBoundingClientRect();
+        // Dock the results flush with the composer's upper margin (aligned to
+        // its left edge). We anchor by `bottom` so the dropdown's bottom edge
+        // sits against the composer's top edge and grows upward from it —
+        // attached to the composer, not floating at the caret.
+        const editable = document.querySelector('[data-chat-composer]') as HTMLElement | null;
+        const rect = editable?.getBoundingClientRect();
+        if (rect) {
           const vw = window.innerWidth;
-          const LEFT = Math.min(rect.left, vw - 270);
-          // Worst-case dropdown footprint (max-h-56 = 224px + 8px padding).
-          const DROPDOWN_H = 232;
-          // Prefer opening below the caret line; flip above when it would clip off the bottom.
-          if (rect.bottom + 4 + DROPDOWN_H <= window.innerHeight - 8) {
-            nextAnchor = { top: rect.bottom + 4, left: LEFT };
-          } else {
-            nextAnchor = { top: Math.max(8, rect.top - DROPDOWN_H - 4), left: LEFT };
-          }
-        } else {
-          const editable = document.querySelector('[data-chat-composer]') as HTMLElement | null;
-          const rect = editable?.getBoundingClientRect();
-          if (rect) nextAnchor = { top: rect.top - 8, left: rect.left + 8 };
+          const LEFT = Math.min(rect.left + 4, vw - 270);
+          const bottom = window.innerHeight - rect.top - 4;
+          nextAnchor = { bottom, left: LEFT };
         }
       });
       setQuery((prev) => (prev === nextQuery ? prev : nextQuery));
@@ -143,7 +135,7 @@ export default function MentionPlugin({ enabled = true }: { enabled?: boolean })
     <div
       data-mention-anchor
       className="z-50 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-600 dark:bg-gray-800"
-      style={anchor ? { position: 'fixed', top: anchor.top, left: anchor.left } : { position: 'fixed' }}
+      style={anchor ? { position: 'fixed', bottom: anchor.bottom, left: anchor.left } : { position: 'fixed' }}
     >
       <div className="max-h-56 overflow-y-auto py-1">
         {candidates.slice(0, 20).map((u, i) => {

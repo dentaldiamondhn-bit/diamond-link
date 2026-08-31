@@ -1,7 +1,6 @@
 import {
   $applyNodeReplacement,
   DecoratorNode,
-  type EditorConfig,
   type LexicalNode,
   type SerializedLexicalNode,
 } from 'lexical';
@@ -22,7 +21,7 @@ export class MentionNode extends DecoratorNode<null> {
   }
 
   static clone(node: MentionNode): MentionNode {
-    return new MentionNode(node.__userName, node.__userId);
+    return new MentionNode(node.__userName, node.__userId, node.__key);
   }
 
   static importJSON(
@@ -34,8 +33,8 @@ export class MentionNode extends DecoratorNode<null> {
     );
   }
 
-  constructor(userName: string, userId?: string) {
-    super();
+  constructor(userName: string, userId?: string, key?: string) {
+    super(key);
     this.__userName = userName;
     this.__userId = userId;
   }
@@ -59,6 +58,12 @@ export class MentionNode extends DecoratorNode<null> {
 
   decorate(): null {
     return null;
+  }
+
+  // Mentions are immutable after insertion, so the rendered DOM never needs to
+  // be reconciled on updates.
+  updateDOM(): boolean {
+    return false;
   }
 
   exportJSON(): SerializedMentionNode {
