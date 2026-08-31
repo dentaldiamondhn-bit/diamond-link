@@ -17,6 +17,8 @@ import {
   Mic,
   Loader2,
   XCircle,
+  Copy,
+  Forward,
 } from 'lucide-react';
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps, ListImperativeAPI } from 'react-window';
@@ -39,6 +41,7 @@ import {
 import VoiceMessageBubble from './VoiceMessageBubble';
 import EmojiPicker from './EmojiPicker';
 import MediaLightbox from './MediaLightbox';
+import ForwardModal from './ForwardModal';
 
 /** Renders plain text or sanitized formatted HTML message content. */
 const FormattedText = ({ text }: { text: string }) => {
@@ -103,7 +106,7 @@ function pinListToBottom(list: ListImperativeAPI, lastRowIndex: number) {
 
 const GROUP_THRESHOLD_MS = 5 * 60 * 1000;
 
-const ACTION_MENU_HEIGHT_PX = 300;
+const ACTION_MENU_HEIGHT_PX = 430;
 const ACTION_MENU_WIDTH_PX = 224;
 
 const DEFAULT_ROW_HEIGHT = 48;
@@ -258,23 +261,23 @@ const MessageRow = function MessageRow({
 
     let grid: React.ReactNode = null;
     if (count === 1) {
-      grid = renderTile(atts[0], 0, 'aspect-square h-[32px] w-[32px]');
+      grid = renderTile(atts[0], 0, 'aspect-square h-[150px] w-[150px]');
     } else if (count === 2) {
       grid = (
-        <div className="grid w-[56px] grid-cols-2 gap-0.5">
+        <div className="grid w-[255px] grid-cols-2 gap-0.5">
           {atts.map((a, i) => renderTile(a, i, 'aspect-square'))}
         </div>
       );
     } else if (count === 3) {
       grid = (
-        <div className="grid h-[56px] w-[88px] grid-cols-2 grid-rows-2 gap-0.5">
+        <div className="grid h-[255px] w-[405px] grid-cols-2 grid-rows-2 gap-0.5">
           {renderTile(atts[0], 0, 'row-span-2 h-full')}
           {atts.slice(1, 3).map((a, i) => renderTile(a, i + 1, 'aspect-square'))}
         </div>
       );
     } else {
       grid = (
-        <div className="grid w-[56px] grid-cols-2 gap-0.5">
+        <div className="grid w-[255px] grid-cols-2 gap-0.5">
           {atts.slice(0, 4).map((a, i) =>
             i === 3 && count > 4
               ? renderTile(a, i, 'aspect-square', count - 4)
@@ -296,7 +299,7 @@ const MessageRow = function MessageRow({
                 href={doc.file_url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex w-full max-w-[92px] items-center gap-2 rounded-xl bg-white/15 p-2 transition-colors hover:bg-white/25 dark:bg-black/15 dark:hover:bg-black/25"
+                className="flex w-full max-w-[430px] items-center gap-2 rounded-xl bg-white/15 p-2 transition-colors hover:bg-white/25 dark:bg-black/15 dark:hover:bg-black/25"
               >
                 <div
                   className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-white ${meta.bg}`}
@@ -534,7 +537,11 @@ const MessageRow = function MessageRow({
               </span>
             )}
 
-            {mine && msg.local_state === 'pending' && (
+            {mine &&
+              msg.local_state === 'pending' &&
+              (msg.message_type === 'image' ||
+                msg.message_type === 'file' ||
+                msg.message_type === 'voice') && (
               <span className="flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-400/15 dark:text-blue-300">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 {t('sending')} {Math.min(Math.max(Math.round(msg.upload_progress ?? 0), 0), 100)}%
@@ -594,6 +601,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const [editingContent, setEditingContent] = useState('');
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ msg: ChatMessage; index: number } | null>(null);
+  const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
   const [deleteForId, setDeleteForId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -821,6 +829,28 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     [onReplyTo]
   );
 
+  const handleCopy = useCallback(async (msg: ChatMessage) => {
+    const content =
+      (msg.content && msg.content.trim()) ||
+      (msg.attachments || []).map((a) => a.file_url).join('\n') ||
+      msg.voice_note_url ||
+      '';
+    if (!content) return;
+    try {
+      await navigator.clipboard.writeText(content);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = content;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setActionMenuFor(null);
+  }, []);
+
   const handleJumpToMessage = useCallback(
     (msgId: string) => {
       const targetIndex = rows.findIndex((r) => r.msg.id === msgId);
@@ -954,10 +984,15 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
             return (
               <div
                 className="absolute w-[224px] overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600"
-                style={{ left: actionMenuFor.left, top: actionMenuFor.top }}
+                style={{
+                  left: actionMenuFor.left,
+                  top: actionMenuFor.top,
+                  maxHeight: 'min(430px, calc(100vh - 16px))',
+                  overflowY: 'auto',
+                }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center px-1.5 py-1.5">
+                <div className="flex items-center gap-0.5 overflow-x-auto px-1.5 py-1.5">
                   {QUICK_REACTIONS.map((emoji) => (
                     <button
                       key={emoji}
@@ -993,6 +1028,23 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                   <Reply className="h-4 w-4" />
                   {memoizedT('reply')}
                 </button>
+                <button
+                  onClick={() => handleCopy(actionMsg)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  <Copy className="h-4 w-4" />
+                  {memoizedT('copyMessage')}
+                </button>
+                <button
+                  onClick={() => {
+                    setActionMenuFor(null);
+                    setForwardMsg(actionMsg);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  <Forward className="h-4 w-4" />
+                  {memoizedT('forward')}
+                </button>
                 {mine && editingId !== actionMsg.id && (
                   <button
                     onClick={() => onStartEdit(actionMsg)}
@@ -1024,6 +1076,10 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
           onIndexChange={(index) => setLightbox({ msg: lightbox.msg, index })}
           onClose={() => setLightbox(null)}
         />
+      )}
+
+      {forwardMsg && (
+        <ForwardModal message={forwardMsg} onClose={() => setForwardMsg(null)} />
       )}
 
       {deleteForMsg && (

@@ -75,6 +75,13 @@ export const useChatRealtime = (
               .eq('id', message.id)
               .maybeSingle();
             const resolved = (full || message) as ChatMessage;
+            // My own send echoes back here via realtime while the optimistic
+            // row is still pending: replace it instead of stacking a duplicate
+            // preview bubble next to the real one.
+            const pending = (useChatStore.getState().messages[resolved.conversation_id] || []).find(
+              (m) => m.sender_id === currentUserRef.current && m.local_state === 'pending'
+            );
+            if (pending) removeMessage(pending.id);
             addMessage(resolved, currentUserRef.current, selectedRef.current);
             if (resolved.sender_id !== currentUserRef.current) {
               onIncomingRef.current?.(resolved);

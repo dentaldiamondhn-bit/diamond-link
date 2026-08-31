@@ -467,7 +467,7 @@ export class ChatService {
       .insert({
         conversation_id: data.conversation_id,
         sender_id: userId,
-        content: data.content || 'Sin contenido',
+        content: data.content || '',
         message_type: data.message_type || 'text',
         reply_to_id: data.reply_to_id,
         voice_note_url: data.voice_note_url,
@@ -539,7 +539,7 @@ export class ChatService {
                 notification: {
                   type: 'chat_message',
                   title: `Nuevo mensaje en ${convName}`,
-                  message: data.content || 'Sin contenido',
+                  message: data.content || '',
                   metadata: {
                     conversationId: data.conversation_id,
                     senderId: userId,

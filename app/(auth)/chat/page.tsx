@@ -734,7 +734,7 @@ function ChatPageMonolith() {
                             ? '📋 Caso de paciente'
                             : conv.last_message.message_type === ChatMessageType.SYSTEM
                             ? '⚙️ Sistema'
-                            : conv.last_message.content || 'Sin contenido'
+                            : conv.last_message.content || ''
                           : 'Sin mensajes'}
                       </p>
                     </div>

@@ -314,7 +314,7 @@ export const AttachmentTray = ({
 
   return (
     <div
-      className="absolute inset-0 z-50 flex flex-col bg-black pb-[max(2rem,10%)] text-white"
+      className="absolute inset-0 z-50 flex flex-col bg-black pb-[max(1.28rem,6.4%)] text-white"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
