@@ -42,7 +42,6 @@ import { $generateHtmlFromNodes } from '@lexical/html';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { htmlToText } from '@/chat/utils';
 import EmojiPicker from './EmojiPicker';
-import AttachmentTray from './AttachmentTray';
 import type { PendingAttachment } from './AttachmentTray';
 import type { ChatMessage } from '@/types/chat';
 
@@ -393,34 +392,12 @@ export const Composer = ({
   className = '',
 }: ComposerProps) => {
   const { t } = useTranslations();
-  const [pending, setPending] = useState<PendingAttachment[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [textContent, setTextContent] = useState('');
   const [sending, setSending] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const textRef = useRef('');
   const htmlRef = useRef('');
   const editorRef = useRef<LexicalEditor | null>(null);
-  const pendingRef = useRef<PendingAttachment[]>([]);
-  useEffect(() => {
-    pendingRef.current = pending;
-  }, [pending]);
-
-  // Revoke object URLs on unmount to avoid leaks.
-  useEffect(() => {
-    return () => {
-      pendingRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-    };
-  }, []);
-
-  // Clear pending attachments + editor when switching conversations.
-  useEffect(() => {
-    setPending((prev) => {
-      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-      return [];
-    });
-    setActiveIndex(0);
-  }, [conversationId]);
 
   const formatTime = (s: number) => {
     const total = Math.max(0, Math.floor(s));
@@ -443,38 +420,6 @@ export const Composer = ({
     [onTyping]
   );
 
-  // Stage selected files into the storage overlay (no upload yet).
-  const handleFiles = useCallback((files: File[]) => {
-    if (!files.length) return;
-    const created = files.map((file) => ({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      file,
-      previewUrl: URL.createObjectURL(file),
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      caption: '',
-    }));
-    setPending((prev) => [...prev, ...created]);
-    setActiveIndex((current) => current + created.length);
-  }, []);
-
-  const updateCaption = useCallback((index: number, caption: string) => {
-    setPending((prev) =>
-      prev.map((att, i) => (i === index ? { ...att, caption } : att))
-    );
-  }, []);
-
-  const removePending = useCallback(
-    (index: number) => {
-      const target = pending[index];
-      if (target) URL.revokeObjectURL(target.previewUrl);
-      setPending((prev) => prev.filter((_, i) => i !== index));
-      setActiveIndex((current) => Math.max(0, Math.min(current, pending.length - 2)));
-    },
-    [pending]
-  );
-
   const clearEditor = useCallback(() => {
     const editor = editorRef.current;
     if (editor) {
@@ -487,50 +432,55 @@ export const Composer = ({
     textRef.current = '';
     htmlRef.current = '';
     setTextContent('');
-    setPending((prev) => {
-      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-      return [];
-    });
-    setActiveIndex(0);
   }, []);
+
+  // Selecting files sends them IMMEDIATELY: the optimistic bubble is inserted
+  // by the parent (ChatPane) and pops into the thread at once with its own
+  // upload-progress readout. No full-screen staging overlay in between.
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      if (!files.length || disabled || sending || !conversationId) return;
+      const created = files.map((file) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        caption: '',
+      }));
+      const content = textRef.current.trim();
+      const htmlContent = htmlRef.current.trim() || content;
+      const replyId = replyTo?.id;
+      setSending(true);
+      try {
+        clearEditor();
+        await onSend(htmlContent || '', created, replyId);
+      } catch (err) {
+        console.error('Failed to send attachment:', err);
+      } finally {
+        setSending(false);
+      }
+    },
+    [disabled, sending, conversationId, replyTo, onSend, clearEditor]
+  );
 
   const send = useCallback(async () => {
     if (disabled || sending || !conversationId) return;
     const content = textRef.current.trim();
     const htmlContent = htmlRef.current.trim() || content;
-    const staged = pending;
     const replyId = replyTo?.id;
-    if (!content && staged.length === 0) return;
+    if (!content) return;
     setSending(true);
     try {
-      // Text-only message when no attachment is staged.
-      if (staged.length === 0) {
-        if (content) {
-          clearEditor();
-          await onSend(htmlContent, [], replyId);
-        }
-        return;
-      }
-      // Group staged attachments by their (per-item) caption so each caption
-      // becomes one message. The upload + optimistic bubble now happen in the
-      // parent (ChatPane), so the bubble pops into the thread immediately.
-      const groups = new Map<string, PendingAttachment[]>();
-      for (const att of staged) {
-        const key = att.caption.trim();
-        const list = groups.get(key) ?? [];
-        list.push(att);
-        groups.set(key, list);
-      }
-      for (const [caption, atts] of groups) {
-        await onSend(caption, atts, replyId);
-      }
       clearEditor();
+      await onSend(htmlContent, [], replyId);
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
       setSending(false);
     }
-  }, [disabled, sending, conversationId, pending, onSend, replyTo, clearEditor]);
+  }, [disabled, sending, conversationId, onSend, replyTo, clearEditor]);
 
   if (!conversationId) return null;
 
@@ -549,17 +499,6 @@ export const Composer = ({
         }}
         className={`p-3 ${dragOver ? 'ring-2 ring-blue-400 rounded-lg' : ''}`}
       >
-        <AttachmentTray
-          attachments={pending}
-          activeIndex={activeIndex}
-          onChangeIndex={setActiveIndex}
-          onRemove={removePending}
-          onCaptionChange={updateCaption}
-          onAddFiles={handleFiles}
-          onSend={send}
-          onClose={clearEditor}
-          sending={sending}
-        />
         {!isRecording && hasPendingVoice && (
           <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/30">
             <div className="flex min-w-0 items-center gap-2">
@@ -638,7 +577,7 @@ export const Composer = ({
           <div className="flex items-center justify-between mt-2 gap-3">
             <LexicalToolbar
               textContent={textContent}
-              hasAttachments={pending.length > 0}
+              hasAttachments={false}
               onSend={send}
               onFilesSelected={handleFiles}
               onVoiceStart={onVoiceStart}

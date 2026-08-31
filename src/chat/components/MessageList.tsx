@@ -103,7 +103,10 @@ function pinListToBottom(list: ListImperativeAPI, lastRowIndex: number) {
 
 const GROUP_THRESHOLD_MS = 5 * 60 * 1000;
 
-const ACTION_MENU_HEIGHT_PX = 300;
+// The overlay (emoji row + reply + edit + delete) is ~175px tall. Keeping the
+// constant close to the real height keeps the menu visually anchored to the
+// trigger instead of floating high above it.
+const ACTION_MENU_HEIGHT_PX = 190;
 const ACTION_MENU_WIDTH_PX = 224;
 
 const DEFAULT_ROW_HEIGHT = 48;
