@@ -841,14 +841,16 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
 
   const confirmDelete = useCallback(async () => {
     if (!currentUserId || !deleteForId || deleting) return;
+    const id = deleteForId;
+    // Optimistically drop the message (and close the modal) the moment the user
+    // confirms, so the list re-renders immediately without waiting on the server
+    // round-trip (Supabase realtime won't broadcast the soft-delete UPDATE back
+    // to the originating client, so self-deletes must be applied locally).
+    removeMessage(id);
+    setDeleteForId(null);
     setDeleting(true);
     try {
-      const id = deleteForId;
       await ChatRepository.deleteMessage(currentUserId, id);
-      // Remove locally right away so the list reflects the deletion immediately,
-      // regardless of the realtime round-trip (idempotent if realtime also fires).
-      removeMessage(id);
-      setDeleteForId(null);
     } catch (err) {
       console.error('Failed to delete message:', err);
     } finally {
