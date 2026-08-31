@@ -147,12 +147,23 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
     set((state) => {
       for (const [convId, list] of Object.entries(state.messages)) {
         if (!list.some((m) => m.id === messageId)) continue;
-        return {
-          messages: {
-            ...state.messages,
-            [convId]: list.filter((m) => m.id !== messageId),
-          },
-        };
+        const remaining = list.filter((m) => m.id !== messageId);
+        const messages = { ...state.messages, [convId]: remaining };
+        // If the removed bubble was a conversation's last message (sidebar
+        // preview), fall back to the previous remaining message so the sidebar
+        // no longer shows text that no longer exists in the thread.
+        const conversations = state.conversations.map((c) => {
+          if (c.id !== convId) return c;
+          const wasLast = c.last_message && c.last_message.id === messageId;
+          if (!wasLast) return { ...c, last_message_at: remaining.length ? remaining[remaining.length - 1].created_at : c.last_message_at };
+          const next = remaining[remaining.length - 1];
+          return {
+            ...c,
+            last_message: next ?? undefined,
+            last_message_at: next ? next.created_at : c.last_message_at,
+          };
+        });
+        return { messages, conversations: sortByLastMessage(conversations) };
       }
       return state;
     }),
