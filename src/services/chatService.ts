@@ -25,6 +25,9 @@ function storageObjectFromUrl(url: string | null | undefined): { bucket: string;
   return { bucket: rest.slice(0, slash), path: rest.slice(slash + 1) };
 }
 
+const stripHtml = (html: string): string =>
+    html.replace(/<[^>]*>/g, '').trim();
+
 export class ChatService {
   static async getConversations(userId: string, filters?: ChatFilters) {
     // First, get conversation IDs where user is a participant
@@ -539,7 +542,7 @@ export class ChatService {
                 notification: {
                   type: 'chat_message',
                   title: `Nuevo mensaje en ${convName}`,
-                  message: data.content || '',
+                  message: stripHtml(data.content || ''),
                   metadata: {
                     conversationId: data.conversation_id,
                     senderId: userId,

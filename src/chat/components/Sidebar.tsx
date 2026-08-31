@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Search, Plus, X, Users2 } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
@@ -33,6 +33,28 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
   const [selectedGroupUsers, setSelectedGroupUsers] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const scrollIntoNav = (index: number) => {
+    const list = listRef.current;
+    if (!list) return;
+    const items = Array.from(list.querySelectorAll('[data-conv-index]')) as HTMLElement[];
+    const target = items[index];
+    target?.scrollIntoView({ block: 'nearest' });
+  };
+
+  const handleListKeyDown = (e: React.KeyboardEvent, index: number) => {
+    let next: number | null = null;
+    if (e.key === 'ArrowDown') next = Math.min(index + 1, filteredConversations.length - 1);
+    else if (e.key === 'ArrowUp') next = Math.max(index - 1, 0);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = filteredConversations.length - 1;
+    if (next === null) return;
+    e.preventDefault();
+    scrollIntoNav(next);
+    itemRefs.current[filteredConversations[next].id]?.focus();
+  };
 
   const filteredConversations = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -144,13 +166,17 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
             <p className="text-sm text-gray-500 dark:text-gray-400">{t('startNewChat')}</p>
           </div>
         ) : (
-          <ul className="divide-y divide-gray-200 dark:divide-gray-700 px-3 py-2">
-            {filteredConversations.map((conv) => (
+          <ul ref={listRef} className="divide-y divide-gray-200 dark:divide-gray-700 px-3 py-2" role="listbox" aria-label={t('sidebarTitle')}>
+            {filteredConversations.map((conv, index) => (
               <ConversationListItem
                 key={conv.id}
                 conversation={conv}
                 selected={conv.id === selectedConversationId}
                 onSelect={() => setSelectedConversation(conv.id)}
+                onKeyDown={(e) => handleListKeyDown(e, index)}
+                buttonRef={(el) => {
+                  itemRefs.current[conv.id] = el;
+                }}
               />
             ))}
           </ul>

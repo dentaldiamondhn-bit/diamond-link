@@ -21,12 +21,16 @@ interface ConversationListItemProps {
   conversation: ChatConversation;
   selected: boolean;
   onSelect: () => void;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+  buttonRef?: (el: HTMLButtonElement | null) => void;
 }
 
 export const ConversationListItem = ({
   conversation,
   selected,
   onSelect,
+  onKeyDown,
+  buttonRef,
 }: ConversationListItemProps) => {
   const { t } = useTranslations();
   const { users, presence, typing, currentUserId } = useChatStore();
@@ -90,12 +94,19 @@ export const ConversationListItem = ({
       .some((p) => presence[p.user_id] === 'online');
 
   return (
-    <li
-      onClick={onSelect}
-      className={`cursor-pointer px-3 py-2.5 rounded-lg transition-colors ${
-        selected ? 'bg-blue-100 dark:bg-blue-900/60' : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'
-      }`}
-    >
+    <li className="list-none">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={onSelect}
+        onKeyDown={onKeyDown}
+        role="option"
+        aria-selected={selected}
+        data-conv-index
+        className={`w-full text-left cursor-pointer px-3 py-2.5 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+          selected ? 'bg-blue-100 dark:bg-blue-900/60' : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'
+        }`}
+      >
       <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0">
           {conversation.type === 'group' && !conversation.avatar_url ? (
@@ -170,7 +181,8 @@ export const ConversationListItem = ({
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </button>
     </li>
   );
 };

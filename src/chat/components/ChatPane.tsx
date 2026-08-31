@@ -17,12 +17,13 @@ import Composer from './Composer';
 interface ChatPaneProps {
   className?: string;
   sendTyping: (conversationId: string, isTyping: boolean) => void;
+  onMenuToggle?: () => void;
 }
 
 const makeTmpId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
+export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneProps) => {
   const { t } = useTranslations();
   const {
     selectedConversationId,
@@ -383,7 +384,7 @@ export const ChatPane = ({ className = '', sendTyping }: ChatPaneProps) => {
     >
       {selectedConversationId ? (
         <>
-          <ChatHeader conversationId={selectedConversationId} />
+          <ChatHeader conversationId={selectedConversationId} onMenuToggle={onMenuToggle} />
           <div className="flex-1 min-h-0 overflow-hidden p-4">
             <MessageList
               key={selectedConversationId}

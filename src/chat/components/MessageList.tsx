@@ -220,6 +220,15 @@ const MessageRow = function MessageRow({
     }
   };
 
+  const replyPreviewThumb = (m: ChatMessage): string | null => {
+    const target = resolveReplyTarget(m);
+    if (!target) return null;
+    const imageAtt = (target.attachments || []).find((a) =>
+      a.file_type.startsWith('image/')
+    );
+    return imageAtt?.file_url ?? null;
+  };
+
   // Sent Media Grid Layout: media attachments of one message render as a
   // single collage bubble (adaptive tiles). Tapping a tile opens the lightbox.
   const renderMediaCollage = (m: ChatMessage) => {
@@ -484,6 +493,13 @@ const MessageRow = function MessageRow({
                   }`}
                 >
                   <CornerDownRight className="h-3 w-3 flex-shrink-0" />
+                  {replyPreviewThumb(msg) && (
+                    <img
+                      src={replyPreviewThumb(msg) as string}
+                      alt=""
+                      className="h-6 w-6 flex-shrink-0 rounded object-cover"
+                    />
+                  )}
                   {replySenderName(msg) && (
                     <span
                       className={`flex-shrink-0 font-medium ${
@@ -606,6 +622,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const [deleting, setDeleting] = useState(false);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didInitialScroll = useRef(false);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(
     () => () => {
@@ -764,18 +781,25 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     [rows]
   );
 
-  // Close the floating action menu on scroll, resize or Escape.
+  // Close the floating action menu on page/chat scroll, resize or Escape.
+  // Scrolls that happen *inside* the menu (emoji strip / action list) are
+  // ignored so the menu stays open while the user scrolls it.
   useEffect(() => {
     if (!actionMenuFor) return;
     const close = () => setActionMenuFor(null);
+    const onScroll = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && actionMenuRef.current?.contains(target)) return;
+      close();
+    };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
     };
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', close);
     window.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', close);
       window.removeEventListener('keydown', onKey);
     };
@@ -983,6 +1007,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
             const mine = actionMsg.sender_id === currentUserId;
             return (
               <div
+                ref={actionMenuRef}
                 className="absolute w-[224px] overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600"
                 style={{
                   left: actionMenuFor.left,

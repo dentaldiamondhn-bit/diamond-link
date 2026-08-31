@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { X, Search, Users as UsersIcon, Loader2, Mic } from 'lucide-react';
+import { X, Search, Users as UsersIcon, Loader2, Mic, Check, Send } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
@@ -43,7 +43,10 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
   const [tab, setTab] = useState<'chats' | 'contacts'>('chats');
   const [query, setQuery] = useState('');
   const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedConvIds, setSelectedConvIds] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
   const buildCreateData = (convId: string): CreateMessageData => {
     const type = message.message_type;
@@ -79,35 +82,44 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
     };
   };
 
-  const forwardToConv = async (convId: string) => {
-    if (sending || !currentUserId) return;
-    setSending(true);
-    setError(null);
-    try {
-      await ChatRepository.sendMessage(currentUserId, buildCreateData(convId));
-      setSelectedConversation(convId);
-      onClose();
-    } catch (err) {
-      console.error('Failed to forward message:', err);
-      setError(t('forwardFailed'));
-    } finally {
-      setSending(false);
-    }
-  };
+  const toggle = <T extends string>(list: T[], setList: (next: T[]) => void, id: T) =>
+    setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
-  const forwardToUser = async (userId: string) => {
-    if (sending || !currentUserId) return;
+  const findDirectWith = (userId: string) =>
+    (conversations || []).find(
+      (c) =>
+        c.type === 'direct' &&
+        (c.participants || []).some((p) => p.id === currentUserId) &&
+        (c.participants || []).some((p) => p.id === userId)
+    );
+
+  const count = selectedConvIds.length + selectedUserIds.length;
+
+  const handleSend = async () => {
+    if (sending || done || !currentUserId || count === 0) return;
     setSending(true);
     setError(null);
+    const destinations: string[] = [];
     try {
-      const conv = await ChatRepository.createConversation(currentUserId, {
-        type: ChatConversationType.DIRECT,
-        participant_ids: [userId],
-      });
-      upsertConversation(conv);
-      await ChatRepository.sendMessage(currentUserId, buildCreateData(conv.id));
-      setSelectedConversation(conv.id);
-      onClose();
+      for (const convId of selectedConvIds) {
+        await ChatRepository.sendMessage(currentUserId, buildCreateData(convId));
+        destinations.push(convId);
+      }
+      for (const userId of selectedUserIds) {
+        let conv = findDirectWith(userId);
+        if (!conv) {
+          conv = await ChatRepository.createConversation(currentUserId, {
+            type: ChatConversationType.DIRECT,
+            participant_ids: [userId],
+          });
+          upsertConversation(conv);
+        }
+        await ChatRepository.sendMessage(currentUserId, buildCreateData(conv.id));
+        destinations.push(conv.id);
+      }
+      if (destinations.length) setSelectedConversation(destinations[0]);
+      setDone(true);
+      window.setTimeout(() => onClose(), 800);
     } catch (err) {
       console.error('Failed to forward message:', err);
       setError(t('forwardFailed'));
@@ -164,7 +176,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={() => !sending && onClose()}
+      onClick={() => !sending && !done && onClose()}
     >
       <div
         className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800"
@@ -175,7 +187,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
           <button
             type="button"
             onClick={onClose}
-            disabled={sending}
+            disabled={sending || done}
             className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             aria-label={t('cancel')}
           >
@@ -257,13 +269,16 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
             ) : (
               chats.map((c) => {
                 const name = getConversationDisplayName(c, currentUserId, users);
+                const selected = selectedConvIds.includes(c.id);
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    disabled={sending}
-                    onClick={() => forwardToConv(c.id)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60"
+                    disabled={sending || done}
+                    onClick={() => toggle(selectedConvIds, setSelectedConvIds, c.id)}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 ${
+                      selected ? 'bg-blue-50 dark:bg-gray-700/70' : ''
+                    }`}
                   >
                     {renderAvatar(c, undefined, name)}
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-white">
@@ -274,6 +289,15 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
                         {(c.participants || []).length}
                       </span>
                     )}
+                    <span
+                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
+                        selected
+                          ? 'border-blue-500 bg-blue-500 text-white'
+                          : 'border-gray-300 dark:border-gray-500'
+                      }`}
+                    >
+                      {selected && <Check className="h-3 w-3" />}
+                    </span>
                   </button>
                 );
               })
@@ -283,19 +307,30 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
           ) : (
             contacts.map((u) => {
               const name = getUserDisplayName(u);
+              const selected = selectedUserIds.includes(u.id);
               return (
                 <button
                   key={u.id}
                   type="button"
-                  disabled={sending}
-                  onClick={() => forwardToUser(u.id)}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60"
+                  disabled={sending || done}
+                  onClick={() => toggle(selectedUserIds, setSelectedUserIds, u.id)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 ${
+                    selected ? 'bg-blue-50 dark:bg-gray-700/70' : ''
+                  }`}
                 >
                   {renderAvatar(undefined, u, name)}
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-white">
                     {name}
                   </span>
-                  <span className="flex-shrink-0 text-xs text-gray-400">{t('newChat')}</span>
+                  <span
+                    className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
+                      selected
+                        ? 'border-blue-500 bg-blue-500 text-white'
+                        : 'border-gray-300 dark:border-gray-500'
+                    }`}
+                  >
+                    {selected && <Check className="h-3 w-3" />}
+                  </span>
                 </button>
               );
             })
@@ -307,12 +342,29 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
             {error}
           </div>
         )}
-        {sending && (
-          <div className="flex items-center justify-center gap-2 border-t border-gray-200 py-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-300">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {t('forwardSending')}
-          </div>
-        )}
+
+        <div className="flex items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+          <span className="text-sm text-gray-500 dark:text-gray-300">
+            {count > 0 ? t('forwardSelected', { n: count }) : t('forwardNone')}
+          </span>
+          <button
+            type="button"
+            disabled={count === 0 || sending || done}
+            onClick={handleSend}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              done ? 'bg-green-500' : 'bg-blue-500 hover:bg-blue-600'
+            }`}
+          >
+            {done ? (
+              <Check className="h-4 w-4" />
+            ) : sending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            {done ? t('forwardDone') : sending ? t('forwardSending') : t('send')}
+          </button>
+        </div>
       </div>
     </div>
   );

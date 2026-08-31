@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
@@ -10,6 +10,8 @@ import Sidebar from './Sidebar';
 import ChatPane from './ChatPane';
 
 export const ChatLayout = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const { user: clerkUser, isLoaded } = useUser();
   const {
     currentUserId,
@@ -84,6 +86,14 @@ export const ChatLayout = () => {
     onConversationsChanged
   );
 
+  useEffect(() => {
+    if (!selectedConversationId) return;
+    if (window.matchMedia('(min-width: 768px)').matches) return;
+    // Close the mobile drawer the moment a conversation is picked.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSidebarOpen(false);
+  }, [selectedConversationId]);
+
   if (!isLoaded || !currentUserId) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -94,10 +104,20 @@ export const ChatLayout = () => {
 
   return (
     <div className="chat-layout flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900">
-      <Sidebar className="border-r border-gray-200 dark:border-gray-700" />
+      <>
+        {sidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 z-30 bg-black/50 md:hidden" />}
+        <div
+          className={`absolute z-40 inset-y-0 left-0 transform transition-transform duration-200 md:static md:transform-none ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
+        >
+          <Sidebar className="h-full border-r border-gray-200 dark:border-gray-700" />
+        </div>
+      </>
       <ChatPane
-        className="border-l border-gray-200 dark:border-gray-700"
+        className="flex-1 min-w-0 border-l border-gray-200 dark:border-gray-700"
         sendTyping={sendTyping}
+        onMenuToggle={() => setSidebarOpen((v) => !v)}
       />
     </div>
   );

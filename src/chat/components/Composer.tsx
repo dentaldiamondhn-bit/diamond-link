@@ -4,10 +4,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bold,
   Camera,
+  Code2,
   CornerDownRight,
   FileText,
   Image as ImageIcon,
   Italic,
+  List,
+  ListOrdered,
   Mic,
   Paperclip,
   Pause,
@@ -35,12 +38,17 @@ import {
   LexicalEditor,
   $createTextNode,
   $getRoot,
+  $getSelection,
+  $isRangeSelection,
 } from 'lexical';
 import { HeadingNode } from '@lexical/rich-text';
-import { ListNode, ListItemNode } from '@lexical/list';
-import { $generateHtmlFromNodes } from '@lexical/html';
+import { ListNode, ListItemNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
+import { CodeNode, $createCodeNode } from '@lexical/code-core';
+import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { htmlToText } from '@/chat/utils';
+import { MentionNode } from '@/chat/mentionNode';
+import MentionPlugin from './MentionPlugin';
 import EmojiPicker from './EmojiPicker';
 import AttachmentTray from './AttachmentTray';
 import type { PendingAttachment } from './AttachmentTray';
@@ -208,6 +216,35 @@ const LexicalToolbar = ({
 
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
 
+        {formatButton('List', () => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined), <List className="h-4 w-4" />)}
+        {formatButton('Ordered List', () => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined), <ListOrdered className="h-4 w-4" />)}
+        <button
+          type="button"
+          title="Code"
+          onClick={() => {
+            editor.update(() => {
+              const sel = $getSelection();
+              if (!$isRangeSelection(sel)) return;
+              const node = sel.anchor.getNode();
+              const parent = node.getParent();
+              const inCode = parent instanceof CodeNode;
+              if (inCode) {
+                const root = $getRoot();
+                root.append($createTextNode('\n'));
+              } else {
+                const code = $createCodeNode();
+                const text = $createTextNode(sel.getTextContent());
+                code.append(text);
+                sel.insertNodes([code]);
+              }
+            });
+            editor.focus();
+          }}
+          className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+        >
+          <Code2 className="h-4 w-4" />
+        </button>
+
         <div className="relative">
           <button
             type="button"
@@ -372,6 +409,45 @@ const EnterToSendPlugin = ({ onSend }: { onSend: () => void }) => {
   return null;
 };
 
+/** Restores a saved HTML draft into the editor once it mounts (or the target
+ *  conversation changes), then clears itself so typing takes over. */
+const DraftLoader = ({
+  draftKey,
+  onLoaded,
+}: {
+  draftKey: string | null;
+  onLoaded?: () => void;
+}) => {
+  const [editor] = useLexicalComposerContext();
+  const loadedKey = useRef<string | null>(null);
+  const onLoadedRef = useRef(onLoaded);
+  onLoadedRef.current = onLoaded;
+
+  useEffect(() => {
+    if (!draftKey || loadedKey.current === draftKey) return;
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(draftKey);
+    } catch {
+      /* ignore */
+    }
+    if (saved) {
+      editor.update(() => {
+        const doc = new DOMParser().parseFromString(saved, 'text/html');
+        const nodes = $generateNodesFromDOM(editor, doc);
+        const root = $getRoot();
+        root.clear();
+        for (const node of nodes) root.append(node);
+      });
+    }
+    loadedKey.current = draftKey;
+    onLoadedRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  return null;
+};
+
 export const Composer = ({
   conversationId,
   onSend,
@@ -402,6 +478,7 @@ export const Composer = ({
   const htmlRef = useRef('');
   const editorRef = useRef<LexicalEditor | null>(null);
   const pendingRef = useRef<PendingAttachment[]>([]);
+  const draftKey = conversationId ? `chat-draft:${conversationId}` : null;
   useEffect(() => {
     pendingRef.current = pending;
   }, [pending]);
@@ -436,11 +513,19 @@ export const Composer = ({
       editorRef.current = editor;
       const text = editorState.read(() => $getRoot().getTextContent());
       textRef.current = text;
-      htmlRef.current = editorState.read(() => $generateHtmlFromNodes(editor, null));
+      const html = editorState.read(() => $generateHtmlFromNodes(editor, null));
+      htmlRef.current = html;
       setTextContent(text);
+      if (draftKey) {
+        try {
+          localStorage.setItem(draftKey, html);
+        } catch {
+          /* private mode etc. */
+        }
+      }
       if (text.trim()) onTyping();
     },
-    [onTyping]
+    [onTyping, draftKey]
   );
 
   // Stage selected files into the storage overlay (no upload yet).
@@ -507,6 +592,13 @@ export const Composer = ({
         if (content) {
           clearEditor();
           await onSend(htmlContent, [], replyId);
+          if (draftKey) {
+            try {
+              localStorage.removeItem(draftKey);
+            } catch {
+              /* ignore */
+            }
+          }
         }
         return;
       }
@@ -528,12 +620,19 @@ export const Composer = ({
       for (const [caption, atts] of groups) {
         void onSend(caption, atts, replyId);
       }
+      if (draftKey) {
+        try {
+          localStorage.removeItem(draftKey);
+        } catch {
+          /* ignore */
+        }
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
     } finally {
       setSending(false);
     }
-  }, [disabled, sending, conversationId, pending, onSend, replyTo, clearEditor]);
+  }, [disabled, sending, conversationId, pending, onSend, replyTo, clearEditor, draftKey]);
 
   if (!conversationId) return null;
 
@@ -599,14 +698,14 @@ export const Composer = ({
           initialConfig={{
             namespace: 'ChatComposer',
             theme: EDITOR_THEME,
-            nodes: [HeadingNode, ListNode, ListItemNode],
+            nodes: [HeadingNode, ListNode, ListItemNode, CodeNode, MentionNode],
             onError: (error) => console.error('Lexical Error:', error),
           }}
         >
           <div className="relative">
             <RichTextPlugin
               contentEditable={
-                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" data-chat-composer />
               }
               placeholder={
                 <div className="absolute top-2 left-3 pointer-events-none italic text-gray-400 dark:text-gray-500 text-sm">
@@ -619,6 +718,18 @@ export const Composer = ({
           {replyTo && (
             <div className="flex items-center gap-2 px-3 py-1.5 mb-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-sm">
               <CornerDownRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />
+              {(() => {
+                const thumb = (replyTo.attachments || []).find((a) =>
+                  a.file_type.startsWith('image/')
+                );
+                return thumb ? (
+                  <img
+                    src={thumb.file_url}
+                    alt=""
+                    className="h-8 w-8 flex-shrink-0 rounded object-cover"
+                  />
+                ) : null;
+              })()}
               <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-200">
                 <span className="text-xs font-medium text-blue-500 dark:text-blue-400">
                   {t('replyingTo')}
@@ -638,6 +749,8 @@ export const Composer = ({
           <HistoryPlugin />
           <OnChangePlugin onChange={handleChange} />
           <EnterToSendPlugin onSend={send} />
+          <MentionPlugin />
+          <DraftLoader draftKey={draftKey} />
           <div className="flex items-center justify-between mt-2 gap-3">
             <LexicalToolbar
               textContent={textContent}

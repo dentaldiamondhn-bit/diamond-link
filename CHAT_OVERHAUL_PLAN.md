@@ -4,7 +4,7 @@ Tracking document for the chat suite overhaul. Contains the **original matrix
 phase plan** (Fluxer-inspired chat for Dental Diamond Link) verbatim, overlaid
 with current build status, per-phase progress, and next steps.
 
-> Last updated: 2026-08-28 · Latest commit: `<next>` (read-checkmark blue fix + Phase 2 typing indicator) · branch `master` (pushed, up to date with `origin/master`)
+> Last updated: 2026-08-31 · Latest commits: `41633ad` (copy/forward, media progress, echo dedupe, Tailwind `src/` fix, tile sizes, tray inset) · branch `master` (local; several fix commits since the last push)
 
 ---
 
@@ -132,6 +132,18 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 
 | Request | Status |
 |---|---|
+| Media tile / collage oversized bubbles fix | ✅ Root cause = **Tailwind `content` glob missing `./src/`** → every arbitrary-value class used only in `src/chat/` (`h-[32px]`, `w-[56px]`, `max-w-[75%]`, …) emitted no CSS; tiles fell back to `aspect-ratio:1/1` and grew to 119px. Added `"./src/**/*.{js,ts,jsx,tsx,mdx}"` to `tailwind.config.js`; required dev-server restart. Proof-rendered before/after in headless Chrome (119×119 → 32×32) |
+| Larger image tiles per request | ✅ Collage final sizes: single `h-[150px] w-[150px]`; 2-image `w-[255px]`; 3-image `h-[255px] w-[405px]`; 4+ `w-[255px]`; doc/file chips `max-w-[430px]` |
+| Send-duplicate preview | ✅ Realtime INSERT handler finds the same-conversation `local_state:'pending'` own message and `removeMessage(s)` it *before* `addMessage(resolved,…)` |
+| Remove "Sin contenido" fallback | ✅ `chatService.ts` both sites + `app/(auth)/chat/page.tsx` store empty vs fallback; 0 hits in served bundle |
+| Truncated reaction bar | ✅ `overflow-x-auto` on the reaction strip; action menu `maxHeight:'min(430px, calc(100vh - 16px))'` + `overflowY:'auto'`; `ACTION_MENU_HEIGHT_PX` 300→430 |
+| Action menu closes when scrolling *inside* it | ✅ Close-on-scroll handler now ignores scroll events whose target is inside the menu (`actionMenuRef` guard) — reaction strip / action list scroll correctly without closing; outer chat scroll still closes |
+| Copy message action | ✅ `handleCopy` (Clipboard API + textarea fallback; copies content → attachment URLs → voice URL) + `Copy` button in the action menu |
+| Forward message action | ✅ New `ForwardModal` (chats/contacts tabs, search, message preview chip) → then enhanced to **multi-recipient** selection with check-circles + highlighted rows, footer `{n} selected`, and a **Send button icon → spinner → green check "Enviado"** confirmation (800 ms) before closing; contacts reuse an existing direct when present else create `DIRECT` |
+| Reply bubble shows image snippet | ✅ In-thread reply quote renders a 24px rounded thumbnail when the quoted message has image attachments (`replyPreviewThumb`); the composer "Replying to…" strip also shows a 32px thumbnail |
+| Optimistic progress pill only for media | ✅ `local_state:'pending'` pill gated to `image`/`file`/`voice` (no pill on text sends) |
+| Attachment tray closer to bottom | ✅ Root `pb-[max(1.6rem,8%)]` → `pb-[max(1.28rem,6.4%)]` (composer ~20% lower) |
+| Notification shows raw `<p>…<span>…</span>…</p>` HTML | ✅ `chatService.sendMessage` notification `message` now runs through `stripHtml()` (regex tag-strip) so in-app/browser notifications store plain `Hello!` (new messages only; old rows still hold HTML) |
 | Single `^` toggle per message | ✅ Chevron inside each bubble (sender + receiver), revealed on hover; usable on touch (`opacity-40` default) |
 | Replace reaction-tray `+` trigger and inline action buttons | ✅ One popover: quick reactions + divider + frequent + `+` full picker, then Reply/Edit/Delete |
 | Chevron placement consistent | ✅ **Inside** the text bubble after content, uniform `gap-1.5` character gap — same for all messages |
@@ -161,28 +173,29 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 | WhatsApp-style attachment tray | ✅ New `AttachmentTray` component: selecting files (paperclip or drag&drop) populates a preview tray above the composer (image thumbnails / document icon + name + size), with chevron navigation + `n/N` counter for multi-file picks and per-file remove; the text input stays editable below (caption). Uploads moved from selection-time to **send-time** (staged `PendingAttachment` with object URLs, revoked on remove/clear/unmount/conversation switch) |
 | Stale-participant reads fix | ✅ Root cause: `getMessageReadStatus` counted **every** non-self read row for `need` (`Math.max(otherParticipantCount, readCount, deliveredCount)`), so stale `chat_message_reads` rows from users who are no longer participants (e.g. removed/legacy users) inflated `need` to 2 in a direct chat — the partner reading only satisfied 1 → bubble/list stayed grey "delivered" forever, "won't change to blue". Now it classifies **only against the current other participants** (`otherParticipantIds`, filtered by `Set`); `need` = participant count, stale rows ignored |
 | Open-chat scroll-to-bottom fix | ✅ Root cause: `react-window` renders rows top-first using the default estimated height (`48px`) and measures real heights asynchronously (`ResizeObserver`); the mount `scrollToRow` computed the offset from **estimated** heights — short chats even resolved `scrollTop: 0` → the chat opened at the top. `pinListToBottom` re-pins `scrollTop = scrollHeight` each frame until the measured heights integrate and the bottom stays settled for ≥8 consecutive frames (aborts on user wheel/touch, 3 s cap) — verified in headless Chrome against the exact `react-window` build for both 10-row and 200-row chats: `scrollTop === maxScrollTop` and the last row sits at the viewport bottom |
-| Commit | ✅ `021ad84` (virtualization), read receipts committed with it; checkmarks + read-receipt pipeline `99815aa`; group icon + default panel `7a5e89a`; full emoji library + list ticks `ce5d6c6`; blue read-checkmark fix + Phase 2 typing `d34d98e`; chat attachment upload fix `05a0634`; bubble double-blue ✓ + WhatsApp attachment tray `99961bd`; stale-participant reads fix `aa5ead4`; `<next>` (open-chat scroll-to-bottom) |
+| Commit | ✅ `021ad84` (virtualization), read receipts committed with it; checkmarks + read-receipt pipeline `99815aa`; group icon + default panel `7a5e89a`; full emoji library + list ticks `ce5d6c6`; blue read-checkmark fix + Phase 2 typing `d34d98e`; chat attachment upload fix `05a0634`; bubble double-blue ✓ + WhatsApp attachment tray `99961bd`; stale-participant reads fix `aa5ead4`; open-chat scroll-to-bottom + action menu pinning `756e854`; **copy/forward + media progress + echo dedupe + Tailwind `src/` fix + tile sizes + tray inset `41633ad`** |
 
 ### Work State
 
-**Completed**
+ **Completed**
+- **Phase 1 (~100%)** — keyboard navigation in the conversation sidebar (ArrowDown/Up/Home/End via `handleListKeyDown` + `scrollIntoView`, `<li role="presentation"><button role="option" aria-selected data-conv-index>`, `onKeyDown`/`buttonRef` threading); **responsive `<md` sidebar** — `sidebarOpen`/`closeSidebar` in `ChatLayout`, fixed `z-30` overlay (`md:hidden`), collapsible `md`-only transform (`-translate-x-full md:static md:translate-x-0`, `z-40`), auto-close on selection on mobile, mobile-only `Menu` hamburger in `ChatHeader`.
 - **Phase 2 (100%)** — realtime consolidated in `useChatRealtime` (messages/conversations/participants/`chat_message_reads`/presence/typing broadcast); `reactions JSONB` + voice migration applied (`database/migrations/20260827_chat_extensions.sql`); **server-computed per-user unread counts** (`getConversations`); **`chat_message_reads` table + read-delivery upserts** (`markConversationRead`/`markDelivered`); **typing indicator UI** (`<TypingIndicator>` above composer + named labels in header/list, see log below).
-- **Phase 3 (partial 60%)** — Lexical composer (bold/italic/underline), drag-&-drop + multi-file upload, voice notes, **full emoji picker** (1870 emojis, category nav, sticky headers — also used for reactions), **optimistic send-clear**, reply-quote bar. Lists/code/mentions + draft persistence pending.
-- **Phase 4 (≈95%)** — grouping, reactions (one per user), unified hover action menu (above/below positioning), inline edit, **quote/reply fully wired** (composer quote bar → `reply_to_id` → bubble preview `Sender: snippet` → click-to-jump with highlight), **virtualized `<MessageList>`** (react-window v2 dynamic heights, per-conversation reset, scroll-to-latest / jump-to-row), **read-receipt avatars + WhatsApp ✓/✓✓ checkmarks** (live via `chat_message_reads` realtime channel, incl. the conversation list under each timestamp), default no-chat-selected panel + gray users-icon group avatars.
-- **Phase 7 (partial)** — i18n layer (`en`/`es`, typed keys incl. `moreActions`, `replyingTo`, `typingMulti`, emoji category names).
-- **Production** — feature flag activated (`NEXT_PUBLIC_USE_NEW_CHAT=true`), Vercel deploy green, `GET_LOGS` route fixed, `.eslintcache` gitignored, action-menu refactor shipped.
-- Commits: `<next>` (blue read-checkmark fix + Phase 2 typing indicator), `ce5d6c6` (full emoji library + list ticks), `7a5e89a` (group icon + default panel), `99815aa` (checkmarks + read-receipt pipeline), `7920a4a`, `cc3d538`, `08c0702`, `021ad84`, `b6e8ce6`, `e2aaa6b`, `35b3bdf`, `9455116`, `23d4563`, `6475b67`, `1e9ffbe`, `16600bb`.
+- **Phase 3 (≈100%)** — Lexical composer (bold/italic/underline), drag-&-drop + multi-file upload, voice notes, **full emoji picker** (1870 emojis, category nav, sticky headers — also used for reactions), **optimistic send-clear**, reply-quote bar, **staged attachment tray**, **lists/code toolbar** (`@lexical/list` unordered/ordered + `@lexical/code-core` `CodeNode`, Tailwind `code`/`pre` styles), **@mentions** (`MentionNode` DecoratorNode → `<span class="chat-mention">`, `MentionPlugin` @… dropdown with Arrow/Tab pick + commit), **draft persistence** (`chat-draft:{conversationId}` localStorage, restore via `$generateNodesFromDOM`, cleared on sent).
+- **Phase 4 (≈97%)** — grouping, reactions (one per user), unified hover action menu (above/below positioning, **Copy/Forward/Reply/Edit/Delete**), inline edit, **quote/reply fully wired** (composer quote bar → `reply_to_id` → bubble preview `Sender: snippet` + **image snippet thumbnail** → click-to-jump with highlight), **virtualized `<MessageList>`** (react-window v2 dynamic heights, per-conversation reset, scroll-to-latest / jump-to-row), **read-receipt avatars + WhatsApp ✓/✓✓ checkmarks**, default no-chat-selected panel + gray users-icon group avatars, **multi-recipient Forward modal with send confirmation**.
+- **Phase 7 (partial ~55%)** — i18n layer (`en`/`es`, typed keys incl. `moreActions`, `replyingTo`, `typingMulti`, `copyMessage`, `forward*`, `forwardSelected`, `forwardNone`, `forwardDone`, emoji category names).
+- **Production** — feature flag activated (`NEXT_PUBLIC_USE_NEW_CHAT=true`), Vercel deploy green, `GET_LOGS` route fixed, `.eslintcache` gitignored, action-menu refactor shipped, **Tailwind `src/` content fix** (oversized-collage root cause).
 
-**Active**
-- Verify on `app.dentaldiamondhn.com` (next deploy): read ticks turn **blue** when the recipient opens the chat (requires running `20260828b_chat_message_reads_replica_identity.sql` in Supabase; client fallback makes it work even before, per message), and the typing indicator (dots + name) shows above the composer / in header / in the list while the other user types.
+ **Active**
+- Confirm the full batch on screen (hard refresh): keyboard nav + mobile sidebar toggle (Phase 1), list/code/@mention toolbar + draft restore (Phase 3), multi-recipient Forward + send-confirmation, action-menu-internal scroll fix, reply image snippet, notification HTML strip, tray composer inset.
 
 **Blocked**
 - Full local `npm run build` still stalls at 4GB heap in the dev container (approved gate: `tsc` + ESLint; Vercel is the functional build check and is green).
 - Phases 5 (push), 6 (PWA), 9 (bundle), 10 (QA/rollout) not started.
+- Latest push to `origin/master` predates this batch; still to push after commit.
 
 ### Next Move
-1. Apply `database/migrations/20260828b_chat_message_reads_replica_identity.sql` in Supabase (SQL editor) — makes read UPDATE payloads full-row (blue ticks live without the extra per-event re-fetch).
-2. **Phase 3** leftovers (lists / code / mentions) — skip if not needed.
+1. Commit + push this batch (Phase 1 + Phase 3 + earlier fixes: multi-recipient ForwardModal, action-menu-internal scroll fix, reply image snippet, notification HTML strip, tray inset) once confirmed on screen.
+2. Apply `database/migrations/20260828b_chat_message_reads_replica_identity.sql` in Supabase (SQL editor) — makes read UPDATE payloads full-row (blue ticks live without the extra per-event re-fetch).
 3. Start **Phase 5** (push notifications / Service Worker) — the biggest remaining user-facing win.
 4. Then **Phase 6 / 9** (PWA installability, bundle splitting), and finally **Phase 10** QA/rollout (deactivate-flag hammer + regression pass).
 5. Keep the gate: `npx tsc --noEmit` + scoped ESLint below.
@@ -194,18 +207,22 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/chat --cache --format st
 ```
 
 ### Relevant Files
-- `src/chat/components/MessageList.tsx` — react-window v2 virtualized list (`List` + `useDynamicRowHeight` + `useListCallbackRef`), grouping, unified action menu, reactions, reply preview bar, click-to-jump + highlight, read-receipt avatars on last-mine message; reaction picker uses the full `EmojiPicker`.
-- `src/chat/components/EmojiPicker.tsx` + `src/chat/data/emojiLibrary.ts` — full Unicode emoji picker (1870 emojis, 8 categories, category nav + sticky headers); library generated from `@emoji-mart/data` (commit `<next>`).
-- `src/chat/components/Composer.tsx` — Lexical editor, reply-quote bar (`replyTo`/`onCancelReply`), full emoji picker (`Smile`), optimistic send-clear, drag-drop upload, voice note.
+- `src/chat/components/MessageList.tsx` — react-window v2 virtualized list (`List` + `useDynamicRowHeight` + `useListCallbackRef`), grouping, unified action menu (**Copy/Forward/Reply/Edit/Delete**), reactions, reply preview bar **with image snippet thumbnail**, click-to-jump + highlight, read-receipt avatars on last-mine message, action-menu-internal scroll guard (`actionMenuRef`); reaction picker uses the full `EmojiPicker`.
+- `src/chat/components/EmojiPicker.tsx` + `src/chat/data/emojiLibrary.ts` — full Unicode emoji picker (1870 emojis, 8 categories, category nav + sticky headers); library generated from `@emoji-mart/data`.
+- `src/chat/components/ForwardModal.tsx` — **multi-recipient forward modal** (chats/contacts tabs, check-circle selection, footer `{n} selected`, Send button icon → spinner → green-check "Enviado" confirmation; reuses an existing direct or creates `DIRECT`).
+- `src/chat/components/Composer.tsx` — Lexical editor, reply-quote bar (`replyTo`/`onCancelReply`, **with thumbnail snippet**), full emoji picker (`Smile`), **lists/code toolbar** (`@lexical/list` + `@lexical/code-core`), **`DraftLoader` draft persistence** (`chat-draft:{conversationId}`), optimistic send-clear, drag-drop upload, voice note.
+- `src/chat/components/Sidebar.tsx` — keyboard nav (`listRef`/`itemRefs`/`handleListKeyDown`, Arrow/Home/End + `scrollIntoView`); `ConversationListItem` renders `li>button` with `aria-selected`/`data-conv-index` + `onKeyDown`/`buttonRef`.
+- `src/chat/mentionNode.ts` + `src/chat/components/MentionPlugin.tsx` — **@mention**: `MentionNode` (DecoratorNode → `<span class="chat-mention">@Name`), `MentionPlugin` (registerUpdateListener `@query` detection, `position:fixed` dropdown filtered against store users, Arrow/Tab nav, commits `$createMentionNode` + space).
 - `src/chat/components/ChatPane.tsx` — `replyTo` state, `handleSend` passes `reply_to_id`, flex root, mark-as-read on conversation open; message-list remount per conversation (`key`).
 - `src/chat/hooks/useChatRealtime.ts` — consolidated realtime (messages/conversations/participants/**`chat_message_reads`**/presence/typing) + mark-as-read on delivery while open.
-- `src/services/chatService.ts` — `reply_to:chat_messages(id, content)` select (no `users` embed — no FK), per-user unread counts from `last_read_at`, `getReadsByConversation` + `attachReads`, centralized `markConversationRead` (last_read_at + `chat_message_reads` upserts); `getConversations` attaches reads to `last_message` for list ticks.
+- `src/services/chatService.ts` — `reply_to:chat_messages(id, content)` select (no `users` embed — no FK), per-user unread counts from `last_read_at`, `getReadsByConversation` + `attachReads`, centralized `markConversationRead` (last_read_at + `chat_message_reads` upserts), `getConversations` attaches reads to `last_message` for list ticks, and **`stripHtml` on notification `message`** (no raw Lexical `<p>…` in notifications).
+- `tailwind.config.js` — **`content` now includes `./src/**/*.{js,ts,jsx,tsx,mdx}`** (root cause of the oversized-collage/arbitrary-class bug: without it `src/chat` classes emitted no CSS).
 - `src/chat/repository.ts` — data layer (messages, conversations, `markAsRead` → `markConversationRead`).
 - `src/chat/store/chatStore.ts` — Zustand store (Phase 1); `users` map for client-side sender lookup; `upsertMessageRead` merges live read receipts into messages **and** the conversation `last_message` (list ticks live even before opening a chat).
 - `src/chat/utils.ts` — shared `getMessageReadStatus` (sent/delivered/read) used by bubbles + chat list; `getTypingUserIds` + `getTypingLabel` (typing indicator names).
-- `src/chat/i18n/translations.ts` + `useTranslations.ts` — `moreActions`, `replyingTo`, `typing`, `typingMulti`, `typingAndMore`, emoji category names (`en`/`es`).
+- `src/chat/i18n/translations.ts` + `useTranslations.ts` — `moreActions`, `replyingTo`, `typing`, `typingMulti`, `typingAndMore`, `copyMessage`, `forward`/`forwardTitle`/`forwardChats`/`forwardContacts`/`forwardSelected`/`forwardNone`/`forwardDone`/`forwardSending`/`forwardFailed`/`searchRecipient`/`noResults`, emoji category names (`en`/`es`).
 - `src/chat/components/TypingIndicator.tsx` — WhatsApp-style dots + named label above the composer (Phase 2).
-- `src/chat/components/AttachmentTray.tsx` — WhatsApp-style attachment preview tray (thumbnails/icon, chevron navigation, `n/N` counter, per-file remove) — Phase 3.
+- `src/chat/components/AttachmentTray.tsx` — WhatsApp-style attachment preview tray (thumbnails/icon, chevron navigation, `n/N` counter, per-file remove, composer inset `pb-[max(1.28rem,6.4%)]`) — Phase 3.
 - `src/chat/components/Composer.tsx` — Lexical editor, reply-quote bar, **attachment tray staging** (upload on send), optimistic send-clear, drag-drop upload, voice note, full emoji picker.
 - `src/chat/hooks/useChatRealtime.ts` — consolidated realtime **including the read-receipt fallback** (re-fetch row by `id` when an UPDATE payload lacks `message_id`/`user_id`) and the hardened `chat_messages` UPDATE handler.
 - `src/chat/components/ChatLayout.tsx` — `h-full` root, bootstrap, debounced reload.
@@ -220,3 +237,43 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/chat --cache --format st
 - `next.config.js` / `package.json` — `eslint.ignoreDuringBuilds`, 8GB build heap.
 - `app/api/agent/file-access/route.ts`, `app/api/logs/route.ts`, `src/lib/file-access-log-store.ts` — file-access tracking (Phase 0/10 tooling).
 - `src/types/chat.ts` — `ChatMessageRead` type + `reads` field on `ChatMessage`.
+
+---
+
+## 6. Current Build vs Original Plan — Comparison & Gaps
+
+Fresh snapshot (2026-08-31) mapping the **original phase target** to what the current
+`src/chat/**` build actually delivers, and what is still missing.
+
+### Phase-level status vs original matrix
+
+| Phase | Original target | Current build | Status | Missing to be "complete" |
+|-------|-----------------|---------------|--------|--------------------------|
+| **0 – Preparation** | Tooling, `/src/chat`, chat API wrapper, lint | `src/chat/` + repository/service layers, ESLint/tsc gate | ✅ | – |
+| **1 – Layout & Nav** | Split layout, virtualized list, store, responsive, keyboard nav | `ChatLayout`→`Sidebar`/`ChatPane` (Header, virtualized `MessageList`, `Composer`), Zustand store, **keyboard nav (Arrow/Home/End) + responsive `<md` sidebar toggle** | ✅ ~100% | – |
+| **2 – Message Model & Realtime** | Unified realtime, reactions, read/delivery receipts, typing | `useChatRealtime` (msgs/convs/participants/reads/presence/typing), `reactions JSONB`, `chat_message_reads` upserts, typing indicator, blue ✓/✓✓ | ✅ 100% | `REPLICA IDENTITY FULL` migration (`20260828b`) needs running in Supabase for fully-live blue ticks (client fallback covers it otherwise); `delivered_at` field minimal |
+| **3 – Rich-Text Composer** | Lexical (bold/italic/underline, lists, code, quotes, @mentions, attach preview, Ctrl+Enter), optimistic | Lexical (bold/italic/underline, **lists/code toolbar**, **@mentions**), reply-quote bar, drag-&-drop + multi-file upload, voice notes, full emoji picker, **optimistic send-clear**, **draft persistence**, staged attachment tray | ✅ ~100% | Ctrl+Enter explicit handling (Enter default) |
+| **4 – Message UI Enhancements** | Grouping, reactions, hover menu, edit, reply w/ preview + jump, read-receipt avatars | Grouping, one-per-user reactions, unified above/below action menu (Copy/Forward/Reply/Edit/Delete), inline edit, quote/reply preview **with image snippet** + click-to-jump, read-receipts + ✓/✓✓ | ✅ ~97% | `edited_at` surfaced only via `is_edited` label (already implemented) |
+| **5 – Notifications & Push** | Web-Push: SW + VAPID, offline/background/Android tray | `showBrowserNotification` (focused tab) + in-app notifications; old `public/sw.js` (hash cache) — no VAPID/push/subscription table | ⏳ 10% | VAPID pair, `push_subscriptions` table, `/api/push/subscribe`, SW `push` handler + Web-Push send, background/closed-tab push, Android tray |
+| **6 – PWA & Installability** | Manifest, offline caching, install prompt | Dev-only localhost SW-kill; **no** manifest / offline shell / install prompt | ⏳ 0% | `manifest.json`, Workbox/precache shell, `beforeinstallprompt`, offline banner + queue |
+| **7 – Theming / Dark Mode / I18n** | Design tokens + en/es | i18n layer (`en`/`es`, typed `TranslationKey`) fully wired incl. latest keys (`copyMessage`, `forward*`, `forwardSelected`, `forwardNone`, `forwardDone`); dark mode via existing theme context (partial) | ◑ ~55% | Design-token system (`color-system.css`), language selector UI, full dark-mode token coverage |
+| **8 – Accessibility & Polish** | WCAG AA, live regions, focus traps, shortcuts | Basic ARIA/labels, buttons | ◑ ~20% | `aria-live` new-message region, focus traps in modals/pickers, Ctrl+K/Alt-Arrow shortcuts, skip-link |
+| **9 – Performance & Bundle** | Code-splitting, lazy composer/list, chat-only chunk | Virtualized list; **no** dynamic import of the chat suite / lazy Lexical (everything bundled into the chat page chunk) | ◑ ~20% | `dynamic(() => import(...))`, lazy `RichTextComposer`/`EmojiPicker`, chat-only CSS chunk, `next-bundle-analyzer` |
+| **10 – QA, Migration & Roll-out** | Test matrix, rollback, feature-flag rollout | Feature flag `NEXT_PUBLIC_USE_NEW_CHAT` active; migrations written; headless-Chrome proofing | ◑ ~30% | Cross-browser/device test matrix, offline queue test, rollback doc, changelog |
+
+### Aggregate estimate
+
+| Original plan total | Original plan via Fluxer-host (`-` UI-heavy phases) | Current delivered | Remaining |
+|---------------------|-----------------------------------------------------|-------------------|-----------|
+| ≈ 40 person-days | ≈ 15–20 person-days | Phases 0,1,2,3,4 (+ ~55% of 7) ≈ **~27–30 person-days** | Phases 5,6,9 (≈ 10–12 person-days) + Phase 10 + the 7/8 leftovers ≈ **~10–13 person-days** |
+
+### Biggest remaining user-facing wins (gap → priority)
+
+1. **Phase 5 – Push notifications** — the largest gap and highest user value: real
+   Web-Push so messages reach the user when the tab is closed / on Android tray.
+2. **Phase 9 – Bundle splitting** — lazy-load the chat suite + Lexical to cut first-load for every page.
+3. **Phase 6 – PWA installability + offline** — manifest + offline shell + send queue.
+4. **Phase 7/8 – i18n selector, dark-mode tokens, a11y** — polish/hardening; lower priority unless required for WCAG compliance.
+
+### Recent commits (this batch)
+`41633ad` (copy/forward + media-progress + echo dedupe + Tailwind `src/` fix + tile sizes + tray inset). The next batch — **Phase 1 keyboard-nav + responsive sidebar, Phase 3 lists/code/@mentions/draft, multi-recipient `ForwardModal`, action-menu-internal scroll, reply image snippet, notification HTML strip** — is staged as uncommitted working-tree changes (see `git status`).

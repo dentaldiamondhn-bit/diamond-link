@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, MoreVertical, Users as UsersIcon } from 'lucide-react';
+import { Menu, Search, MoreVertical, Users as UsersIcon } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import {
@@ -16,9 +16,10 @@ import {
 interface ChatHeaderProps {
   conversationId: string | null;
   className?: string;
+  onMenuToggle?: () => void;
 }
 
-export const ChatHeader = ({ conversationId, className = '' }: ChatHeaderProps) => {
+export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: ChatHeaderProps) => {
   const { t } = useTranslations();
   const { conversations, users, presence, typing, currentUserId } = useChatStore();
   const conversation = conversations.find((c) => c.id === conversationId);
@@ -47,6 +48,15 @@ export const ChatHeader = ({ conversationId, className = '' }: ChatHeaderProps) 
       className={`flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 ${className}`}
     >
       <div className="flex items-center gap-3 min-w-0">
+        <button
+          type="button"
+          onClick={onMenuToggle}
+          className="md:hidden p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex-shrink-0"
+          title={t('sidebarTitle')}
+          aria-label={t('sidebarTitle')}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
         <div className="relative flex-shrink-0">
           {conversation?.type === 'group' && !conversation.avatar_url ? (
             <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
