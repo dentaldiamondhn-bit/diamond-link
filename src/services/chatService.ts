@@ -66,11 +66,14 @@ export class ChatService {
     const { data: conversations, error } = await query;
     if (error) throw error;
 
-    // Fetch latest message per conversation (no FK, so we query separately)
+    // Fetch latest message per conversation (no FK, so we query separately).
+    // Exclude soft-deleted rows so a deleted bubble never shows as the sidebar
+    // preview when the list is (re)loaded.
     const { data: allRecentMessages } = await supabase
       .from('chat_messages')
       .select('id, content, sender_id, message_type, created_at, conversation_id')
       .in('conversation_id', convIds)
+      .is('is_deleted', false)
       .order('created_at', { ascending: false })
       .limit(200);
 
