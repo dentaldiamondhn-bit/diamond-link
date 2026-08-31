@@ -42,6 +42,7 @@ import VoiceMessageBubble from './VoiceMessageBubble';
 import EmojiPicker from './EmojiPicker';
 import MediaLightbox from './MediaLightbox';
 import ForwardModal from './ForwardModal';
+import MentionPopover from './MentionPopover';
 
 /** Renders plain text or sanitized formatted HTML message content. */
 const FormattedText = ({ text }: { text: string }) => {
@@ -154,6 +155,7 @@ interface RowProps {
   onCommitEdit: (msg: ChatMessage) => void;
   onEditContentChange: (value: string) => void;
   onOpenLightbox: (msg: ChatMessage, index: number) => void;
+  onMentionClick: (e: React.MouseEvent) => void;
 }
 
 const MessageRow = function MessageRow({
@@ -182,6 +184,7 @@ const MessageRow = function MessageRow({
     onCommitEdit,
     onEditContentChange,
     onOpenLightbox,
+    onMentionClick,
   } = rowProps;
   const datum = rows[index];
   if (!datum) return null;
@@ -513,7 +516,7 @@ const MessageRow = function MessageRow({
                 </button>
               )}
               <div className="flex items-center gap-1.5">
-                <div className="flex-1 min-w-0">{renderBubble(msg)}</div>
+                <div className="flex-1 min-w-0" onClick={onMentionClick}>{renderBubble(msg)}</div>
                 <button
                   onClick={(e) =>
                     actionMenuId === msg.id ? onCloseMenu() : onOpenMenu(msg.id, e)
@@ -604,7 +607,14 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const { users, currentUserId } = useChatStore();
 
   const [list, setList] = useListCallbackRef();
-  const rowHeight = useDynamicRowHeight({ defaultRowHeight: DEFAULT_ROW_HEIGHT });
+  // Reset the dynamic-height cache whenever the set of messages structurally
+  // changes (a message is added/removed). Without this, deleted rows leave stale
+  // index-keyed heights, so the row before a deletion renders at the wrong size.
+  const rowSignature = useMemo(
+    () => messages.map((m) => m.id).join('|'),
+    [messages]
+  );
+  const rowHeight = useDynamicRowHeight({ defaultRowHeight: DEFAULT_ROW_HEIGHT, key: rowSignature });
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [actionMenuFor, setActionMenuFor] = useState<{
@@ -620,6 +630,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
   const [deleteForId, setDeleteForId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [mentionCard, setMentionCard] = useState<{ userId: string; top: number; left: number } | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didInitialScroll = useRef(false);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
@@ -912,6 +923,21 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     setLightbox({ msg, index });
   }, []);
 
+  // Clicking a hyperlinked @mention in a bubble opens the WhatsApp-style user card.
+  const handleMentionClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const link = target.closest<HTMLAnchorElement>('a[data-mention-user-id]');
+    if (!link) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = link.getBoundingClientRect();
+    setMentionCard({
+      userId: link.getAttribute('data-mention-user-id') || '',
+      top: rect.bottom + 6,
+      left: rect.left,
+    });
+  }, []);
+
   // Scroll to latest on mount; afterwards only auto-scroll while the user is
   // already near the bottom (such as receiving a new message while reading).
   useEffect(() => {
@@ -951,6 +977,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       onCommitEdit: handleEdit,
       onEditContentChange: setEditingContent,
       onOpenLightbox: handleOpenLightbox,
+      onMentionClick: handleMentionClick,
     }),
     [
       rows,
@@ -971,6 +998,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       onCancelEdit,
       handleEdit,
       handleOpenLightbox,
+      handleMentionClick,
     ]
   );
 
@@ -1106,6 +1134,12 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       {forwardMsg && (
         <ForwardModal message={forwardMsg} onClose={() => setForwardMsg(null)} />
       )}
+
+      <MentionPopover
+        user={mentionCard ? users[mentionCard.userId] : undefined}
+        anchor={mentionCard ? { top: mentionCard.top, left: mentionCard.left } : null}
+        onClose={() => setMentionCard(null)}
+      />
 
       {deleteForMsg && (
         <div

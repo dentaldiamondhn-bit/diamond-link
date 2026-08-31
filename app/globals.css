@@ -596,16 +596,21 @@ pre code {
 }
 .dark pre { background: rgba(255, 255, 255, 0.08); }
 
-/* @mentions in composer and rendered messages */
+/* @mentions in composer and rendered messages (hyperlinked user) */
 .chat-mention {
   color: #2563eb;
   font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
   border-radius: 0.25rem;
+}
+.chat-mention:hover {
   background: rgba(37, 99, 235, 0.12);
-  padding: 0 0.15em;
 }
 .dark .chat-mention,
 .chat-mention:has([data-dark]) { color: #93c5fd; }
+.dark .chat-mention:hover,
+.chat-mention:hover:has([data-dark]) { background: rgba(147, 197, 253, 0.15); }
 
 
 }

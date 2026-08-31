@@ -51,6 +51,8 @@ import { MentionNode } from '@/chat/mentionNode';
 import MentionPlugin from './MentionPlugin';
 import EmojiPicker from './EmojiPicker';
 import AttachmentTray from './AttachmentTray';
+import { useChatStore } from '@/chat/store/chatStore';
+import { ChatConversationType } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
 import type { ChatMessage } from '@/types/chat';
 
@@ -469,6 +471,12 @@ export const Composer = ({
   className = '',
 }: ComposerProps) => {
   const { t } = useTranslations();
+  // @mentions are only offered inside group conversations, not 1:1 chats.
+  const mentionEnabled = useChatStore(
+    (s) =>
+      (s.conversations.find((c) => c.id === conversationId)?.type ?? null) ===
+      ChatConversationType.GROUP
+  );
   const [pending, setPending] = useState<PendingAttachment[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [textContent, setTextContent] = useState('');
@@ -749,7 +757,7 @@ export const Composer = ({
           <HistoryPlugin />
           <OnChangePlugin onChange={handleChange} />
           <EnterToSendPlugin onSend={send} />
-          <MentionPlugin />
+          <MentionPlugin enabled={mentionEnabled} />
           <DraftLoader draftKey={draftKey} />
           <div className="flex items-center justify-between mt-2 gap-3">
             <LexicalToolbar
