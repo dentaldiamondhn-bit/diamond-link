@@ -56,6 +56,49 @@ import { ChatConversationType } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
 import type { ChatMessage } from '@/types/chat';
 
+// Walk the tree in document order and return every text node.
+function collectTextNodes(node: { getChildren(): any[] }): any[] {
+  const out: any[] = [];
+  for (const child of node.getChildren()) {
+    if (child.isText()) out.push(child);
+    else out.push(...collectTextNodes(child));
+  }
+  return out;
+}
+
+// Remove whitespace that sits before the first text and after the last text of
+// the message, so stray leading/trailing spaces never get stored or rendered in
+// a bubble (internal spacing is preserved). The root is edited in place before
+// HTML is generated for the outgoing message.
+function trimRootWhitespace() {
+  const nodes = collectTextNodes($getRoot());
+  if (nodes.length === 0) return;
+  let i = 0;
+  while (i < nodes.length) {
+    const t = nodes[i].getTextContent();
+    const trimmed = t.replace(/^\s+/, '');
+    if (trimmed === t) break;
+    if (trimmed === '') nodes[i].remove();
+    else {
+      nodes[i].setTextContent(trimmed);
+      break;
+    }
+    i++;
+  }
+  let j = nodes.length - 1;
+  while (j >= 0) {
+    const t = nodes[j].getTextContent();
+    const trimmed = t.replace(/\s+$/, '');
+    if (trimmed === t) break;
+    if (trimmed === '') nodes[j].remove();
+    else {
+      nodes[j].setTextContent(trimmed);
+      break;
+    }
+    j--;
+  }
+}
+
 interface ComposerProps {
   conversationId: string | null;
   onSend: (
@@ -590,7 +633,6 @@ export const Composer = ({
   const send = useCallback(async () => {
     if (disabled || sending || !conversationId) return;
     const content = textRef.current.trim();
-    const htmlContent = htmlRef.current.trim() || content;
     const staged = pending;
     const replyId = replyTo?.id;
     if (!content && staged.length === 0) return;
@@ -598,6 +640,16 @@ export const Composer = ({
       // Text-only message when no attachment is staged.
       if (staged.length === 0) {
         if (content) {
+          // Trim leading/trailing whitespace at the editor level and regenerate
+          // the HTML so stray spaces (e.g. before/after the text) are not stored
+          // or rendered in the bubble. content was already trimmed above.
+          let htmlContent = content;
+          if (editorRef.current) {
+            editorRef.current.update(() => trimRootWhitespace());
+            htmlContent = editorRef.current
+              .getEditorState()
+              .read(() => $generateHtmlFromNodes(editorRef.current!, null).trim()) || content;
+          }
           clearEditor();
           await onSend(htmlContent, [], replyId);
           if (draftKey) {

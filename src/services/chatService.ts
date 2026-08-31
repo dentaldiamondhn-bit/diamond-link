@@ -126,6 +126,7 @@ export class ChatService {
       .select('conversation_id, created_at')
       .in('conversation_id', convIds)
       .neq('sender_id', userId)
+      .is('is_deleted', false)
       .limit(1000);
 
     if (earliestReadAt) {

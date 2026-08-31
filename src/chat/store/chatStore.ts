@@ -146,7 +146,8 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
   removeMessage: (messageId) =>
     set((state) => {
       for (const [convId, list] of Object.entries(state.messages)) {
-        if (!list.some((m) => m.id === messageId)) continue;
+        const target = list.find((m) => m.id === messageId);
+        if (!target) continue;
         const remaining = list.filter((m) => m.id !== messageId);
         const messages = { ...state.messages, [convId]: remaining };
         // If the removed bubble was a conversation's last message (sidebar
@@ -154,13 +155,24 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
         // no longer shows text that no longer exists in the thread.
         const conversations = state.conversations.map((c) => {
           if (c.id !== convId) return c;
+          // Decrement the unread badge if the removed message was counted as
+          // unread: it came from another participant in a conversation that was
+          // not the one open when the delete happens (mirror of addMessage).
+          const wasUnread =
+            target.sender_id !== state.currentUserId &&
+            convId !== state.selectedConversationId &&
+            (c.unread_count || 0) > 0;
           const wasLast = c.last_message && c.last_message.id === messageId;
-          if (!wasLast) return { ...c, last_message_at: remaining.length ? remaining[remaining.length - 1].created_at : c.last_message_at };
+          if (!wasLast) {
+            if (!wasUnread) return c;
+            return { ...c, unread_count: (c.unread_count || 0) - 1 };
+          }
           const next = remaining[remaining.length - 1];
           return {
             ...c,
             last_message: next ?? undefined,
             last_message_at: next ? next.created_at : c.last_message_at,
+            unread_count: wasUnread ? (c.unread_count || 0) - 1 : c.unread_count,
           };
         });
         return { messages, conversations: sortByLastMessage(conversations) };
