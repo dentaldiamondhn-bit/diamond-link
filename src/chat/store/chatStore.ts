@@ -13,6 +13,7 @@ export interface ChatStoreState {
   typing: Record<string, Record<string, boolean>>;
   isLoading: boolean;
   error: string | null;
+  deletedMessageIds: Set<string>;
 
   setCurrentUserId: (id: string | null) => void;
   setConversations: (conversations: ChatConversation[]) => void;
@@ -26,6 +27,7 @@ export interface ChatStoreState {
   ) => void;
   updateMessage: (messageId: string, partial: Partial<ChatMessage>) => void;
   removeMessage: (messageId: string) => void;
+  tombstoneMessage: (messageId: string) => void;
   upsertMessageRead: (messageId: string, read: ChatMessageRead) => void;
   setSelectedConversation: (id: string | null) => void;
   markConversationRead: (conversationId: string) => void;
@@ -57,6 +59,7 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
   typing: {},
   isLoading: false,
   error: null,
+  deletedMessageIds: new Set<string>(),
 
   setCurrentUserId: (id) => set({ currentUserId: id }),
 
@@ -91,10 +94,11 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
       const existing = state.messages[message.conversation_id] || [];
       if (existing.some((m) => m.id === message.id)) return state;
 
-      // A deleted message must never be (re)surfaced, regardless of source.
-      // Realtime re-adds (e.g. joining after the soft-delete) would otherwise
-      // make a deleted bubble reappear in the list.
-      if (message.is_deleted) return state;
+      // A deleted or tombstoned message must never be (re)surfaced, regardless
+      // of source or timing. Realtime re-adds / send finalization that race
+      // ahead of a soft-delete can still carry is_deleted=false, so a simple
+      // is_deleted check on the payload is not enough to keep it gone.
+      if (message.is_deleted || state.deletedMessageIds.has(message.id)) return state;
 
       const messages = {
         ...state.messages,
@@ -152,6 +156,11 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
       }
       return state;
     }),
+
+  tombstoneMessage: (messageId) =>
+    set((state) => ({
+      deletedMessageIds: new Set(state.deletedMessageIds).add(messageId),
+    })),
 
   upsertMessageRead: (messageId, read) =>
     set((state) => {

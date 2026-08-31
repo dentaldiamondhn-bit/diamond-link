@@ -605,6 +605,7 @@ const MessageRow = function MessageRow({
 export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds }: MessageListProps) => {
   const { locale } = useTranslations();
   const removeMessage = useChatStore((s) => s.removeMessage);
+  const tombstoneMessage = useChatStore((s) => s.tombstoneMessage);
   const { users, currentUserId } = useChatStore();
 
   const [list, setList] = useListCallbackRef();
@@ -861,6 +862,10 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     // round-trip (Supabase realtime won't broadcast the soft-delete UPDATE back
     // to the originating client, so self-deletes must be applied locally).
     removeMessage(id);
+    // Tombstone the id so no in-flight realtime insert / send finalization can
+    // re-add it (those can carry is_deleted=false when they race ahead of the
+    // soft-delete). The tombstone lives for the session.
+    tombstoneMessage(id);
     setDeleteForId(null);
     setDeleting(true);
     try {
@@ -870,7 +875,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     } finally {
       setDeleting(false);
     }
-  }, [currentUserId, deleteForId, deleting, removeMessage]);
+  }, [currentUserId, deleteForId, deleting, removeMessage, tombstoneMessage]);
 
   const deleteForMsg = useMemo(
     () => messages.find((m) => m.id === deleteForId) ?? null,
@@ -959,22 +964,24 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     });
   }, []);
 
-  // Scroll to latest on mount; afterwards only auto-scroll while the user is
-  // already near the bottom (such as receiving a new message while reading).
+  // Scroll to latest on mount. On a new message (the list grows) ALWAYS scroll
+  // it into view, dragging the viewport down on both the sender's and the
+  // receiver's side so no manual scrolling is needed to see the latest bubble.
+  const prevCountRef = useRef(0);
   useEffect(() => {
     if (!list || !rows.length) return;
     if (!didInitialScroll.current) {
       if (!list.element) return;
       didInitialScroll.current = true;
       pinListToBottom(list, rows.length - 1);
+      prevCountRef.current = rows.length;
       return;
     }
+    if (rows.length <= prevCountRef.current) return;
+    prevCountRef.current = rows.length;
     const el = list.element;
     if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-    if (nearBottom) {
-      list.scrollToRow({ index: rows.length - 1, align: 'end', behavior: 'auto' });
-    }
+    list.scrollToRow({ index: rows.length - 1, align: 'end', behavior: 'auto' });
   }, [list, rows.length]);
 
   const rowProps = useMemo<RowProps>(
