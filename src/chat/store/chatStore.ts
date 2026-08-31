@@ -91,6 +91,11 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
       const existing = state.messages[message.conversation_id] || [];
       if (existing.some((m) => m.id === message.id)) return state;
 
+      // A deleted message must never be (re)surfaced, regardless of source.
+      // Realtime re-adds (e.g. joining after the soft-delete) would otherwise
+      // make a deleted bubble reappear in the list.
+      if (message.is_deleted) return state;
+
       const messages = {
         ...state.messages,
         [message.conversation_id]: [...existing, message].sort(sortByDate),

@@ -75,6 +75,13 @@ export const useChatRealtime = (
               .eq('id', message.id)
               .maybeSingle();
             const resolved = (full || message) as ChatMessage;
+            // Never surface a deleted message. The async join above can resolve
+            // AFTER the sender deleted it, which would otherwise re-add the row
+            // into the list (there is no reliable self-event for the soft-delete).
+            if (resolved.is_deleted) {
+              removeMessage(resolved.id);
+              return;
+            }
             // My own send echoes back here via realtime while the optimistic
             // row is still pending: replace it instead of stacking a duplicate
             // preview bubble next to the real one.
