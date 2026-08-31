@@ -1,0 +1,23 @@
+-- Realtime chat deletion fix:
+--
+-- Soft deletes of chat_messages (is_deleted=true) were never shown live on the
+-- receiving side. Root cause:
+--
+-- Supabase Realtime `postgres_changes` UPDATE events are only delivered to
+-- subscribers when RLS can evaluate their SELECT policy against the changed
+-- (new) row. With the default REPLICA IDENTITY (primary key only) the WAL
+-- UPDATE record carries only the PK (`id`) plus the changed columns
+-- (`is_deleted`, `updated_at`) — NOT `conversation_id`. The
+-- `chat_msg_select` policy checks
+--   EXISTS (SELECT 1 FROM chat_participants
+--           WHERE conversation_id = chat_messages.conversation_id
+--             AND user_id = auth.uid())
+-- which needs `conversation_id`, so the RLS check can't run and the UPDATE
+-- event is dropped for every subscriber. INSERT events still deliver because
+-- the full row is in the WAL, which is why new messages appear live but
+-- deletions never do.
+--
+-- REPLICA IDENTITY FULL includes every column in each UPDATE/DELETE payload so
+-- RLS can be evaluated and the deletion reaches the recipients. Safe,
+-- deterministic, re-runnable.
+ALTER TABLE chat_messages REPLICA IDENTITY FULL;
