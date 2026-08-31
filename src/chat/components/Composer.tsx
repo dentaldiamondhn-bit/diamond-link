@@ -56,22 +56,13 @@ import { ChatConversationType } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
 import type { ChatMessage } from '@/types/chat';
 
-// Walk the tree in document order and return every text node.
-function collectTextNodes(node: { getChildren(): any[] }): any[] {
-  const out: any[] = [];
-  for (const child of node.getChildren()) {
-    if (child.isText()) out.push(child);
-    else out.push(...collectTextNodes(child));
-  }
-  return out;
-}
-
 // Remove whitespace that sits before the first text and after the last text of
 // the message, so stray leading/trailing spaces never get stored or rendered in
 // a bubble (internal spacing is preserved). The root is edited in place before
-// HTML is generated for the outgoing message.
+// HTML is generated for the outgoing message. getAllTextNodes returns the actual
+// TextNode instances in document order, so no manual tree traversal is needed.
 function trimRootWhitespace() {
-  const nodes = collectTextNodes($getRoot());
+  const nodes = $getRoot().getAllTextNodes();
   if (nodes.length === 0) return;
   let i = 0;
   while (i < nodes.length) {
