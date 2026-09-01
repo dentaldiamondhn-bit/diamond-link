@@ -371,7 +371,7 @@ export const AttachmentTray = ({
       {/* Active item display */}
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-4">
         {isImage ? (
-          <div className="relative">
+          <div className="relative flex h-full w-full items-center justify-center">
             <img
               src={current.previewUrl}
               alt={current.name}

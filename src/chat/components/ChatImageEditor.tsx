@@ -57,10 +57,58 @@ function renderRotated(image: HTMLImageElement, rotation: number): HTMLCanvasEle
 }
 
 /**
+ * Resolve the media `<img>` react-easy-crop renders inside the tree that also
+ * contains the drawing canvas, along with the affine mapping between the
+ * on-screen media rect and its rotated *natural* bounding-box pixels.
+ *
+ * `mediaLeft`/`mediaTop` are the media's position within the container in CSS
+ * px; `mediaWidth`/`mediaHeight` are its displayed size. `rotW`/`rotH` are the
+ * rotated natural bounding-box dimensions. Since the media is scaled uniformly,
+ * displayed px map linearly to rotated-natural px. Returns `null` when
+ * unavailable.
+ */
+function getMediaMapping(
+  canvas: HTMLCanvasElement | null,
+  rotation: number
+): {
+  mediaLeft: number;
+  mediaTop: number;
+  mediaWidth: number;
+  mediaHeight: number;
+  rotW: number;
+  rotH: number;
+} | null {
+  if (!canvas) return null;
+  const container = canvas.parentElement;
+  const mediaImg = container?.querySelector<HTMLImageElement>('img.reactEasyCrop_Image');
+  if (!mediaImg || mediaImg.naturalWidth === 0) return null;
+  const cRect = canvas.getBoundingClientRect();
+  const mRect = mediaImg.getBoundingClientRect();
+  const rad = (rotation * Math.PI) / 180;
+  const absSin = Math.abs(Math.sin(rad));
+  const absCos = Math.abs(Math.cos(rad));
+  const rotW = Math.round(mediaImg.naturalWidth * absCos + mediaImg.naturalHeight * absSin);
+  const rotH = Math.round(mediaImg.naturalWidth * absSin + mediaImg.naturalHeight * absCos);
+  return {
+    mediaLeft: mRect.left - cRect.left,
+    mediaTop: mRect.top - cRect.top,
+    mediaWidth: mRect.width,
+    mediaHeight: mRect.height,
+    rotW,
+    rotH,
+  };
+}
+
+/**
  * Compose rotation + crop + pencil strokes into a final JPEG File.
- * `area` is react-easy-crop's croppedAreaPixels (expressed in the displayed
- * mediaSize coordinate space). Strokes are recorded in the same space, so
- * mapping is a linear translate + scale.
+ *
+ * Coordinate spaces:
+ * - Strokes are recorded in the rotated *natural* bounding-box pixel space
+ *   (same space as react-easy-crop's `croppedAreaPixels`), mapped there from
+ *   the live on-screen media rect while drawing.
+ * - `area` is react-easy-crop's croppedAreaPixels, also in rotated natural px.
+ *
+ * So compositing is a simple translate-by-crop-offset then scale to output.
  */
 function process(
   source: string,
@@ -89,7 +137,6 @@ function process(
     // are already expressed in the rotated bounding-box space.
     ctx.drawImage(rotated, area.x, area.y, srcW, srcH, 0, 0, outW, outH);
 
-    // Map each stroke (recorded in mediaSize space) into the crop, scaled.
     const scaleX = outW / srcW;
     const scaleY = outH / srcH;
     for (const stroke of strokes) {
@@ -141,6 +188,7 @@ export const ChatImageEditor = ({
     height: 0,
   });
   const [mediaSize, setMediaSize] = useState<MediaSize | null>(null);
+  const [cropAspect, setCropAspect] = useState(1);
   const [tool, setTool] = useState<Tool>('crop');
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [activeStroke, setActiveStroke] = useState<Stroke | null>(null);
@@ -157,7 +205,11 @@ export const ChatImageEditor = ({
 
   const onMediaLoaded = useCallback((size: MediaSize) => {
     setMediaSize(size);
-    setZoom((size.width * 0.66) / size.height / 2 || 1);
+    // Match the crop window to the media's own aspect ratio so the full image
+    // fits on screen without being auto-cropped by a fixed square crop area.
+    if (size.naturalWidth > 0 && size.naturalHeight > 0) {
+      setCropAspect(size.naturalWidth / size.naturalHeight);
+    }
   }, []);
 
   // Commit the in-progress stroke when the pointer is released.
@@ -178,15 +230,19 @@ export const ChatImageEditor = ({
   }, [activeStroke]);
 
   const getDrawPoint = (e: React.PointerEvent): { x: number; y: number } | null => {
-    const canvas = drawRef.current;
-    const ms = mediaSize;
-    if (!canvas || !ms) return null;
-    const rect = canvas.getBoundingClientRect();
-    // MediaSize is the displayed (un-cropped) media px. Map the container px
-    // back into that space.
-    const x = ((e.clientX - rect.left) / rect.width) * ms.width;
-    const y = ((e.clientY - rect.top) / rect.height) * ms.height;
-    return { x, y };
+    const mapping = getMediaMapping(drawRef.current, rotation);
+    if (!mapping) return null;
+    const relX = e.clientX - drawRef.current!.getBoundingClientRect().left;
+    const relY = e.clientY - drawRef.current!.getBoundingClientRect().top;
+    const localX = relX - mapping.mediaLeft;
+    const localY = relY - mapping.mediaTop;
+    if (localX < 0 || localY < 0 || localX > mapping.mediaWidth || localY > mapping.mediaHeight) {
+      return null;
+    }
+    return {
+      x: (localX / mapping.mediaWidth) * mapping.rotW,
+      y: (localY / mapping.mediaHeight) * mapping.rotH,
+    };
   };
 
   const pointerDown = (e: React.PointerEvent) => {
@@ -209,8 +265,9 @@ export const ChatImageEditor = ({
   // Live-render the drawing overlay (active stroke + committed strokes).
   useEffect(() => {
     const canvas = drawRef.current;
-    if (!canvas || !mediaSize) return;
-    const ms = mediaSize;
+    if (!canvas) return;
+    const mapping = getMediaMapping(canvas, rotation);
+    if (!mapping) return;
     // Match drawing canvas backing store to its own displayed rect.
     const cssW = canvas.clientWidth;
     const cssH = canvas.clientHeight;
@@ -224,18 +281,17 @@ export const ChatImageEditor = ({
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const scaleX = canvas.width / ms.width;
 
     const drawStroke = (stroke: Stroke) => {
       if (stroke.points.length === 0) return;
       ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = Math.max(1, stroke.size * scaleX);
+      ctx.lineWidth = Math.max(1, (stroke.size * mapping.mediaWidth) / mapping.rotW) * dpr;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
       stroke.points.forEach((p, i) => {
-        const px = (p.x / ms.width) * canvas.width;
-        const py = (p.y / ms.height) * canvas.height;
+        const px = (mapping.mediaLeft + (p.x / mapping.rotW) * mapping.mediaWidth) * dpr;
+        const py = (mapping.mediaTop + (p.y / mapping.rotH) * mapping.mediaHeight) * dpr;
         if (i === 0) ctx.moveTo(px, py);
         else ctx.lineTo(px, py);
       });
@@ -243,7 +299,7 @@ export const ChatImageEditor = ({
     };
     strokes.forEach(drawStroke);
     if (activeStroke) drawStroke(activeStroke);
-  }, [strokes, activeStroke, mediaSize]);
+  }, [strokes, activeStroke, mediaSize, rotation]);
 
   const undo = () => setStrokes((prev) => prev.slice(0, -1));
 
@@ -289,11 +345,16 @@ export const ChatImageEditor = ({
                 type="button"
                 onClick={() => setPenColor(c)}
                 aria-label={c}
-                className={`h-6 w-6 rounded-full border-2 ${
-                  penColor === c ? 'border-white' : 'border-transparent'
+                aria-pressed={penColor === c}
+                className={`flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-offset-1 ${
+                  penColor === c
+                    ? 'ring-white/90 scale-110'
+                    : 'ring-transparent hover:ring-white/40'
                 }`}
                 style={{ backgroundColor: c }}
-              />
+              >
+                {penColor === c && <Check className="h-3.5 w-3.5 text-black/70" strokeWidth={3} />}
+              </button>
             ))}
             <span className="mx-1 h-5 w-px bg-white/10" />
             {PEN_SIZES.map((s) => (
@@ -359,7 +420,7 @@ export const ChatImageEditor = ({
           crop={crop}
           zoom={zoom}
           rotation={rotation}
-          aspect={1}
+          aspect={cropAspect}
           showGrid={tool === 'crop'}
           cropShape="rect"
           onCropChange={setCrop}
