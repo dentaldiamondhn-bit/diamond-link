@@ -1,5 +1,7 @@
 'use client';
 
+import 'react-easy-crop/react-easy-crop.css';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Cropper, { type Area, type MediaSize, type Point } from 'react-easy-crop';
 import { Check, Crop as CropIcon, Pencil, RotateCcw, RotateCw } from 'lucide-react';
