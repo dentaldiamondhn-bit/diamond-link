@@ -5,16 +5,25 @@ import type {
   ChatUser,
 } from '@/types/chat';
 import type { TranslationKey } from '@/chat/i18n/translations';
-import DOMPurify from 'dompurify';
+import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
 
 /** Heuristic: does this string contain actual HTML tags (vs plain text)? */
 export function isHtmlContent(content: string): boolean {
   return /<\/?[a-zA-Z][^>]*>/.test(content);
 }
 
+// DOMPurify supports ALLOWED_STYLE_PROPERTIES at runtime (3.x) but the shipped
+// type defs don't declare it. Extend the config type so we keep only the
+// color/highlight styles we opt into.
+type ChatPurifyConfig = DOMPurifyConfig & { ALLOWED_STYLE_PROPERTIES?: string[] };
+
 /** Sanitize untrusted message HTML before rendering (allows basic text formatting). */
 export function purifyHtml(html: string): string {
-  return DOMPurify.sanitize(html);
+  return DOMPurify.sanitize(html, {
+    // Preserve inline color / highlight styles applied by the composer.
+    ADD_ATTR: ['style'],
+    ALLOWED_STYLE_PROPERTIES: ['color', 'background-color'],
+  } as ChatPurifyConfig);
 }
 
 /** Strip tags to plain text for previews / editing UIs. */

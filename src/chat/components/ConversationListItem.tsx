@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Pin, Archive, Check, Users as UsersIcon } from 'lucide-react';
+import { Pin, Archive, Check, Users as UsersIcon, FileText } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatConversation } from '@/types/chat';
 import { useTranslations } from '@/chat/i18n/useTranslations';
@@ -15,6 +15,7 @@ import {
   getTypingUserIds,
   getTypingLabel,
   htmlToText,
+  getFileKindMeta,
 } from '@/chat/utils';
 
 interface ConversationListItemProps {
@@ -52,17 +53,42 @@ export const ConversationListItem = ({
   const lastMessageText = useMemo(() => {
     if (!lastMessage) return '';
     if (lastMessage.is_deleted) return '';
+    const textSnippet = htmlToText(lastMessage.content || '').trim();
+    const hasText = textSnippet.length > 0;
     switch (lastMessage.message_type) {
       case 'voice':
         return t('voiceMessage');
-      case 'image':
-        return t('imageMessage');
-      case 'file':
-        return t('fileMessage');
+      case 'image': {
+        const att = (lastMessage.attachments || []).find((a) => a.file_type?.startsWith('image/'));
+        if (att?.file_url) {
+          return (
+            <span className="flex items-center gap-1.5">
+              <img src={att.file_url} alt="" className="h-8 w-8 rounded object-cover" />
+              <span className="truncate">{hasText ? textSnippet : t('imageMessage')}</span>
+            </span>
+          );
+        }
+        return hasText ? textSnippet : t('imageMessage');
+      }
+      case 'file': {
+        const att = (lastMessage.attachments || []).find((a) => !a.file_type?.startsWith('image/'));
+        if (att) {
+          const meta = getFileKindMeta(att.file_type || '', att.file_name || '');
+          return (
+            <span className="flex items-center gap-1.5">
+              <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${meta.bg}`}>
+                <FileText className="h-4 w-4 text-white" />
+              </span>
+              <span className="truncate">{hasText ? textSnippet : (att.file_name || t('fileMessage'))}</span>
+            </span>
+          );
+        }
+        return hasText ? textSnippet : t('fileMessage');
+      }
       case 'patient_case':
         return t('patientCase');
       default:
-        return htmlToText(lastMessage.content || '') || '';
+        return textSnippet;
     }
   }, [lastMessage, t]);
 

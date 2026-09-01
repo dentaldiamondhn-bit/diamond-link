@@ -44,6 +44,7 @@ import {
 import { HeadingNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
 import { CodeNode, $createCodeNode } from '@lexical/code-core';
+import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { htmlToText } from '@/chat/utils';
@@ -51,6 +52,7 @@ import { MentionNode } from '@/chat/mentionNode';
 import MentionPlugin from './MentionPlugin';
 import EmojiPicker from './EmojiPicker';
 import AttachmentTray from './AttachmentTray';
+import ColorButtons from './ColorButtons';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatConversationType } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
@@ -249,6 +251,7 @@ const LexicalToolbar = ({
         {formatButton('Bold', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'), <Bold className="h-4 w-4" />)}
         {formatButton('Italic', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic'), <Italic className="h-4 w-4" />)}
         {formatButton('Underline', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline'), <Underline className="h-4 w-4" />)}
+        <ColorButtons light />
 
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
 
@@ -712,6 +715,13 @@ export const Composer = ({
           onSend={send}
           onClose={clearEditor}
           sending={sending}
+          onReplaceAttachment={(index, updated) => {
+            setPending((prev) => {
+              const target = prev[index];
+              if (target) URL.revokeObjectURL(target.previewUrl);
+              return prev.map((att, i) => (i === index ? updated : att));
+            });
+          }}
         />
         {!isRecording && hasPendingVoice && (
           <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/30">
@@ -798,6 +808,7 @@ export const Composer = ({
             </div>
           )}
           <HistoryPlugin />
+          <ListPlugin />
           <OnChangePlugin onChange={handleChange} />
           <EnterToSendPlugin onSend={send} />
           <MentionPlugin enabled={mentionEnabled} />

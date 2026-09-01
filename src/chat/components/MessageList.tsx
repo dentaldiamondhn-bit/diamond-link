@@ -6,6 +6,7 @@ import {
   Plus,
   Reply,
   ChevronDown,
+  ChevronUp,
   CornerDownRight,
   Edit,
   Trash2,
@@ -19,6 +20,11 @@ import {
   XCircle,
   Copy,
   Forward,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Code2,
 } from 'lucide-react';
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps, ListImperativeAPI } from 'react-window';
@@ -43,6 +49,7 @@ import EmojiPicker from './EmojiPicker';
 import MediaLightbox from './MediaLightbox';
 import ForwardModal from './ForwardModal';
 import MentionPopover from './MentionPopover';
+import { TEXT_COLOR_SWATCHES, HIGHLIGHT_SWATCHES } from './ColorButtons';
 
 /** Renders plain text or sanitized formatted HTML message content. */
 const FormattedText = ({ text }: { text: string }) => {
@@ -55,6 +62,95 @@ const FormattedText = ({ text }: { text: string }) => {
       className="whitespace-pre-wrap break-words text-sm"
       dangerouslySetInnerHTML={{ __html: purifyHtml(text) }}
     />
+  );
+};
+
+const FormatEditButton = ({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+  >
+    <span className="flex h-4 w-4 items-center justify-center text-gray-500 dark:text-gray-400">{icon}</span>
+    {label}
+  </button>
+);
+
+const EditRow = ({
+  msg,
+  editingContent,
+  onEditContentChange,
+  onCommitEdit,
+  onCancelEdit,
+  t,
+  editMenuId,
+  onOpenEditMenu,
+}: {
+  msg: ChatMessage;
+  editingContent: string;
+  onEditContentChange: (value: string) => void;
+  onCommitEdit: (msg: ChatMessage) => void;
+  onCancelEdit: () => void;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+  editMenuId: string | null;
+  onOpenEditMenu: (msgId: string, e: React.MouseEvent<HTMLButtonElement>) => void;
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const showMenu = editMenuId === msg.id;
+
+  return (
+    <div className="flex items-start gap-1 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 p-1.5">
+      <textarea
+        ref={textareaRef}
+        value={editingContent}
+        onChange={(e) => onEditContentChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            onCommitEdit(msg);
+          }
+          if (e.key === 'Escape') onCancelEdit();
+        }}
+        autoFocus
+        rows={5}
+        className="text-sm flex-1 min-w-[120px] max-h-32 overflow-y-auto rounded bg-transparent p-1 outline-none text-gray-900 dark:text-white dark:placeholder-gray-400"
+        placeholder={t('typeMessage')}
+      />
+      <div className="relative flex-shrink-0">
+        <button
+          type="button"
+          onClick={(e) => onOpenEditMenu(msg.id, e)}
+          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
+          title={t('moreActions')}
+        >
+          {showMenu ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={() => onCommitEdit(msg)}
+        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-green-600"
+        title={t('save')}
+      >
+        <Check className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={onCancelEdit}
+        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
+        title={t('cancel')}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 };
 
@@ -109,6 +205,7 @@ const GROUP_THRESHOLD_MS = 5 * 60 * 1000;
 
 const ACTION_MENU_HEIGHT_PX = 430;
 const ACTION_MENU_WIDTH_PX = 224;
+const EDIT_MENU_HEIGHT_PX = 360;
 
 const DEFAULT_ROW_HEIGHT = 48;
 
@@ -144,6 +241,7 @@ interface RowProps {
   editingId: string | null;
   editingContent: string;
   actionMenuId: string | null;
+  editMenuId: string | null;
   readReceipts: Record<string, ChatUser[]>;
   otherParticipantIds: string[];
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
@@ -151,6 +249,7 @@ interface RowProps {
   onJump: (msgId: string) => void;
   onOpenMenu: (msgId: string, e: React.MouseEvent<HTMLButtonElement>) => void;
   onCloseMenu: () => void;
+  onOpenEditMenu: (msgId: string, e: React.MouseEvent<HTMLButtonElement>) => void;
   onCancelEdit: () => void;
   onCommitEdit: (msg: ChatMessage) => void;
   onEditContentChange: (value: string) => void;
@@ -173,6 +272,7 @@ const MessageRow = function MessageRow({
     editingId,
     editingContent,
     actionMenuId,
+    editMenuId,
     t,
     readReceipts,
     otherParticipantIds,
@@ -180,6 +280,7 @@ const MessageRow = function MessageRow({
     onJump,
     onOpenMenu,
     onCloseMenu,
+    onOpenEditMenu,
     onCancelEdit,
     onCommitEdit,
     onEditContentChange,
@@ -448,33 +549,16 @@ const MessageRow = function MessageRow({
           )}
 
           {editingId === msg.id ? (
-            <div className="flex items-center gap-1 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1">
-              <input
-                type="text"
-                value={editingContent}
-                onChange={(e) => onEditContentChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onCommitEdit(msg);
-                  if (e.key === 'Escape') onCancelEdit();
-                }}
-                autoFocus
-                className="text-sm w-48 outline-none bg-transparent text-gray-900 dark:text-white"
-              />
-              <button
-                onClick={() => onCommitEdit(msg)}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-green-600"
-                title={t('save')}
-              >
-                <Check className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={onCancelEdit}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
-                title={t('cancel')}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <EditRow
+              msg={msg}
+              editingContent={editingContent}
+              onEditContentChange={onEditContentChange}
+              onCommitEdit={onCommitEdit}
+              onCancelEdit={onCancelEdit}
+              t={t}
+              editMenuId={editMenuId}
+              onOpenEditMenu={onOpenEditMenu}
+            />
           ) : (
             <div
               className={`rounded-2xl px-3 py-2 transition-shadow ${
@@ -641,6 +725,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const [emojiFullFor, setEmojiFullFor] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [editMenuFor, setEditMenuFor] = useState<{ id: string; top: number; left: number } | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ msg: ChatMessage; index: number } | null>(null);
   const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
@@ -832,6 +917,27 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     };
   }, [actionMenuFor]);
 
+  useEffect(() => {
+    if (!editMenuFor) return;
+    const close = () => setEditMenuFor(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+    const onDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (target instanceof Element && target.closest('[data-edit-menu]')) return;
+      close();
+    };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+    };
+  }, [editMenuFor]);
+
   const handleEdit = useCallback(
     async (msg: ChatMessage) => {
       if (!currentUserId || !editingContent.trim()) return;
@@ -852,6 +958,44 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     setActionMenuFor(null);
     setEmojiFullFor(null);
     setDeleteForId(msgId);
+  }, []);
+
+  const openEditMenu = useCallback((msgId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    const trigger = e.currentTarget;
+    const rowEl = trigger.closest('[data-message-id]') as HTMLElement | null;
+    const scroller = getScrollParent(rowEl);
+    const triggerRect = trigger.getBoundingClientRect();
+    const scrollerRect = scroller?.getBoundingClientRect();
+
+    let position: 'above' | 'below' = 'above';
+    if (rowEl && scrollerRect) {
+      const scrollerTop = scrollerRect.top;
+      const scrollerBottom = scrollerRect.bottom;
+      const enoughBelow = scrollerBottom - triggerRect.bottom >= EDIT_MENU_HEIGHT_PX;
+      const enoughAbove = triggerRect.top - scrollerTop >= EDIT_MENU_HEIGHT_PX;
+      if (enoughBelow) position = 'below';
+      else if (enoughAbove) position = 'above';
+      else {
+        const spaceBelow = scrollerBottom - triggerRect.bottom;
+        const spaceAbove = triggerRect.top - scrollerTop;
+        position = spaceBelow >= spaceAbove ? 'below' : 'above';
+      }
+    }
+
+    const MENU_W = 224;
+    const MENU_H = EDIT_MENU_HEIGHT_PX;
+    const edgeBuffer = 8;
+    const viewportLeft = scrollerRect?.left ?? edgeBuffer;
+    const viewportRight = (scrollerRect?.right ?? window.innerWidth) - MENU_W;
+    const viewportTop = scrollerRect?.top ?? edgeBuffer;
+    const viewportBottom = (scrollerRect?.bottom ?? window.innerHeight) - MENU_H;
+
+    const rawLeft = triggerRect.right - MENU_W + 4;
+    const rawTop = position === 'below' ? triggerRect.bottom + 4 : triggerRect.top - MENU_H - 4;
+    const x = viewportRight > viewportLeft ? Math.min(Math.max(viewportLeft + edgeBuffer, rawLeft), viewportRight - edgeBuffer) : rawLeft;
+    const y = viewportBottom > viewportTop ? Math.min(Math.max(viewportTop + edgeBuffer, rawTop), viewportBottom - edgeBuffer) : rawTop;
+
+    setEditMenuFor({ id: msgId, top: Math.round(y), left: Math.round(x) });
   }, []);
 
   const confirmDelete = useCallback(async () => {
@@ -994,6 +1138,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       editingId,
       editingContent,
       actionMenuId: actionMenuFor?.id ?? null,
+      editMenuId: editMenuFor?.id ?? null,
       readReceipts,
       otherParticipantIds,
       t: memoizedT,
@@ -1001,6 +1146,8 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       onJump: handleJumpToMessage,
       onOpenMenu: openActionMenu,
       onCloseMenu,
+      onOpenEditMenu: openEditMenu,
+      onCloseEditMenu: () => setEditMenuFor(null),
       onCancelEdit,
       onCommitEdit: handleEdit,
       onEditContentChange: setEditingContent,
@@ -1016,12 +1163,14 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       editingId,
       editingContent,
       actionMenuFor,
+      editMenuFor,
       readReceipts,
       otherParticipantIds,
       memoizedT,
       handleToggleReaction,
       handleJumpToMessage,
       openActionMenu,
+      openEditMenu,
       onCloseMenu,
       onCancelEdit,
       handleEdit,
@@ -1128,7 +1277,10 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                 </button>
                 {mine && editingId !== actionMsg.id && (
                   <button
-                    onClick={() => onStartEdit(actionMsg)}
+                    onClick={() => {
+                      setActionMenuFor(null);
+                      onStartEdit(actionMsg);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
                     <Edit className="h-4 w-4" />
@@ -1147,6 +1299,140 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {editMenuFor && (
+        <div
+          className="fixed z-50 w-56 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl py-1"
+          style={{ top: editMenuFor.top, left: editMenuFor.left }}
+        >
+          <div className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400">Format</div>
+          <FormatEditButton label="Bold" icon={<Bold className="h-3.5 w-3.5" />} onClick={() => {
+            const msg = messages.find(m => m.id === editMenuFor.id);
+            if (msg) {
+              const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="' + memoizedT('typeMessage') + '"]');
+              if (ta) {
+                const start = ta.selectionStart;
+                const end = ta.selectionEnd;
+                const selected = editingContent.substring(start, end);
+                if (selected) {
+                  const next = editingContent.substring(0, start) + `<b>` + selected + `</b>` + editingContent.substring(end);
+                  setEditingContent(next);
+                }
+              }
+            }
+            setEditMenuFor(null);
+          }} />
+          <FormatEditButton label="Italic" icon={<Italic className="h-3.5 w-3.5" />} onClick={() => {
+            const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="' + memoizedT('typeMessage') + '"]');
+            if (ta) {
+              const start = ta.selectionStart;
+              const end = ta.selectionEnd;
+              const selected = editingContent.substring(start, end);
+              if (selected) {
+                const next = editingContent.substring(0, start) + `<i>` + selected + `</i>` + editingContent.substring(end);
+                setEditingContent(next);
+              }
+            }
+            setEditMenuFor(null);
+          }} />
+          <FormatEditButton label="Underline" icon={<Underline className="h-3.5 w-3.5" />} onClick={() => {
+            const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="' + memoizedT('typeMessage') + '"]');
+            if (ta) {
+              const start = ta.selectionStart;
+              const end = ta.selectionEnd;
+              const selected = editingContent.substring(start, end);
+              if (selected) {
+                const next = editingContent.substring(0, start) + `<u>` + selected + `</u>` + editingContent.substring(end);
+                setEditingContent(next);
+              }
+            }
+            setEditMenuFor(null);
+          }} />
+          <FormatEditButton label="Strikethrough" icon={<Strikethrough className="h-3.5 w-3.5" />} onClick={() => {
+            const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="' + memoizedT('typeMessage') + '"]');
+            if (ta) {
+              const start = ta.selectionStart;
+              const end = ta.selectionEnd;
+              const selected = editingContent.substring(start, end);
+              if (selected) {
+                const next = editingContent.substring(0, start) + `<s>` + selected + `</s>` + editingContent.substring(end);
+                setEditingContent(next);
+              }
+            }
+            setEditMenuFor(null);
+          }} />
+          <FormatEditButton label="Code" icon={<Code2 className="h-3.5 w-3.5" />} onClick={() => {
+            const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="' + memoizedT('typeMessage') + '"]');
+            if (ta) {
+              const start = ta.selectionStart;
+              const end = ta.selectionEnd;
+              const selected = editingContent.substring(start, end);
+              if (selected) {
+                const next = editingContent.substring(0, start) + `<code>` + selected + `</code>` + editingContent.substring(end);
+                setEditingContent(next);
+              }
+            }
+            setEditMenuFor(null);
+          }} />
+          <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400">Text color</div>
+          <div className="flex flex-wrap gap-1 px-2 pb-1">
+            {TEXT_COLOR_SWATCHES.slice(0, 8).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="' + memoizedT('typeMessage') + '"]');
+                  if (ta) {
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const selected = editingContent.substring(start, end);
+                    if (selected) {
+                      const next = editingContent.substring(0, start) + `<span style="color:${c}">` + selected + `</span>` + editingContent.substring(end);
+                      setEditingContent(next);
+                    }
+                  }
+                  setEditMenuFor(null);
+                }}
+                className="h-5 w-5 rounded-md border border-black/10"
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+          <div className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400">Highlight</div>
+          <div className="flex flex-wrap gap-1 px-2 pb-1">
+            {HIGHLIGHT_SWATCHES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="' + memoizedT('typeMessage') + '"]');
+                  if (ta) {
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const selected = editingContent.substring(start, end);
+                    if (selected) {
+                      const next = editingContent.substring(0, start) + `<span style="background-color:${c}">` + selected + `</span>` + editingContent.substring(end);
+                      setEditingContent(next);
+                    }
+                  }
+                  setEditMenuFor(null);
+                }}
+                className="h-5 w-5 rounded-md border border-black/10"
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+          <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+          <button
+            type="button"
+            onClick={() => { setEditingContent(''); setEditMenuFor(null); }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            Clear
+          </button>
         </div>
       )}
 

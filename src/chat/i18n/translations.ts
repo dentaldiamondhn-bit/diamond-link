@@ -97,6 +97,13 @@ const en = {
   groupObjects: 'Objects',
   groupSymbols: 'Symbols',
   groupFlags: 'Flags',
+  editorCrop: 'Crop',
+  editorTilt: 'Tilt',
+  editorDraw: 'Draw',
+  undo: 'Undo',
+  rotateLeft: 'Rotate left',
+  rotateRight: 'Rotate right',
+  apply: 'Apply',
 } as const;
 
 const es: Record<keyof typeof en, string> = {
@@ -185,6 +192,13 @@ const es: Record<keyof typeof en, string> = {
   groupObjects: 'Objetos',
   groupSymbols: 'Símbolos',
   groupFlags: 'Banderas',
+  editorCrop: 'Recortar',
+  editorTilt: 'Rotar',
+  editorDraw: 'Dibujar',
+  undo: 'Deshacer',
+  rotateLeft: 'Girar izquierda',
+  rotateRight: 'Girar derecha',
+  apply: 'Aplicar',
 };
 
 export type TranslationKey = keyof typeof en;

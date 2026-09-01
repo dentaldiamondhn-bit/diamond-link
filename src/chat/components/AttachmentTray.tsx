@@ -10,12 +10,14 @@ import {
   Image as ImageIcon,
   Italic,
   Paperclip,
+  Pencil,
   Plus,
   Send,
   Smile,
   Underline,
   X,
 } from 'lucide-react';
+import ChatImageEditor from './ChatImageEditor';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -33,9 +35,9 @@ import {
   $generateNodesFromDOM,
 } from '@lexical/html';
 import { useTranslations } from '@/chat/i18n/useTranslations';
-import DOMPurify from 'dompurify';
-import { formatFileSize, getFileKindMeta, isHtmlContent } from '@/chat/utils';
+import { formatFileSize, getFileKindMeta, isHtmlContent, purifyHtml } from '@/chat/utils';
 import EmojiPicker from './EmojiPicker';
+import ColorButtons from './ColorButtons';
 
 /** A file staged in the composer (not yet uploaded). `caption` is per-item. */
 export interface PendingAttachment {
@@ -58,6 +60,7 @@ interface AttachmentTrayProps {
   onSend: () => void;
   onClose: () => void;
   sending: boolean;
+  onReplaceAttachment: (index: number, attachment: PendingAttachment) => void;
 }
 
 const CAPTION_THEME = {
@@ -80,7 +83,7 @@ const SetCaptionTextPlugin = ({ text }: { text: string }) => {
       const root = $getRoot();
       if (root.getTextContent()) return;
       if (isHtmlContent(initial)) {
-        const dom = new DOMParser().parseFromString(DOMPurify.sanitize(initial), 'text/html');
+        const dom = new DOMParser().parseFromString(purifyHtml(initial), 'text/html');
         const nodes = $generateNodesFromDOM(editor, dom);
         root.append(...nodes);
       } else {
@@ -140,6 +143,7 @@ const CaptionToolbar = ({ onAddFiles }: { onAddFiles: (files: File[]) => void })
         {iconBtn('Bold', format('bold'), <Bold className="h-4 w-4" />)}
         {iconBtn('Italic', format('italic'), <Italic className="h-4 w-4" />)}
         {iconBtn('Underline', format('underline'), <Underline className="h-4 w-4" />)}
+        <ColorButtons />
         <span className="mx-1 h-4 w-px bg-white/20" />
 
         <div className="relative">
@@ -298,9 +302,11 @@ export const AttachmentTray = ({
   onSend,
   onClose,
   sending,
+  onReplaceAttachment,
 }: AttachmentTrayProps) => {
   const { t } = useTranslations();
   const addInputRef = useRef<HTMLInputElement>(null);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const total = attachments.length;
   if (total === 0) return null;
 
@@ -312,6 +318,20 @@ export const AttachmentTray = ({
   const prev = () => onChangeIndex((safeIndex - 1 + total) % total);
   const next = () => onChangeIndex((safeIndex + 1) % total);
 
+  const handleImageProcessed = (file: File) => {
+    if (editingImageIndex === null) return;
+    const previewUrl = URL.createObjectURL(file);
+    onReplaceAttachment(editingImageIndex, {
+      ...attachments[editingImageIndex],
+      file,
+      previewUrl,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    });
+    setEditingImageIndex(null);
+  };
+
   return (
     <div
       className="absolute inset-0 z-50 flex flex-col bg-black pb-[max(1.28rem,6.4%)] text-white"
@@ -322,7 +342,16 @@ export const AttachmentTray = ({
         if (files.length) onAddFiles(files);
       }}
     >
-      {/* Top bar: close (discards pending), counter */}
+      {editingImageIndex !== null ? (
+        <ChatImageEditor
+          src={attachments[editingImageIndex].previewUrl}
+          name={attachments[editingImageIndex].name}
+          onProcessed={handleImageProcessed}
+          onCancel={() => setEditingImageIndex(null)}
+        />
+      ) : (
+        <>
+          {/* Top bar: close (discards pending), counter */}
       <div className="flex h-14 flex-shrink-0 items-center justify-between px-3">
         <button
           type="button"
@@ -342,11 +371,22 @@ export const AttachmentTray = ({
       {/* Active item display */}
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-4">
         {isImage ? (
-          <img
-            src={current.previewUrl}
-            alt={current.name}
-            className="max-h-full max-w-full object-contain"
-          />
+          <div className="relative">
+            <img
+              src={current.previewUrl}
+              alt={current.name}
+              className="max-h-full max-w-full object-contain"
+            />
+            <button
+              type="button"
+              onClick={() => setEditingImageIndex(safeIndex)}
+              title="Edit image"
+              aria-label="Edit image"
+              className="absolute bottom-3 right-3 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
         ) : isVideo ? (
           <video
             src={current.previewUrl}
@@ -463,6 +503,8 @@ export const AttachmentTray = ({
           <Send className="h-5 w-5" />
         </button>
       </div>
+      </>
+      )}
     </div>
   );
 };

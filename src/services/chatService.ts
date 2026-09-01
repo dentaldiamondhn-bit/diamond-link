@@ -71,7 +71,7 @@ export class ChatService {
     // preview when the list is (re)loaded.
     const { data: allRecentMessages } = await supabase
       .from('chat_messages')
-      .select('id, content, sender_id, message_type, created_at, conversation_id')
+      .select('id, content, sender_id, message_type, created_at, conversation_id, attachments:chat_attachments(*)')
       .in('conversation_id', convIds)
       .is('is_deleted', false)
       .order('created_at', { ascending: false })
