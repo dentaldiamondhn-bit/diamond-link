@@ -46,7 +46,6 @@ import {
 } from '@/chat/utils';
 import VoiceMessageBubble from './VoiceMessageBubble';
 import EmojiPicker from './EmojiPicker';
-import MediaLightbox from './MediaLightbox';
 import ForwardModal from './ForwardModal';
 import MentionPopover from './MentionPopover';
 import { TEXT_COLOR_SWATCHES, HIGHLIGHT_SWATCHES } from './ColorButtons';
@@ -230,6 +229,7 @@ interface MessageListProps {
   onReplyTo?: (msg: ChatMessage) => void;
   replyToId?: string | null;
   participantUserIds?: string[];
+  onOpenLightbox?: (msg: ChatMessage, index: number) => void;
 }
 
 interface RowProps {
@@ -599,6 +599,12 @@ const MessageRow = function MessageRow({
                   <span className="min-w-0 truncate">{replyPreviewText(msg)}</span>
                 </button>
               )}
+              {msg.is_forwarded && !mine && (
+                <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-400 mb-0.5">
+                  <Forward className="h-3 w-3" />
+                  {t('forwarded')}
+                </span>
+              )}
               <div className="flex items-center gap-1.5">
                 <div className="flex-1 min-w-0" onClick={onMentionClick}>{renderBubble(msg)}</div>
                 <button
@@ -686,7 +692,7 @@ const MessageRow = function MessageRow({
   );
 };
 
-export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds }: MessageListProps) => {
+export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds, onOpenLightbox }: MessageListProps) => {
   const { locale } = useTranslations();
   const removeMessage = useChatStore((s) => s.removeMessage);
   const tombstoneMessage = useChatStore((s) => s.tombstoneMessage);
@@ -727,7 +733,6 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const [editingContent, setEditingContent] = useState('');
   const [editMenuFor, setEditMenuFor] = useState<{ id: string; top: number; left: number } | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<{ msg: ChatMessage; index: number } | null>(null);
   const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
   const [deleteForId, setDeleteForId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -1089,9 +1094,12 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     []
   );
 
-  const handleOpenLightbox = useCallback((msg: ChatMessage, index: number) => {
-    setLightbox({ msg, index });
-  }, []);
+  const handleOpenLightbox = useCallback(
+    (msg: ChatMessage, index: number) => {
+      onOpenLightbox?.(msg, index);
+    },
+    [onOpenLightbox]
+  );
 
   // Clicking a hyperlinked @mention in a bubble opens the WhatsApp-style user card.
   const handleMentionClick = useCallback((e: React.MouseEvent) => {
@@ -1434,15 +1442,6 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
             Clear
           </button>
         </div>
-      )}
-
-      {lightbox && (
-        <MediaLightbox
-          items={(lightbox.msg.attachments || []).filter(isMediaAtt)}
-          index={lightbox.index}
-          onIndexChange={(index) => setLightbox({ msg: lightbox.msg, index })}
-          onClose={() => setLightbox(null)}
-        />
       )}
 
       {forwardMsg && (

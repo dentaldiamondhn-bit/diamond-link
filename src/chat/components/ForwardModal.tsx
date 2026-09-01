@@ -11,6 +11,7 @@ import {
   getInitials,
   getAvatarColor,
   getUserDisplayName,
+  htmlToText,
 } from '@/chat/utils';
 import {
   ChatMessage,
@@ -55,6 +56,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
         conversation_id: convId,
         content: message.content || message.patient_case_link?.title || '',
         message_type: ChatMessageType.TEXT,
+        is_forwarded: true,
       };
     }
     const hasAtts = (message.attachments || []).length > 0;
@@ -68,6 +70,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
       content: message.content || '',
       message_type: messageType,
       reply_to_id: null,
+      is_forwarded: true,
       attachments: hasAtts
         ? (message.attachments || []).map((a) => ({
             file_name: a.file_name,
@@ -182,7 +185,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
         className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+        <div className="flex items-center justify-between px-4 py-3">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('forwardTitle')}</h3>
           <button
             type="button"
@@ -213,7 +216,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
                 </p>
               ) : null}
               {message.content ? (
-                <p className="line-clamp-2 text-sm text-gray-900 dark:text-white">{message.content}</p>
+                <p className="line-clamp-2 text-sm text-gray-900 dark:text-white">{htmlToText(message.content)}</p>
               ) : (
                 <p className="text-sm text-gray-400 dark:text-gray-400">{t('forwardTitle')}</p>
               )}
@@ -221,7 +224,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
           </div>
         </div>
 
-        <div className="flex gap-1 border-b border-gray-200 px-4 dark:border-gray-700">
+        <div className="flex gap-1 px-4">
           <button
             type="button"
             onClick={() => {
@@ -252,7 +255,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
           </button>
         </div>
 
-        <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+        <div className="flex items-center gap-2 px-4 py-2">
           <Search className="h-4 w-4 text-gray-400" />
           <input
             value={query}
@@ -338,12 +341,12 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
         </div>
 
         {error && !sending && (
-          <div className="border-t border-gray-200 px-4 py-2.5 text-sm text-red-500 dark:border-gray-700">
+          <div className="px-4 py-2.5 text-sm text-red-500">
             {error}
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
           <span className="text-sm text-gray-500 dark:text-gray-300">
             {count > 0 ? t('forwardSelected', { n: count }) : t('forwardNone')}
           </span>

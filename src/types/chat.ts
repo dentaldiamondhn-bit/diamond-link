@@ -75,6 +75,7 @@ export interface ChatMessage {
   reply_to_id: string | null;
   is_edited: boolean;
   is_deleted: boolean;
+  is_forwarded?: boolean;
   reactions: MessageReaction;
   created_at: string;
   updated_at: string;
@@ -161,6 +162,7 @@ export interface CreateMessageData {
   content: string;
   message_type?: ChatMessageType;
   reply_to_id?: string;
+  is_forwarded?: boolean;
   attachments?: FileAttachmentData[];
   patient_case_link?: PatientCaseLinkData;
   voice_note_url?: string;

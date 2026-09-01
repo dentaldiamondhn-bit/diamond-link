@@ -11,6 +11,7 @@ import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
+import MediaLightbox from './MediaLightbox';
 import TypingIndicator from './TypingIndicator';
 import Composer from './Composer';
 
@@ -45,6 +46,7 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [pendingVoice, setPendingVoice] = useState<VoiceRecordingResult | null>(null);
+  const [lightbox, setLightbox] = useState<{ msg: ChatMessage; index: number } | null>(null);
 
   const { isRecording, isPaused, duration, startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording, reset } =
     useVoiceRecorder();
@@ -374,6 +376,10 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
     handleVoiceDiscard,
   ]);
 
+  const handleOpenLightbox = useCallback((msg: ChatMessage, index: number) => {
+    setLightbox({ msg, index });
+  }, []);
+
   useEffect(() => {
     if (selectedConversationId) markConversationRead(selectedConversationId);
   }, [selectedMessages.length, selectedConversationId, markConversationRead]);
@@ -392,6 +398,7 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
               onReplyTo={(msg) => setReplyTo(msg)}
               replyToId={replyTo?.id ?? null}
               participantUserIds={otherParticipantIds}
+              onOpenLightbox={handleOpenLightbox}
             />
           </div>
           <TypingIndicator conversationId={selectedConversationId} />
@@ -428,6 +435,17 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
             </p>
           </div>
         </div>
+      )}
+
+      {lightbox && (
+        <MediaLightbox
+          items={(lightbox.msg.attachments || []).filter(
+            (a) => a.file_type.startsWith('image/') || a.file_type.startsWith('video/')
+          )}
+          index={lightbox.index}
+          onIndexChange={(index) => setLightbox({ msg: lightbox.msg, index })}
+          onClose={() => setLightbox(null)}
+        />
       )}
     </div>
   );

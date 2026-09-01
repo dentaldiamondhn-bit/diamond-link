@@ -477,6 +477,7 @@ export class ChatService {
         content: data.content || '',
         message_type: data.message_type || 'text',
         reply_to_id: data.reply_to_id,
+        is_forwarded: data.is_forwarded || false,
         voice_note_url: data.voice_note_url,
         voice_note_duration: data.voice_note_duration,
       })
