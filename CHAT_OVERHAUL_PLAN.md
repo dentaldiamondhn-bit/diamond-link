@@ -217,9 +217,9 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 - Phases 5 (push), 6 (PWA), 9 (bundle), 10 (QA/rollout) not started.
 
 ### Next Move
-1. **Phase 5** (push notifications / Service Worker) — the biggest remaining user-facing win.
-2. **Phase 6 / 9** (PWA installability, bundle splitting).
-3. Then **Phase 10** QA/rollout (deactivate-flag hammer + regression pass).
+1. **Phase 6 (cont.)** — offline shell precache in `sw.js` + offline banner + **chat send queue** (optimistic `local_state:'queued'`, flush on reconnect).
+2. **Phase 5** (push notifications / Service Worker) — the biggest remaining user-facing win.
+3. Then **Phase 9** (bundle splitting) and **Phase 10** QA/rollout.
 4. Keep the gate: `npx tsc --noEmit` + scoped ESLint below.
 
 ### Verification Gate
@@ -245,6 +245,8 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/chat --cache --format st
 - `src/types/nspell.d.ts` — CJS type shim for `nspell` (`export = NSpell`).
 - `public/dictionaries/{en,es}.{aff,dic}` — raw Hunspell dictionaries copied from `dictionary-en` / `dictionary-es` (fitted for the browser fetch path; the published packages read files via `node:fs` so they can't be imported in JS).
 - `src/chat/components/ChatHeader.tsx` — **language selector** (lucide `Languages` button → Español/English dropdown, check on active; persists `{ locale }` via `useGlobalPreferences` + `chat-locale`).
+- `src/chat/hooks/useInstallPrompt.ts` — **Phase 6 install prompt hook**: captures `beforeinstallprompt`, `promptInstall()` returns accepted/dismissed, `installed` detection via `(display-mode: standalone)` + iOS `navigator.standalone` + localStorage, iOS Safari detection (`isIos`) for the Add-to-Home-Screen hint.
+- `src/chat/components/InstallAppButton.tsx` — **Phase 6 header button**: Download icon → native install dialog when installable, iOS Safari hint popover, hidden once installed.
 - `src/chat/hooks/useChatRealtime.ts` — consolidated realtime (messages/conversations/participants/**`chat_message_reads`**/presence/typing) + mark-as-read on delivery while open; **read-receipt fallback** (re-fetch row by `id` when UPDATE payload lacks `message_id`/`user_id`); hardened `chat_messages` UPDATE handler; soft-delete tombstone guard.
 - `src/services/chatService.ts` — `reply_to:chat_messages(id, content)` select (no `users` embed — no FK), per-user unread counts from `last_read_at`, `getReadsByConversation` + `attachReads`, centralized `markConversationRead` (last_read_at + `chat_message_reads` upserts), `getConversations` attaches reads to `last_message` for list ticks, **`stripHtml` on notification `message`** (no raw Lexical `<p>…` in notifications), **fetches `chat_attachments(*)` with last_message** for sidebar previews; **`sendMessage` insert persists `is_forwarded`**.
 - `src/chat/repository.ts` — data layer (messages, conversations, `markAsRead` → `markConversationRead`).
@@ -285,7 +287,7 @@ Fresh snapshot (2026-08-31) mapping the **original phase target** to what the cu
 | **3 – Rich-Text Composer** | Lexical (bold/italic/underline, lists, code, quotes, @mentions, attach preview, Ctrl+Enter), optimistic | Lexical (bold/italic/underline, **lists/code toolbar**, **@mentions**), reply-quote bar, drag-&-drop + multi-file upload, voice notes, full emoji picker, **optimistic send-clear**, **draft persistence**, **staged attachment tray with image editor** (crop/tilt/draw), **text color + highlight swatches** | ✅ ~100% | Ctrl+Enter explicit handling (Enter default) |
 | **4 – Message UI Enhancements** | Grouping, reactions, hover menu, edit, reply w/ preview + jump, read-receipt avatars | Grouping, one-per-user reactions, unified above/below action menu (Copy/Forward/Reply/Edit/Delete), **inline edit with 5-line scrollable textarea + chevron formatting menu** (text color + highlight), quote/reply preview **with image snippet** + click-to-jump, read-receipts + ✓/✓✓, **sidebar last-message previews** with image thumbnails + text snippets, **forward modal (natural-language HTML preview, no divider borders) + receiver-only "Reenviado" bubble badge (with forward icon)** | ✅ ~100% | `edited_at` surfaced only via `is_edited` label (already implemented) |
 | **5 – Notifications & Push** | Web-Push: SW + VAPID, offline/background/Android tray | `showBrowserNotification` (focused tab) + in-app notifications; old `public/sw.js` (hash cache) — no VAPID/push/subscription table | ⏳ 10% | VAPID pair, `push_subscriptions` table, `/api/push/subscribe`, SW `push` handler + Web-Push send, background/closed-tab push, Android tray |
-| **6 – PWA & Installability** | Manifest, offline caching, install prompt | Dev-only localhost SW-kill; **no** manifest / offline shell / install prompt | ⏳ 0% | `manifest.json`, Workbox/precache shell, `beforeinstallprompt`, offline banner + queue |
+| **6 – PWA & Installability** | Manifest, offline caching, install prompt | Manifest + icons exist; **install-prompt button added to the chat header** (`useInstallPrompt` + `InstallAppButton`: captures `beforeinstallprompt` → native install dialog, hides once installed, iOS Safari "Add to Home Screen" hint); SW `sw.js` exists but no offline shell / send queue yet | ◑ 20% | Offline shell precache, `beforeinstallprompt` (done) persisted, offline banner + send queue, Lighthouse PWA audit |
 | **7 – Theming / Dark Mode / I18n** | Design tokens + en/es | i18n layer (`en`/`es`, typed `TranslationKey`) fully wired incl. latest keys (`copyMessage`, `forward*`, `forwardSelected`, `forwardNone`, `forwardDone`, `editorCrop`, `editorTilt`, `editorDraw`, `language*`, `spell*`); **language selector UI in `ChatHeader`**; **composer spell-check (nspell + en/es dictionaries, squiggle + click-for-suggestions popover)**; dark mode via existing theme context (partial) | ✅ ~95% | Design-token system (`color-system.css`), full dark-mode token coverage |
 | **8 – Accessibility & Polish** | WCAG AA, keyboard nav, screen-reader live regions, focus traps | Basic ARIA/labels, buttons; keyboard nav in sidebar | ◑ ~20% | `aria-live` new-message region, focus traps in modals/pickers, Ctrl+K/Alt-Arrow shortcuts, skip-link |
 | **9 – Performance & Bundle** | Code-splitting, lazy composer/list, chat-only chunk | Virtualized list; **no** dynamic import of the chat suite / lazy Lexical (everything bundled into the chat page chunk) | ◑ ~20% | `dynamic(() => import(...))`, lazy `RichTextComposer`/`EmojiPicker`, chat-only CSS chunk, `next-bundle-analyzer` |
@@ -295,7 +297,7 @@ Fresh snapshot (2026-08-31) mapping the **original phase target** to what the cu
 
 | Original plan total | Original plan via Fluxer-host (`-` UI-heavy phases) | Current delivered | Remaining |
 |---------------------|-----------------------------------------------------|-------------------|-----------|
-| ≈ 40 person-days | ≈ 15–20 person-days | Phases 0,1,2,3,4 (+ ~95% of 7) ≈ **~34–36 person-days** | Phases 5,6,9 (≈ 10–12 person-days) + Phase 10 + the 7/8 leftovers ≈ **~8–10 person-days** |
+| ≈ 40 person-days | ≈ 15–20 person-days | Phases 0,1,2,3,4 (+ ~95% of 7, + ~20% of 6 install-prompt) ≈ **~35–37 person-days** | Phases 5,6 (offline shell/queue),9 (≈ 9–11 person-days) + Phase 10 + the 7/8 leftovers ≈ **~7–10 person-days** |
 
 ### Biggest remaining user-facing wins (gap → priority)
 

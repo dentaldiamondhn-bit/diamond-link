@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Menu, Search, MoreVertical, Users as UsersIcon, Languages, Check } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import { InstallAppButton } from '@/chat/components/InstallAppButton';
 import type { ChatLocale } from '@/chat/i18n/translations';
 import { useGlobalPreferences } from '@/hooks/useUserPreferences';
 import {
@@ -114,6 +115,7 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
             DEV R5
           </span>
         )}
+        <InstallAppButton />
         <button
           className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           title={t('searchPlaceholder')}

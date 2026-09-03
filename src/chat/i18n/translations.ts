@@ -111,6 +111,10 @@ const en = {
   spellNoSuggestions: 'No suggestions',
   spellIgnore: 'Ignore',
   spellAddToDictionary: 'Add to dictionary',
+  installApp: 'Install app',
+  installTitle: 'Install Diamond Link',
+  installHint: 'Your app is ready — tap "Share", then "Add to Home Screen" to install it.',
+  installDismiss: 'Not now',
 } as const;
 
 const es: Record<keyof typeof en, string> = {
@@ -213,6 +217,10 @@ const es: Record<keyof typeof en, string> = {
   spellNoSuggestions: 'Sin sugerencias',
   spellIgnore: 'Ignorar',
   spellAddToDictionary: 'Añadir al diccionario',
+  installApp: 'Instalar app',
+  installTitle: 'Instalar Diamond Link',
+  installHint: 'Tu app está lista — pulsa "Compartir" y luego "Añadir a pantalla de inicio".',
+  installDismiss: 'Ahora no',
 };
 
 export type TranslationKey = keyof typeof en;
