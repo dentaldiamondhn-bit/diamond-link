@@ -8,6 +8,13 @@ import { usePagePreferences, useUserPreferences } from '@/hooks/useUserPreferenc
 import { formatCurrency, formatNumber } from '@/utils/currencyUtils';
 import { ReportsService } from '@/services/reportsService';
 import { PaymentService } from '@/services/paymentService';
+import { FinancialExportButton } from '@/components/FinancialExportButton';
+import type {
+  DailyFinancialData,
+  MonthlyFinancialData,
+  YearlyFinancialData,
+  FinancialExportPayload,
+} from '@/types/financial';
 import { useTheme } from '@/contexts/ThemeContext';
 import { 
   LineChart, 
@@ -205,6 +212,15 @@ function CustomTooltip({ active, payload, label, formatter }: any) {
   return null;
 }
 
+function mapPaymentMethod(method?: string): DailyFinancialData['paymentMethod'] {
+  const normalized = (method || '').toLowerCase();
+  if (normalized.includes('tarjeta')) return 'Tarjeta';
+  if (normalized.includes('transferencia')) return 'Transferencia';
+  if (normalized.includes('extra') || normalized.includes('deposito') || normalized.includes('depósito')) return 'Seguro';
+  if (normalized.includes('efectivo') || normalized.includes('cash')) return 'Efectivo';
+  return 'Efectivo';
+}
+
 export default function ReportsPage() {
   const { resolvedTheme } = useTheme();
   const router = useRouter();
@@ -273,6 +289,7 @@ export default function ReportsPage() {
       totalPagado: number;
       totalNeto: number;
       comision: number;
+      pacientes: Set<string>;
       paymentMethods: Record<string, { total: number; neto: number; comision: number }>;
     }> = {};
 
@@ -287,6 +304,7 @@ export default function ReportsPage() {
       const comision = amount - neto;
       const metodoPagoRaw = t.metodoPago || 'Otros';
       const metodoPago = typeof metodoPagoRaw === 'string' ? metodoPagoRaw : 'Otros';
+      const paciente = t.paciente || '';
 
       if (!monthlyData[month]) {
         const monthNum = transactionDate.getMonth();
@@ -295,6 +313,7 @@ export default function ReportsPage() {
           totalPagado: 0,
           totalNeto: 0,
           comision: 0,
+          pacientes: new Set<string>(),
           paymentMethods: {}
         };
       }
@@ -302,6 +321,9 @@ export default function ReportsPage() {
       monthlyData[month].totalPagado += amount;
       monthlyData[month].totalNeto += neto;
       monthlyData[month].comision += comision;
+      if (paciente) {
+        monthlyData[month].pacientes.add(paciente);
+      }
 
       if (!monthlyData[month].paymentMethods[metodoPago]) {
         monthlyData[month].paymentMethods[metodoPago] = { total: 0, neto: 0, comision: 0 };
@@ -487,6 +509,42 @@ export default function ReportsPage() {
 
   const handleRefresh = () => {
     setReloadTrigger(t => t + 1);
+  };
+
+  const getExportData = (): FinancialExportPayload => {
+    const daily: DailyFinancialData[] = financialTransactions.map((t: any) => ({
+      date: t.fecha ? new Date(t.fecha).toISOString().slice(0, 10) : '',
+      patientName: t.paciente || 'N/A',
+      procedure: t.tratamiento || 'General',
+      paymentMethod: mapPaymentMethod(t.metodoPago),
+      amount: typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0,
+    }));
+
+    const monthly: MonthlyFinancialData[] = monthlyIncome.map((m: any) => ({
+      month: m.month || '',
+      totalPatients: m.pacientes ? m.pacientes.size : 0,
+      grossRevenue: m.totalPagado || 0,
+      expenses: m.comision || 0,
+      netIncome: m.totalNeto || 0,
+    }));
+
+    const yearly: YearlyFinancialData[] = [
+      {
+        year: selectedYear,
+        totalRevenue: monthlyIncome.reduce((sum: number, m: any) => sum + (m.totalPagado || 0), 0),
+        totalExpenses: monthlyIncome.reduce((sum: number, m: any) => sum + (m.comision || 0), 0),
+        netProfit: monthlyIncome.reduce((sum: number, m: any) => sum + (m.totalNeto || 0), 0),
+        taxDeductions: 0,
+      },
+    ];
+
+    return {
+      daily,
+      monthly,
+      yearly,
+      clinicName: 'Dental Clinic Management System',
+      dateRange: { startDate: appliedStartDate, endDate: appliedEndDate },
+    };
   };
 
   const tabs = [
@@ -1420,11 +1478,14 @@ export default function ReportsPage() {
 
                     {activeTab === 'financial' && (
                       <div className="space-y-6">
-                        <div className="flex items-center gap-3 mb-6">
-                          <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
-                            <FiDollarSign className="w-5 h-5 text-white" />
+                        <div className="flex items-center justify-between gap-3 mb-6">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
+                              <FiDollarSign className="w-5 h-5 text-white" />
+                            </div>
+                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Transacciones Financieras</h2>
                           </div>
-                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Transacciones Financieras</h2>
+                          <FinancialExportButton getExportData={getExportData} />
                         </div>
 
                         <AnimatedChart>
