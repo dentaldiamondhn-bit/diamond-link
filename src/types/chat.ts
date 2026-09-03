@@ -91,7 +91,7 @@ export interface ChatMessage {
   reads?: ChatMessageRead[];
 
   // Client-only optimistic-send metadata (not persisted).
-  local_state?: 'pending' | 'failed';
+  local_state?: 'pending' | 'failed' | 'queued';
   upload_progress?: number;
 }
 

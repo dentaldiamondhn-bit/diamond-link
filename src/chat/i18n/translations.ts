@@ -115,6 +115,9 @@ const en = {
   installTitle: 'Install Diamond Link',
   installHint: 'Your app is ready — tap "Share", then "Add to Home Screen" to install it.',
   installDismiss: 'Not now',
+  offlineBanner: 'You are offline — messages will send when you reconnect.',
+  offlineSending: 'Offline — sending queued messages…',
+  queuedMessages: '{n} message(s) pending send',
 } as const;
 
 const es: Record<keyof typeof en, string> = {
@@ -221,6 +224,9 @@ const es: Record<keyof typeof en, string> = {
   installTitle: 'Instalar Diamond Link',
   installHint: 'Tu app está lista — pulsa "Compartir" y luego "Añadir a pantalla de inicio".',
   installDismiss: 'Ahora no',
+  offlineBanner: 'Estás sin conexión — los mensajes se enviarán cuando te reconectes.',
+  offlineSending: 'Sin conexión — enviando mensajes en cola…',
+  queuedMessages: '{n} mensaje(s) pendientes de envío',
 };
 
 export type TranslationKey = keyof typeof en;

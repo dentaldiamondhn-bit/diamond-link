@@ -25,6 +25,7 @@ import {
   Underline,
   Strikethrough,
   Code2,
+  Clock3,
 } from 'lucide-react';
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps, ListImperativeAPI } from 'react-window';
@@ -661,6 +662,13 @@ const MessageRow = function MessageRow({
               <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-400/15 dark:text-red-400">
                 <XCircle className="h-3 w-3" />
                 {t('sendFailed')}
+              </span>
+            )}
+
+            {mine && msg.local_state === 'queued' && (
+              <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:bg-amber-400/15 dark:text-amber-400">
+                <Clock3 className="h-3 w-3" />
+                {t('offlineBanner')}
               </span>
             )}
 

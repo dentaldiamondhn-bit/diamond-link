@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MessagesSquare } from 'lucide-react';
+import { MessagesSquare, WifiOff } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useVoiceRecorder, VoiceRecordingResult } from '@/chat/hooks/useVoiceRecorder';
@@ -14,6 +14,7 @@ import MessageList from './MessageList';
 import MediaLightbox from './MediaLightbox';
 import TypingIndicator from './TypingIndicator';
 import Composer from './Composer';
+import { useOfflineQueue } from '@/chat/hooks/useOfflineQueue';
 
 interface ChatPaneProps {
   className?: string;
@@ -175,6 +176,11 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
     [removeMessage, addMessage, currentUserId]
   );
 
+  const { isOnline, queuedCount, enqueue } = useOfflineQueue({
+    onSuccess: finalizeSend,
+    onFailure: (tmpId) => updateMessage(tmpId, { local_state: 'failed' }),
+  });
+
   const handleSend = useCallback(
     async (content: string, items: PendingAttachment[], replyToId?: string) => {
       const convId = conversationRef.current;
@@ -186,6 +192,24 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
 
       const tmpId = makeTmpId('tmp');
       const optimistic = optimisticMessage(tmpId, convId, content, items, replyToId ?? null);
+
+      // Offline & text-only: queue the send locally instead of failing. File /
+      // image / voice needs a live upload (can't produce a public URL offline),
+      // so those keep the normal pending→failed path.
+      const textOnly = items.length === 0;
+      if (!isOnline && textOnly) {
+        optimistic.local_state = 'queued';
+        addMessage(optimistic, currentUserId, convId);
+        setReplyTo(null);
+        enqueue(tmpId, currentUserId, {
+          conversation_id: convId,
+          content,
+          message_type: optimistic.message_type,
+          reply_to_id: replyToId ?? null,
+        });
+        return;
+      }
+
       addMessage(optimistic, currentUserId, convId);
       setReplyTo(null);
 
@@ -258,6 +282,8 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
       finalizeSend,
       sendTyping,
       setError,
+      isOnline,
+      enqueue,
     ]
   );
 
@@ -388,6 +414,18 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
     <div
       className={`relative flex h-full flex-1 min-w-0 flex-col overflow-hidden bg-gray-50 dark:bg-gray-800 ${className}`}
     >
+      {(isOnline === false || queuedCount > 0) && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
+          <WifiOff className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>
+            {isOnline === false
+              ? queuedCount > 0
+                ? t('queuedMessages', { n: queuedCount })
+                : t('offlineBanner')
+              : t('queuedMessages', { n: queuedCount })}
+          </span>
+        </div>
+      )}
       {selectedConversationId ? (
         <>
           <ChatHeader conversationId={selectedConversationId} onMenuToggle={onMenuToggle} />
