@@ -105,6 +105,12 @@ const en = {
   rotateLeft: 'Rotate left',
   rotateRight: 'Rotate right',
   apply: 'Apply',
+  language: 'Language',
+  languageEs: 'Spanish',
+  languageEn: 'English',
+  spellNoSuggestions: 'No suggestions',
+  spellIgnore: 'Ignore',
+  spellAddToDictionary: 'Add to dictionary',
 } as const;
 
 const es: Record<keyof typeof en, string> = {
@@ -201,6 +207,12 @@ const es: Record<keyof typeof en, string> = {
   rotateLeft: 'Girar izquierda',
   rotateRight: 'Girar derecha',
   apply: 'Aplicar',
+  language: 'Idioma',
+  languageEs: 'Español',
+  languageEn: 'Inglés',
+  spellNoSuggestions: 'Sin sugerencias',
+  spellIgnore: 'Ignorar',
+  spellAddToDictionary: 'Añadir al diccionario',
 };
 
 export type TranslationKey = keyof typeof en;

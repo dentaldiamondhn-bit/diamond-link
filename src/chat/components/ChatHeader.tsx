@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
-import { Menu, Search, MoreVertical, Users as UsersIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu, Search, MoreVertical, Users as UsersIcon, Languages, Check } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import type { ChatLocale } from '@/chat/i18n/translations';
+import { useGlobalPreferences } from '@/hooks/useUserPreferences';
 import {
   getConversationDisplayName,
   getConversationAvatar,
@@ -20,7 +22,9 @@ interface ChatHeaderProps {
 }
 
 export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: ChatHeaderProps) => {
-  const { t } = useTranslations();
+  const { t, locale } = useTranslations();
+  const { updatePreferences } = useGlobalPreferences();
+  const [langOpen, setLangOpen] = useState(false);
   const { conversations, users, presence, typing, currentUserId } = useChatStore();
   const conversation = conversations.find((c) => c.id === conversationId);
 
@@ -42,6 +46,12 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
 
   const otherOnline = otherParticipants.some((p) => presence[p.user_id] === 'online');
   const memberCount = (conversation?.participants || []).length;
+
+  const changeLanguage = (next: ChatLocale) => {
+    localStorage.setItem('chat-locale', next);
+    updatePreferences({ locale: next });
+    setLangOpen(false);
+  };
 
   return (
     <header
@@ -110,6 +120,35 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
         >
           <Search className="h-5 w-5" />
         </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setLangOpen((v) => !v)}
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+            title={t('language')}
+            aria-label={t('language')}
+          >
+            <Languages className="h-5 w-5" />
+          </button>
+          {langOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} />
+              <div className="absolute right-0 z-50 mt-1 w-40 rounded-lg border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                {(['es', 'en'] as ChatLocale[]).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => changeLanguage(l)}
+                    className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    <span>{l === 'es' ? t('languageEs') : t('languageEn')}</span>
+                    {locale === l && <Check className="h-4 w-4 text-blue-500" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <button
           className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           title={t('participants')}

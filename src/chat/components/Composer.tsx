@@ -50,6 +50,8 @@ import { useTranslations } from '@/chat/i18n/useTranslations';
 import { htmlToText } from '@/chat/utils';
 import { MentionNode } from '@/chat/mentionNode';
 import MentionPlugin from './MentionPlugin';
+import { SpellCheckNode } from '@/chat/spellcheck/SpellCheckNode';
+import { SpellCheckPlugin } from '@/chat/spellcheck/SpellCheckPlugin';
 import EmojiPicker from './EmojiPicker';
 import AttachmentTray from './AttachmentTray';
 import ColorButtons from './ColorButtons';
@@ -507,7 +509,7 @@ export const Composer = ({
   disabled,
   className = '',
 }: ComposerProps) => {
-  const { t } = useTranslations();
+  const { t, locale } = useTranslations();
   // @mentions are only offered inside group conversations, not 1:1 chats.
   const mentionEnabled = useChatStore(
     (s) =>
@@ -519,6 +521,7 @@ export const Composer = ({
   const [textContent, setTextContent] = useState('');
   const [sending, setSending] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [spellReady, setSpellReady] = useState(false);
   const textRef = useRef('');
   const htmlRef = useRef('');
   const editorRef = useRef<LexicalEditor | null>(null);
@@ -759,14 +762,14 @@ export const Composer = ({
           initialConfig={{
             namespace: 'ChatComposer',
             theme: EDITOR_THEME,
-            nodes: [HeadingNode, ListNode, ListItemNode, CodeNode, MentionNode],
+            nodes: [HeadingNode, ListNode, ListItemNode, CodeNode, MentionNode, SpellCheckNode],
             onError: (error) => console.error('Lexical Error:', error),
           }}
         >
           <div className="relative">
             <RichTextPlugin
               contentEditable={
-                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" data-chat-composer />
+                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" data-chat-composer spellCheck={!spellReady} />
               }
               placeholder={
                 <div className="absolute top-2 left-3 pointer-events-none italic text-gray-400 dark:text-gray-500 text-sm">
@@ -812,6 +815,7 @@ export const Composer = ({
           <OnChangePlugin onChange={handleChange} />
           <EnterToSendPlugin onSend={send} />
           <MentionPlugin enabled={mentionEnabled} />
+          <SpellCheckPlugin locale={locale} onReady={setSpellReady} />
           <DraftLoader draftKey={draftKey} />
           <div className="flex items-center justify-between mt-2 gap-3">
             <LexicalToolbar
