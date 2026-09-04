@@ -1,9 +1,11 @@
 import { supabase } from '../lib/supabase';
+import type { DefaultWallpaperKey } from '@/chat/wallpapers';
 
 export interface ChatSettings {
   user_id: string;
   conversation_id: string | null;
   wallpaper_type: 'default' | 'custom';
+  wallpaper_style: DefaultWallpaperKey;
   background_image_url: string | null;
   my_bubble_color: string;
   other_bubble_color: string;
@@ -13,12 +15,17 @@ export interface ChatSettings {
 export type ChatSettingsUpdate = Partial<
   Pick<
     ChatSettings,
-    'wallpaper_type' | 'background_image_url' | 'my_bubble_color' | 'other_bubble_color'
+    | 'wallpaper_type'
+    | 'wallpaper_style'
+    | 'background_image_url'
+    | 'my_bubble_color'
+    | 'other_bubble_color'
   >
 >;
 
 const DEFAULT_FIELDS: ChatSettingsUpdate = {
   wallpaper_type: 'default',
+  wallpaper_style: 'classic',
   background_image_url: null,
   my_bubble_color: '#2563eb',
   other_bubble_color: '#ffffff',

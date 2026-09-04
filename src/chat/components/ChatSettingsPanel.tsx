@@ -11,8 +11,22 @@ import {
 } from 'lucide-react';
 import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
-import { DEFAULT_WALLPAPER } from '@/chat/wallpapers';
+import {
+  DEFAULT_WALLPAPERS,
+  DEFAULT_WALLPAPER_KEYS,
+  WALLPAPER_TILE,
+  type DefaultWallpaperKey,
+} from '@/chat/wallpapers';
 import { useTheme } from '@/contexts/ThemeContext';
+import type { TranslationKey } from '@/chat/i18n/translations';
+
+const WALLPAPER_LABEL_KEY: Record<DefaultWallpaperKey, TranslationKey> = {
+  classic: 'settingsWallpaperClassic',
+  dental: 'settingsWallpaperDental',
+  azure: 'settingsWallpaperAzure',
+  mint: 'settingsWallpaperMint',
+  geo: 'settingsWallpaperGeo',
+};
 
 const MY_BUBBLE_COLORS = [
   '#2563eb',
@@ -51,9 +65,13 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
   const otherColor = settings?.other_bubble_color ?? '#ffffff';
   const isCustomWallpaper =
     settings?.wallpaper_type === 'custom' && !!settings?.background_image_url;
+  const currentStyle: DefaultWallpaperKey | null =
+    settings?.wallpaper_type === 'default'
+      ? settings?.wallpaper_style ?? 'classic'
+      : null;
 
-  const handlePickWallpaper = () => {
-    update({ wallpaper_type: 'default', background_image_url: null });
+  const handlePickWallpaper = (style: DefaultWallpaperKey) => {
+    update({ wallpaper_type: 'default', wallpaper_style: style, background_image_url: null });
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,31 +128,45 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
               {t('settingsWallpaper')}
             </h3>
 
-            <button
-              type="button"
-              onClick={handlePickWallpaper}
-              className={`relative flex h-20 w-full items-center justify-center overflow-hidden rounded-xl border-2 transition ${
-                !isCustomWallpaper
-                  ? 'border-blue-500'
-                  : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-              style={{
-                backgroundImage:
-                  resolvedTheme === 'dark'
-                    ? DEFAULT_WALLPAPER.dark
-                    : DEFAULT_WALLPAPER.light,
-                backgroundSize: '60px',
-              }}
-            >
-              {!isCustomWallpaper && (
-                <span className="absolute right-2 top-2 rounded-full bg-blue-500 p-0.5 text-white">
-                  <Check className="h-3 w-3" />
-                </span>
-              )}
-              <span className="rounded bg-white/80 px-2 py-0.5 text-xs font-medium text-gray-700">
-                {t('settingsWallpaperDefault')}
-              </span>
-            </button>
+            <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+              {t('settingsWallpaperDefault')}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {DEFAULT_WALLPAPER_KEYS.map((key) => {
+                const design = DEFAULT_WALLPAPERS[key];
+                const selected =
+                  !isCustomWallpaper && currentStyle === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handlePickWallpaper(key)}
+                    className={`relative overflow-hidden rounded-xl border-2 transition ${
+                      selected
+                        ? 'border-blue-500'
+                        : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                    style={{
+                      backgroundImage:
+                        resolvedTheme === 'dark' ? design.dark : design.light,
+                      backgroundSize: `${Math.max(72, WALLPAPER_TILE / 3)}px`,
+                    }}
+                    aria-pressed={selected}
+                  >
+                    <span className="flex h-16 w-full items-center justify-center">
+                      {selected && (
+                        <span className="rounded-full bg-blue-500 p-0.5 text-white">
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                    </span>
+                    <span className="absolute inset-x-0 bottom-0 bg-black/30 px-1.5 py-0.5 text-center text-[10px] font-medium text-white">
+                      {t(WALLPAPER_LABEL_KEY[key])}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
             <div className="mt-2 flex items-center gap-2">
               <button
@@ -149,7 +181,7 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
               {isCustomWallpaper && (
                 <button
                   type="button"
-                  onClick={handlePickWallpaper}
+                  onClick={() => handlePickWallpaper('classic')}
                   className="flex items-center gap-1 rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                   title={t('settingsReset')}
                 >

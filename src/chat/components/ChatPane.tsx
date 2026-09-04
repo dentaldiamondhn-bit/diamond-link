@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MessagesSquare, WifiOff } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
-import { DEFAULT_WALLPAPER } from '@/chat/wallpapers';
+import { DEFAULT_WALLPAPERS, WALLPAPER_TILE } from '@/chat/wallpapers';
 import { ChatRepository } from '@/chat/repository';
 import { useVoiceRecorder, VoiceRecordingResult } from '@/chat/hooks/useVoiceRecorder';
 import { useTranslations } from '@/chat/i18n/useTranslations';
@@ -32,8 +32,8 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
   const { t } = useTranslations();
   const chatSettings = useChatSettingsStore((s) => s.settings);
 
-  // Wallpaper for the chat area: a user-uploaded image (cover) or the
-  // WhatsApp-style default doodle pattern.
+  // Wallpaper for the chat area: a user-uploaded image (cover) or a built-in
+  // default seamless design (chosen via wallpaper_style).
   const wallpaperStyle = useMemo<React.CSSProperties | undefined>(() => {
     if (chatSettings?.wallpaper_type === 'custom' && chatSettings.background_image_url) {
       return {
@@ -47,14 +47,15 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
   }, [chatSettings]);
   const { resolvedTheme } = useTheme();
   const defaultWallpaperStyle = useMemo<React.CSSProperties>(() => {
-    const bg =
-      resolvedTheme === 'dark' ? DEFAULT_WALLPAPER.dark : DEFAULT_WALLPAPER.light;
+    const key = chatSettings?.wallpaper_style ?? 'classic';
+    const design = DEFAULT_WALLPAPERS[key] ?? DEFAULT_WALLPAPERS.classic;
+    const bg = resolvedTheme === 'dark' ? design.dark : design.light;
     return {
       backgroundImage: bg,
-      backgroundSize: '60px',
+      backgroundSize: `${WALLPAPER_TILE}px`,
       backgroundRepeat: 'repeat',
     };
-  }, [resolvedTheme]);
+  }, [resolvedTheme, chatSettings]);
   const {
     selectedConversationId,
     messages,
