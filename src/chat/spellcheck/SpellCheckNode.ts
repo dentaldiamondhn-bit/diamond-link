@@ -38,18 +38,24 @@ export class SpellCheckNode extends TextNode {
    * identical plain TextNode so the stored content stays clean.
    */
   exportDOM(editor: LexicalEditor): DOMExportOutput {
-    const plain = new TextNode(this.getTextContent())
-      .setFormat(this.getFormat())
-      .setStyle(this.getStyle());
-    const output = plain.exportDOM(editor);
-    const element = output.element;
-    if (element instanceof HTMLElement) {
-      element.classList.remove('chat-spell-error', 'chat-spell-error-active');
-      element.style.removeProperty('border-bottom');
-      element.style.removeProperty('padding-bottom');
-      element.style.removeProperty('cursor');
+    // Avoid creating a new TextNode (triggers read-only check). Build the
+    // export output manually with a plain span containing the text content.
+    const element = document.createElement('span');
+    element.textContent = this.getTextContent();
+    // Apply format classes inline to match TextNode's default export behavior
+    const format = this.getFormat();
+    if (format) {
+      const classes: string[] = [];
+      if (format & 1) classes.push('chat-bold', 'font-bold');
+      if (format & 2) classes.push('chat-italic', 'italic');
+      if (format & 4) classes.push('chat-underline', 'underline');
+      if (format & 8) classes.push('chat-strikethrough', 'line-through');
+      if (format & 16) classes.push('chat-code', 'font-mono');
+      if (classes.length) element.className = classes.join(' ');
     }
-    return output;
+    const style = this.getStyle();
+    if (style) element.style.cssText = style;
+    return { element };
   }
 }
 

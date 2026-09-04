@@ -21,7 +21,9 @@ export function useTranslations() {
   const locale: ChatLocale = useMemo(
     () =>
       getChatLocale(
-        preferences?.locale ?? preferences?.language ?? localStorage.getItem('chat-locale')
+        preferences?.locale ??
+          preferences?.language ??
+          (typeof window !== 'undefined' ? localStorage.getItem('chat-locale') : null)
       ),
     [preferences]
   );
