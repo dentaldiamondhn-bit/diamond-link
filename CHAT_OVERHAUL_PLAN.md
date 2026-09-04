@@ -118,6 +118,10 @@ Phase-gated roadmap. **Status** column reflects current build progress in `src/c
 | **Performance / Bundle** | All chat code in main bundle | Code-splitting, lazy Lexical, chat-only chunk | Moderate |
 | **Extensibility / Plugins** | Monolithic | Modular store + plugin system | Refactor enables future features |
 | **Testing & CI** | Limited tests | Storybook + Jest/RTL + Cypress e2e (optional) | Add in Phase 0 |
+| **Spell-check (composer)** | None | Hunspell/nspell (en/es), squiggles + click-suggestions + personal dict | ✅ Done — `SpellCheckNode`/`SpellCheckPlugin` + dictionaries |
+| **Spell-check leak prevention** | N/A (new) | Clean HTML export, composer-scoped CSS, HTML sanitization | ✅ Done — `SpellCheckNode.exportDOM` clean + `[data-chat-composer]` scope + `purifyHtml` |
+| **Supabase client management** | Multiple instances (warning) | Singleton pattern, cached instances | ✅ Done — module-level `getSupabaseClient()` / `getRealtimeSupabaseClient()` |
+| **SSR-safe localStorage access** | N/A (new) | `typeof window !== 'undefined'` guards | ✅ Done — `useTranslations` hook guarded |
 
 ---
 
