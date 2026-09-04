@@ -42,11 +42,15 @@ SELECT 'chat-wallpapers', 'chat-wallpapers', true, 5242880,
   now(), now()
 WHERE NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'chat-wallpapers');
 
-CREATE POLICY IF NOT EXISTS "Allow chat wallpaper upload"
+DROP POLICY IF EXISTS "Allow chat wallpaper upload" ON storage.objects;
+DROP POLICY IF EXISTS "Allow chat wallpaper read" ON storage.objects;
+DROP POLICY IF EXISTS "Allow chat wallpaper delete" ON storage.objects;
+
+CREATE POLICY "Allow chat wallpaper upload"
 ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'chat-wallpapers');
 
-CREATE POLICY IF NOT EXISTS "Allow chat wallpaper read"
+CREATE POLICY "Allow chat wallpaper read"
 ON storage.objects FOR SELECT TO public USING (bucket_id = 'chat-wallpapers');
 
-CREATE POLICY IF NOT EXISTS "Allow chat wallpaper delete"
+CREATE POLICY "Allow chat wallpaper delete"
 ON storage.objects FOR DELETE TO public USING (bucket_id = 'chat-wallpapers');
