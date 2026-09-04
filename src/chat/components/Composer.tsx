@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bold,
   Camera,
+  Check,
   Code2,
   CornerDownRight,
   FileText,
@@ -14,6 +15,7 @@ import {
   Mic,
   Paperclip,
   Pause,
+  PenLine,
   Play,
   Send,
   Smile,
@@ -115,6 +117,9 @@ interface ComposerProps {
   voiceDuration: number;
   replyTo?: ChatMessage | null;
   onCancelReply?: () => void;
+  editingMessage?: ChatMessage | null;
+  onCancelEdit?: () => void;
+  onEditConfirm?: (content: string, msg: ChatMessage) => void | Promise<void>;
   disabled?: boolean;
   className?: string;
 }
@@ -136,7 +141,9 @@ const EDITOR_THEME = {
 interface LexicalToolbarProps {
   textContent: string;
   hasAttachments: boolean;
+  isEditing: boolean;
   onSend: () => void;
+  onEditSave: () => void;
   onFilesSelected: (files: File[]) => void;
   onVoiceStart: () => Promise<void>;
   onVoiceStop: () => Promise<void>;
@@ -152,7 +159,9 @@ interface LexicalToolbarProps {
 const LexicalToolbar = ({
   textContent,
   hasAttachments,
+  isEditing,
   onSend,
+  onEditSave,
   onFilesSelected,
   onVoiceStart,
   onVoiceStop,
@@ -289,8 +298,8 @@ const LexicalToolbar = ({
         <div className="relative">
           <button
             type="button"
-            onClick={() => (disabled ? undefined : setShowAttachMenu((v) => !v))}
-            disabled={disabled}
+            onClick={() => (disabled || isEditing ? undefined : setShowAttachMenu((v) => !v))}
+            disabled={disabled || isEditing}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 ${
               showAttachMenu
                 ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
@@ -373,7 +382,7 @@ const LexicalToolbar = ({
           <button
             type="button"
             onClick={onVoiceStart}
-            disabled={disabled}
+            disabled={disabled || isEditing}
             className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 ${
               isRecording ? 'bg-red-500 text-white hover:bg-red-600' : 'text-gray-600 dark:text-gray-300'
             }`}
@@ -416,15 +425,27 @@ const LexicalToolbar = ({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onSend}
-        disabled={disabled || (!textContent.trim() && !hasAttachments)}
-        className="flex-shrink-0 px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
-        title={t('send')}
-      >
-        <Send className="h-4 w-4" />
-      </button>
+      {isEditing ? (
+        <button
+          type="button"
+          onClick={onEditSave}
+          disabled={disabled || !textContent.trim()}
+          className="flex-shrink-0 px-3 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500"
+          title={t('save')}
+        >
+          <Check className="h-4 w-4" strokeWidth={2.5} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onSend}
+          disabled={disabled || (!textContent.trim() && !hasAttachments)}
+          className="flex-shrink-0 px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+          title={t('send')}
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      )}
     </>
   );
 };
@@ -489,6 +510,104 @@ const DraftLoader = ({
   return null;
 };
 
+/** Replace the whole editor root with the given HTML, leaving the caret at the
+ *  end of the document. */
+function loadHtmlIntoEditor(
+  editor: LexicalEditor,
+  html: string | null,
+  opts: { selectEnd?: boolean } = {}
+) {
+  editor.update(() => {
+    const root = $getRoot();
+    root.clear();
+    if (html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const nodes = $generateNodesFromDOM(editor, doc);
+      for (const node of nodes) root.append(node);
+    }
+    if (opts.selectEnd) root.selectEnd();
+  });
+}
+
+interface EditSessionRef {
+  originalText: string | null;
+  startedId: string | null;
+}
+
+/** WhatsApp-style "Editing message" banner + edit escort.
+ *
+ * When a bubble enters edit mode this stashes the composer's pre-edit draft
+ * (so cancelling restores it verbatim) and replaces the editor content with
+ * the message's existing text, caret at the end. The banner X and the Escape
+ * key both abandon the edit and bring the prior draft back. */
+const EditSession = ({
+  editingMessage,
+  onCancelEdit,
+  sessionRef,
+}: {
+  editingMessage: ChatMessage | null;
+  onCancelEdit?: () => void;
+  sessionRef: React.MutableRefObject<EditSessionRef>;
+}) => {
+  const [editor] = useLexicalComposerContext();
+  const { t } = useTranslations();
+
+  useEffect(() => {
+    if (!editingMessage) return;
+    if (sessionRef.current.startedId === editingMessage.id) return;
+    sessionRef.current.originalText =
+      editor.getEditorState().read(() => $generateHtmlFromNodes(editor, null)) || null;
+    sessionRef.current.startedId = editingMessage.id;
+    loadHtmlIntoEditor(editor, editingMessage.content || null, { selectEnd: true });
+    editor.focus();
+  }, [editingMessage, editor, sessionRef]);
+
+  const cancelEdit = useCallback(() => {
+    const draft = sessionRef.current.originalText;
+    sessionRef.current.originalText = null;
+    sessionRef.current.startedId = null;
+    loadHtmlIntoEditor(editor, draft, { selectEnd: true });
+    editor.focus();
+    onCancelEdit?.();
+  }, [editor, sessionRef, onCancelEdit]);
+
+  // Escape abandons the in-progress edit and restores the prior draft.
+  useEffect(() => {
+    if (!editingMessage) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelEdit();
+      }
+    };
+    return editor.registerRootListener((root, prev) => {
+      prev?.removeEventListener('keydown', handler);
+      root?.addEventListener('keydown', handler);
+    });
+  }, [editingMessage, editor, cancelEdit]);
+
+  if (!editingMessage) return null;
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 mb-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-sm">
+      <PenLine className="h-3.5 w-3.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+      <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-200">
+        <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+          {t('editingMessage')}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={cancelEdit}
+        className="p-0.5 rounded hover:bg-amber-100 dark:hover:bg-amber-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+        title={t('cancel')}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+};
+
 export const Composer = ({
   conversationId,
   onSend,
@@ -506,6 +625,9 @@ export const Composer = ({
   voiceDuration,
   replyTo,
   onCancelReply,
+  editingMessage,
+  onCancelEdit,
+  onEditConfirm,
   disabled,
   className = '',
 }: ComposerProps) => {
@@ -526,6 +648,7 @@ export const Composer = ({
   const htmlRef = useRef('');
   const editorRef = useRef<LexicalEditor | null>(null);
   const pendingRef = useRef<PendingAttachment[]>([]);
+  const editSessionRef = useRef<EditSessionRef>({ originalText: null, startedId: null });
   const draftKey = conversationId ? `chat-draft:${conversationId}` : null;
   useEffect(() => {
     pendingRef.current = pending;
@@ -545,6 +668,7 @@ export const Composer = ({
       return [];
     });
     setActiveIndex(0);
+    editSessionRef.current = { originalText: null, startedId: null };
   }, [conversationId]);
 
   const formatTime = (s: number) => {
@@ -691,6 +815,31 @@ export const Composer = ({
     }
   }, [disabled, sending, conversationId, pending, onSend, replyTo, clearEditor, draftKey]);
 
+  const editing = Boolean(editingMessage);
+  // Routes Enter / the ✓ button: confirm the edit when one is active,
+  // otherwise send a new message. Double confirm is impossible because the
+  // editor is cleared synchronously before the call (empty content short-circuits).
+  const submit = useCallback(() => {
+    if (editingMessage) {
+      if (disabled || sending) return;
+      const content = textRef.current.trim();
+      if (!content) return;
+      let htmlContent = content;
+      if (editorRef.current) {
+        editorRef.current.update(() => trimRootWhitespace());
+        htmlContent =
+          editorRef.current
+            .getEditorState()
+            .read(() => $generateHtmlFromNodes(editorRef.current!, null).trim()) || content;
+      }
+      clearEditor();
+      editSessionRef.current = { originalText: null, startedId: null };
+      void onEditConfirm?.(htmlContent, editingMessage);
+      return;
+    }
+    send();
+  }, [editingMessage, disabled, sending, clearEditor, onEditConfirm, send]);
+
   if (!conversationId) return null;
 
   return (
@@ -810,10 +959,15 @@ export const Composer = ({
               </button>
             </div>
           )}
+          <EditSession
+            editingMessage={editingMessage}
+            onCancelEdit={onCancelEdit}
+            sessionRef={editSessionRef}
+          />
           <HistoryPlugin />
           <ListPlugin />
           <OnChangePlugin onChange={handleChange} />
-          <EnterToSendPlugin onSend={send} />
+          <EnterToSendPlugin onSend={submit} />
           <MentionPlugin enabled={mentionEnabled} />
           <SpellCheckPlugin locale={locale} onReady={setSpellReady} />
           <DraftLoader draftKey={draftKey} />
@@ -821,7 +975,9 @@ export const Composer = ({
             <LexicalToolbar
               textContent={textContent}
               hasAttachments={pending.length > 0}
-              onSend={send}
+              isEditing={editing}
+              onSend={submit}
+              onEditSave={submit}
               onFilesSelected={handleFiles}
               onVoiceStart={onVoiceStart}
               onVoiceStop={onVoiceStop}

@@ -75,6 +75,7 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
   conversationRef.current = selectedConversationId;
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const [pendingVoice, setPendingVoice] = useState<VoiceRecordingResult | null>(null);
   const [lightbox, setLightbox] = useState<{ msg: ChatMessage; index: number } | null>(null);
 
@@ -95,6 +96,7 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
   // Drop any pending reply quote / staged voice when switching conversations
   useEffect(() => {
     setReplyTo(null);
+    setEditingMessage(null);
     setPendingVoice((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return null;
@@ -316,6 +318,28 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
     ]
   );
 
+  // ---- Editing ---------------------------------------------------------
+
+  /** Confirm an edit made in the bottom composer: apply it optimistically to
+   *  the local thread, clear the edit session, then persist to the server. */
+  const handleEditConfirm = useCallback(
+    async (content: string, msg: ChatMessage) => {
+      if (!currentUserId) return;
+      updateMessage(msg.id, {
+        content,
+        is_edited: true,
+        updated_at: new Date().toISOString(),
+      });
+      setEditingMessage(null);
+      try {
+        await ChatRepository.updateMessage(currentUserId, msg.id, { content });
+      } catch (err) {
+        console.error('Failed to update message:', err);
+      }
+    },
+    [currentUserId, updateMessage]
+  );
+
   // ---- Voice notes -----------------------------------------------------
 
   const handleVoiceStart = useCallback(async () => {
@@ -469,6 +493,7 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
               replyToId={replyTo?.id ?? null}
               participantUserIds={otherParticipantIds}
               onOpenLightbox={handleOpenLightbox}
+              onEditMessage={(msg) => setEditingMessage(msg)}
             />
           </div>
           <TypingIndicator conversationId={selectedConversationId} />
@@ -489,6 +514,9 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
             voiceDuration={pendingVoice?.duration || 0}
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(null)}
+            editingMessage={editingMessage}
+            onCancelEdit={() => setEditingMessage(null)}
+            onEditConfirm={handleEditConfirm}
           />
         </>
       ) : (

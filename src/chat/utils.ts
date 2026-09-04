@@ -19,11 +19,15 @@ type ChatPurifyConfig = DOMPurifyConfig & { ALLOWED_STYLE_PROPERTIES?: string[] 
 
 /** Sanitize untrusted message HTML before rendering (allows basic text formatting). */
 export function purifyHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
+  const clean = DOMPurify.sanitize(html, {
     // Preserve inline color / highlight styles applied by the composer.
     ADD_ATTR: ['style'],
     ALLOWED_STYLE_PROPERTIES: ['color', 'background-color'],
   } as ChatPurifyConfig);
+  // Defense-in-depth: never let the composer's spell-check decoration render in
+  // message bubbles. SpellCheckNode.exportDOM already keeps it out of stored
+  // content; this also purges any .chat-spell-error persisted before that fix.
+  return clean.replace(/\sclass="[^"]*chat-spell-error[^"]*"/g, '');
 }
 
 /** Strip tags to plain text for previews / editing UIs. */
