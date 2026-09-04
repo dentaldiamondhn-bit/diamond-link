@@ -12,6 +12,7 @@ import {
 import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { DEFAULT_WALLPAPER } from '@/chat/wallpapers';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const MY_BUBBLE_COLORS = [
   '#2563eb',
@@ -40,6 +41,7 @@ interface ChatSettingsPanelProps {
 
 export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
   const { t } = useTranslations();
+  const { resolvedTheme } = useTheme();
   const { settings, update } = useChatSettingsStore();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -116,7 +118,13 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
                   ? 'border-blue-500'
                   : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
               }`}
-              style={{ backgroundImage: DEFAULT_WALLPAPER.light, backgroundSize: '60px' }}
+              style={{
+                backgroundImage:
+                  resolvedTheme === 'dark'
+                    ? DEFAULT_WALLPAPER.dark
+                    : DEFAULT_WALLPAPER.light,
+                backgroundSize: '60px',
+              }}
             >
               {!isCustomWallpaper && (
                 <span className="absolute right-2 top-2 rounded-full bg-blue-500 p-0.5 text-white">

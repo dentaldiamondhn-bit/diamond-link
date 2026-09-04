@@ -72,9 +72,18 @@ const DOODLES: Array<
 const TILE = 60;
 const gl = DOODLES.map(([x, y, k]) => doodle(x, y, k)).join('');
 
-/** WhatsApp-style default wallpaper (60×60 seamless tile, warm base + doodles). */
+function makeWallpaper(base: string, stroke: string): string {
+  return `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${TILE}" height="${TILE}" viewBox="0 0 ${TILE} ${TILE}"><rect width="${TILE}" height="${TILE}" fill="${base}"/><g fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${gl}</g></svg>`
+  )}")`;
+}
+
+/**
+ * WhatsApp-style default wallpaper (60×60 seamless tile, base + doodles).
+ * Two variants so the chat pane follows the app theme: a warm light base and a
+ * dark base with subtle light doodles.
+ */
 export const DEFAULT_WALLPAPER = {
-  light: `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${TILE}" height="${TILE}" viewBox="0 0 ${TILE} ${TILE}"><rect width="${TILE}" height="${TILE}" fill="#efeae2"/><g fill="none" stroke="#cfc5b5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${gl}</g></svg>`
-  )}")`,
+  light: makeWallpaper('#efeae2', '#cfc5b5'),
+  dark: makeWallpaper('#202c33', '#3c4a54'),
 };

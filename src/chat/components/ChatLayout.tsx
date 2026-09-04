@@ -23,7 +23,7 @@ export const ChatLayout = () => {
     setLoading,
     setError,
   } = useChatStore();
-  const setChatSettingsUser = useChatSettingsStore((s) => s.setUser);
+  const setChatSettingsContext = useChatSettingsStore((s) => s.setContext);
 
   const currentUserIdRef = useRef(currentUserId);
 
@@ -72,7 +72,7 @@ export const ChatLayout = () => {
     if (!clerkUser) return;
     const userId = clerkUser.id;
     setCurrentUserId(userId);
-    setChatSettingsUser(userId);
+    setChatSettingsContext(userId);
     setLoading(true);
     Promise.all([loadUsers(), loadConversations(userId)])
       .catch((err) => console.error('Chat bootstrap failed:', err))
@@ -96,6 +96,12 @@ export const ChatLayout = () => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSidebarOpen(false);
   }, [selectedConversationId]);
+
+  // Scope chat settings (wallpaper + bubble colors) to the selected chat/group.
+  useEffect(() => {
+    if (!currentUserId) return;
+    setChatSettingsContext(currentUserId, selectedConversationId);
+  }, [currentUserId, selectedConversationId, setChatSettingsContext]);
 
   if (!isLoaded || !currentUserId) {
     return (

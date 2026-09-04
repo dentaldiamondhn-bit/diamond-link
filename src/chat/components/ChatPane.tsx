@@ -8,6 +8,7 @@ import { DEFAULT_WALLPAPER } from '@/chat/wallpapers';
 import { ChatRepository } from '@/chat/repository';
 import { useVoiceRecorder, VoiceRecordingResult } from '@/chat/hooks/useVoiceRecorder';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import { useTheme } from '@/contexts/ThemeContext';
 import { ChatMessageType } from '@/types/chat';
 import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
@@ -44,6 +45,16 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
     }
     return undefined;
   }, [chatSettings]);
+  const { resolvedTheme } = useTheme();
+  const defaultWallpaperStyle = useMemo<React.CSSProperties>(() => {
+    const bg =
+      resolvedTheme === 'dark' ? DEFAULT_WALLPAPER.dark : DEFAULT_WALLPAPER.light;
+    return {
+      backgroundImage: bg,
+      backgroundSize: '60px',
+      backgroundRepeat: 'repeat',
+    };
+  }, [resolvedTheme]);
   const {
     selectedConversationId,
     messages,
@@ -430,11 +441,7 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
   return (
     <div
       style={
-        wallpaperStyle ?? {
-          backgroundImage: DEFAULT_WALLPAPER.light,
-          backgroundSize: '60px',
-          backgroundRepeat: 'repeat',
-        }
+        wallpaperStyle ?? defaultWallpaperStyle
       }
       className={`relative flex h-full flex-1 min-w-0 flex-col overflow-hidden bg-gray-50 dark:bg-gray-800 ${className}`}
     >
