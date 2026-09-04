@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Menu, Search, MoreVertical, Users as UsersIcon, Languages, Check } from 'lucide-react';
+import { Menu, Search, MoreVertical, Users as UsersIcon, Languages, Check, Settings } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { InstallAppButton } from '@/chat/components/InstallAppButton';
+import ChatSettingsPanel from '@/chat/components/ChatSettingsPanel';
 import type { ChatLocale } from '@/chat/i18n/translations';
 import { useGlobalPreferences } from '@/hooks/useUserPreferences';
 import {
@@ -26,6 +27,7 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
   const { t, locale } = useTranslations();
   const { updatePreferences } = useGlobalPreferences();
   const [langOpen, setLangOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { conversations, users, presence, typing, currentUserId } = useChatStore();
   const conversation = conversations.find((c) => c.id === conversationId);
 
@@ -152,12 +154,23 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
           )}
         </div>
         <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+          title={t('settingsTitle')}
+          aria-label={t('settingsTitle')}
+        >
+          <Settings className="h-5 w-5" />
+        </button>
+        <button
           className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           title={t('participants')}
         >
           <MoreVertical className="h-5 w-5" />
         </button>
       </div>
+
+      {settingsOpen && <ChatSettingsPanel onClose={() => setSettingsOpen(false)} />}
     </header>
   );
 };

@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MessagesSquare, WifiOff } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
+import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
+import { DEFAULT_WALLPAPER } from '@/chat/wallpapers';
 import { ChatRepository } from '@/chat/repository';
 import { useVoiceRecorder, VoiceRecordingResult } from '@/chat/hooks/useVoiceRecorder';
 import { useTranslations } from '@/chat/i18n/useTranslations';
@@ -27,6 +29,21 @@ const makeTmpId = (prefix: string) =>
 
 export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneProps) => {
   const { t } = useTranslations();
+  const chatSettings = useChatSettingsStore((s) => s.settings);
+
+  // Wallpaper for the chat area: a user-uploaded image (cover) or the
+  // WhatsApp-style default doodle pattern.
+  const wallpaperStyle = useMemo<React.CSSProperties | undefined>(() => {
+    if (chatSettings?.wallpaper_type === 'custom' && chatSettings.background_image_url) {
+      return {
+        backgroundImage: `url(${chatSettings.background_image_url})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      };
+    }
+    return undefined;
+  }, [chatSettings]);
   const {
     selectedConversationId,
     messages,
@@ -412,6 +429,13 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
 
   return (
     <div
+      style={
+        wallpaperStyle ?? {
+          backgroundImage: DEFAULT_WALLPAPER.light,
+          backgroundSize: '60px',
+          backgroundRepeat: 'repeat',
+        }
+      }
       className={`relative flex h-full flex-1 min-w-0 flex-col overflow-hidden bg-gray-50 dark:bg-gray-800 ${className}`}
     >
       {(isOnline === false || queuedCount > 0) && (

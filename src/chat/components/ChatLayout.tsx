@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useChatStore } from '@/chat/store/chatStore';
+import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { ChatRepository } from '@/chat/repository';
 import { useChatRealtime } from '@/chat/hooks/useChatRealtime';
 import type { ChatUser } from '@/types/chat';
@@ -22,6 +23,7 @@ export const ChatLayout = () => {
     setLoading,
     setError,
   } = useChatStore();
+  const setChatSettingsUser = useChatSettingsStore((s) => s.setUser);
 
   const currentUserIdRef = useRef(currentUserId);
 
@@ -70,6 +72,7 @@ export const ChatLayout = () => {
     if (!clerkUser) return;
     const userId = clerkUser.id;
     setCurrentUserId(userId);
+    setChatSettingsUser(userId);
     setLoading(true);
     Promise.all([loadUsers(), loadConversations(userId)])
       .catch((err) => console.error('Chat bootstrap failed:', err))

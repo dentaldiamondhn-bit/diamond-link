@@ -118,6 +118,18 @@ const en = {
   offlineBanner: 'You are offline — messages will send when you reconnect.',
   offlineSending: 'Offline — sending queued messages…',
   queuedMessages: '{n} message(s) pending send',
+  settingsTitle: 'Chat settings',
+  settingsClose: 'Close settings',
+  settingsWallpaper: 'Wallpaper',
+  settingsWallpaperDefault: 'Default (WhatsApp)',
+  settingsWallpaperUpload: 'Upload image',
+  settingsWallpaperUploading: 'Uploading…',
+  settingsWallpaperBadType: 'Please choose an image file.',
+  settingsWallpaperUploadFailed: 'The image could not be uploaded. Try again.',
+  settingsBubbles: 'Chat bubbles',
+  settingsMyBubbles: 'My messages',
+  settingsOtherBubbles: 'Other messages',
+  settingsReset: 'Reset to default',
 } as const;
 
 const es: Record<keyof typeof en, string> = {
@@ -227,6 +239,18 @@ const es: Record<keyof typeof en, string> = {
   offlineBanner: 'Estás sin conexión — los mensajes se enviarán cuando te reconectes.',
   offlineSending: 'Sin conexión — enviando mensajes en cola…',
   queuedMessages: '{n} mensaje(s) pendientes de envío',
+  settingsTitle: 'Ajustes del chat',
+  settingsClose: 'Cerrar ajustes',
+  settingsWallpaper: 'Fondo de pantalla',
+  settingsWallpaperDefault: 'Predeterminado (WhatsApp)',
+  settingsWallpaperUpload: 'Subir imagen',
+  settingsWallpaperUploading: 'Subiendo…',
+  settingsWallpaperBadType: 'Elige un archivo de imagen.',
+  settingsWallpaperUploadFailed: 'No se pudo subir la imagen. Inténtalo de nuevo.',
+  settingsBubbles: 'Burbujas del chat',
+  settingsMyBubbles: 'Mis mensajes',
+  settingsOtherBubbles: 'Mensajes de otros',
+  settingsReset: 'Restablecer valores',
 };
 
 export type TranslationKey = keyof typeof en;

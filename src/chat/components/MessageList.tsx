@@ -30,6 +30,7 @@ import {
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps, ListImperativeAPI } from 'react-window';
 import { useChatStore } from '@/chat/store/chatStore';
+import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { interpolate, translations, type TranslationKey } from '@/chat/i18n/translations';
@@ -218,6 +219,20 @@ const isMediaAtt = (a: FileAttachmentData) =>
 
 const isVideoAtt = (a: FileAttachmentData) => a.file_type.startsWith('video/');
 
+const DEFAULT_MY_BUBBLE = '#2563eb';
+const DEFAULT_OTHER_BUBBLE = '#ffffff';
+
+/** Choose readable text color for the given bubble background. */
+function bubbleTextColor(color: string): string {
+  const hex = color.replace('#', '');
+  if (hex.length !== 6) return '#1f2937';
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 175 ? '#1f2937' : '#ffffff';
+}
+
 interface RowDatum {
   msg: ChatMessage;
   mine: boolean;
@@ -245,6 +260,8 @@ interface RowProps {
   editMenuId: string | null;
   readReceipts: Record<string, ChatUser[]>;
   otherParticipantIds: string[];
+  myBubbleColor: string;
+  otherBubbleColor: string;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   onToggleReaction: (msg: ChatMessage, emoji: string) => void;
   onJump: (msgId: string) => void;
@@ -277,6 +294,8 @@ const MessageRow = function MessageRow({
     t,
     readReceipts,
     otherParticipantIds,
+    myBubbleColor,
+    otherBubbleColor,
     onToggleReaction,
     onJump,
     onOpenMenu,
@@ -562,10 +581,20 @@ const MessageRow = function MessageRow({
             />
           ) : (
             <div
+              style={{
+                backgroundColor: mine ? myBubbleColor : otherBubbleColor,
+                color: mine
+                  ? bubbleTextColor(myBubbleColor)
+                  : bubbleTextColor(otherBubbleColor),
+              }}
               className={`rounded-2xl px-3 py-2 transition-shadow ${
                 mine
-                  ? 'bg-blue-500 text-white dark:bg-blue-600'
-                  : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
+                  ? myBubbleColor === DEFAULT_MY_BUBBLE
+                    ? 'bg-blue-500 text-white dark:bg-blue-600'
+                    : ''
+                  : otherBubbleColor === DEFAULT_OTHER_BUBBLE
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
+                    : 'border border-black/5 shadow-sm'
               } ${msg.local_state === 'pending' ? 'opacity-70' : ''} ${
                 replyToId === msg.id ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''
               }`}
@@ -704,6 +733,9 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const removeMessage = useChatStore((s) => s.removeMessage);
   const tombstoneMessage = useChatStore((s) => s.tombstoneMessage);
   const { users, currentUserId } = useChatStore();
+  const chatSettings = useChatSettingsStore((s) => s.settings);
+  const myBubbleColor = chatSettings?.my_bubble_color ?? DEFAULT_MY_BUBBLE;
+  const otherBubbleColor = chatSettings?.other_bubble_color ?? DEFAULT_OTHER_BUBBLE;
 
   const [list, setList] = useListCallbackRef();
   const rowSignature = useMemo(
@@ -1156,6 +1188,8 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       editMenuId: editMenuFor?.id ?? null,
       readReceipts,
       otherParticipantIds,
+      myBubbleColor,
+      otherBubbleColor,
       t: memoizedT,
       onToggleReaction: handleToggleReaction,
       onJump: handleJumpToMessage,
@@ -1181,6 +1215,8 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       editMenuFor,
       readReceipts,
       otherParticipantIds,
+      myBubbleColor,
+      otherBubbleColor,
       memoizedT,
       handleToggleReaction,
       handleJumpToMessage,
