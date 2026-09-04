@@ -668,7 +668,6 @@ const MessageRow = function MessageRow({
             {mine && msg.local_state === 'queued' && (
               <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:bg-amber-400/15 dark:text-amber-400">
                 <Clock3 className="h-3 w-3" />
-                {t('offlineBanner')}
               </span>
             )}
 
