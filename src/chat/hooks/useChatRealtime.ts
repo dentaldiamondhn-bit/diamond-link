@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
+import { normalizePatientCaseLink } from '@/services/chatService';
 import type { ChatMessage, ChatMessageRead } from '@/types/chat';
 
 type PresenceEntry = { user_id: string; status: 'online' | 'offline' };
@@ -74,7 +75,7 @@ export const useChatRealtime = (
               )
               .eq('id', message.id)
               .maybeSingle();
-            const resolved = (full || message) as ChatMessage;
+            const resolved = normalizePatientCaseLink((full || message) as ChatMessage);
             // Never surface a deleted message. The async join above can resolve
             // AFTER the sender deleted it, which would otherwise re-add the row
             // into the list (there is no reliable self-event for the soft-delete).

@@ -3,11 +3,28 @@ import {
   ChatConversation,
   ChatMessage,
   ChatParticipant,
+  ChatPatientCaseLink,
   CreateConversationData,
   CreateMessageData,
   UpdateConversationData,
   ChatFilters
 } from '@/types/chat';
+
+/**
+ * PostgREST resolves `patient_case_link:chat_patient_case_links(...)` as a
+ * to-many array (FK lives on the links table: message_id -> chat_messages.id),
+ * so `message.patient_case_link` arrives as `[{...}]` even though only one row
+ * per message exists. Normalize it back to the single-object shape every
+ * consumer expects, so `message.patient_case_link.patient` / `.metadata` work.
+ */
+export function normalizePatientCaseLink(message: ChatMessage): ChatMessage {
+  const raw = message.patient_case_link as unknown;
+  if (Array.isArray(raw)) {
+    (message.patient_case_link as ChatPatientCaseLink | null) =
+      (raw as ChatPatientCaseLink[])[0] ?? null;
+  }
+  return message;
+}
 
 /**
  * Extract `{ bucket, path }` from a Supabase Storage public object URL, e.g.
@@ -203,7 +220,7 @@ export class ChatService {
     return {
       data: {
         conversation: conversation as ChatConversation,
-        messages: ChatService.attachReads(messages || [], reads)
+        messages: ChatService.attachReads((messages || []).map(normalizePatientCaseLink), reads)
       }
     };
   }
@@ -336,7 +353,7 @@ export class ChatService {
 
     await ChatService.markConversationRead(conversationId, userId);
 
-    return { data: ChatService.attachReads(data || [], reads) };
+    return { data: ChatService.attachReads((data || []).map(normalizePatientCaseLink), reads) };
   }
 
   /**
@@ -580,7 +597,7 @@ export class ChatService {
       .eq('id', message.id)
       .single();
 
-    return { data: fullMessage as ChatMessage };
+    return { data: normalizePatientCaseLink(fullMessage as ChatMessage) };
   }
 
   static async addReaction(messageId: string, userId: string, emoji: string) {

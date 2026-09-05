@@ -263,15 +263,17 @@ export function buildPatientSnapshot(patient: Patient): Record<string, any> {
 }
 
 export function resolveCardPatient(
-  link?:
+  input?:
     | {
         patient?: unknown;
         metadata?: Record<string, any> | null;
         title?: string | null;
       }
+    | Array<{ patient?: unknown; metadata?: Record<string, any> | null; title?: string | null }>
     | null
     | undefined
 ): Patient {
+  const link = Array.isArray(input) ? input[0] : input;
   const embedded = link?.patient;
   const snapshot = link?.metadata?.patient;
   const raw =
