@@ -16,10 +16,20 @@ export const CARD_KIND_TITLE_KEYS: Record<PatientCaseLinkType, TranslationKey> =
   general: 'patientCase',
 };
 
+export type ToothZoneKey = 'mesial' | 'distal' | 'buccal' | 'lingual';
+
+export interface ToothZone {
+  estado: string;
+  color: string;
+}
+
 export interface ToothStatus {
   toothNumber: string;
   status: string;
   color: string;
+  central?: ToothZone | null;
+  cuadrantes?: Partial<Record<ToothZoneKey, ToothZone>> | null;
+  nota?: string | null;
 }
 
 export interface TreatmentRow {
@@ -32,7 +42,7 @@ export interface TreatmentRow {
   doctor?: string | null;
 }
 
-const ODONT_STATUS_COLORS: Record<string, string> = {
+export const ODONT_STATUS_COLORS: Record<string, string> = {
   sano: '#FFFFFF',
   caries: '#FF5722',
   cariado: '#FF5722',
@@ -66,6 +76,42 @@ const ODONT_STATUS_COLORS: Record<string, string> = {
   odontopatia: '#CDDC39',
   txpulpar: '#1976D2',
   placa: '#FFEB3B',
+};
+
+export const ODONT_STATE_LABELS: Record<string, string> = {
+  sano: 'Sano',
+  placa: 'Placa',
+  caries: 'Caries',
+  cariado: 'Cariado',
+  'caries-restauracion': 'Caries + Rest.',
+  obturado: 'Obturado',
+  extraccion: 'Extracción',
+  extraccionind: 'Extracción indicada',
+  ausente: 'Ausente',
+  corona: 'Corona',
+  puente: 'Puente',
+  implante: 'Implante',
+  endodoncia: 'Endodoncia',
+  txpulpar: 'Trat. pulpar',
+  odontopatia: 'Odontopatía',
+  fistula: 'Fístula',
+  raiz: 'Raíz Residual',
+  fracturado: 'Fracturado',
+  sellante: 'Sellante',
+  abrasion: 'Abrasión',
+  erosion: 'Erosión',
+  hipoplasia: 'Hipoplasia',
+  mancha: 'Mancha',
+  apilado: 'Apiñamiento',
+  atricion: 'Atrición',
+  carilla: 'Carilla',
+  resina: 'Rest. Resina',
+  temporal: 'Rest. Temporal',
+  protesis: 'Prótesis',
+  amalgama: 'Rest. Amalgama',
+  movilidad: 'Movilidad',
+  abfraccion: 'Abfracción',
+  erupcion: 'En Erupción',
 };
 
 const ODONT_STATUS_RANK: Record<string, number> = {
@@ -151,13 +197,46 @@ function pickStatus(diente: Record<string, any> | undefined): { status: string; 
   return { status, color: ODONT_STATUS_COLORS[status] || '#6b7280' };
 }
 
+function zoneStatus(value: unknown): ToothZone {
+  const estado = rawStatus(value) ?? (typeof value === 'string' && value ? value : 'sano');
+  return { estado, color: ODONT_STATUS_COLORS[estado] || '#6b7280' };
+}
+
 export function buildTeethStatus(datos: OdontogramData | null | undefined): ToothStatus[] {
   if (!datos || !datos.dientes || typeof datos.dientes !== 'object') return [];
 
   return Object.entries(datos.dientes)
     .map(([toothNumber, diente]) => {
-      const { status, color } = pickStatus(diente as Record<string, any>);
-      return { toothNumber, status, color };
+      const raw = diente as Record<string, any>;
+      const { status, color } = pickStatus(raw);
+
+      const cuadrantes: Partial<Record<ToothZoneKey, ToothZone>> = {};
+      if (raw.cuadrantes && typeof raw.cuadrantes === 'object') {
+        const keys: ToothZoneKey[] = ['mesial', 'distal', 'buccal', 'lingual'];
+        for (const key of keys) {
+          if (raw.cuadrantes[key] != null) {
+            cuadrantes[key] = zoneStatus(raw.cuadrantes[key]);
+          }
+        }
+      }
+      if (typeof raw.estado === 'string' && raw.estado && Object.keys(cuadrantes).length === 0) {
+        const legacy = zoneStatus(raw.estado);
+        (['mesial', 'distal', 'buccal', 'lingual'] as const).forEach((k) => {
+          cuadrantes[k as ToothZoneKey] = legacy;
+        });
+      }
+
+      const central =
+        raw.central != null ? zoneStatus(raw.central) : null;
+
+      return {
+        toothNumber,
+        status,
+        color,
+        central,
+        cuadrantes: cuadrantes,
+        nota: typeof raw.nota === 'string' && raw.nota ? raw.nota : null,
+      };
     })
     .sort((a, b) => Number(a.toothNumber) - Number(b.toothNumber));
 }
@@ -381,4 +460,45 @@ export function resolveCardPatient(
     codigopais: '',
     pais_codigo: '',
   } as unknown as Patient;
+}
+
+export interface OdontogramStateCount {
+  status: string;
+  label: string;
+  color: string;
+  count: number;
+}
+
+export function buildOdontogramStateCounts(
+  teethStatus: ToothStatus[] | null | undefined
+): OdontogramStateCount[] {
+  const counts = new Map<string, number>();
+  for (const tooth of teethStatus || []) {
+    const zoneStates: string[] = [];
+    if (tooth?.central?.estado) zoneStates.push(tooth.central.estado);
+    if (tooth?.cuadrantes) {
+      for (const zone of Object.values(tooth.cuadrantes)) {
+        if (zone?.estado) zoneStates.push(zone.estado);
+      }
+    }
+    if (zoneStates.length === 0 && tooth?.status && tooth.status !== 'sano') {
+      zoneStates.push(tooth.status);
+    }
+    const uniqueNonSano = new Set(zoneStates.filter((s) => s && s !== 'sano'));
+    if (uniqueNonSano.size === 0) {
+      counts.set('sano', (counts.get('sano') || 0) + 1);
+    } else {
+      uniqueNonSano.forEach((status) => {
+        counts.set(status, (counts.get(status) || 0) + 1);
+      });
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([status, count]) => ({
+      status,
+      label: ODONT_STATE_LABELS[status] || status,
+      color: ODONT_STATUS_COLORS[status] || '#9ca3af',
+      count,
+    }))
+    .sort((a, b) => b.count - a.count);
 }

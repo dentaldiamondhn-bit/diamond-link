@@ -14,6 +14,7 @@ import {
 import { PatientCaseLinkType } from '@/types/chat';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { CARD_KIND_TITLE_KEYS, getPatientAge } from '@/chat/patientCardData';
+import OdontogramMini from '@/chat/components/OdontogramMini';
 import type { Patient } from '@/types/patient';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
@@ -82,29 +83,6 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
     typeof patient.edad === 'number' ? patient.edad : (snapshot.edad as number | undefined)
   );
   const patientId = patient.paciente_id || snapshot.paciente_id || '';
-
-  const toothStatusMap = new Map<string, { status: string; color: string }>();
-  for (const tooth of metadata?.teethStatus || []) {
-    toothStatusMap.set(String(tooth.toothNumber), tooth);
-  }
-  const toothCell = (n: number) => {
-    const tooth = toothStatusMap.get(String(n));
-    const sano = !tooth || tooth.status === 'sano';
-    return (
-      <span
-        key={n}
-        title={`#${n}: ${tooth?.status || 'sano'}`}
-        className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-semibold ${
-          sano
-            ? 'bg-gray-100 text-gray-400 ring-1 ring-inset ring-gray-300 dark:bg-gray-700 dark:text-gray-500'
-            : 'text-white'
-        }`}
-        style={sano ? undefined : { backgroundColor: tooth.color }}
-      >
-        {n}
-      </span>
-    );
-  };
 
   const handleDownloadPdf = async () => {
     if (!patientId || downloadingPdf) return;
@@ -282,14 +260,10 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
             </p>
             {metadata?.teethStatus && metadata.teethStatus.length > 0 ? (
               <>
-                <div className="mt-2 flex flex-col items-center gap-1">
-                  <div className="flex flex-wrap justify-center gap-1">
-                    {[18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28].map(toothCell)}
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-1">
-                    {[48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38].map(toothCell)}
-                  </div>
-                </div>
+                <OdontogramMini
+                  teethStatus={metadata.teethStatus}
+                  child={metadata.odontogramType === 'nino'}
+                />
                 {(metadata.odontogramPlanned > 0 ||
                   metadata.odontogramDiagnostics > 0 ||
                   metadata.odontogramGingivitis > 0) && (
