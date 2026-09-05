@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { X, Search } from 'lucide-react';
 import { PatientCaseLinkType } from '@/types/chat';
 import { PatientService } from '@/services/patientService';
+import { useTranslations } from '@/chat/i18n/useTranslations';
+import { CARD_KIND_TITLE_KEYS } from '@/chat/patientCardData';
 import type { Patient } from '@/types/patient';
 
 interface PatientSelectionModalProps {
@@ -13,17 +15,8 @@ interface PatientSelectionModalProps {
   cardKind: PatientCaseLinkType;
 }
 
-const CARD_KIND_LABEL: Record<PatientCaseLinkType, string> = {
-  consent: 'Patient Contact',
-  odontogram: 'Odontogram Snapshot',
-  treatment: 'Treatment Summary',
-  event: 'Event',
-  presupuesto: 'Presupuesto',
-  payment: 'Payment',
-  general: 'General',
-};
-
 export default function PatientSelectionModal({ open, onClose, onSelect, cardKind }: PatientSelectionModalProps) {
+  const { t } = useTranslations();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,11 +57,15 @@ export default function PatientSelectionModal({ open, onClose, onSelect, cardKin
     };
   }, [open, query]);
 
-  const title = CARD_KIND_LABEL[cardKind] || 'Patient Card';
+  const title = t(CARD_KIND_TITLE_KEYS[cardKind] || 'patientCase');
 
   const handleSelectPatient = (patient: Patient) => {
     setSelectedPatient(patient);
-    setScope({ includeContact: true, includeTreatments: false, includeOdontogram: false });
+    setScope({
+      includeContact: true,
+      includeTreatments: cardKind === PatientCaseLinkType.TREATMENT,
+      includeOdontogram: cardKind === PatientCaseLinkType.ODONTOGRAM,
+    });
   };
 
   const handleConfirm = () => {
@@ -104,15 +101,15 @@ export default function PatientSelectionModal({ open, onClose, onSelect, cardKin
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search patient by name, ID, or record..."
+                placeholder={t('searchPatientPlaceholder')}
                 className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 pl-9 pr-4 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div className="mt-3 max-h-72 overflow-y-auto">
-              {loading && <p className="py-4 text-center text-sm text-gray-500">Searching...</p>}
+              {loading && <p className="py-4 text-center text-sm text-gray-500">{t('searchingPatients')}</p>}
               {!loading && results.length === 0 && query.trim() && (
-                <p className="py-4 text-center text-sm text-gray-500">No patients found</p>
+                <p className="py-4 text-center text-sm text-gray-500">{t('noPatientsFound')}</p>
               )}
               {!loading && results.map((patient) => (
                 <button
@@ -153,7 +150,7 @@ export default function PatientSelectionModal({ open, onClose, onSelect, cardKin
             </div>
 
             <div className="mt-4 space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Include</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('include')}</p>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                 <input
                   type="checkbox"
@@ -161,7 +158,7 @@ export default function PatientSelectionModal({ open, onClose, onSelect, cardKin
                   onChange={(e) => setScope((s) => ({ ...s, includeContact: e.target.checked }))}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                Contact info
+                {t('includeContactInfo')}
               </label>
               {cardKind === 'treatment' && (
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
@@ -171,7 +168,7 @@ export default function PatientSelectionModal({ open, onClose, onSelect, cardKin
                     onChange={(e) => setScope((s) => ({ ...s, includeTreatments: e.target.checked }))}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  Completed treatments
+                  {t('includeCompletedTreatments')}
                 </label>
               )}
               {cardKind === 'odontogram' && (
@@ -182,7 +179,7 @@ export default function PatientSelectionModal({ open, onClose, onSelect, cardKin
                     onChange={(e) => setScope((s) => ({ ...s, includeOdontogram: e.target.checked }))}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  Odontogram snapshot
+                  {t('includeOdontogramSnapshot')}
                 </label>
               )}
             </div>
@@ -193,14 +190,14 @@ export default function PatientSelectionModal({ open, onClose, onSelect, cardKin
                 onClick={() => setSelectedPatient(null)}
                 className="rounded-xl px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                Back
+                {t('back')}
               </button>
               <button
                 type="button"
                 onClick={handleConfirm}
                 className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
               >
-                Continue
+                {t('continue')}
               </button>
             </div>
           </div>

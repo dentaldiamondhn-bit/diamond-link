@@ -60,6 +60,7 @@ import AttachmentTray from './AttachmentTray';
 import ColorButtons from './ColorButtons';
 import PatientSelectionModal from './PatientSelectionModal';
 import PatientCardPreviewModal from './PatientCardPreviewModal';
+import { buildPatientCardMetadata } from '@/chat/patientCardData';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatConversationType, CreateMessageData, PatientCaseLinkType } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
@@ -143,14 +144,14 @@ const EDITOR_THEME = {
   },
 };
 
-const CARD_KIND_LABEL: Record<PatientCaseLinkType, string> = {
-  consent: 'Patient Contact',
-  odontogram: 'Odontogram Snapshot',
-  treatment: 'Treatment Summary',
-  event: 'Event',
+const CARD_KIND_LABEL_FALLBACK: Record<PatientCaseLinkType, string> = {
+  consent: 'Contacto de Paciente',
+  odontogram: 'Odontograma',
+  treatment: 'Resumen de Tratamientos',
+  event: 'Evento',
   presupuesto: 'Presupuesto',
-  payment: 'Payment',
-  general: 'General',
+  payment: 'Pago',
+  general: 'Caso de Paciente',
 };
 
 
@@ -697,6 +698,7 @@ export const Composer = ({
     patient: Patient;
     linkType: PatientCaseLinkType;
     scope: Record<string, any>;
+    metadata: Record<string, any> | null;
     caption: string;
   } | null>(null);
   const textRef = useRef('');
@@ -870,38 +872,36 @@ export const Composer = ({
     }
   }, [disabled, sending, conversationId, pending, onSend, replyTo, clearEditor, draftKey]);
 
-  const sendPatientCase = useCallback(
-    async (patient: Patient, linkType: PatientCaseLinkType, scope: Record<string, any>, caption: string) => {
-      if (disabled || sending || !conversationId) return;
-      const patientCaseLink: PatientCaseLinkData = {
-        patient_id: patient.paciente_id,
-        link_type: linkType,
-        linked_id: patient.paciente_id,
-        title: `${CARD_KIND_LABEL[linkType] || 'Patient'} - ${patient.nombre_completo}`,
-        description: caption || null,
-        metadata: scope,
-      };
-      try {
-        setSending(true);
-        clearEditor();
-        await onSend('', [], undefined, patientCaseLink);
-        if (draftKey) {
-          try {
-            localStorage.removeItem(draftKey);
-          } catch {
-            /* ignore */
-          }
+  const sendPatientCase = useCallback(async () => {
+    if (disabled || sending || !conversationId || !patientPreview) return;
+    const { patient, linkType, caption, scope, metadata } = patientPreview;
+    const patientCaseLink: PatientCaseLinkData = {
+      patient_id: patient.paciente_id,
+      link_type: linkType,
+      linked_id: patient.paciente_id,
+      title: `${CARD_KIND_LABEL_FALLBACK[linkType] || t('patientCase')} - ${patient.nombre_completo}`,
+      description: caption || null,
+      metadata: metadata ?? scope,
+    };
+    try {
+      setSending(true);
+      clearEditor();
+      await onSend('', [], undefined, patientCaseLink);
+      if (draftKey) {
+        try {
+          localStorage.removeItem(draftKey);
+        } catch {
+          /* ignore */
         }
-      } catch (err) {
-        console.error('Failed to send patient case:', err);
-      } finally {
-        setSending(false);
-        setPatientPreview(null);
-        setPatientSelect(null);
       }
-    },
-    [disabled, sending, conversationId, onSend, clearEditor, draftKey]
-  );
+    } catch (err) {
+      console.error('Failed to send patient case:', err);
+    } finally {
+      setSending(false);
+      setPatientPreview(null);
+      setPatientSelect(null);
+    }
+  }, [disabled, sending, conversationId, patientPreview, onSend, clearEditor, draftKey, t]);
 
   const editing = Boolean(editingMessage);
   // Routes Enter / the ✓ button: confirm the edit when one is active,
@@ -1089,7 +1089,15 @@ export const Composer = ({
           onClose={() => setPatientSelect(null)}
           onSelect={(patient, linkType, scope) => {
             setPatientSelect(null);
-            setPatientPreview({ patient, linkType, scope, caption: '' });
+            setPatientPreview({ patient, linkType, scope, metadata: null, caption: '' });
+            if (!patient.paciente_id) return;
+            void buildPatientCardMetadata(patient.paciente_id, linkType, scope)
+              .then((metadata) =>
+                setPatientPreview((prev) => (prev ? { ...prev, metadata } : prev))
+              )
+              .catch(() =>
+                setPatientPreview((prev) => (prev ? { ...prev, metadata: { ...scope } } : prev))
+              );
           }}
         />
       )}
@@ -1100,18 +1108,12 @@ export const Composer = ({
           patient={patientPreview.patient}
           linkType={patientPreview.linkType}
           scope={patientPreview.scope}
+          metadata={patientPreview.metadata}
           caption={patientPreview.caption}
           onCaptionChange={(caption) =>
             setPatientPreview((prev) => (prev ? { ...prev, caption } : prev))
           }
-          onSend={() =>
-            sendPatientCase(
-              patientPreview.patient,
-              patientPreview.linkType,
-              patientPreview.scope,
-              patientPreview.caption
-            )
-          }
+          onSend={() => void sendPatientCase()}
           onCancel={() => setPatientPreview(null)}
           sending={sending}
         />

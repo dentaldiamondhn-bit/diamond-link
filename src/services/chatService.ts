@@ -186,7 +186,7 @@ export class ChatService {
         attachments:chat_attachments(*),
         patient_case_link:chat_patient_case_links(
           *,
-          patient:patients(paciente_id, nombre_completo)
+          patient:patients(*)
         )
       `)
       .eq('conversation_id', conversationId)
@@ -316,7 +316,7 @@ export class ChatService {
         attachments:chat_attachments(*),
         patient_case_link:chat_patient_case_links(
           *,
-          patient:patients(paciente_id, nombre_completo)
+          patient:patients(*)
         )
       `)
       .eq('conversation_id', conversationId)
@@ -574,7 +574,7 @@ export class ChatService {
         attachments:chat_attachments(*),
         patient_case_link:chat_patient_case_links(
           *,
-          patient:patients(paciente_id, nombre_completo)
+          patient:patients(*)
         )
       `)
       .eq('id', message.id)

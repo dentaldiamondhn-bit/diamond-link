@@ -2,6 +2,8 @@
 
 import { X, Send, Loader2 } from 'lucide-react';
 import { PatientCaseLinkType } from '@/types/chat';
+import { useTranslations } from '@/chat/i18n/useTranslations';
+import { CARD_KIND_TITLE_KEYS } from '@/chat/patientCardData';
 import type { Patient } from '@/types/patient';
 
 interface PatientCardPreviewModalProps {
@@ -9,6 +11,7 @@ interface PatientCardPreviewModalProps {
   patient: Patient;
   linkType: PatientCaseLinkType;
   scope: Record<string, any>;
+  metadata: Record<string, any> | null;
   caption: string;
   onCaptionChange: (caption: string) => void;
   onSend: () => void;
@@ -16,30 +19,25 @@ interface PatientCardPreviewModalProps {
   sending: boolean;
 }
 
-const CARD_KIND_LABEL: Record<PatientCaseLinkType, string> = {
-  consent: 'Patient Contact',
-  odontogram: 'Odontogram Snapshot',
-  treatment: 'Treatment Summary',
-  event: 'Event',
-  presupuesto: 'Presupuesto',
-  payment: 'Payment',
-  general: 'General',
-};
-
 export default function PatientCardPreviewModal({
   open,
   patient,
   linkType,
-  scope,
+  metadata,
   caption,
   onCaptionChange,
   onSend,
   onCancel,
   sending,
 }: PatientCardPreviewModalProps) {
+  const { t } = useTranslations();
+
   if (!open) return null;
 
-  const title = CARD_KIND_LABEL[linkType] || 'Patient Card';
+  const title = t(CARD_KIND_TITLE_KEYS[linkType] || 'patientCase');
+  const loading = metadata === null;
+  const teethStatus = (metadata?.teethStatus as any[]) || null;
+  const treatments = (metadata?.treatments as any[]) || null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
@@ -74,63 +72,99 @@ export default function PatientCardPreviewModal({
               </div>
             </div>
 
-            {scope.includeContact && (
-              <div className="mt-3 space-y-1 text-sm text-gray-700 dark:text-gray-200">
-                {patient.telefono && (
-                  <p className="flex items-center gap-2">
-                    <span className="text-gray-500">Phone:</span>
-                    <span>{patient.telefono}</span>
+            {linkType === 'treatment' &&
+              (loading ? (
+                <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('loadingTreatments')}
+                </div>
+              ) : treatments && treatments.length > 0 ? (
+                <div className="mt-3">
+                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {t('completedProcedures')}
                   </p>
-                )}
-                {patient.email && (
-                  <p className="flex items-center gap-2">
-                    <span className="text-gray-500">Email:</span>
-                    <span>{patient.email}</span>
-                  </p>
-                )}
-                {patient.doctor && (
-                  <p className="flex items-center gap-2">
-                    <span className="text-gray-500">Doctor:</span>
-                    <span>{patient.doctor}</span>
-                  </p>
-                )}
-                {patient.alergias && (
-                  <p className="flex items-center gap-2">
-                    <span className="text-gray-500">Allergies:</span>
-                    <span className="text-red-600 dark:text-red-400">{patient.alergias}</span>
-                  </p>
-                )}
-              </div>
-            )}
+                  <div className="mt-1 space-y-0.5 text-xs text-gray-700 dark:text-gray-200">
+                    {treatments.slice(0, 4).map((tr: any) => (
+                      <p key={tr.id} className="flex items-center gap-2 truncate">
+                        <span className="w-16 flex-shrink-0 text-gray-400">{tr.date}</span>
+                        <span className="truncate">{tr.procedure}</span>
+                        {tr.cdt && <span className="flex-shrink-0 text-gray-400">{tr.cdt}</span>}
+                      </p>
+                    ))}
+                    {(metadata?.treatmentsCount ?? treatments.length) > 4 && (
+                      <p className="text-gray-500">
+                        {t('andMoreTreatments', { n: (metadata?.treatmentsCount ?? treatments.length) - 4 })}
+                      </p>
+                    )}
+                  </div>
+                  {(metadata?.treatmentsTotals || []).map((total: any) => (
+                    <p key={total.moneda} className="mt-1 text-xs font-medium text-gray-700 dark:text-gray-200">
+                      {t('treatmentTotal')}: {Number(total.total).toLocaleString()} {total.moneda}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-gray-500">{t('noTreatments')}</p>
+              ))}
 
-            {scope.includeTreatments && (
-              <div className="mt-3 text-sm text-gray-700 dark:text-gray-200">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Completed treatments
-                </p>
-                <p className="mt-1 text-xs text-gray-500">Treatment summary will be included.</p>
-              </div>
-            )}
-
-            {scope.includeOdontogram && (
-              <div className="mt-3 text-sm text-gray-700 dark:text-gray-200">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Odontogram Snapshot
-                </p>
-                <p className="mt-1 text-xs text-gray-500">Current odontogram state will be included.</p>
-              </div>
-            )}
+            {linkType === 'odontogram' &&
+              (loading ? (
+                <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('loadingOdontogram')}
+                </div>
+              ) : teethStatus && teethStatus.length > 0 ? (
+                <div className="mt-3">
+                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {t('odontogramState')}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {teethStatus.slice(0, 16).map((tooth: any) => (
+                      <span
+                        key={tooth.toothNumber}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-medium"
+                        style={{
+                          backgroundColor: tooth.color || '#6b7280',
+                          color: '#ffffff',
+                          boxShadow: tooth.status === 'sano' ? 'inset 0 0 0 1px #d1d5db' : undefined,
+                        }}
+                        title={`#${tooth.toothNumber}: ${tooth.status}`}
+                      >
+                        {tooth.toothNumber}
+                      </span>
+                    ))}
+                    {teethStatus.length > 16 && (
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-200 text-[10px] font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
+                        +{teethStatus.length - 16}
+                      </span>
+                    )}
+                  </div>
+                  {(metadata?.odontogramVersion != null || metadata?.odontogramDate) && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {metadata?.odontogramVersion != null && (
+                        <>
+                          {t('odontogramVersion')}: {metadata.odontogramVersion}
+                        </>
+                      )}
+                      {metadata?.odontogramVersion != null && metadata?.odontogramDate ? ' • ' : ''}
+                      {metadata?.odontogramDate ? metadata.odontogramDate : ''}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-gray-500">{t('noOdontogramData')}</p>
+              ))}
           </div>
 
           <div className="mt-3">
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-              Caption (optional)
+              {t('captionOptional')}
             </label>
             <textarea
               value={caption}
               onChange={(e) => onCaptionChange(e.target.value)}
               rows={2}
-              placeholder="Add a note..."
+              placeholder={t('addNote')}
               className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -142,7 +176,7 @@ export default function PatientCardPreviewModal({
             onClick={onCancel}
             className="rounded-xl px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="button"
@@ -152,7 +186,7 @@ export default function PatientCardPreviewModal({
           >
             {sending && <Loader2 className="h-4 w-4 animate-spin" />}
             <Send className="h-4 w-4" />
-            Send
+            {t('send')}
           </button>
         </div>
       </div>
