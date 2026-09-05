@@ -566,7 +566,7 @@ const MessageRow = function MessageRow({
                   <span className="min-w-0 truncate">{replyPreviewText(msg)}</span>
                 </button>
               )}
-              {msg.is_forwarded && !mine && (
+              {msg.is_forwarded && (
                 <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-400 mb-0.5">
                   <Forward className="h-3 w-3" />
                   {t('forwarded')}
