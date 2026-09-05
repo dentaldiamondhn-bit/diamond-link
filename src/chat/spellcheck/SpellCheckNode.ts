@@ -37,7 +37,7 @@ export class SpellCheckNode extends TextNode {
    * global `.chat-spell-error` style) as a stray red squiggle. Serialize as an
    * identical plain TextNode so the stored content stays clean.
    */
-  exportDOM(editor: LexicalEditor): DOMExportOutput {
+  exportDOM(): DOMExportOutput {
     // Avoid creating a new TextNode (triggers read-only check). Build the
     // export output manually with a plain span containing the text content.
     const element = document.createElement('span');
