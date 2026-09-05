@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase';
 import { ChatService } from '@/services/chatService';
 import { showBrowserNotification, requestNotificationPermission } from '@/lib/browserNotification';
 import { ChatLayout } from '@/chat/components/ChatLayout';
+import PatientCardBubble from '@/chat/components/PatientCardBubble';
+import { resolveCardPatient } from '@/chat/patientCardData';
 
 const UserButton = dynamic(() => import('@clerk/nextjs').then(m => m.UserButton), { ssr: false });
 import {
@@ -907,16 +909,12 @@ function ChatPageMonolith() {
                             : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white'
                         }`}>
                           {msg.message_type === ChatMessageType.PATIENT_CASE && msg.patient_case_link ? (
-                            <div className={`rounded-lg p-2 ${isOwn ? 'bg-white/20' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}>
-                              <div className="flex items-center gap-2 mb-1">
-                                <Stethoscope className="w-4 h-4" />
-                                <span className="font-medium text-sm">Caso de Paciente</span>
-                              </div>
-                              <p className="text-sm">{msg.patient_case_link.title}</p>
-                              {msg.patient_case_link.patient && (
-                                <p className="text-xs opacity-75">{msg.patient_case_link.patient.nombre_completo}</p>
-                              )}
-                            </div>
+                            <PatientCardBubble
+                              patient={resolveCardPatient(msg.patient_case_link)}
+                              linkType={msg.patient_case_link.link_type || PatientCaseLinkType.GENERAL}
+                              metadata={msg.patient_case_link.metadata}
+                              description={msg.patient_case_link.description}
+                            />
                           ) : msg.message_type === ChatMessageType.IMAGE && msg.attachments?.[0] ? (
                             <img 
                               src={msg.attachments[0].file_url} 

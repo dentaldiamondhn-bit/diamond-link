@@ -26,9 +26,9 @@ import type { RowComponentProps, ListImperativeAPI } from 'react-window';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import { resolveCardPatient } from '@/chat/patientCardData';
 import { interpolate, translations, type TranslationKey } from '@/chat/i18n/translations';
 import type { ChatMessage, ChatUser, FileAttachmentData } from '@/types/chat';
-import type { Patient } from '@/types/patient';
 import { PatientCaseLinkType } from '@/types/chat';
 import {
   getUserDisplayName,
@@ -335,83 +335,7 @@ const MessageRow = function MessageRow({
       case 'patient_case':
         return (
           <PatientCardBubble
-            patient={(() => {
-              const raw =
-                m.patient_case_link?.patient ?? m.patient_case_link?.metadata?.patient;
-              if (raw) return raw as unknown as Patient;
-              return {
-                nombre_completo: m.patient_case_link?.title || t('patientCase'),
-                numero_identidad: '',
-                paciente_id: '',
-                tipo_identificacion: 'HN',
-                sexo: 'masculino',
-                tipo_sangre: 'Desconocido',
-                direccion: '',
-                estado_civil: 'Desconocido',
-                contacto_emergencia: '',
-                contacto_telefono: '',
-                enfermedades: '',
-                alergias: '',
-                medicamentos: '',
-                hospitalizaciones: '',
-                cirugias: '',
-                antecedentes_familiares: '',
-                fuma: 'no',
-                alcohol: 'no',
-                drogas: 'no',
-                doctor: 'otro',
-                fecha_inicio: new Date().toISOString().split('T')[0],
-                seguro: 'Ninguno',
-                contacto: '',
-                escolaridad: '',
-                trabajo: '',
-                medico_cabecera: '',
-                otro_doctor: '',
-                otra_identificacion: '',
-                rep_numero_identidad: '',
-                rep_tipo_identificacion: 'HN',
-                rep_otro_tipo_identificacion: '',
-                rep_celular: '',
-                codigopaisrepresentante: '',
-                rep_pais_codigo: '',
-                codigopaisemergencia: '',
-                contacto_pais_codigo: '',
-                representante_legal: '',
-                parentesco: 'otro',
-                apodo: '',
-                enfermedades_sistemicas_texto: '',
-                pediatra_otorrinolaringologo: '',
-                pediatra: '',
-                psicologo: '',
-                otro_medico: '',
-                frecuencia_cepillado_detalle: '',
-                cepillado_acompanado: '',
-                peso: 0,
-                talla: 0,
-                tipo_alimentacion: '',
-                momentos_azucar: '',
-                edad: 0,
-                edad_al_momento_consulta: 0,
-                fecha_nacimiento: new Date().toISOString().split('T')[0],
-                otro_tipo_identificacion: '',
-                otro_genero: '',
-                tipo_droga: '',
-                drogas_frecuencia: 'Ocasional',
-                alcohol_frecuencia: 'Ocasional',
-                fuma_cantidad: 0,
-                fuma_frecuencia: 'Ocasional',
-                embarazo: 'no',
-                semanas_embarazo: 0,
-                embarazo_fecha_fin: '',
-                embarazo_activo: false,
-                vacunas: '',
-                observaciones_medicas: '',
-                poliza: '',
-                otro_seguro: '',
-                codigopais: '',
-                pais_codigo: '',
-              } as unknown as Patient;
-            })()}
+            patient={resolveCardPatient(m.patient_case_link)}
             linkType={m.patient_case_link?.link_type || PatientCaseLinkType.GENERAL}
             metadata={m.patient_case_link?.metadata}
             description={m.patient_case_link?.description}
