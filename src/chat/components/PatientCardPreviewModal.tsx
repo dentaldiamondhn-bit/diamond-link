@@ -23,6 +23,7 @@ export default function PatientCardPreviewModal({
   open,
   patient,
   linkType,
+  scope,
   metadata,
   caption,
   onCaptionChange,
@@ -38,6 +39,12 @@ export default function PatientCardPreviewModal({
   const loading = metadata === null;
   const teethStatus = (metadata?.teethStatus as any[]) || null;
   const treatments = (metadata?.treatments as any[]) || null;
+  const snapshot = (metadata?.patient as Record<string, any>) || {};
+  const displayName = patient.nombre_completo || snapshot.nombre_completo;
+  const displayPhone = patient.telefono || snapshot.telefono || '';
+  const displayEmail = patient.email || snapshot.email || '';
+  const displayDoctor = patient.doctor && patient.doctor !== 'otro' ? patient.doctor : '';
+  const displayAllergies = patient.alergias || snapshot.alergias || '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
@@ -64,13 +71,42 @@ export default function PatientCardPreviewModal({
               </div>
               <div className="min-w-0">
                 <p className="truncate text-base font-semibold text-gray-900 dark:text-white">
-                  {patient.nombre_completo}
+                  {displayName}
                 </p>
                 <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                  {patient.numero_identidad} {patient.doctor ? `• ${patient.doctor}` : ''}
+                  {patient.numero_identidad} {displayDoctor ? `• ${displayDoctor}` : ''}
                 </p>
               </div>
             </div>
+
+            {linkType === 'consent' && scope?.includeContact && (
+              <div className="mt-3 space-y-1 text-sm text-gray-700 dark:text-gray-200">
+                {displayPhone && (
+                  <p className="flex items-center gap-2">
+                    <span className="text-gray-500">{t('phone')}:</span>
+                    <span>{displayPhone}</span>
+                  </p>
+                )}
+                {displayEmail && (
+                  <p className="flex items-center gap-2">
+                    <span className="text-gray-500">{t('email')}:</span>
+                    <span>{displayEmail}</span>
+                  </p>
+                )}
+                {displayDoctor && (
+                  <p className="flex items-center gap-2">
+                    <span className="text-gray-500">{t('doctor')}:</span>
+                    <span>{displayDoctor}</span>
+                  </p>
+                )}
+                {displayAllergies && (
+                  <p className="flex items-center gap-2">
+                    <span className="text-gray-500">{t('allergies')}:</span>
+                    <span className="text-red-600 dark:text-red-400">{displayAllergies}</span>
+                  </p>
+                )}
+              </div>
+            )}
 
             {linkType === 'treatment' &&
               (loading ? (

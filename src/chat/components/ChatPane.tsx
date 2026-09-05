@@ -231,6 +231,11 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
 
       if (patientCaseLink) {
         optimistic.message_type = ChatMessageType.PATIENT_CASE;
+        // Attach the link to the optimistic bubble so the card renders right
+        // away with the patient snapshot (name/phone/…) instead of an empty
+        // fallback while the persisted row is fetched.
+        optimistic.patient_case_link =
+          patientCaseLink as unknown as NonNullable<ChatMessage['patient_case_link']>;
       }
 
       const textOnly = items.length === 0 && !patientCaseLink;

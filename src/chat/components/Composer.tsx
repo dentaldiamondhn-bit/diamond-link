@@ -1091,7 +1091,7 @@ export const Composer = ({
             setPatientSelect(null);
             setPatientPreview({ patient, linkType, scope, metadata: null, caption: '' });
             if (!patient.paciente_id) return;
-            void buildPatientCardMetadata(patient.paciente_id, linkType, scope)
+            void buildPatientCardMetadata(patient, linkType, scope)
               .then((metadata) =>
                 setPatientPreview((prev) => (prev ? { ...prev, metadata } : prev))
               )

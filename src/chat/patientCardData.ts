@@ -4,6 +4,7 @@ import { CompletedTreatmentService } from '@/services/completedTreatmentService'
 import type { CompletedTreatment } from '@/services/completedTreatmentService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import type { OdontogramData } from '@/types/odontogram';
+import type { Patient } from '@/types/patient';
 
 export const CARD_KIND_TITLE_KEYS: Record<PatientCaseLinkType, TranslationKey> = {
   consent: 'patientContactCard',
@@ -201,11 +202,12 @@ export function buildTreatmentRows(treatments: CompletedTreatment[]): {
 }
 
 export async function buildPatientCardMetadata(
-  pacienteId: string,
+  patient: Patient,
   linkType: PatientCaseLinkType,
   scope: Record<string, any>
 ): Promise<Record<string, any>> {
-  const metadata: Record<string, any> = { ...scope };
+  const metadata: Record<string, any> = { ...scope, patient: buildPatientSnapshot(patient) };
+  const pacienteId = patient.paciente_id;
 
   if (linkType === PatientCaseLinkType.TREATMENT && scope.includeTreatments) {
     try {
@@ -246,4 +248,16 @@ export async function buildPatientCardMetadata(
   }
 
   return metadata;
+}
+
+export function buildPatientSnapshot(patient: Patient): Record<string, any> {
+  return {
+    paciente_id: patient.paciente_id,
+    nombre_completo: patient.nombre_completo,
+    numero_identidad: patient.numero_identidad,
+    telefono: patient.telefono,
+    email: patient.email,
+    doctor: patient.doctor,
+    alergias: patient.alergias,
+  };
 }

@@ -336,7 +336,8 @@ const MessageRow = function MessageRow({
         return (
           <PatientCardBubble
             patient={(() => {
-              const raw = m.patient_case_link?.patient;
+              const raw =
+                m.patient_case_link?.patient ?? m.patient_case_link?.metadata?.patient;
               if (raw) return raw as unknown as Patient;
               return {
                 nombre_completo: m.patient_case_link?.title || t('patientCase'),

@@ -41,7 +41,14 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const title = t(CARD_KIND_TITLE_KEYS[linkType] || 'patientCase');
-  const patientId = patient.paciente_id;
+  const snapshot = (metadata?.patient as Record<string, any>) || {};
+  const displayName = patient.nombre_completo || snapshot.nombre_completo || t('patientCase');
+  const displayPhone = patient.telefono || snapshot.telefono || '';
+  const displayEmail = patient.email || snapshot.email || '';
+  const displayDoctor = patient.doctor && patient.doctor !== 'otro' ? patient.doctor : snapshot.doctor;
+  const displayAllergies = patient.alergias || snapshot.alergias || '';
+  const displayIdNumber = patient.numero_identidad || snapshot.numero_identidad || '';
+  const patientId = patient.paciente_id || snapshot.paciente_id || '';
 
   const handleDownloadPdf = async () => {
     if (!patientId || downloadingPdf) return;
@@ -51,7 +58,8 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
         CompletedTreatmentService.getCompletedTreatmentsByPatientId(patientId),
         OdontogramPilotService.getActiveOdontogram(patientId),
       ]);
-      await ExportService.exportToPDF(patient, [], odontogram, treatments, []);
+      const pdfPatient = { ...patient, ...snapshot } as Patient;
+      await ExportService.exportToPDF(pdfPatient, [], odontogram, treatments, []);
     } catch (error) {
       console.error('Failed to generate patient PDF:', error);
     } finally {
@@ -121,7 +129,7 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
             onClick: () => undefined,
             disabled: false,
             iconOverride: null,
-            href: patient.telefono ? `tel:${patient.telefono}` : undefined,
+            href: displayPhone ? `tel:${displayPhone}` : undefined,
           },
         ];
 
@@ -129,12 +137,12 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
     <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
       <div className="flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-4 py-3">
         <div className="fd-accent-bg flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white">
-          {getInitials(patient.nombre_completo || '?')}
+          {getInitials(displayName || '?')}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{patient.nombre_completo}</p>
+          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{displayName}</p>
           <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-            {title} {patient.numero_identidad ? `• ${patient.numero_identidad}` : ''}
+            {title} {displayIdNumber ? `• ${displayIdNumber}` : ''}
           </p>
         </div>
       </div>
@@ -142,34 +150,34 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
       <div className="space-y-2 px-4 py-3 text-sm text-gray-700 dark:text-gray-200">
         {linkType === PatientCaseLinkType.CONSENT && (
           <>
-            {patient.telefono && (
-              <a href={`tel:${patient.telefono}`} className="flex items-center gap-2 hover:opacity-70">
+            {displayPhone && (
+              <a href={`tel:${displayPhone}`} className="flex items-center gap-2 hover:opacity-70">
                 <Phone className="h-4 w-4 text-gray-400" />
-                {patient.telefono}
+                {displayPhone}
               </a>
             )}
-            {patient.email && (
-              <a href={`mailto:${patient.email}`} className="flex items-center gap-2 hover:opacity-70">
+            {displayEmail && (
+              <a href={`mailto:${displayEmail}`} className="flex items-center gap-2 hover:opacity-70">
                 <Mail className="h-4 w-4 text-gray-400" />
-                {patient.email}
+                {displayEmail}
               </a>
             )}
-            {patient.doctor && patient.doctor !== 'otro' && (
+            {displayDoctor && (
               <p className="flex items-center gap-2">
                 <span className="text-gray-400">{t('doctor')}:</span>
-                <span>{patient.doctor}</span>
+                <span>{displayDoctor}</span>
               </p>
             )}
-            {patient.alergias && (
+            {displayAllergies && (
               <p className="flex items-center gap-2 text-red-600 dark:text-red-400">
                 <span className="font-medium">{t('allergies')}:</span>
-                <span>{patient.alergias}</span>
+                <span>{displayAllergies}</span>
               </p>
             )}
-            {patient.numero_identidad && (
+            {displayIdNumber && (
               <p className="flex items-center gap-2">
                 <span className="text-gray-400">{t('identityId')}:</span>
-                <span>{patient.numero_identidad}</span>
+                <span>{displayIdNumber}</span>
               </p>
             )}
           </>
