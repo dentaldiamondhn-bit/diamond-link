@@ -362,26 +362,26 @@ const LexicalToolbar = ({
                 <button
                   type="button"
                   onClick={() => onOpenPatientCard?.(PatientCaseLinkType.CONSENT)}
-                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="flex w-56 items-center gap-3 whitespace-nowrap px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  <UserPlus className="h-4 w-4 text-blue-500" />
-                  Patient Contact
+                  <UserPlus className="h-4 w-4 flex-shrink-0 text-blue-500" />
+                  {t('patientContactCard')}
                 </button>
                 <button
                   type="button"
                   onClick={() => onOpenPatientCard?.(PatientCaseLinkType.TREATMENT)}
-                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="flex w-56 items-center gap-3 whitespace-nowrap px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  <FileText className="h-4 w-4 text-emerald-500" />
-                  Treatment Summary
+                  <FileText className="h-4 w-4 flex-shrink-0 text-emerald-500" />
+                  {t('treatmentSummaryCard')}
                 </button>
                 <button
                   type="button"
                   onClick={() => onOpenPatientCard?.(PatientCaseLinkType.ODONTOGRAM)}
-                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="flex w-56 items-center gap-3 whitespace-nowrap px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   <span className="text-base">🦷</span>
-                  Odontogram Snapshot
+                  {t('odontogramSnapshotCard')}
                 </button>
               </div>
             </>

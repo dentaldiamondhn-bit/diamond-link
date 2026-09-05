@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { PatientCaseLinkType } from '@/types/chat';
 import { useTranslations } from '@/chat/i18n/useTranslations';
-import { CARD_KIND_TITLE_KEYS } from '@/chat/patientCardData';
+import { CARD_KIND_TITLE_KEYS, getPatientAge } from '@/chat/patientCardData';
 import type { Patient } from '@/types/patient';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
@@ -76,8 +76,11 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
   const whatsappUrl = displayPhone ? createWhatsAppUrl(displayPhone, null, countryCode) : '';
   const displayEmail = patient.email || snapshot.email || '';
   const displayDoctor = patient.doctor && patient.doctor !== 'otro' ? patient.doctor : snapshot.doctor;
-  const displayAllergies = patient.alergias || snapshot.alergias || '';
   const displayIdNumber = patient.numero_identidad || snapshot.numero_identidad || '';
+  const displayAge = getPatientAge(
+    patient.fecha_nacimiento || snapshot.fecha_nacimiento,
+    typeof patient.edad === 'number' ? patient.edad : (snapshot.edad as number | undefined)
+  );
   const patientId = patient.paciente_id || snapshot.paciente_id || '';
 
   const toothStatusMap = new Map<string, { status: string; color: string }>();
@@ -214,10 +217,10 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
                 <span>{displayDoctor}</span>
               </p>
             )}
-            {displayAllergies && (
-              <p className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                <span className="font-medium">{t('allergies')}:</span>
-                <span>{displayAllergies}</span>
+            {displayAge != null && (
+              <p className="flex items-center gap-2">
+                <span className="text-gray-400">{t('age')}:</span>
+                <span>{displayAge} años</span>
               </p>
             )}
           </>
@@ -239,8 +242,8 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
                         <th className="pb-1 pr-2 font-medium text-gray-500 dark:text-gray-400">
                           {t('procedure')}
                         </th>
-                        <th className="pb-1 pr-2 font-medium text-gray-500 dark:text-gray-400">{t('cdt')}</th>
-                        <th className="pb-1 font-medium text-gray-500 dark:text-gray-400">{t('qty')}</th>
+                        <th className="pb-1 pr-2 font-medium text-gray-500 dark:text-gray-400">{t('qty')}</th>
+                        <th className="pb-1 font-medium text-gray-500 dark:text-gray-400">{t('payment')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -248,8 +251,10 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
                         <tr key={tr.id || tr._key} className="border-b border-gray-100 dark:border-gray-700 last:border-0">
                           <td className="py-1 pr-2 whitespace-nowrap">{dateOnly(tr.date)}</td>
                           <td className="py-1 pr-2">{tr.procedure || '-'}</td>
-                          <td className="py-1 pr-2">{tr.cdt || '-'}</td>
-                          <td className="py-1">{tr.qty || 0}</td>
+                          <td className="py-1 pr-2">{tr.qty || 0}</td>
+                          <td className="py-1 whitespace-nowrap">
+                            {typeof tr.payment === 'number' ? tr.payment.toLocaleString() : '-'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -282,7 +287,7 @@ export default function PatientCardBubble({ patient, linkType, metadata, descrip
                     {[18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28].map(toothCell)}
                   </div>
                   <div className="flex flex-wrap justify-center gap-1">
-                    {[31,32,33,34,35,36,37,38,48,47,46,45,44,43,42,41].map(toothCell)}
+                    {[48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38].map(toothCell)}
                   </div>
                 </div>
                 {(metadata.odontogramPlanned > 0 ||

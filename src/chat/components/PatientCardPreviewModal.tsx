@@ -3,7 +3,7 @@
 import { X, Send, Loader2 } from 'lucide-react';
 import { PatientCaseLinkType } from '@/types/chat';
 import { useTranslations } from '@/chat/i18n/useTranslations';
-import { CARD_KIND_TITLE_KEYS } from '@/chat/patientCardData';
+import { CARD_KIND_TITLE_KEYS, getPatientAge } from '@/chat/patientCardData';
 import type { Patient } from '@/types/patient';
 
 interface PatientCardPreviewModalProps {
@@ -44,7 +44,33 @@ export default function PatientCardPreviewModal({
   const displayPhone = patient.telefono || snapshot.telefono || '';
   const displayEmail = patient.email || snapshot.email || '';
   const displayDoctor = patient.doctor && patient.doctor !== 'otro' ? patient.doctor : '';
-  const displayAllergies = patient.alergias || snapshot.alergias || '';
+  const displayAge = getPatientAge(
+    patient.fecha_nacimiento || snapshot.fecha_nacimiento,
+    typeof patient.edad === 'number' ? patient.edad : (snapshot.edad as number | undefined)
+  );
+
+  const toothStatusMap = new Map<string, { status: string; color: string }>();
+  for (const tooth of teethStatus || []) {
+    toothStatusMap.set(String(tooth.toothNumber), tooth);
+  }
+  const toothCell = (n: number) => {
+    const tooth = toothStatusMap.get(String(n));
+    const sano = !tooth || tooth.status === 'sano';
+    return (
+      <span
+        key={n}
+        title={`#${n}: ${tooth?.status || 'sano'}`}
+        className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-semibold ${
+          sano
+            ? 'bg-gray-100 text-gray-400 ring-1 ring-inset ring-gray-300 dark:bg-gray-700 dark:text-gray-500'
+            : 'text-white'
+        }`}
+        style={sano ? undefined : { backgroundColor: tooth.color }}
+      >
+        {n}
+      </span>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
@@ -99,10 +125,10 @@ export default function PatientCardPreviewModal({
                     <span>{displayDoctor}</span>
                   </p>
                 )}
-                {displayAllergies && (
+                {displayAge != null && (
                   <p className="flex items-center gap-2">
-                    <span className="text-gray-500">{t('allergies')}:</span>
-                    <span className="text-red-600 dark:text-red-400">{displayAllergies}</span>
+                    <span className="text-gray-500">{t('age')}:</span>
+                    <span>{displayAge} años</span>
                   </p>
                 )}
               </div>
@@ -122,9 +148,13 @@ export default function PatientCardPreviewModal({
                   <div className="mt-1 space-y-0.5 text-xs text-gray-700 dark:text-gray-200">
                     {treatments.slice(0, 4).map((tr: any) => (
                       <p key={tr.id} className="flex items-center gap-2 truncate">
-                        <span className="w-16 flex-shrink-0 text-gray-400">{tr.date}</span>
+                        <span className="w-16 flex-shrink-0 text-gray-400">
+                          {(tr.date || '').slice(0, 10) || '-'}
+                        </span>
                         <span className="truncate">{tr.procedure}</span>
-                        {tr.cdt && <span className="flex-shrink-0 text-gray-400">{tr.cdt}</span>}
+                        {typeof tr.payment === 'number' && (
+                          <span className="flex-shrink-0 text-gray-400">{tr.payment.toLocaleString()}</span>
+                        )}
                       </p>
                     ))}
                     {(metadata?.treatmentsCount ?? treatments.length) > 4 && (
@@ -154,26 +184,13 @@ export default function PatientCardPreviewModal({
                   <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     {t('odontogramState')}
                   </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {teethStatus.slice(0, 16).map((tooth: any) => (
-                      <span
-                        key={tooth.toothNumber}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-medium"
-                        style={{
-                          backgroundColor: tooth.color || '#6b7280',
-                          color: '#ffffff',
-                          boxShadow: tooth.status === 'sano' ? 'inset 0 0 0 1px #d1d5db' : undefined,
-                        }}
-                        title={`#${tooth.toothNumber}: ${tooth.status}`}
-                      >
-                        {tooth.toothNumber}
-                      </span>
-                    ))}
-                    {teethStatus.length > 16 && (
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-200 text-[10px] font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
-                        +{teethStatus.length - 16}
-                      </span>
-                    )}
+                  <div className="mt-1.5 flex flex-col items-center gap-1">
+                    <div className="flex flex-wrap justify-center gap-1">
+                      {[18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28].map(toothCell)}
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-1">
+                      {[48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38].map(toothCell)}
+                    </div>
                   </div>
                   {(metadata?.odontogramVersion != null || metadata?.odontogramDate) && (
                     <p className="mt-1 text-xs text-gray-500">
@@ -183,7 +200,7 @@ export default function PatientCardPreviewModal({
                         </>
                       )}
                       {metadata?.odontogramVersion != null && metadata?.odontogramDate ? ' • ' : ''}
-                      {metadata?.odontogramDate ? metadata.odontogramDate : ''}
+                      {metadata?.odontogramDate ? (metadata.odontogramDate as string).slice(0, 10) : ''}
                     </p>
                   )}
                 </div>

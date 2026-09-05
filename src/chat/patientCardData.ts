@@ -28,6 +28,7 @@ export interface TreatmentRow {
   procedure: string;
   cdt: string;
   qty: number;
+  payment?: number;
   doctor?: string | null;
 }
 
@@ -190,6 +191,10 @@ export function buildTreatmentRows(treatments: CompletedTreatment[]): {
         procedure: item.nombre_tratamiento || '-',
         cdt: item.codigo_tratamiento || '-',
         qty: item.cantidad || 0,
+        payment:
+          item.precio_final != null
+            ? Math.round(item.precio_final * (item.cantidad || 0) * 100) / 100
+            : undefined,
         doctor: item.doctor_name,
       });
     }
@@ -260,6 +265,27 @@ export function buildPatientSnapshot(patient: Patient): Record<string, any> {
     doctor: patient.doctor,
     alergias: patient.alergias,
   };
+}
+
+export function getPatientAge(
+  fechaNacimiento?: string | null,
+  fallbackEdad?: number
+): number | null {
+  if (fechaNacimiento) {
+    const dob = new Date(fechaNacimiento);
+    if (!Number.isNaN(dob.getTime())) {
+      const now = new Date();
+      let age = now.getFullYear() - dob.getFullYear();
+      const monthDiff = now.getMonth() - dob.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) {
+        age -= 1;
+      }
+      if (age >= 0) return age;
+    }
+  }
+  return typeof fallbackEdad === 'number' && Number.isFinite(fallbackEdad)
+    ? fallbackEdad
+    : null;
 }
 
 export function resolveCardPatient(
