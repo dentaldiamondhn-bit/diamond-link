@@ -22,6 +22,7 @@ import {
   Square,
   Trash2,
   Underline,
+  UserPlus,
   X,
 } from 'lucide-react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
@@ -57,10 +58,14 @@ import { SpellCheckPlugin } from '@/chat/spellcheck/SpellCheckPlugin';
 import EmojiPicker from './EmojiPicker';
 import AttachmentTray from './AttachmentTray';
 import ColorButtons from './ColorButtons';
+import PatientSelectionModal from './PatientSelectionModal';
+import PatientCardPreviewModal from './PatientCardPreviewModal';
 import { useChatStore } from '@/chat/store/chatStore';
-import { ChatConversationType } from '@/types/chat';
+import { ChatConversationType, CreateMessageData, PatientCaseLinkType } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
-import type { ChatMessage } from '@/types/chat';
+import type { ChatMessage, PatientCaseLinkData } from '@/types/chat';
+import type { Patient } from '@/types/patient';
+import { PatientService } from '@/services/patientService';
 
 // Remove whitespace that sits before the first text and after the last text of
 // the message, so stray leading/trailing spaces never get stored or rendered in
@@ -101,7 +106,8 @@ interface ComposerProps {
   onSend: (
     content: string,
     items: PendingAttachment[],
-    replyToId?: string
+    replyToId?: string,
+    patientCaseLink?: CreateMessageData['patient_case_link']
   ) => Promise<void>;
   onTyping: () => void;
   onVoiceStart: () => Promise<void>;
@@ -137,6 +143,16 @@ const EDITOR_THEME = {
   },
 };
 
+const CARD_KIND_LABEL: Record<PatientCaseLinkType, string> = {
+  consent: 'Patient Contact',
+  odontogram: 'Odontogram Snapshot',
+  treatment: 'Treatment Summary',
+  event: 'Event',
+  presupuesto: 'Presupuesto',
+  payment: 'Payment',
+  general: 'General',
+};
+
 
 interface LexicalToolbarProps {
   textContent: string;
@@ -154,6 +170,7 @@ interface LexicalToolbarProps {
   duration: number;
   hasPendingVoice: boolean;
   disabled?: boolean;
+  onOpenPatientCard?: (linkType: PatientCaseLinkType) => void;
 }
 
 const LexicalToolbar = ({
@@ -172,6 +189,7 @@ const LexicalToolbar = ({
   duration,
   hasPendingVoice,
   disabled,
+  onOpenPatientCard,
 }: LexicalToolbarProps) => {
   const { t } = useTranslations();
   const [editor] = useLexicalComposerContext();
@@ -259,18 +277,18 @@ const LexicalToolbar = ({
       ) : null}
 
       <div className="flex items-center gap-1 flex-wrap">
-        {formatButton('Bold', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'), <Bold className="h-4 w-4" />)}
-        {formatButton('Italic', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic'), <Italic className="h-4 w-4" />)}
-        {formatButton('Underline', () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline'), <Underline className="h-4 w-4" />)}
+        {formatButton(t('formatBold'), () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'), <Bold className="h-4 w-4" />)}
+        {formatButton(t('formatItalic'), () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic'), <Italic className="h-4 w-4" />)}
+        {formatButton(t('formatUnderline'), () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline'), <Underline className="h-4 w-4" />)}
         <ColorButtons light />
 
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
 
-        {formatButton('List', () => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined), <List className="h-4 w-4" />)}
-        {formatButton('Ordered List', () => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined), <ListOrdered className="h-4 w-4" />)}
+        {formatButton(t('formatList'), () => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined), <List className="h-4 w-4" />)}
+        {formatButton(t('formatOrderedList'), () => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined), <ListOrdered className="h-4 w-4" />)}
         <button
           type="button"
-          title="Code"
+          title={t('formatCode')}
           onClick={() => {
             editor.update(() => {
               const sel = $getSelection();
@@ -337,6 +355,33 @@ const LexicalToolbar = ({
                   <FileText className="h-4 w-4 text-teal-500" />
                   {t('attachDocument')}
                 </button>
+
+                <div className="my-1 h-px bg-gray-200 dark:bg-gray-700" />
+
+                <button
+                  type="button"
+                  onClick={() => onOpenPatientCard?.(PatientCaseLinkType.CONSENT)}
+                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <UserPlus className="h-4 w-4 text-blue-500" />
+                  Patient Contact
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenPatientCard?.(PatientCaseLinkType.TREATMENT)}
+                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <FileText className="h-4 w-4 text-emerald-500" />
+                  Treatment Summary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenPatientCard?.(PatientCaseLinkType.ODONTOGRAM)}
+                  className="flex w-56 items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <span className="text-base">🦷</span>
+                  Odontogram Snapshot
+                </button>
               </div>
             </>
           )}
@@ -401,7 +446,7 @@ const LexicalToolbar = ({
                 ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
                 : 'text-gray-600 dark:text-gray-300'
             }`}
-            title="Emoji"
+            title={t('formatEmoji')}
           >
             <Smile className="h-4 w-4" />
           </button>
@@ -440,7 +485,7 @@ const LexicalToolbar = ({
           type="button"
           onClick={onSend}
           disabled={disabled || (!textContent.trim() && !hasAttachments)}
-          className="flex-shrink-0 px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-shrink-0 px-3 py-2 rounded-lg fd-accent-bg disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none fd-accent-ring"
           title={t('send')}
         >
           <Send className="h-4 w-4" />
@@ -644,6 +689,16 @@ export const Composer = ({
   const [sending, setSending] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [spellReady, setSpellReady] = useState(false);
+  const [patientSelect, setPatientSelect] = useState<{
+    open: boolean;
+    linkType: PatientCaseLinkType;
+  } | null>(null);
+  const [patientPreview, setPatientPreview] = useState<{
+    patient: Patient;
+    linkType: PatientCaseLinkType;
+    scope: Record<string, any>;
+    caption: string;
+  } | null>(null);
   const textRef = useRef('');
   const htmlRef = useRef('');
   const editorRef = useRef<LexicalEditor | null>(null);
@@ -815,6 +870,39 @@ export const Composer = ({
     }
   }, [disabled, sending, conversationId, pending, onSend, replyTo, clearEditor, draftKey]);
 
+  const sendPatientCase = useCallback(
+    async (patient: Patient, linkType: PatientCaseLinkType, scope: Record<string, any>, caption: string) => {
+      if (disabled || sending || !conversationId) return;
+      const patientCaseLink: PatientCaseLinkData = {
+        patient_id: patient.paciente_id,
+        link_type: linkType,
+        linked_id: patient.paciente_id,
+        title: `${CARD_KIND_LABEL[linkType] || 'Patient'} - ${patient.nombre_completo}`,
+        description: caption || null,
+        metadata: scope,
+      };
+      try {
+        setSending(true);
+        clearEditor();
+        await onSend('', [], undefined, patientCaseLink);
+        if (draftKey) {
+          try {
+            localStorage.removeItem(draftKey);
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch (err) {
+        console.error('Failed to send patient case:', err);
+      } finally {
+        setSending(false);
+        setPatientPreview(null);
+        setPatientSelect(null);
+      }
+    },
+    [disabled, sending, conversationId, onSend, clearEditor, draftKey]
+  );
+
   const editing = Boolean(editingMessage);
   // Routes Enter / the ✓ button: confirm the edit when one is active,
   // otherwise send a new message. Double confirm is impossible because the
@@ -855,7 +943,7 @@ export const Composer = ({
           setDragOver(false);
           handleFiles(Array.from(e.dataTransfer.files || []));
         }}
-        className={`p-3 ${dragOver ? 'ring-2 ring-blue-400 rounded-lg' : ''}`}
+        className={`p-3 ${dragOver ? 'ring-2 ring-[var(--fd-accent)] rounded-lg' : ''}`}
       >
         <AttachmentTray
           attachments={pending}
@@ -876,9 +964,9 @@ export const Composer = ({
           }}
         />
         {!isRecording && hasPendingVoice && (
-          <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/30">
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-xl fd-accent-soft-bg px-3 py-2.5">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-white">
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full fd-accent-bg">
                 <Mic className="h-4 w-4" />
               </span>
               <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
@@ -900,7 +988,7 @@ export const Composer = ({
               type="button"
               onClick={onVoiceSend}
               title={t('send')}
-              className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600"
+              className="flex flex-shrink-0 items-center gap-1.5 rounded-full fd-accent-bg px-4 py-2 text-sm font-semibold"
             >
               <Send className="h-4 w-4" />
               {t('send')}
@@ -918,7 +1006,7 @@ export const Composer = ({
           <div className="relative">
             <RichTextPlugin
               contentEditable={
-                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" data-chat-composer spellCheck={!spellReady} />
+                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none fd-accent-ring text-sm" data-chat-composer spellCheck={!spellReady} />
               }
               placeholder={
                 <div className="absolute top-2 left-3 pointer-events-none italic text-gray-400 dark:text-gray-500 text-sm">
@@ -929,8 +1017,8 @@ export const Composer = ({
             />
           </div>
           {replyTo && (
-            <div className="flex items-center gap-2 px-3 py-1.5 mb-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-sm">
-              <CornerDownRight className="h-3.5 w-3.5 flex-shrink-0 text-blue-500 dark:text-blue-400" />
+            <div className="flex items-center gap-2 px-3 py-1.5 mb-2 rounded-lg fd-accent-soft-bg border fd-accent-soft-border text-sm">
+              <CornerDownRight className="h-3.5 w-3.5 flex-shrink-0 fd-accent-text" />
               {(() => {
                 const thumb = (replyTo.attachments || []).find((a) =>
                   a.file_type.startsWith('image/')
@@ -944,7 +1032,7 @@ export const Composer = ({
                 ) : null;
               })()}
               <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-200">
-                <span className="text-xs font-medium text-blue-500 dark:text-blue-400">
+                <span className="text-xs font-medium fd-accent-text">
                   {t('replyingTo')}
                 </span>{' '}
                 {htmlToText(replyTo.content || '') || t('fileMessage')}
@@ -952,7 +1040,7 @@ export const Composer = ({
               <button
                 type="button"
                 onClick={onCancelReply}
-                className="p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                className="p-0.5 rounded fd-accent-soft-bg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                 title={t('cancel')}
               >
                 <X className="h-3.5 w-3.5" />
@@ -988,10 +1076,46 @@ export const Composer = ({
               duration={duration}
               hasPendingVoice={hasPendingVoice}
               disabled={disabled || sending}
+              onOpenPatientCard={(linkType) => setPatientSelect({ open: true, linkType })}
             />
           </div>
         </LexicalComposer>
       </div>
+
+      {patientSelect?.open && (
+        <PatientSelectionModal
+          open={patientSelect.open}
+          cardKind={patientSelect.linkType}
+          onClose={() => setPatientSelect(null)}
+          onSelect={(patient, linkType, scope) => {
+            setPatientSelect(null);
+            setPatientPreview({ patient, linkType, scope, caption: '' });
+          }}
+        />
+      )}
+
+      {patientPreview && (
+        <PatientCardPreviewModal
+          open
+          patient={patientPreview.patient}
+          linkType={patientPreview.linkType}
+          scope={patientPreview.scope}
+          caption={patientPreview.caption}
+          onCaptionChange={(caption) =>
+            setPatientPreview((prev) => (prev ? { ...prev, caption } : prev))
+          }
+          onSend={() =>
+            sendPatientCase(
+              patientPreview.patient,
+              patientPreview.linkType,
+              patientPreview.scope,
+              patientPreview.caption
+            )
+          }
+          onCancel={() => setPatientPreview(null)}
+          sending={sending}
+        />
+      )}
     </div>
   );
 };

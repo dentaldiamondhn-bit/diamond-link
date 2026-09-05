@@ -9,7 +9,7 @@ import { ChatRepository } from '@/chat/repository';
 import { useVoiceRecorder, VoiceRecordingResult } from '@/chat/hooks/useVoiceRecorder';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { useTheme } from '@/contexts/ThemeContext';
-import { ChatMessageType } from '@/types/chat';
+import { ChatMessageType, CreateMessageData } from '@/types/chat';
 import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
 import ChatHeader from './ChatHeader';
@@ -213,7 +213,12 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
   });
 
   const handleSend = useCallback(
-    async (content: string, items: PendingAttachment[], replyToId?: string) => {
+    async (
+      content: string,
+      items: PendingAttachment[],
+      replyToId?: string,
+      patientCaseLink?: CreateMessageData['patient_case_link']
+    ) => {
       const convId = conversationRef.current;
       if (!currentUserId || !convId) return;
       if (typingTimeout.current) {
@@ -224,10 +229,11 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
       const tmpId = makeTmpId('tmp');
       const optimistic = optimisticMessage(tmpId, convId, content, items, replyToId ?? null);
 
-      // Offline & text-only: queue the send locally instead of failing. File /
-      // image / voice needs a live upload (can't produce a public URL offline),
-      // so those keep the normal pending→failed path.
-      const textOnly = items.length === 0;
+      if (patientCaseLink) {
+        optimistic.message_type = ChatMessageType.PATIENT_CASE;
+      }
+
+      const textOnly = items.length === 0 && !patientCaseLink;
       if (!isOnline && textOnly) {
         optimistic.local_state = 'queued';
         addMessage(optimistic, currentUserId, convId);
@@ -237,6 +243,7 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
           content,
           message_type: optimistic.message_type,
           reply_to_id: replyToId ?? null,
+          patient_case_link: patientCaseLink,
         });
         return;
       }
@@ -289,6 +296,7 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
           message_type: optimistic.message_type,
           reply_to_id: replyToId ?? null,
           attachments: realAtts.length > 0 ? realAtts : undefined,
+          patient_case_link: patientCaseLink,
         });
 
         if (message) {

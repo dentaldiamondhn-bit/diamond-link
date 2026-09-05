@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
 import type { DefaultWallpaperKey } from '@/chat/wallpapers';
 
+export type ChatTextSize = 'sm' | 'md' | 'lg';
+export type ChatDensity = 'comfortable' | 'compact';
+
 export interface ChatSettings {
   user_id: string;
   conversation_id: string | null;
@@ -9,6 +12,12 @@ export interface ChatSettings {
   background_image_url: string | null;
   my_bubble_color: string;
   other_bubble_color: string;
+  text_size: ChatTextSize;
+  density: ChatDensity;
+  accent_color: string;
+  // Empty string = "auto" (derive a readable text color from the bubble bg).
+  my_text_color: string;
+  other_text_color: string;
   updated_at?: string;
 }
 
@@ -20,15 +29,26 @@ export type ChatSettingsUpdate = Partial<
     | 'background_image_url'
     | 'my_bubble_color'
     | 'other_bubble_color'
+    | 'text_size'
+    | 'density'
+    | 'accent_color'
+    | 'my_text_color'
+    | 'other_text_color'
   >
 >;
 
+// Empty my/other text color = auto (client derives from bubble background).
 const DEFAULT_FIELDS: ChatSettingsUpdate = {
   wallpaper_type: 'default',
   wallpaper_style: 'classic',
   background_image_url: null,
   my_bubble_color: '#2563eb',
   other_bubble_color: '#ffffff',
+  text_size: 'md',
+  density: 'comfortable',
+  accent_color: '#2563eb',
+  my_text_color: '',
+  other_text_color: '',
 };
 
 /**

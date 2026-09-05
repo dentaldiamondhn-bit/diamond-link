@@ -8,9 +8,15 @@ import {
   Check,
   Paintbrush,
   Wallpaper,
+  Type,
+  Rows,
+  Palette,
+  MessageSquareText,
 } from 'lucide-react';
 import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import { bubbleTextColor } from '@/chat/utils';
+import type { ChatTextSize, ChatDensity } from '@/services/chatSettingsService';
 import {
   DEFAULT_WALLPAPERS,
   DEFAULT_WALLPAPER_KEYS,
@@ -49,6 +55,38 @@ const OTHER_BUBBLE_COLORS = [
   '#eceff1',
 ];
 
+const TEXT_SIZES: { value: ChatTextSize; label: TranslationKey }[] = [
+  { value: 'sm', label: 'textSizeSm' },
+  { value: 'md', label: 'textSizeMd' },
+  { value: 'lg', label: 'textSizeLg' },
+];
+
+const DENSITIES: { value: ChatDensity; label: TranslationKey }[] = [
+  { value: 'comfortable', label: 'densityComfortable' },
+  { value: 'compact', label: 'densityCompact' },
+];
+
+const ACCENT_COLORS = [
+  '#2563eb',
+  '#008069',
+  '#0d9488',
+  '#16a34a',
+  '#7c3aed',
+  '#9333ea',
+  '#db2777',
+  '#e11d48',
+  '#ea580c',
+  '#d97706',
+  '#64748b',
+  '#3b82f6',
+];
+
+// Empty = auto (derived from the bubble background by the layout).
+const TEXT_COLORS: { label: TranslationKey; values: string[] }[] = [
+  { label: 'settingsMyText', values: ['', '#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db'] },
+  { label: 'settingsOtherText', values: ['', '#1f2937', '#374151', '#111827', '#ffffff'] },
+];
+
 interface ChatSettingsPanelProps {
   onClose: () => void;
 }
@@ -63,6 +101,11 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
 
   const myColor = settings?.my_bubble_color ?? '#2563eb';
   const otherColor = settings?.other_bubble_color ?? '#ffffff';
+  const textSize = settings?.text_size ?? 'md';
+  const density = settings?.density ?? 'comfortable';
+  const accent = settings?.accent_color ?? '#2563eb';
+  const myTextColor = settings?.my_text_color ?? '';
+  const otherTextColor = settings?.other_text_color ?? '';
   const isCustomWallpaper =
     settings?.wallpaper_type === 'custom' && !!settings?.background_image_url;
   const currentStyle: DefaultWallpaperKey | null =
@@ -143,7 +186,7 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
                     onClick={() => handlePickWallpaper(key)}
                     className={`relative overflow-hidden rounded-xl border-2 transition ${
                       selected
-                        ? 'border-blue-500'
+                        ? 'border-[var(--fd-accent)]'
                         : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                     style={{
@@ -155,7 +198,7 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
                   >
                     <span className="flex h-16 w-full items-center justify-center">
                       {selected && (
-                        <span className="rounded-full bg-blue-500 p-0.5 text-white">
+                        <span className="rounded-full fd-accent-bg p-0.5">
                           <Check className="h-3.5 w-3.5" />
                         </span>
                       )}
@@ -230,7 +273,7 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
                   type="button"
                   onClick={() => update({ my_bubble_color: color })}
                   className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-                    myColor === color ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800' : ''
+                    myColor === color ? 'ring-2 ring-[var(--fd-accent)] ring-offset-2 dark:ring-offset-gray-800' : ''
                   }`}
                   style={{ backgroundColor: color }}
                   title={color}
@@ -251,7 +294,7 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
                   type="button"
                   onClick={() => update({ other_bubble_color: color })}
                   className={`flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 transition dark:border-gray-600 ${
-                    otherColor === color ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800' : ''
+                    otherColor === color ? 'ring-2 ring-[var(--fd-accent)] ring-offset-2 dark:ring-offset-gray-800' : ''
                   }`}
                   style={{ backgroundColor: color }}
                   title={color}
@@ -269,11 +312,142 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
               onClick={() =>
                 update({ my_bubble_color: '#2563eb', other_bubble_color: '#ffffff' })
               }
-              className="mt-1 flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400"
+              className="mt-1 flex items-center gap-1.5 text-xs font-medium fd-accent-text"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               {t('settingsReset')}
             </button>
+          </section>
+
+          {/* Text size */}
+          <section className="mb-6 mt-6">
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <Type className="h-4 w-4" />
+              {t('settingsTextSize')}
+            </h3>
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-700">
+              {TEXT_SIZES.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => update({ text_size: s.value })}
+                  className={`rounded-lg px-2 py-1.5 text-sm font-medium transition ${
+                    textSize === s.value
+                      ? 'fd-accent-bg'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {t(s.label)}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Message spacing / density */}
+          <section className="mb-6">
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <Rows className="h-4 w-4" />
+              {t('settingsDensity')}
+            </h3>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-700">
+              {DENSITIES.map((d) => (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() => update({ density: d.value })}
+                  className={`rounded-lg px-2 py-1.5 text-sm font-medium transition ${
+                    density === d.value
+                      ? 'fd-accent-bg'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {t(d.label)}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Accent color */}
+          <section className="mb-6">
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <Palette className="h-4 w-4" />
+              {t('settingsAccent')}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {ACCENT_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => update({ accent_color: color })}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
+                    accent === color
+                      ? 'ring-2 ring-[var(--fd-accent)] ring-offset-2 dark:ring-offset-gray-800'
+                      : ''
+                  }`}
+                  style={{ backgroundColor: color }}
+                  title={color}
+                  aria-label={t('settingsAccent') + ' ' + color}
+                >
+                  {accent === color && (
+                    <Check className="h-4 w-4 text-white" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Bubble text colors */}
+          <section>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <MessageSquareText className="h-4 w-4" />
+              {t('settingsMyText')}
+            </h3>
+            {TEXT_COLORS.map((group) => (
+              <div key={group.label} className="mb-3">
+                <p className="mb-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {t(group.label)}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {group.values.map((value) => {
+                    const current =
+                      group.label === 'settingsMyText' ? myTextColor : otherTextColor;
+                    const selected = current === value;
+                    return (
+                      <button
+                        key={value || 'auto'}
+                        type="button"
+                        onClick={() =>
+                          update(
+                            group.label === 'settingsMyText'
+                              ? { my_text_color: value }
+                              : { other_text_color: value }
+                          )
+                        }
+                        className={`flex h-8 min-w-8 items-center justify-center rounded-full border border-gray-200 px-1 transition dark:border-gray-600 ${
+                          selected
+                            ? 'ring-2 ring-[var(--fd-accent)] ring-offset-2 dark:ring-offset-gray-800'
+                            : ''
+                        }`}
+                        style={value ? { backgroundColor: value } : undefined}
+                        title={value || t('settingsAuto')}
+                        aria-label={`${t(group.label)} ${value || t('settingsAuto')}`}
+                      >
+                        {value === '' ? (
+                          <span className="text-[9px] font-medium text-gray-600 dark:text-gray-300">
+                            {t('settingsAuto')}
+                          </span>
+                        ) : (
+                          <Check
+                            className="h-4 w-4"
+                            style={{ color: bubbleTextColor(value) }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </section>
         </div>
       </div>

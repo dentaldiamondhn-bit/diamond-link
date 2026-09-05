@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { MessageCircle, Phone, Video, AlertCircle } from 'lucide-react';
 import { getUserDisplayName, getInitials, getAvatarColor } from '@/chat/utils';
+import { useTranslations } from '@/chat/i18n/useTranslations';
 import type { ChatUser } from '@/types/chat';
 
 interface Props {
@@ -16,6 +17,7 @@ const EST_H = 180; // header (~72) + actions (~76) + border
 
 /** WhatsApp-style user card: avatar + name at top, 4 icon actions at the bottom. */
 export default function MentionPopover({ user, anchor, onClose }: Props) {
+  const { t } = useTranslations();
   useEffect(() => {
     if (!anchor) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -34,10 +36,10 @@ export default function MentionPopover({ user, anchor, onClose }: Props) {
   const avatar = user?.profile_image_url;
 
   const actions = [
-    { key: 'text', Icon: MessageCircle, label: 'Text' },
-    { key: 'call', Icon: Phone, label: 'Call' },
-    { key: 'video', Icon: Video, label: 'Video call' },
-    { key: 'alert', Icon: AlertCircle, label: 'Alert' },
+    { key: 'text', Icon: MessageCircle, label: t('mentionText') },
+    { key: 'call', Icon: Phone, label: t('mentionCall') },
+    { key: 'video', Icon: Video, label: t('mentionVideo') },
+    { key: 'alert', Icon: AlertCircle, label: t('mentionAlert') },
   ];
 
   return (

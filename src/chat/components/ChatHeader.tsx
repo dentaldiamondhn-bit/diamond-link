@@ -95,7 +95,7 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
           <p className="font-medium text-gray-900 dark:text-white truncate">{name}</p>
           <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
             {isTyping ? (
-              <span className="italic text-blue-500 truncate">{typingLabel}</span>
+              <span className="italic fd-accent-text truncate">{typingLabel}</span>
             ) : conversation?.type === 'group' ? (
               <span className="flex items-center gap-1">
                 <UsersIcon className="h-3 w-3" />
@@ -146,7 +146,7 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
                     className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
                     <span>{l === 'es' ? t('languageEs') : t('languageEn')}</span>
-                    {locale === l && <Check className="h-4 w-4 text-blue-500" />}
+                    {locale === l && <Check className="h-4 w-4 fd-accent-text" />}
                   </button>
                 ))}
               </div>

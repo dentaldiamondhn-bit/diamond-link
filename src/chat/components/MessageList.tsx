@@ -24,11 +24,12 @@ import {
 import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps, ListImperativeAPI } from 'react-window';
 import { useChatStore } from '@/chat/store/chatStore';
-import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { interpolate, translations, type TranslationKey } from '@/chat/i18n/translations';
 import type { ChatMessage, ChatUser, FileAttachmentData } from '@/types/chat';
+import type { Patient } from '@/types/patient';
+import { PatientCaseLinkType } from '@/types/chat';
 import {
   getUserDisplayName,
   getInitials,
@@ -41,6 +42,7 @@ import {
   htmlToText,
 } from '@/chat/utils';
 import VoiceMessageBubble from './VoiceMessageBubble';
+import PatientCardBubble from './PatientCardBubble';
 import EmojiPicker from './EmojiPicker';
 import ForwardModal from './ForwardModal';
 import MentionPopover from './MentionPopover';
@@ -49,11 +51,11 @@ import MentionPopover from './MentionPopover';
 const FormattedText = ({ text }: { text: string }) => {
   if (!text) return null;
   if (!isHtmlContent(text)) {
-    return <div className="whitespace-pre-wrap break-words text-sm">{text}</div>;
+    return <div className="whitespace-pre-wrap break-words">{text}</div>;
   }
   return (
     <div
-      className="whitespace-pre-wrap break-words text-sm"
+      className="whitespace-pre-wrap break-words"
       dangerouslySetInnerHTML={{ __html: purifyHtml(text) }}
     />
   );
@@ -122,20 +124,6 @@ const isMediaAtt = (a: FileAttachmentData) =>
 
 const isVideoAtt = (a: FileAttachmentData) => a.file_type.startsWith('video/');
 
-const DEFAULT_MY_BUBBLE = '#2563eb';
-const DEFAULT_OTHER_BUBBLE = '#ffffff';
-
-/** Choose readable text color for the given bubble background. */
-function bubbleTextColor(color: string): string {
-  const hex = color.replace('#', '');
-  if (hex.length !== 6) return '#1f2937';
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  return luminance > 175 ? '#1f2937' : '#ffffff';
-}
-
 interface RowDatum {
   msg: ChatMessage;
   mine: boolean;
@@ -161,8 +149,6 @@ interface RowProps {
   actionMenuId: string | null;
   readReceipts: Record<string, ChatUser[]>;
   otherParticipantIds: string[];
-  myBubbleColor: string;
-  otherBubbleColor: string;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   onToggleReaction: (msg: ChatMessage, emoji: string) => void;
   onJump: (msgId: string) => void;
@@ -188,8 +174,6 @@ const MessageRow = function MessageRow({
     t,
     readReceipts,
     otherParticipantIds,
-    myBubbleColor,
-    otherBubbleColor,
     onToggleReaction,
     onJump,
     onOpenMenu,
@@ -350,15 +334,87 @@ const MessageRow = function MessageRow({
         return renderMediaCollage(m);
       case 'patient_case':
         return (
-          <div className="flex items-start gap-2">
-            <Briefcase className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium text-sm">{t('patientCase')}</p>
-              <p className="text-sm">
-                {m.patient_case_link?.title || htmlToText(m.content) || t('patientCase')}
-              </p>
-            </div>
-          </div>
+          <PatientCardBubble
+            patient={(() => {
+              const raw = m.patient_case_link?.patient;
+              if (raw) return raw as unknown as Patient;
+              return {
+                nombre_completo: m.patient_case_link?.title || t('patientCase'),
+                numero_identidad: '',
+                paciente_id: '',
+                tipo_identificacion: 'HN',
+                sexo: 'masculino',
+                tipo_sangre: 'Desconocido',
+                direccion: '',
+                estado_civil: 'Desconocido',
+                contacto_emergencia: '',
+                contacto_telefono: '',
+                enfermedades: '',
+                alergias: '',
+                medicamentos: '',
+                hospitalizaciones: '',
+                cirugias: '',
+                antecedentes_familiares: '',
+                fuma: 'no',
+                alcohol: 'no',
+                drogas: 'no',
+                doctor: 'otro',
+                fecha_inicio: new Date().toISOString().split('T')[0],
+                seguro: 'Ninguno',
+                contacto: '',
+                escolaridad: '',
+                trabajo: '',
+                medico_cabecera: '',
+                otro_doctor: '',
+                otra_identificacion: '',
+                rep_numero_identidad: '',
+                rep_tipo_identificacion: 'HN',
+                rep_otro_tipo_identificacion: '',
+                rep_celular: '',
+                codigopaisrepresentante: '',
+                rep_pais_codigo: '',
+                codigopaisemergencia: '',
+                contacto_pais_codigo: '',
+                representante_legal: '',
+                parentesco: 'otro',
+                apodo: '',
+                enfermedades_sistemicas_texto: '',
+                pediatra_otorrinolaringologo: '',
+                pediatra: '',
+                psicologo: '',
+                otro_medico: '',
+                frecuencia_cepillado_detalle: '',
+                cepillado_acompanado: '',
+                peso: 0,
+                talla: 0,
+                tipo_alimentacion: '',
+                momentos_azucar: '',
+                edad: 0,
+                edad_al_momento_consulta: 0,
+                fecha_nacimiento: new Date().toISOString().split('T')[0],
+                otro_tipo_identificacion: '',
+                otro_genero: '',
+                tipo_droga: '',
+                drogas_frecuencia: 'Ocasional',
+                alcohol_frecuencia: 'Ocasional',
+                fuma_cantidad: 0,
+                fuma_frecuencia: 'Ocasional',
+                embarazo: 'no',
+                semanas_embarazo: 0,
+                embarazo_fecha_fin: '',
+                embarazo_activo: false,
+                vacunas: '',
+                observaciones_medicas: '',
+                poliza: '',
+                otro_seguro: '',
+                codigopais: '',
+                pais_codigo: '',
+              } as unknown as Patient;
+            })()}
+            linkType={m.patient_case_link?.link_type || PatientCaseLinkType.GENERAL}
+            metadata={m.patient_case_link?.metadata}
+            description={m.patient_case_link?.description}
+          />
         );
       default:
         return <FormattedText text={m.content} />;
@@ -426,9 +482,15 @@ const MessageRow = function MessageRow({
     return (
       <span
         className={`flex items-center leading-none ${
-          isRead ? 'text-blue-500 dark:text-blue-400' : 'text-gray-300 dark:text-gray-500'
+          isRead ? 'fd-accent-text' : 'text-gray-300 dark:text-gray-500'
         }`}
-        title={isRead ? 'Leído' : isDelivered ? 'Entregado' : 'Enviado'}
+        title={
+          isRead
+            ? t('statusRead')
+            : isDelivered
+              ? t('statusDelivered')
+              : t('statusSent')
+        }
       >
         <Check className="h-3 w-3" strokeWidth={2.5} />
         {status !== 'sent' && <Check className="h-3 w-3 -ml-1" strokeWidth={2.5} />}
@@ -440,6 +502,8 @@ const MessageRow = function MessageRow({
 <div
         style={style}
         data-message-id={msg.id}
+        data-message-row
+        data-is-last={datum.isLast ? 'true' : 'false'}
         role={ariaAttributes.role}
         aria-posinset={ariaAttributes['aria-posinset']}
         aria-setsize={ariaAttributes['aria-setsize']}
@@ -447,7 +511,7 @@ const MessageRow = function MessageRow({
           datum.isLast ? 'pb-4' : 'pb-1'
         } ${
           mine ? 'justify-end' : 'justify-start'
-        } ${highlightedId === msg.id ? 'rounded-2xl bg-blue-50 dark:bg-blue-900/30' : ''}`}
+        } ${highlightedId === msg.id ? 'rounded-2xl fd-accent-soft-bg' : ''}`}
       >
         <div className={`flex items-end gap-2 max-w-[75%] ${mine ? 'flex-row-reverse' : ''}`}>
         {!mine && datum.isFirst && renderAvatar(msg.sender_id)}
@@ -460,21 +524,18 @@ const MessageRow = function MessageRow({
 
           <div
             style={{
-                backgroundColor: mine ? myBubbleColor : otherBubbleColor,
-                color: mine
-                  ? bubbleTextColor(myBubbleColor)
-                  : bubbleTextColor(otherBubbleColor),
-              }}
-              className={`rounded-2xl px-3 py-2 transition-shadow ${
-                mine
-                  ? myBubbleColor === DEFAULT_MY_BUBBLE
-                    ? 'bg-blue-500 text-white dark:bg-blue-600'
-                    : ''
-                  : otherBubbleColor === DEFAULT_OTHER_BUBBLE
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600'
-                    : 'border border-black/5 shadow-sm'
-              } ${msg.local_state === 'pending' ? 'opacity-70' : ''} ${
-                replyToId === msg.id ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''
+              backgroundColor: mine
+                ? 'var(--fd-bubble-mine-bg)'
+                : 'var(--fd-bubble-other-bg)',
+              color: mine
+                ? 'var(--fd-bubble-mine-text)'
+                : 'var(--fd-bubble-other-text)',
+              boxShadow: mine ? undefined : '0 1px 1px rgba(0, 0, 0, 0.05)',
+            }}
+              className={`fd-bubble-text rounded-2xl px-3 py-2 transition-shadow ${
+                msg.local_state === 'pending' ? 'opacity-70' : ''
+              } ${
+                replyToId === msg.id ? 'ring-2 ring-[var(--fd-accent)]' : ''
               }`}
             >
               {msg.reply_to_id && (
@@ -482,9 +543,7 @@ const MessageRow = function MessageRow({
                   type="button"
                   onClick={() => onJump(msg.reply_to_id!)}
                   className={`mb-1 flex w-full max-w-[200px] items-center gap-1 rounded px-0.5 text-xs ${
-                    mine ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                  } ${
-                    mine ? 'hover:bg-black/10' : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+                    mine ? 'opacity-90 hover:bg-black/10' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >
                   <CornerDownRight className="h-3 w-3 flex-shrink-0" />
@@ -498,7 +557,7 @@ const MessageRow = function MessageRow({
                   {replySenderName(msg) && (
                     <span
                       className={`flex-shrink-0 font-medium ${
-                        mine ? 'text-blue-50' : 'text-gray-600 dark:text-gray-300'
+                        mine ? 'opacity-90' : 'text-gray-600 dark:text-gray-300'
                       }`}
                     >
                       {replySenderName(msg)}:
@@ -521,7 +580,7 @@ const MessageRow = function MessageRow({
                   }
                   className={`flex-shrink-0 p-1 rounded-full transition-opacity ${
                     mine
-                      ? 'text-blue-100 hover:bg-black/10'
+                      ? 'opacity-90 hover:bg-black/10'
                       : 'text-gray-400 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                   } ${
                     actionMenuId === msg.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'
@@ -534,7 +593,7 @@ const MessageRow = function MessageRow({
               {msg.is_edited && (
                 <span
                   className={`block text-[10px] mt-1 ${
-                    mine ? 'text-blue-100' : 'text-gray-400'
+                    mine ? 'opacity-70' : 'text-gray-400'
                   }`}
                 >
                   {t('edited')}
@@ -558,7 +617,7 @@ const MessageRow = function MessageRow({
               (msg.message_type === 'image' ||
                 msg.message_type === 'file' ||
                 msg.message_type === 'voice') && (
-              <span className="flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-400/15 dark:text-blue-300">
+              <span className="flex items-center gap-1 rounded-full fd-accent-soft-bg px-2 py-0.5 text-[10px] font-semibold fd-accent-text">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 {t('sending')} {Math.min(Math.max(Math.round(msg.upload_progress ?? 0), 0), 100)}%
               </span>
@@ -589,7 +648,7 @@ const MessageRow = function MessageRow({
                     onClick={() => onToggleReaction(msg, emoji)}
                     className={`px-1.5 py-0.5 rounded-full text-xs border flex items-center gap-0.5 ${
                       hasUserReacted(emoji)
-                        ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-300'
+                        ? 'fd-accent-soft-bg border-[var(--fd-accent)]'
                         : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600'
                     }`}
                   >
@@ -610,9 +669,6 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const removeMessage = useChatStore((s) => s.removeMessage);
   const tombstoneMessage = useChatStore((s) => s.tombstoneMessage);
   const { users, currentUserId } = useChatStore();
-  const chatSettings = useChatSettingsStore((s) => s.settings);
-  const myBubbleColor = chatSettings?.my_bubble_color ?? DEFAULT_MY_BUBBLE;
-  const otherBubbleColor = chatSettings?.other_bubble_color ?? DEFAULT_OTHER_BUBBLE;
 
   const [list, setList] = useListCallbackRef();
   const rowSignature = useMemo(
@@ -973,8 +1029,6 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       actionMenuId: actionMenuFor?.id ?? null,
       readReceipts,
       otherParticipantIds,
-      myBubbleColor,
-      otherBubbleColor,
       t: memoizedT,
       onToggleReaction: handleToggleReaction,
       onJump: handleJumpToMessage,
@@ -992,8 +1046,6 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
       actionMenuFor,
       readReceipts,
       otherParticipantIds,
-      myBubbleColor,
-      otherBubbleColor,
       memoizedT,
       handleToggleReaction,
       handleJumpToMessage,

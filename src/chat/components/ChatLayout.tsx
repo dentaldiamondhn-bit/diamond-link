@@ -6,11 +6,14 @@ import { useChatStore } from '@/chat/store/chatStore';
 import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { ChatRepository } from '@/chat/repository';
 import { useChatRealtime } from '@/chat/hooks/useChatRealtime';
+import { useTranslations } from '@/chat/i18n/useTranslations';
+import { bubbleTextColor } from '@/chat/utils';
 import type { ChatUser } from '@/types/chat';
 import Sidebar from './Sidebar';
 import ChatPane from './ChatPane';
 
 export const ChatLayout = () => {
+  const { t } = useTranslations();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const { user: clerkUser, isLoaded } = useUser();
@@ -24,6 +27,7 @@ export const ChatLayout = () => {
     setError,
   } = useChatStore();
   const setChatSettingsContext = useChatSettingsStore((s) => s.setContext);
+  const chatSettings = useChatSettingsStore((s) => s.settings);
 
   const currentUserIdRef = useRef(currentUserId);
 
@@ -106,13 +110,32 @@ export const ChatLayout = () => {
   if (!isLoaded || !currentUserId) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">Cargando...</div>
+        <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>
       </div>
     );
   }
 
+  // Resolve the user's chat theme into CSS vars on the shared root so the
+  // sidebar, message list and composer repaint together. Text colors are
+  // auto-derived from the bubble backgrounds unless the user picked one.
+  const mineBg = chatSettings?.my_bubble_color || '#2563eb';
+  const otherBg = chatSettings?.other_bubble_color || '#ffffff';
+  const themeVars = {
+    '--fd-accent': chatSettings?.accent_color || '#2563eb',
+    '--fd-bubble-mine-bg': mineBg,
+    '--fd-bubble-mine-text': chatSettings?.my_text_color || bubbleTextColor(mineBg),
+    '--fd-bubble-other-bg': otherBg,
+    '--fd-bubble-other-text': chatSettings?.other_text_color || bubbleTextColor(otherBg),
+  } as React.CSSProperties;
+
   return (
-    <div className="chat-layout flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div
+      className="chat-layout flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900"
+      data-chat-root
+      data-text-size={chatSettings?.text_size ?? 'md'}
+      data-density={chatSettings?.density ?? 'comfortable'}
+      style={themeVars}
+    >
       <>
         {sidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 z-30 bg-black/50 md:hidden" />}
         <div

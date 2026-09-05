@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '@/types/chat';
+import { useTranslations } from '@/chat/i18n/useTranslations';
 
 interface VoiceMessageBubbleProps {
   message: ChatMessage;
@@ -9,6 +10,7 @@ interface VoiceMessageBubbleProps {
 }
 
 export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbleProps) => {
+  const { t } = useTranslations();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -174,7 +176,7 @@ export const VoiceMessageBubble = ({ message, isCurrentUser }: VoiceMessageBubbl
           className={`p-1 rounded ${
             isCurrentUser ? 'hover:bg-white/20' : 'hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
-          aria-label="Play voice note"
+          aria-label={t('playVoice')}
         >
           {isPlaying ? (
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor">

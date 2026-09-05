@@ -129,8 +129,8 @@ export const ConversationListItem = ({
         role="option"
         aria-selected={selected}
         data-conv-index
-        className={`w-full text-left cursor-pointer px-3 py-2.5 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-          selected ? 'bg-blue-100 dark:bg-blue-900/60' : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'
+        className={`w-full text-left cursor-pointer px-3 py-2.5 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 fd-accent-ring ${
+          selected ? 'fd-accent-soft-bg' : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'
         }`}
       >
       <div className="flex items-center gap-3">
@@ -169,15 +169,15 @@ export const ConversationListItem = ({
                 <span
                   className={`flex items-center leading-none ${
                     lastMessageStatus === 'read'
-                      ? 'text-blue-500 dark:text-blue-400'
+                      ? 'fd-accent-text'
                       : 'text-gray-300 dark:text-gray-500'
                   }`}
                   title={
                     lastMessageStatus === 'read'
-                      ? 'Leído'
+                      ? t('statusRead')
                       : lastMessageStatus === 'delivered'
-                        ? 'Entregado'
-                        : 'Enviado'
+                        ? t('statusDelivered')
+                        : t('statusSent')
                   }
                 >
                   <Check className="h-3 w-3" strokeWidth={2.5} />
@@ -190,7 +190,7 @@ export const ConversationListItem = ({
           </div>
           <div className="flex items-center justify-between gap-2">
             {isTyping ? (
-              <p className="text-sm italic text-blue-500 truncate">{typingLabel}</p>
+              <p className="text-sm italic fd-accent-text truncate">{typingLabel}</p>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                 {lastMessageText}
@@ -198,7 +198,7 @@ export const ConversationListItem = ({
             )}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {(conversation.unread_count ?? 0) > 0 && (
-                <span className="inline-flex min-w-[1.25rem] h-5 items-center justify-center px-1 bg-blue-500 text-xs text-white rounded-full">
+                <span className="inline-flex min-w-[1.25rem] h-5 items-center justify-center px-1 fd-accent-bg text-xs text-white rounded-full">
                   {conversation.unread_count! > 99 ? '99+' : conversation.unread_count}
                 </span>
               )}

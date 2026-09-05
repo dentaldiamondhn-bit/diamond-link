@@ -149,7 +149,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
             placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white placeholder-gray-400 sm:text-sm"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none fd-accent-ring focus:border-[var(--fd-accent)] dark:border-gray-600 dark:bg-gray-700 dark:text-white placeholder-gray-400 sm:text-sm"
           />
         </div>
       </div>
@@ -209,7 +209,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
                 onClick={() => setModalTab('direct')}
                 className={`flex-1 py-2 rounded-lg text-sm font-medium ${
                   modalTab === 'direct'
-                    ? 'bg-blue-500 text-white'
+                    ? 'fd-accent-bg'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                 }`}
               >
@@ -219,7 +219,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
                 onClick={() => setModalTab('group')}
                 className={`flex-1 py-2 rounded-lg text-sm font-medium ${
                   modalTab === 'group'
-                    ? 'bg-blue-500 text-white'
+                    ? 'fd-accent-bg'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                 }`}
               >
@@ -235,7 +235,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
                 placeholder={t('groupNamePlaceholder')}
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                className="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
+                className="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none fd-accent-ring dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
               />
             )}
 
@@ -258,7 +258,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
                       }
                     }}
                     className={`flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
-                      selectedGroupUsers.includes(user.id) ? 'bg-blue-50 dark:bg-blue-900/40' : ''
+                      selectedGroupUsers.includes(user.id) ? 'fd-accent-soft-bg' : ''
                     }`}
                   >
                     {user.profile_image_url ? (
@@ -285,7 +285,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
                       </p>
                     </div>
                     {modalTab === 'group' && selectedGroupUsers.includes(user.id) && (
-                      <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
+                      <span className="w-5 h-5 rounded-full fd-accent-bg text-xs flex items-center justify-center">
                         ✓
                       </span>
                     )}
@@ -298,7 +298,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
               <button
                 onClick={handleCreateGroup}
                 disabled={creating || !groupName.trim() || selectedGroupUsers.length === 0}
-                className="mt-4 w-full py-2.5 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-4 w-full py-2.5 rounded-lg fd-accent-bg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {creating ? t('loading') : t('createConversation')}
               </button>

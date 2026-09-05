@@ -1,0 +1,115 @@
+/* =====================================================================
+   Chat design tokens (Phase 7 — theming, dark mode & i18n)
+   ---------------------------------------------------------------------
+   Fluxer-style `--fd-*` CSS variables with light + dark values so the
+   chat suite repaints from tokens instead of hardcoded Tailwind classes.
+
+   Per-chat runtime overrides are applied by ChatLayout on `[data-chat-root]`
+   (accent color + bubble colors/text), so the sidebar, message list and
+   composer all share the user's chosen theme at once. Removing the inline
+   overrides falls back to these app defaults.
+   ===================================================================== */
+
+:root {
+  --fd-accent: #2563eb;
+  --fd-accent-soft: color-mix(in srgb, var(--fd-accent) 14%, transparent);
+  --fd-accent-soft-strong: color-mix(in srgb, var(--fd-accent) 26%, transparent);
+  --fd-accent-contrast: #ffffff;
+
+  --fd-bg: #f9fafb;
+  --fd-surf: #ffffff;
+  --fd-surf-2: #f3f4f6;
+  --fd-border: #e5e7eb;
+
+  /* Bubble / message typography scale (driven by data-text-size). */
+  --fd-text: 0.875rem;
+  --fd-text-sm: 0.8125rem;
+  --fd-text-lg: 1rem;
+
+  --fd-bubble-mine-bg: #2563eb;
+  --fd-bubble-mine-text: #ffffff;
+  --fd-bubble-other-bg: #ffffff;
+  --fd-bubble-other-text: #1f2937;
+  --fd-bubble-border: rgba(0, 0, 0, 0.06);
+}
+
+.dark {
+  --fd-accent: #60a5fa;
+  --fd-accent-contrast: #0b1220;
+
+  --fd-bg: #111827;
+  --fd-surf: #1f2937;
+  --fd-surf-2: #374151;
+  --fd-border: #374151;
+
+  --fd-text: 0.875rem;
+
+  --fd-bubble-mine-bg: #2563eb;
+  --fd-bubble-mine-text: #ffffff;
+  --fd-bubble-other-bg: #374151;
+  --fd-bubble-other-text: #f3f4f6;
+  --fd-bubble-border: rgba(255, 255, 255, 0.08);
+}
+
+/* Accent paint utilities. These follow whichever --fd-accent is active
+   (app default or the user's chosen accent color on [data-chat-root]). */
+.fd-accent-bg {
+  background-color: var(--fd-accent);
+  color: var(--fd-accent-contrast);
+}
+.fd-accent-bg:hover {
+  filter: brightness(0.94);
+}
+.fd-accent-bg:disabled {
+  filter: none;
+  opacity: 0.5;
+}
+.fd-accent-text {
+  color: var(--fd-accent);
+}
+/* Blend accent into a readable light tone on dark surfaces (the user's
+   accent may be a dark blue that would vanish on dark gray backgrounds). */
+.dark .fd-accent-text {
+  color: color-mix(in srgb, var(--fd-accent) 45%, #93c5fd);
+}
+.fd-accent-soft-bg {
+  background-color: var(--fd-accent-soft);
+}
+.fd-accent-soft-border {
+  border-color: var(--fd-accent) !important;
+}
+.fd-accent-ring:focus-visible {
+  outline: 2px solid var(--fd-accent);
+  outline-offset: 1px;
+}
+
+/* Bubble typography: bubbles (and the composer) inherit --fd-text so the
+   text-size preference scales every bubble uniformly. */
+.fd-bubble-text {
+  font-size: var(--fd-text);
+  line-height: 1.45;
+}
+
+/* --- Text size -----------------------------------------------------
+   data-text-size on the chat root overrides the shared --fd-text used by
+   bubbles + composer. "md" is the default token (no override needed). */
+[data-chat-root][data-text-size='sm'] {
+  --fd-text: var(--fd-text-sm);
+}
+[data-chat-root][data-text-size='lg'] {
+  --fd-text: var(--fd-text-lg);
+}
+[data-chat-root] [data-chat-composer] {
+  font-size: var(--fd-text);
+}
+
+/* --- Message density ------------------------------------------------
+   data-density="compact" tightens row spacing. The default comfortable
+   spacing is already the row's own padding (pb-1/pb-4 bubble rows). */
+[data-chat-root][data-density='compact'] [data-message-row] {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+[data-chat-root][data-density='compact'] [data-message-row][data-is-last] {
+  padding-bottom: 8px;
+}

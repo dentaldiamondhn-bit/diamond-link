@@ -233,7 +233,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
             }}
             className={`border-b-2 px-2 py-2 text-sm font-medium ${
               tab === 'chats'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                ? 'border-[var(--fd-accent)] fd-accent-text'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-300'
             }`}
           >
@@ -247,7 +247,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
             }}
             className={`border-b-2 px-2 py-2 text-sm font-medium ${
               tab === 'contacts'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                ? 'border-[var(--fd-accent)] fd-accent-text'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-300'
             }`}
           >
@@ -280,7 +280,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
                     disabled={sending || done}
                     onClick={() => toggle(selectedConvIds, setSelectedConvIds, c.id)}
                     className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 ${
-                      selected ? 'bg-blue-50 dark:bg-gray-700/70' : ''
+                      selected ? 'fd-accent-soft-bg' : ''
                     }`}
                   >
                     {renderAvatar(c, undefined, name)}
@@ -295,7 +295,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
                     <span
                       className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
                         selected
-                          ? 'border-blue-500 bg-blue-500 text-white'
+                          ? 'fd-accent-soft-border fd-accent-bg'
                           : 'border-gray-300 dark:border-gray-500'
                       }`}
                     >
@@ -318,7 +318,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
                   disabled={sending || done}
                   onClick={() => toggle(selectedUserIds, setSelectedUserIds, u.id)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 ${
-                    selected ? 'bg-blue-50 dark:bg-gray-700/70' : ''
+                    selected ? 'fd-accent-soft-bg' : ''
                   }`}
                 >
                   {renderAvatar(undefined, u, name)}
@@ -327,9 +327,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
                   </span>
                   <span
                     className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
-                      selected
-                        ? 'border-blue-500 bg-blue-500 text-white'
-                        : 'border-gray-300 dark:border-gray-500'
+                      selected ? 'fd-accent-soft-border fd-accent-bg' : 'border-gray-300 dark:border-gray-500'
                     }`}
                   >
                     {selected && <Check className="h-3 w-3" />}
@@ -355,7 +353,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
             disabled={count === 0 || sending || done}
             onClick={handleSend}
             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-              done ? 'bg-green-500' : 'bg-blue-500 hover:bg-blue-600'
+              done ? 'bg-green-500' : 'fd-accent-bg'
             }`}
           >
             {done ? (

@@ -134,6 +134,17 @@ export function getConversationAvatar(
   return users[otherId]?.profile_image_url ?? null;
 }
 
+/** Choose a readable text color for the given solid bubble background. */
+export function bubbleTextColor(color: string): string {
+  const hex = color.replace('#', '');
+  if (hex.length !== 6) return '#1f2937';
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 175 ? '#1f2937' : '#ffffff';
+}
+
 /** Compact locale-aware timestamp: HH:mm today, "Ayer" yesterday, dd/mm otherwise */
 export function formatConversationTime(iso: string | null | undefined): string {
   if (!iso) return '';

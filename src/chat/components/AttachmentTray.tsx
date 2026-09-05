@@ -140,9 +140,9 @@ const CaptionToolbar = ({ onAddFiles }: { onAddFiles: (files: File[]) => void })
   return (
     <>
       <div className="flex items-center gap-0.5 px-1 pb-1">
-        {iconBtn('Bold', format('bold'), <Bold className="h-4 w-4" />)}
-        {iconBtn('Italic', format('italic'), <Italic className="h-4 w-4" />)}
-        {iconBtn('Underline', format('underline'), <Underline className="h-4 w-4" />)}
+        {iconBtn(t('formatBold'), format('bold'), <Bold className="h-4 w-4" />)}
+        {iconBtn(t('formatItalic'), format('italic'), <Italic className="h-4 w-4" />)}
+        {iconBtn(t('formatUnderline'), format('underline'), <Underline className="h-4 w-4" />)}
         <ColorButtons />
         <span className="mx-1 h-4 w-px bg-white/20" />
 
@@ -265,7 +265,7 @@ const CaptionEditor = ({ id, initialText, onCaptionChange, onAddFiles }: Caption
       <div className="relative">
         <RichTextPlugin
           contentEditable={
-            <ContentEditable className="max-h-32 min-h-[40px] overflow-y-auto rounded-2xl bg-white/10 px-4 py-2.5 text-sm text-white caret-white outline-none focus:ring-2 focus:ring-blue-500" />
+            <ContentEditable className="max-h-32 min-h-[40px] overflow-y-auto rounded-2xl bg-white/10 px-4 py-2.5 text-sm text-white caret-white outline-none fd-accent-ring" />
           }
           placeholder={
             <div className="pointer-events-none absolute left-4 top-2.5 text-sm italic text-white/40">
@@ -380,8 +380,8 @@ export const AttachmentTray = ({
             <button
               type="button"
               onClick={() => setEditingImageIndex(safeIndex)}
-              title="Edit image"
-              aria-label="Edit image"
+              title={t('editImage')}
+              aria-label={t('editImage')}
               className="absolute bottom-3 right-3 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
             >
               <Pencil className="h-4 w-4" />
@@ -434,7 +434,7 @@ export const AttachmentTray = ({
             onClick={() => onChangeIndex(i)}
             title={att.name}
             className={`relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border-2 text-left ${
-              i === safeIndex ? 'border-blue-500' : 'border-white/15'
+              i === safeIndex ? 'fd-accent-soft-border' : 'border-white/15'
             }`}
           >
             {att.type.startsWith('image/') ? (
@@ -498,7 +498,7 @@ export const AttachmentTray = ({
           disabled={sending}
           title={t('send')}
           aria-label={t('send')}
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full fd-accent-bg disabled:opacity-40"
         >
           <Send className="h-5 w-5" />
         </button>
