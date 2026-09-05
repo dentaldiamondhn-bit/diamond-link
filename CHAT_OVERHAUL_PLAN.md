@@ -296,7 +296,8 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/chat --cache --format st
 
 ## 6. Current Build vs Original Plan — Comparison & Gaps
 
-Fresh snapshot (2026-09-04) mapping the **original phase target** to what the current
+Fresh snapshot (2026-09-04, **post Phase 7 completion — the theming/i18n/customization
+commit**) mapping the **original phase target** to what the current
 `src/chat/**` build actually delivers, and what is still missing.
 
 ### Phase-level status vs original matrix
@@ -326,8 +327,10 @@ Fresh snapshot (2026-09-04) mapping the **original phase target** to what the cu
 1. **Phase 5 – Push notifications** — the largest gap and highest user value: real
    Web-Push so messages reach the user when the tab is closed / on Android tray.
 2. **Phase 9 – Bundle splitting** — lazy-load the chat suite + Lexical to cut first-load for every page.
-3. **Phase 6 – PWA installability + offline** — manifest + offline shell + send queue.
-4. **Phase 8 – a11y polish** — `aria-live` new-message region, focus traps, shortcuts; lower priority unless required for WCAG compliance.
+3. **Phase 8 – a11y polish** — `aria-live` new-message region, focus traps, shortcuts; lower priority unless required for WCAG compliance.
+4. **Phase 6 tail – Lighthouse PWA audit** — installability + offline shell already shipped; only the formal audit remains (deferred).
 
 ### Recent commits (this batch)
 `8f6a4fa` (image editor + text color/highlight + edit menu + sidebar previews + soft-delete + REPLICA IDENTITY FULL + keyboard-nav + responsive sidebar + lists/code/@mentions/draft + forward/reply/notif fixes). Prior commits include: `41633ad` (copy/forward + media-progress); `e3f52c4` (Phase 1/3 features); `c3bef4d`-`90cd5c8` (delete chain); `7a1573d`/`e2c3ae` (sidebar deletion fixes); `07518d9` (deleted-message unread fix); `23a747a` (REPLICA IDENTITY); `a3ace91` (Lexical fix); **`ae4774d` (full-pane lightbox + ForwardModal natural-language preview + `is_forwarded` receiver-only "Reenviado" badge)**. **`Spellcheck commit`** — composer spell-check (nspell en/es) + language selector + inline border-bottom squiggle. **`16488fc`/`2c20f13`** — wallpaper multi-designs + per-conversation chat-settings scoping/fallback. **Current HEAD commit** — edit-composer migration (ChatPane `editingMessage`, Composer `EditSession`, MessageList inline-edit removal) + spell-squiggle bubble leak fix (`SpellCheckNode.exportDOM` clean, composer-scoped CSS, `purifyHtml` class strip) + **Supabase singleton client** (eliminated "Multiple GoTrueClient instances" warning) + **SSR-safe localStorage** (guarded i18n hook).
+
+**Phase 7 completion commit (current working tree — not yet committed):** `app/color-system.css` design tokens (`--fd-*`, light+dark, imported from `app/layout.tsx`) + accent-semantic refactor (every `blue-*` class in `src/chat/**` → `.fd-accent-*`/`var(--fd-accent)`; `.chat-mention` accentized; zero `blue-*` remain); bubble backgrounds + auto-contrast text via CSS vars on the `ChatLayout` root (`[data-chat-root]` sets `--fd-accent`/`--fd-bubble-*`; `bubbleTextColor` in `utils.ts`); **new per-user customizations** `text_size`/`density`/`accent_color`/`my_text_color`/`other_text_color` (empty = Auto) added to `chat_settings` + `ChatSettingsService` types behind new migration `20260904_chat_settings_phase7.sql` (pending manual Supabase run); Chat Settings panel gains segmented text-size/spacing + accent + my/other text-color swatch sections; font-size via `--fd-text` + `[data-text-size]`, compact density via `[data-density='compact'] [data-message-row]`; read-ticks/reply strip/send-progress/reaction/highlight now accent-token-based; read-status title i18n (`statusSent/Delivered/Read`); i18n gaps closed (`format*`, `editImage`, `playVoice`, `mention*`, `loading`); dark-mode polish (mentions/ticks/reactions/reply strip). Gate clean (tsc + scoped ESLint 0 errors).
