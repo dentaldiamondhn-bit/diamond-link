@@ -25,6 +25,7 @@ import { List, useDynamicRowHeight, useListCallbackRef } from 'react-window';
 import type { RowComponentProps, ListImperativeAPI } from 'react-window';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
+import { useFocusTrap } from '@/chat/hooks/useFocusTrap';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { resolveCardPatient } from '@/chat/patientCardData';
 import { interpolate, translations, type TranslationKey } from '@/chat/i18n/translations';
@@ -244,6 +245,7 @@ const MessageRow = function MessageRow({
         key={att.file_url}
         type="button"
         onClick={() => onOpenLightbox(m, i)}
+        aria-label={`${t('fileMessage')}: ${att.file_name}`}
         className={`relative block overflow-hidden rounded-lg bg-gray-900/10 outline-none dark:bg-black/30 ${className}`}
       >
         {att.file_type.startsWith('image/') ? (
@@ -467,6 +469,7 @@ const MessageRow = function MessageRow({
                 <button
                   type="button"
                   onClick={() => onJump(msg.reply_to_id!)}
+                  aria-label={`${t('jumpToOriginal')}: ${replyPreviewText(msg)}`}
                   className={`mb-1 flex w-full max-w-[200px] items-center gap-1 rounded px-0.5 text-xs ${
                     mine ? 'opacity-90 hover:bg-black/10' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
@@ -511,6 +514,9 @@ const MessageRow = function MessageRow({
                     actionMenuId === msg.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'
                   }`}
                   title={t('moreActions')}
+                  aria-label={t('moreActions')}
+                  aria-haspopup="menu"
+                  aria-expanded={actionMenuId === msg.id}
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
                 </button>
@@ -944,6 +950,66 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     list.scrollToRow({ index: rows.length - 1, align: 'end', behavior: 'auto' });
   }, [list, rows.length]);
 
+  const actionMenuTrapRef = useFocusTrap<HTMLDivElement>(!!actionMenuFor, onCloseMenu);
+  const deleteDialogTrapRef = useFocusTrap<HTMLDivElement>(
+    !!deleteForMsg,
+    () => setDeleteForId(null)
+  );
+  const emojiPickerTrapRef = useFocusTrap<HTMLDivElement>(
+    !!emojiFullFor,
+    () => setEmojiFullFor(null)
+  );
+
+  // Phase 8 — polite live region for incoming messages. The only other
+  // live region in the suite is the typing indicator, so without this a screen
+  // reader has no idea a new message arrived. First render snapshots the
+  // conversation backlog (remounts per conversation via the ChatPane key);
+  // messages that arrive afterwards are announced unless the thread itself has
+  // keyboard focus (SR users navigate the list row by row and will encounter
+  // the message themselves).
+  const knownIdsRef = useRef<Set<string> | null>(null);
+  const liveRegionRef = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    if (!messages.length) return;
+    if (!knownIdsRef.current) {
+      knownIdsRef.current = new Set(messages.map((m) => m.id));
+      return;
+    }
+    const known = knownIdsRef.current;
+    const fresh = messages.filter((m) => !known.has(m.id));
+    knownIdsRef.current = new Set(messages.map((m) => m.id));
+    if (!fresh.length) return;
+    const threadFocused =
+      (containerRef.current?.contains(document.activeElement) ?? false) && document.hasFocus();
+    if (threadFocused) return;
+    const announcements: string[] = [];
+    for (const m of fresh) {
+      if (!currentUserId || m.sender_id === currentUserId) continue;
+      const name = getUserDisplayName(users[m.sender_id]);
+      let preview = '';
+      switch (m.message_type) {
+        case 'image':
+          preview = memoizedT('imageMessage');
+          break;
+        case 'file':
+          preview = memoizedT('fileMessage');
+          break;
+        case 'voice':
+          preview = memoizedT('voiceMessage');
+          break;
+        case 'patient_case':
+          preview = m.patient_case_link?.title || htmlToText(m.content) || memoizedT('patientCase');
+          break;
+        default:
+          preview = htmlToText(m.content) || '';
+      }
+      announcements.push(`${memoizedT('newMessageFrom', { name })}: ${preview}`.trim());
+    }
+    if (announcements.length && liveRegionRef.current) {
+      liveRegionRef.current.textContent = announcements.join(' · ');
+    }
+  }, [messages, currentUserId, users, locale, memoizedT]);
+
   const rowProps = useMemo<RowProps>(
     () => ({
       rows,
@@ -998,6 +1064,9 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     <div ref={containerRef} className="relative flex h-full flex-col">
       <List
         className="flex-1"
+        id="chat-messages"
+        tabIndex={-1}
+        aria-label={memoizedT('messageList')}
         listRef={setList}
         rowCount={rows.length}
         rowHeight={rowHeight}
@@ -1014,7 +1083,12 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
             const mine = actionMsg.sender_id === currentUserId;
             return (
               <div
-                ref={actionMenuRef}
+                ref={(el) => {
+                  actionMenuRef.current = el;
+                  actionMenuTrapRef.current = el;
+                }}
+                role="menu"
+                aria-label={memoizedT('moreActions')}
                 className="absolute w-[224px] overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-600"
                 style={{
                   left: actionMenuFor.left,
@@ -1028,6 +1102,8 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                   {QUICK_REACTIONS.map((emoji) => (
                     <button
                       key={emoji}
+                      role="menuitem"
+                      aria-label={emoji}
                       onClick={() => handlePickReaction(actionMsg.id, emoji)}
                       className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
                     >
@@ -1038,6 +1114,8 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                   {FREQUENT_REACTIONS.map((emoji) => (
                     <button
                       key={emoji}
+                      role="menuitem"
+                      aria-label={emoji}
                       onClick={() => handlePickReaction(actionMsg.id, emoji)}
                       className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xl leading-none"
                     >
@@ -1045,15 +1123,18 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                     </button>
                   ))}
                   <button
+                    role="menuitem"
                     onClick={() => onOpenEmojiFull(actionMsg.id)}
                     className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-300"
                     title={memoizedT('addReaction')}
+                    aria-label={memoizedT('addReaction')}
                   >
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
                 <div className="border-t border-gray-200 dark:border-gray-600" />
                 <button
+                  role="menuitem"
                   onClick={() => handleReply(actionMsg)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
@@ -1061,6 +1142,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                   {memoizedT('reply')}
                 </button>
                 <button
+                  role="menuitem"
                   onClick={() => handleCopy(actionMsg)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
@@ -1068,6 +1150,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                   {memoizedT('copyMessage')}
                 </button>
                 <button
+                  role="menuitem"
                   onClick={() => {
                     setActionMenuFor(null);
                     setForwardMsg(actionMsg);
@@ -1079,6 +1162,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                 </button>
                 {mine && (
                   <button
+                    role="menuitem"
                     onClick={() => {
                       setActionMenuFor(null);
                       onEditMessage?.(actionMsg);
@@ -1091,6 +1175,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
                 )}
                 {mine && (
                   <button
+                    role="menuitem"
                     onClick={() => handleDelete(actionMsg.id)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
                   >
@@ -1120,10 +1205,12 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
           onClick={() => !deleting && setDeleteForId(null)}
         >
           <div
+            ref={deleteDialogTrapRef}
             className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
+            aria-labelledby="message-delete-title"
           >
             {(() => {
               const mediaAtt = (deleteForMsg.attachments || []).find(isMediaAtt);
@@ -1160,7 +1247,10 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
               );
             })()}
             <div className="p-6">
-              <h3 className="text-center text-base font-medium text-gray-900 dark:text-white">
+              <h3
+                id="message-delete-title"
+                className="text-center text-base font-medium text-gray-900 dark:text-white"
+              >
                 {memoizedT('deleteMessage')}
               </h3>
               <p className="mt-2 text-center text-sm leading-relaxed text-gray-500 dark:text-gray-400">
@@ -1198,15 +1288,20 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
           onClick={() => setEmojiFullFor(null)}
         >
           <div
+            ref={emojiPickerTrapRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="emoji-full-picker-title"
             className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 pointer-events-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              <h3 id="emoji-full-picker-title" className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 {memoizedT('addReaction')}
               </h3>
               <button
                 onClick={() => setEmojiFullFor(null)}
+                aria-label={memoizedT('cancel')}
                 className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <X className="h-3.5 w-3.5" />
@@ -1219,6 +1314,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
           </div>
         </div>
       )}
+      <span ref={liveRegionRef} aria-live="polite" aria-atomic="true" className="sr-only" />
     </div>
   );
 };

@@ -63,6 +63,8 @@ export const EmojiPicker = ({ onSelect, className = '' }: EmojiPickerProps) => {
             key={cat.id}
             type="button"
             title={t(CATEGORY_LABEL_KEYS[cat.id])}
+            aria-label={t(CATEGORY_LABEL_KEYS[cat.id])}
+            aria-pressed={active === cat.id}
             onClick={() => scrollToCategory(cat.id)}
             className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg leading-none hover:bg-gray-100 dark:hover:bg-gray-700 ${
               active === cat.id ? 'bg-gray-200 dark:bg-gray-600' : ''

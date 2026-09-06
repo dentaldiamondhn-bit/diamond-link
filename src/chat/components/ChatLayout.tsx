@@ -20,11 +20,13 @@ export const ChatLayout = () => {
   const {
     currentUserId,
     selectedConversationId,
+    conversations,
     setCurrentUserId,
     setConversations,
     setUsers,
     setLoading,
     setError,
+    setSelectedConversation,
   } = useChatStore();
   const setChatSettingsContext = useChatSettingsStore((s) => s.setContext);
   const chatSettings = useChatSettingsStore((s) => s.settings);
@@ -107,6 +109,49 @@ export const ChatLayout = () => {
     setChatSettingsContext(currentUserId, selectedConversationId);
   }, [currentUserId, selectedConversationId, setChatSettingsContext]);
 
+  // Phase 8 — keyboard shortcuts for the whole chat shell:
+  //   Ctrl/Cmd+K       focus the conversation search box
+  //   Ctrl/Cmd+Shift+M focus the message composer
+  //   Alt+Up/Alt+Down  jump to the previous/next conversation
+  // Shortcuts are ignored while the user is typing in a text field so they
+  // never trample normal editing (search box, composer, modals).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isEditable =
+        !!target &&
+        (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+      const meta = e.ctrlKey || e.metaKey;
+
+      if (meta && !e.shiftKey && e.key.toLowerCase() === 'k' && !isEditable) {
+        e.preventDefault();
+        document.getElementById('chat-sidebar-search')?.focus();
+        return;
+      }
+      if (meta && e.shiftKey && e.key.toLowerCase() === 'm' && !isEditable) {
+        e.preventDefault();
+        document.querySelector<HTMLElement>('[data-chat-composer]')?.focus();
+        return;
+      }
+      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !isEditable) {
+        e.preventDefault();
+        if (!conversations.length) return;
+        const idx = conversations.findIndex((c) => c.id === selectedConversationId);
+        const next =
+          e.key === 'ArrowDown'
+            ? idx === -1
+              ? 0
+              : (idx + 1) % conversations.length
+            : idx === -1
+              ? conversations.length - 1
+              : (idx - 1 + conversations.length) % conversations.length;
+        setSelectedConversation(conversations[next].id);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [conversations, selectedConversationId, setSelectedConversation]);
+
   if (!isLoaded || !currentUserId) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -136,6 +181,12 @@ export const ChatLayout = () => {
       data-density={chatSettings?.density ?? 'comfortable'}
       style={themeVars}
     >
+      <a
+        href="#chat-messages"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:left-4 focus:top-4 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-gray-900 focus:shadow-xl dark:focus:bg-gray-800 dark:focus:text-white"
+      >
+        {t('skipToMessages')}
+      </a>
       <>
         {sidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 z-30 bg-black/50 md:hidden" />}
         <div

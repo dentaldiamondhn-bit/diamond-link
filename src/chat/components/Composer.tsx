@@ -218,6 +218,7 @@ const LexicalToolbar = ({
       key={title}
       type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
       className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
     >
@@ -254,6 +255,7 @@ const LexicalToolbar = ({
             type="button"
             onClick={onVoicePauseToggle}
             title={isPaused ? t('resumeRecording') : t('pauseRecording')}
+            aria-label={isPaused ? t('resumeRecording') : t('pauseRecording')}
             className="p-1 rounded text-red-500 hover:bg-red-100 dark:hover:bg-black/20"
           >
             {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
@@ -262,6 +264,7 @@ const LexicalToolbar = ({
             type="button"
             onClick={onVoiceStop}
             title={t('stopRecording')}
+            aria-label={t('stopRecording')}
             className="p-1 rounded text-red-500 hover:bg-red-100 dark:hover:bg-black/20"
           >
             <Square className="h-3.5 w-3.5 fill-current" />
@@ -270,6 +273,7 @@ const LexicalToolbar = ({
             type="button"
             onClick={onVoiceCancel}
             title={t('cancelRecording')}
+            aria-label={t('cancelRecording')}
             className="p-1 rounded text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-black/20"
           >
             <Trash2 className="h-4 w-4" />
@@ -277,7 +281,7 @@ const LexicalToolbar = ({
         </div>
       ) : null}
 
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex items-center gap-1 flex-wrap" role="toolbar" aria-label={t('formattingToolbar')}>
         {formatButton(t('formatBold'), () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'), <Bold className="h-4 w-4" />)}
         {formatButton(t('formatItalic'), () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic'), <Italic className="h-4 w-4" />)}
         {formatButton(t('formatUnderline'), () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline'), <Underline className="h-4 w-4" />)}
@@ -290,6 +294,7 @@ const LexicalToolbar = ({
         <button
           type="button"
           title={t('formatCode')}
+          aria-label={t('formatCode')}
           onClick={() => {
             editor.update(() => {
               const sel = $getSelection();
@@ -325,6 +330,9 @@ const LexicalToolbar = ({
                 : 'text-gray-600 dark:text-gray-300'
             }`}
             title={t('fileMessage')}
+            aria-label={t('fileMessage')}
+            aria-haspopup="menu"
+            aria-expanded={showAttachMenu}
           >
             <Paperclip className="h-4 w-4" />
           </button>
@@ -448,6 +456,9 @@ const LexicalToolbar = ({
                 : 'text-gray-600 dark:text-gray-300'
             }`}
             title={t('formatEmoji')}
+            aria-label={t('formatEmoji')}
+            aria-haspopup="dialog"
+            aria-expanded={showEmoji}
           >
             <Smile className="h-4 w-4" />
           </button>
@@ -1006,7 +1017,7 @@ export const Composer = ({
           <div className="relative">
             <RichTextPlugin
               contentEditable={
-                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none fd-accent-ring text-sm" data-chat-composer spellCheck={!spellReady} />
+                <ContentEditable className="min-h-[44px] px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none fd-accent-ring text-sm" data-chat-composer spellCheck={!spellReady} aria-label={t('typeMessage')} />
               }
               placeholder={
                 <div className="absolute top-2 left-3 pointer-events-none italic text-gray-400 dark:text-gray-500 text-sm">

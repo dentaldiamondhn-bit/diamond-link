@@ -24,6 +24,7 @@ import {
   type DefaultWallpaperKey,
 } from '@/chat/wallpapers';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useFocusTrap } from '@/chat/hooks/useFocusTrap';
 import type { TranslationKey } from '@/chat/i18n/translations';
 
 const WALLPAPER_LABEL_KEY: Record<DefaultWallpaperKey, TranslationKey> = {
@@ -93,6 +94,7 @@ interface ChatSettingsPanelProps {
 
 export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
   const { t } = useTranslations();
+  const panelRef = useFocusTrap<HTMLDivElement>(true, onClose);
   const { resolvedTheme } = useTheme();
   const { settings, update } = useChatSettingsStore();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -148,9 +150,15 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative z-10 flex h-full w-full max-w-sm flex-col bg-white shadow-2xl dark:bg-gray-800">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chat-settings-title"
+        className="relative z-10 flex h-full w-full max-w-sm flex-col bg-white shadow-2xl dark:bg-gray-800"
+      >
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+          <h2 id="chat-settings-title" className="text-base font-semibold text-gray-900 dark:text-white">
             {t('settingsTitle')}
           </h2>
           <button

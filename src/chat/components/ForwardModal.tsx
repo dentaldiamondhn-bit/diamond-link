@@ -5,6 +5,7 @@ import { X, Search, Users as UsersIcon, Loader2, Mic, Check, Send } from 'lucide
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import { useFocusTrap } from '@/chat/hooks/useFocusTrap';
 import {
   getConversationDisplayName,
   getConversationAvatar,
@@ -33,6 +34,7 @@ interface ForwardModalProps {
  */
 export default function ForwardModal({ message, onClose }: ForwardModalProps) {
   const { t } = useTranslations();
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
   const {
     conversations,
     users,
@@ -182,11 +184,15 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
       onClick={() => !sending && !done && onClose()}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="forward-modal-title"
         className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">{t('forwardTitle')}</h3>
+          <h3 id="forward-modal-title" className="text-base font-semibold text-gray-900 dark:text-white">{t('forwardTitle')}</h3>
           <button
             type="button"
             onClick={onClose}
@@ -231,6 +237,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
               setTab('chats');
               setQuery('');
             }}
+            aria-pressed={tab === 'chats'}
             className={`border-b-2 px-2 py-2 text-sm font-medium ${
               tab === 'chats'
                 ? 'border-[var(--fd-accent)] fd-accent-text'
@@ -245,6 +252,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
               setTab('contacts');
               setQuery('');
             }}
+            aria-pressed={tab === 'contacts'}
             className={`border-b-2 px-2 py-2 text-sm font-medium ${
               tab === 'contacts'
                 ? 'border-[var(--fd-accent)] fd-accent-text'
@@ -261,6 +269,7 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('searchRecipient')}
+            aria-label={t('searchRecipient')}
             className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-white"
           />
         </div>

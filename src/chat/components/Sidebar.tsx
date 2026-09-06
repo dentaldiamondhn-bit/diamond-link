@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Search, Plus, X, Users2 } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatRepository } from '@/chat/repository';
+import { useFocusTrap } from '@/chat/hooks/useFocusTrap';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { ChatConversationType } from '@/types/chat';
 import { getConversationDisplayName, getInitials, getAvatarColor } from '@/chat/utils';
@@ -35,6 +36,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const newChatModalRef = useFocusTrap<HTMLDivElement>(showNewChatModal, () => setShowNewChatModal(false));
 
   const scrollIntoNav = (index: number) => {
     const list = listRef.current;
@@ -136,6 +138,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
           onClick={() => setShowNewChatModal(true)}
           className="p-2.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
           title={t('newChat')}
+          aria-label={t('newChat')}
         >
           <Plus className="h-5 w-5" />
         </button>
@@ -145,10 +148,12 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
+            id="chat-sidebar-search"
             type="text"
             placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label={t('searchPlaceholder')}
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none fd-accent-ring focus:border-[var(--fd-accent)] dark:border-gray-600 dark:bg-gray-700 dark:text-white placeholder-gray-400 sm:text-sm"
           />
         </div>
@@ -191,13 +196,18 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
           }}
         >
           <div
+            ref={newChatModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-chat-modal-title"
             className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('newChat')}</h3>
+              <h3 id="new-chat-modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">{t('newChat')}</h3>
               <button
                 onClick={() => setShowNewChatModal(false)}
+                aria-label={t('cancel')}
                 className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <X className="h-5 w-5" />
@@ -207,6 +217,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => setModalTab('direct')}
+                aria-pressed={modalTab === 'direct'}
                 className={`flex-1 py-2 rounded-lg text-sm font-medium ${
                   modalTab === 'direct'
                     ? 'fd-accent-bg'
@@ -217,6 +228,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
               </button>
               <button
                 onClick={() => setModalTab('group')}
+                aria-pressed={modalTab === 'group'}
                 className={`flex-1 py-2 rounded-lg text-sm font-medium ${
                   modalTab === 'group'
                     ? 'fd-accent-bg'
@@ -235,6 +247,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
                 placeholder={t('groupNamePlaceholder')}
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
+                aria-label={t('groupNamePlaceholder')}
                 className="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none fd-accent-ring dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
               />
             )}
@@ -250,11 +263,23 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
                 {otherUsers.map((user) => (
                   <div
                     key={user.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       if (modalTab === 'direct') {
                         handleCreateDirect(user.id);
                       } else {
                         toggleGroupUser(user.id);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (modalTab === 'direct') {
+                          handleCreateDirect(user.id);
+                        } else {
+                          toggleGroupUser(user.id);
+                        }
                       }
                     }}
                     className={`flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${

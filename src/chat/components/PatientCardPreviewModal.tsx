@@ -3,6 +3,7 @@
 import { X, Send, Loader2 } from 'lucide-react';
 import { PatientCaseLinkType } from '@/types/chat';
 import { useTranslations } from '@/chat/i18n/useTranslations';
+import { useFocusTrap } from '@/chat/hooks/useFocusTrap';
 import { CARD_KIND_TITLE_KEYS, getPatientAge } from '@/chat/patientCardData';
 import OdontogramMini from '@/chat/components/OdontogramMini';
 import type { Patient } from '@/types/patient';
@@ -33,6 +34,7 @@ export default function PatientCardPreviewModal({
   sending,
 }: PatientCardPreviewModalProps) {
   const { t } = useTranslations();
+  const dialogRef = useFocusTrap<HTMLDivElement>(open, onCancel);
 
   if (!open) return null;
 
@@ -53,14 +55,19 @@ export default function PatientCardPreviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="patient-card-preview-title"
         className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h2>
+          <h2 id="patient-card-preview-title" className="text-base font-semibold text-gray-900 dark:text-white">{title}</h2>
           <button
             type="button"
             onClick={onCancel}
+            aria-label={t('cancel')}
             className="rounded-full p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <X className="h-4 w-4" />
@@ -184,10 +191,11 @@ export default function PatientCardPreviewModal({
           </div>
 
           <div className="mt-3">
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label htmlFor="patient-card-caption" className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
               {t('captionOptional')}
             </label>
             <textarea
+              id="patient-card-caption"
               value={caption}
               onChange={(e) => onCaptionChange(e.target.value)}
               rows={2}

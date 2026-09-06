@@ -83,6 +83,20 @@
   outline-offset: 1px;
 }
 
+/* Phase 8 — visible keyboard focus everywhere inside the chat shell. One
+   unified accent outline replaces scattered defaults so keyboard users never
+   lose track of the focused control. Inputs that already ship a tuned ring
+   (composer/search) keep their tighter offset. */
+[data-chat-root] :focus-visible {
+  outline: 2px solid var(--fd-accent);
+  outline-offset: 2px;
+}
+[data-chat-root] .fd-accent-ring:focus-visible,
+[data-chat-root] [data-chat-composer]:focus-visible,
+[data-chat-root] #chat-sidebar-search:focus-visible {
+  outline-offset: 1px;
+}
+
 /* Bubble typography: bubbles (and the composer) inherit --fd-text so the
    text-size preference scales every bubble uniformly. */
 .fd-bubble-text {

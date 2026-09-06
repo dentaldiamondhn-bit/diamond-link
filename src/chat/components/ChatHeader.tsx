@@ -121,6 +121,7 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
         <button
           className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           title={t('searchPlaceholder')}
+          aria-label={t('searchPlaceholder')}
         >
           <Search className="h-5 w-5" />
         </button>
@@ -165,6 +166,7 @@ export const ChatHeader = ({ conversationId, className = '', onMenuToggle }: Cha
         <button
           className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
           title={t('participants')}
+          aria-label={t('participants')}
         >
           <MoreVertical className="h-5 w-5" />
         </button>

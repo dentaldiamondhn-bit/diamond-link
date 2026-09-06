@@ -130,6 +130,7 @@ const CaptionToolbar = ({ onAddFiles }: { onAddFiles: (files: File[]) => void })
       key={title}
       type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
       className="rounded p-1.5 text-white/70 hover:bg-white/10 hover:text-white"
     >
@@ -265,7 +266,7 @@ const CaptionEditor = ({ id, initialText, onCaptionChange, onAddFiles }: Caption
       <div className="relative">
         <RichTextPlugin
           contentEditable={
-            <ContentEditable className="max-h-32 min-h-[40px] overflow-y-auto rounded-2xl bg-white/10 px-4 py-2.5 text-sm text-white caret-white outline-none fd-accent-ring" />
+            <ContentEditable className="max-h-32 min-h-[40px] overflow-y-auto rounded-2xl bg-white/10 px-4 py-2.5 text-sm text-white caret-white outline-none fd-accent-ring" aria-label={t('addCaption')} />
           }
           placeholder={
             <div className="pointer-events-none absolute left-4 top-2.5 text-sm italic text-white/40">

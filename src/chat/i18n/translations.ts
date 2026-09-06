@@ -211,6 +211,11 @@ const en = {
   mentionVideo: 'Video call',
   mentionAlert: 'Alert',
   settingsReset: 'Reset to default',
+  messageList: 'Messages',
+  skipToMessages: 'Skip to messages',
+  newMessageFrom: 'New message from {name}',
+  jumpToOriginal: 'Jump to original message',
+  formattingToolbar: 'Formatting',
 } as const;
 
 const es: Record<keyof typeof en, string> = {
@@ -412,6 +417,11 @@ const es: Record<keyof typeof en, string> = {
   mentionCall: 'Llamar',
   mentionVideo: 'Videollamada',
   mentionAlert: 'Alerta',
+  messageList: 'Mensajes',
+  skipToMessages: 'Saltar a mensajes',
+  newMessageFrom: 'Nuevo mensaje de {name}',
+  jumpToOriginal: 'Ir al mensaje original',
+  formattingToolbar: 'Formato',
   settingsReset: 'Restablecer valores',
 };
 
