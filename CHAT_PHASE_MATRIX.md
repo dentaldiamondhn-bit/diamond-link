@@ -3,7 +3,8 @@
 Phase-by-phase comparison of the **original phase plan** (Fluxer-inspired chat
 for Dental Diamond Link — the 10-phase matrix in `CHAT_OVERHAUL_PLAN.md`) against
 what the **current codebase actually delivers**. Every "Current Codebase" cell
-below was verified against the repo at commit `833ffc2`.
+below was verified against the repo at commit `833ffc2`; the Phase 8 cell was
+updated at commit `7fc4838`.
 
 Status legend: ✅ delivered · ◑ partial · ⏳ not started.
 
@@ -19,7 +20,7 @@ Status legend: ✅ delivered · ◑ partial · ⏳ not started.
 | **5 – Notifications & Push** | Web-Push: VAPID pair, `push_subscriptions` table, `/api/push/subscribe`, SW `push` handler (`data.conversationId` → navigate), background/closed-tab push + Android tray, permission flow on first load | `showBrowserNotification` + NotificationContext (focused-tab only); **no** push subscription plumbing — earlier `20260724_remove_push_subscriptions.sql` even removed the table; `public/sw.js` has no `push` handler or VAPID | ⏳ ~10% | VAPID pair; re-create `push_subscriptions` (RLS); `/api/push/subscribe`; SW `push` handler; send service (web-push); Android tray |
 | **6 – PWA & Installability** | Manifest (`start_url /chat/`, standalone), SW cache-first precache of `/chat/*` + `/_next/*`, `beforeinstallprompt` → "Install Chat" button, offline banner ("…messages will send when reconnected") | `public/manifest.json` (standalone + icons) + `public/sw.js` **offline shell precache** — `scripts/build-sw-precache.mjs` runs post-`next build`, writes `public/sw-precache.json` (hashed shell/chat chunks + CSS + manifest/icons), `install` cache-adds into `diamond-link-shell-v1`, `activate` purges old caches (`CACHE_NAME` v9) → cold-offline shell boots; **install prompt** (`useInstallPrompt` + `InstallAppButton` — native dialog, iOS Add-to-Home hint, hides when installed); **offline send queue** (`offlineQueue` localStorage + `useOfflineQueue`: text sends while offline become `local_state:'queued'`, amber per-message pill + pane-top offline banner, flushed in order on reconnect); online/offline listeners | ✅ ~100% | Lighthouse PWA audit (installability + offline) — deferred, optional |
 | **7 – Theming / Dark Mode / I18n** | Design tokens (Fluxer `color-system.css` / `message-layout.css`); Lingui (or lightweight i18n) `en`/`es` + `users.locale`; language switcher | Custom typed i18n layer `src/chat/i18n/translations.ts` + `useTranslations.ts` (en/es `TranslationKey`, ~150 keys) + **language selector in `ChatHeader`** (persists to global prefs + `chat-locale` localStorage); **composer spell-check** (`nspell` + en/es Hunspell dictionaries, squiggle + click-for-suggestions + personal dictionary); **design-token system** `app/color-system.css` (`--fd-*` light/dark, `.fd-accent-*` utilities, `.chat-mention` accentized, zero `blue-*` in `src/chat/**`); **per-user customizations** via `chat_settings` + `ChatSettingsPanel` (wallpaper designs/upload per-conversation scope w/ global fallback, my/other bubble colors + reset, text-size sm/md/lg, density, 12 accent swatches, my/other text-color w/ Auto) + `bubbleTextColor` auto-contrast + `chat_settings` migrations | ✅ ~100% | 3 **pending manual Supabase runs** (`20260903_chat_settings_scoped`, `20260903_chat_settings_wallpaper_style`, `20260904_chat_settings_phase7`) — chat-settings saves 400 until applied; Lingui not used (custom layer adopted instead of `/users.locale`) |
-| **8 – Accessibility & Polish** | WCAG AA; `aria-live="polite"` new-message region; focus traps (emoji picker, preview, modals, composer toolbar); shortcuts `Ctrl+K`, `Ctrl+Shift+M`, `Alt+Arrows`; skip-to-content; axe/Lighthouse audit | Basic ARIA labels/buttons; sidebar keyboard nav (Arrow/Home/End); no new-message live region; no focus traps in pickers/popovers/modals | ◑ ~20% | `aria-live` new-message region; focus traps; shortcuts; skip link; `axe-core`/Lighthouse a11y audit |
+| **8 – Accessibility & Polish** | WCAG AA; `aria-live="polite"` new-message region; focus traps (emoji picker, preview, modals, composer toolbar); shortcuts `Ctrl+K`, `Ctrl+Shift+M`, `Alt+Arrows`; skip-to-content; axe/Lighthouse audit | `aria-live="polite"` **new-message live region** (announces incoming messages unless the thread is keyboard-focused; only other live region was the typing indicator); reusable **`useFocusTrap`** hooked into ForwardModal, ChatSettingsPanel, PatientCardPreviewModal, the full reaction picker, the delete-confirm dialog, the hover action menu and the new-chat modal (Tab cycling + Escape + focus restore); **ARIA labels** on all title-only buttons (more-actions w/ `aria-expanded`, reply-jump, media tiles, composer toolbar + voice controls, header search/participants, sidebar); `role="menu"/"menuitem"` action tray, `role="dialog" aria-modal aria-labelledby` on every modal, `role="toolbar"` composer, `aria-pressed` tabs/categories; **skip-to-content** link → `#chat-messages` focus target on the virtualized list; shortcuts **`Ctrl+K`** (search focus), **`Ctrl+Shift+M`** (composer focus), **`Alt+↑/↓`** (conversation nav); **`:focus-visible` accent outline** scoped to `[data-chat-root]` | ◑ ~60% | `axe-core` / Lighthouse a11y audit (manual) + NVDA/VoiceOver screen-reader testing; fix findings |
 | **9 – Performance & Bundle Optimization** | `dynamic(() => import(chat/ChatLayout), { ssr:false })`; lazy `RichTextComposer`/virtualized `MessageList` (`React.lazy` + `Suspense`); chat-only CSS chunk; `next/font`; `next-bundle-analyzer` | Message list virtualized (react-window); chat suite + Lexical bundled into the chat page chunk (**no** dynamic import / lazy Lexical / code-split CSS); no bundle analyzer; `next/font`-style self-hosting not applied | ◑ ~20% | `dynamic()` import of the chat suite; lazy `RichTextComposer`/`EmojiPicker`; chat-only CSS chunk; `next-bundle-analyzer` |
 | **10 – Final QA, Migration & Roll-out** | Test matrix (Chrome/FF/Safari desktop, mobile Chrome, Android WebView, iOS Safari); verify auth/realtime/uploads/notifications/PWA/offline; one-time migration script (`db:migrate`); feature-flag gradual roll-out; rollback doc + changelog | Feature flag `NEXT_PUBLIC_USE_NEW_CHAT` **active** (`.env`/`.env.local`); migrations written (`database/migrations/…`); headless-Chrome proofing of layouts; soft-delete tombstones + optimistic delete; Vercel production deploy green (`app.dentaldiamondhn.com`) | ◑ ~30% | Cross-browser/device test matrix; offline-queue test; rollback doc; changelog |
 
@@ -27,7 +28,7 @@ Status legend: ✅ delivered · ◑ partial · ⏳ not started.
 
 | Original plan total | Original plan via Fluxer-host (`-` UI-heavy phases) | Current delivered | Remaining |
 |---------------------|-----------------------------------------------------|-------------------|-----------|
-| ≈ 40 person-days | ≈ 15–20 person-days | Phases 0, 1, 2, 3, 4, 6, 7 ≈ ~40 person-days | Phases 5, 8, 9, 10 ≈ **~7–9 person-days** |
+| ≈ 40 person-days | ≈ 15–20 person-days | Phases 0, 1, 2, 3, 4, 6, 7 ≈ ~40 person-days | Phases 5, 9 + Phase 8 audit tail + Phase 10 ≈ **~5–7 person-days** |
 
 ## Priority (biggest remaining user-facing wins)
 
@@ -39,8 +40,9 @@ Status legend: ✅ delivered · ◑ partial · ⏳ not started.
    first-load on every page.
 3. **Phase 10 – QA/rollout docs** — cross-browser/device test matrix, rollback
    plan, changelog.
-4. **Phase 8 – a11y polish** — `aria-live` region, focus traps, shortcuts; lower
-   priority unless WCAG compliance is required.
+4. **Phase 8 tail – a11y audit** — the a11y implementation landed (live region,
+   focus traps, labels, shortcuts, skip link); only the manual axe/Lighthouse +
+   screen-reader audit remains.
 
 ## Divergences from the original plan (deliberate)
 
@@ -72,4 +74,5 @@ Status legend: ✅ delivered · ◑ partial · ⏳ not started.
   `c3bef4d`–`90cd5c8` → `23a747a` (REPLICA IDENTITY) → `16488fc`/`2c20f13`
   (wallpapers + scoping) → `c714641` (edit-composer + spell-squiggle leak)
   → patient-card chain `5c1a7b8` → `081c1ab` → `3696874` → `33f7946` →
-  `9567f8b` → `db4c2e6` → **`833ffc2` (odontogram mini chart — HEAD)**.
+  `9567f8b` → `db4c2e6` → `833ffc2` (odontogram mini chart) → `7149770`
+  (docs matrix) → **`7fc4838` (Phase 8 a11y polish — HEAD)**.
