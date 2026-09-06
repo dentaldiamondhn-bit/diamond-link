@@ -163,12 +163,12 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
         {filteredConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center px-4">
             <div className="w-16 h-16 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center mb-3">
-              <Users2 className="h-6 w-6 text-gray-400 dark:text-gray-300" />
+              <Users2 className="h-6 w-6 text-gray-500 dark:text-gray-400" />
             </div>
-            <p className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
+            <p className="text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">
               {t('emptyConversations')}
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('startNewChat')}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">{t('startNewChat')}</p>
           </div>
         ) : (
           <ul ref={listRef} className="divide-y divide-gray-200 dark:divide-gray-700 px-3 py-2" role="listbox" aria-label={t('sidebarTitle')}>
@@ -252,12 +252,12 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
               />
             )}
 
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
               {modalTab === 'group' ? t('addParticipants') : t('selectUser')}
             </p>
 
             {otherUsers.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-center py-6">{t('noUsersAvailable')}</p>
+              <p className="text-gray-600 dark:text-gray-300 text-center py-6">{t('noUsersAvailable')}</p>
             ) : (
               <div className="max-h-72 overflow-y-auto space-y-1">
                 {otherUsers.map((user) => (
@@ -305,7 +305,7 @@ export const Sidebar = ({ className = '' }: SidebarProps) => {
                       <p className="font-medium text-gray-900 dark:text-white truncate">
                         {[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email}
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
                         {isOnline(user.id) ? t('online') : t('offline')}
                       </p>
                     </div>

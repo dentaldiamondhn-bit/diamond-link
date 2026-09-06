@@ -535,13 +535,13 @@ export const ChatPane = ({ className = '', sendTyping, onMenuToggle }: ChatPaneP
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
           <div className="w-24 h-24 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-            <MessagesSquare className="h-10 w-10 text-gray-400 dark:text-gray-300" />
+            <MessagesSquare className="h-10 w-10 text-gray-500 dark:text-gray-400" />
           </div>
           <div>
             <p className="text-xl font-medium text-gray-700 dark:text-gray-200">
               {t('selectConversation')}
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
               {t('selectConversationHint')}
             </p>
           </div>

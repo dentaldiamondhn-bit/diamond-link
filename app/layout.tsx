@@ -8,6 +8,7 @@ import BannerAlert from '@/components/BannerAlert'
 import AdminOverrideTimer from '@/components/AdminOverrideTimer'
 import { AdminOverrideProvider } from '@/contexts/AdminOverrideContext'
 import { QueryProvider } from '@/contexts/QueryProvider'
+import { DocumentLang } from '@/chat/i18n/DocumentLang'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -37,7 +38,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
-      <html lang="en">
+      <html lang="es">
         <head>
           <meta name="theme-color" content="#14b8a6" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -138,6 +139,7 @@ export default function RootLayout({
         </head>
         <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
           <AdminOverrideProvider>
+            <DocumentLang />
             <BannerAlert />
             <QueryProvider>
               {children}

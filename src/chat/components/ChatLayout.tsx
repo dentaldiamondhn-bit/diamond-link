@@ -175,6 +175,7 @@ export const ChatLayout = () => {
 
   return (
     <div
+      role="main"
       className="chat-layout flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900"
       data-chat-root
       data-text-size={chatSettings?.text_size ?? 'md'}

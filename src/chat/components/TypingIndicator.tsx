@@ -27,7 +27,7 @@ export const TypingIndicator = ({ conversationId, className = '' }: TypingIndica
   return (
     <div
       aria-live="polite"
-      className={`flex h-6 items-center gap-2 px-4 text-xs text-gray-500 dark:text-gray-400 ${className}`}
+      className={`flex h-6 items-center gap-2 px-4 text-xs text-gray-500 dark:text-gray-300 ${className}`}
     >
       <span className="flex items-center gap-1" aria-hidden="true">
         <span className="typing-dot h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500" />

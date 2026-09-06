@@ -1069,10 +1069,10 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   if (!messages.length) {
     return (
       <div className="flex h-full flex-col items-center justify-center py-16 text-center">
-        <p className="text-lg font-medium text-gray-500 dark:text-gray-400">
+        <p className="text-lg font-medium text-gray-600 dark:text-gray-300">
           {memoizedT('emptyMessages')}
         </p>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {memoizedT('sendFirstMessage')}
         </p>
       </div>
