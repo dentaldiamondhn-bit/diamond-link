@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { MessagesSquare, WifiOff } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
@@ -14,10 +15,23 @@ import type { ChatMessage, FileAttachmentData } from '@/types/chat';
 import type { PendingAttachment } from './AttachmentTray';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
-import MediaLightbox from './MediaLightbox';
 import TypingIndicator from './TypingIndicator';
-import Composer from './Composer';
 import { useOfflineQueue } from '@/chat/hooks/useOfflineQueue';
+
+const Composer = dynamic(() => import('./Composer'), {
+  ssr: false,
+  loading: () => <ComposerFallback />,
+});
+const MediaLightbox = dynamic(() => import('./MediaLightbox'), { ssr: false });
+
+function ComposerFallback() {
+  const { t } = useTranslations();
+  return (
+    <div className="flex h-[104px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+      {t('loading')}
+    </div>
+  );
+}
 
 interface ChatPaneProps {
   className?: string;

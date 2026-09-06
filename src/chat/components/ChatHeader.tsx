@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Menu, Search, MoreVertical, Users as UsersIcon, Languages, Check, Settings } from 'lucide-react';
 import { useChatStore } from '@/chat/store/chatStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { InstallAppButton } from '@/chat/components/InstallAppButton';
-import ChatSettingsPanel from '@/chat/components/ChatSettingsPanel';
 import type { ChatLocale } from '@/chat/i18n/translations';
 import { useGlobalPreferences } from '@/hooks/useUserPreferences';
 import {
@@ -16,6 +16,8 @@ import {
   getTypingUserIds,
   getTypingLabel,
 } from '@/chat/utils';
+
+const ChatSettingsPanel = dynamic(() => import('@/chat/components/ChatSettingsPanel'), { ssr: false });
 
 interface ChatHeaderProps {
   conversationId: string | null;

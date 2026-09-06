@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Bold,
   Camera,
@@ -55,11 +56,7 @@ import { MentionNode } from '@/chat/mentionNode';
 import MentionPlugin from './MentionPlugin';
 import { SpellCheckNode } from '@/chat/spellcheck/SpellCheckNode';
 import { SpellCheckPlugin } from '@/chat/spellcheck/SpellCheckPlugin';
-import EmojiPicker from './EmojiPicker';
-import AttachmentTray from './AttachmentTray';
 import ColorButtons from './ColorButtons';
-import PatientSelectionModal from './PatientSelectionModal';
-import PatientCardPreviewModal from './PatientCardPreviewModal';
 import { buildPatientCardMetadata } from '@/chat/patientCardData';
 import { useChatStore } from '@/chat/store/chatStore';
 import { ChatConversationType, CreateMessageData, PatientCaseLinkType } from '@/types/chat';
@@ -67,6 +64,11 @@ import type { PendingAttachment } from './AttachmentTray';
 import type { ChatMessage, PatientCaseLinkData } from '@/types/chat';
 import type { Patient } from '@/types/patient';
 import { PatientService } from '@/services/patientService';
+
+const EmojiPicker = dynamic(() => import('./EmojiPicker'), { ssr: false });
+const AttachmentTray = dynamic(() => import('./AttachmentTray'), { ssr: false });
+const PatientSelectionModal = dynamic(() => import('./PatientSelectionModal'), { ssr: false });
+const PatientCardPreviewModal = dynamic(() => import('./PatientCardPreviewModal'), { ssr: false });
 
 // Remove whitespace that sits before the first text and after the last text of
 // the message, so stray leading/trailing spaces never get stored or rendered in

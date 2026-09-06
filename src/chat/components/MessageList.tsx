@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Plus,
@@ -45,9 +46,10 @@ import {
 import { getChatDateKey, getChatDateLabel } from '@/chat/formatChatDate';
 import VoiceMessageBubble from './VoiceMessageBubble';
 import PatientCardBubble from './PatientCardBubble';
-import EmojiPicker from './EmojiPicker';
-import ForwardModal from './ForwardModal';
 import MentionPopover from './MentionPopover';
+
+const EmojiPicker = dynamic(() => import('./EmojiPicker'), { ssr: false });
+const ForwardModal = dynamic(() => import('./ForwardModal'), { ssr: false });
 
 /** Renders plain text or sanitized formatted HTML message content. */
 const FormattedText = ({ text }: { text: string }) => {

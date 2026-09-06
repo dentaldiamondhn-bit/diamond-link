@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Bold,
   Camera,
@@ -17,7 +18,6 @@ import {
   Underline,
   X,
 } from 'lucide-react';
-import ChatImageEditor from './ChatImageEditor';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -38,6 +38,8 @@ import { useTranslations } from '@/chat/i18n/useTranslations';
 import { formatFileSize, getFileKindMeta, isHtmlContent, purifyHtml } from '@/chat/utils';
 import EmojiPicker from './EmojiPicker';
 import ColorButtons from './ColorButtons';
+
+const ChatImageEditor = dynamic(() => import('./ChatImageEditor'), { ssr: false });
 
 /** A file staged in the composer (not yet uploaded). `caption` is per-item. */
 export interface PendingAttachment {

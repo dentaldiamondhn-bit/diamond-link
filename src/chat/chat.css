@@ -1,0 +1,81 @@
+/* Chat-only styles, imported from app/(auth)/chat/layout.tsx so they ship only
+   with the /chat route's CSS chunk instead of the global sheet. */
+
+/* WhatsApp-style typing indicator dots (TypingIndicator). */
+@keyframes typing-dot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
+/* Chat message rich-text formatting (Lexical output rendered via
+   dangerouslySetInnerHTML). Tailwind's preflight strips native list markers
+   and code fonts, so these restore them inside message bubbles and the
+   composer contenteditable. */
+.chat-list-ul,
+.chat-list-ol,
+p .chat-list-ul,
+p .chat-list-ol {
+  list-style: revert;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+.chat-list-ul { list-style-type: disc; }
+.chat-list-ol { list-style-type: decimal; }
+.chat-list-ul li,
+.chat-list-ol li { margin: 0.1rem 0; }
+
+/* @mentions in composer and rendered messages (hyperlinked user).
+   The accent token follows the user's chosen accent color (phase 7). */
+.chat-mention {
+  color: var(--fd-accent, #2563eb);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+.chat-mention:hover {
+  background: var(--fd-accent-soft, rgba(37, 99, 235, 0.12));
+}
+.dark .chat-mention,
+.chat-mention:has([data-dark]) {
+  color: color-mix(in srgb, var(--fd-accent, #2563eb) 45%, #93c5fd);
+}
+.dark .chat-mention:hover,
+.chat-mention:hover:has([data-dark]) {
+  background: var(--fd-accent-soft, rgba(96, 165, 250, 0.15));
+}
+
+/* Spell-check squiggle under misspelled words in the composer (Lexical).
+   border-bottom paints reliably on spans; display:inline-block forces a real
+   box so the border renders inside the composer's contenteditable too
+   (plain inline spans clip their bottom border there).
+   Scoped to the composer: exported message HTML must NEVER inherit this
+   decoration (SpellCheckNode.exportDOM strips it), but this scope is a second
+   line of defense so any stray .chat-spell-error in rendered bubbles stays
+   invisible. */
+[data-chat-composer] .chat-spell-error {
+  display: inline-block;
+  border-bottom: 2px solid rgb(239 68 68);
+  padding-bottom: 1px;
+  cursor: pointer;
+}
+[data-chat-composer] .chat-spell-error-active {
+  background-color: rgba(239, 68, 68, 0.14);
+  border-radius: 2px;
+}
+.dark [data-chat-composer] .chat-spell-error {
+  border-bottom-color: rgb(248 113 113);
+}
+.dark [data-chat-composer] .chat-spell-error-active {
+  background-color: rgba(248, 113, 113, 0.16);
+}
