@@ -315,6 +315,10 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/chat --cache --format st
 
 ## 6. Current Build vs Original Plan — Comparison & Gaps
 
+> See also [`CHAT_PHASE_MATRIX.md`](./CHAT_PHASE_MATRIX.md) — the phase-by-phase
+> **matrix comparing the original plan vs the current codebase** (verified at
+> HEAD), with status, remaining gaps, priority, and deliberate divergences.
+
 Fresh snapshot (2026-09-05, **post patient-card attachments + odontogram mini
 chart**) mapping the **original phase target** to what the current
 `src/chat/**` build actually delivers, and what is still missing.
