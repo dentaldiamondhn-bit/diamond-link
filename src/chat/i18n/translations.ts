@@ -216,6 +216,8 @@ const en = {
   newMessageFrom: 'New message from {name}',
   jumpToOriginal: 'Jump to original message',
   formattingToolbar: 'Formatting',
+  dateToday: 'Today',
+  dateYesterday: 'Yesterday',
 } as const;
 
 const es: Record<keyof typeof en, string> = {
@@ -422,6 +424,8 @@ const es: Record<keyof typeof en, string> = {
   newMessageFrom: 'Nuevo mensaje de {name}',
   jumpToOriginal: 'Ir al mensaje original',
   formattingToolbar: 'Formato',
+  dateToday: 'Hoy',
+  dateYesterday: 'Ayer',
   settingsReset: 'Restablecer valores',
 };
 

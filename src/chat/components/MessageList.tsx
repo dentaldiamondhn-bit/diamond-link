@@ -42,6 +42,7 @@ import {
   purifyHtml,
   htmlToText,
 } from '@/chat/utils';
+import { getChatDateKey, getChatDateLabel } from '@/chat/formatChatDate';
 import VoiceMessageBubble from './VoiceMessageBubble';
 import PatientCardBubble from './PatientCardBubble';
 import EmojiPicker from './EmojiPicker';
@@ -130,6 +131,7 @@ interface RowDatum {
   mine: boolean;
   isFirst: boolean;
   isLast: boolean;
+  dateKey: string;
 }
 
 interface MessageListProps {
@@ -637,6 +639,7 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
   const [deleteForId, setDeleteForId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [mentionCard, setMentionCard] = useState<{ userId: string; top: number; left: number } | null>(null);
+  const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didInitialScroll = useRef(false);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
@@ -659,9 +662,13 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     if (!messages.length) return [];
     const result: RowDatum[] = [];
     let prev: ChatMessage | null = null;
+    let prevKey: string | null = null;
     for (const msg of messages) {
+      const dateKey = getChatDateKey(new Date(msg.created_at));
+      const sameDay = prevKey !== null && prevKey === dateKey;
       const sameSender =
         prev !== null &&
+        sameDay &&
         msg.sender_id === prev.sender_id &&
         new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() <=
           GROUP_THRESHOLD_MS;
@@ -670,12 +677,24 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
         mine: msg.sender_id === currentUserId,
         isFirst: !sameSender,
         isLast: true,
+        dateKey,
       });
       if (prev) result[result.length - 2].isLast = !sameSender;
       prev = msg;
+      prevKey = dateKey;
     }
     return result;
   }, [messages, currentUserId]);
+
+  // Track the date group at the top of the viewport so the floating sticky
+  // date pill reflects the cluster currently being read.
+  const handleRowsRendered = useCallback(
+    (visibleRows: { startIndex: number; stopIndex: number }) => {
+      const next = rows[visibleRows.startIndex]?.dateKey ?? null;
+      setActiveDateKey((prev) => (prev === next ? prev : next));
+    },
+    [rows]
+  );
 
   // For my messages: the other participants who have read them, by user id.
   const otherReadsByMessage = useMemo(() => {
@@ -1060,6 +1079,12 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
     );
   }
 
+  const now = new Date();
+  const todayKey = getChatDateKey(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = getChatDateKey(yesterday);
+
   return (
     <div ref={containerRef} className="relative flex h-full flex-col">
       <List
@@ -1073,7 +1098,26 @@ export const MessageList = ({ messages, onReplyTo, replyToId, participantUserIds
         rowComponent={MessageRow}
         rowProps={rowProps}
         overscanCount={8}
+        onRowsRendered={handleRowsRendered}
       />
+
+      {activeDateKey && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center"
+        >
+          <span className="rounded-full bg-slate-800/80 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-200 shadow-sm backdrop-blur-sm">
+            {getChatDateLabel({
+              key: activeDateKey,
+              todayKey,
+              yesterdayKey,
+              today: memoizedT('dateToday'),
+              yesterday: memoizedT('dateYesterday'),
+              locale,
+            })}
+          </span>
+        </div>
+      )}
 
       {actionMenuFor && (
         <div className="fixed inset-0 z-40" onClick={onCloseMenu}>
