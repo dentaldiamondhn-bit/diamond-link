@@ -38,6 +38,14 @@ export function htmlToText(html: string): string {
   return el.textContent || '';
 }
 
+/** Lightweight tag strip for notification bodies (server-safe, no DOM). */
+export function stripHtml(html: string): string {
+  return String(html || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const AVATAR_COLORS = [
   'bg-emerald-500',
   'bg-blue-500',

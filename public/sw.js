@@ -113,6 +113,52 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// Phase 5 — push notifications (VAPID). The server sends JSON payloads;
+// show them in the OS notification tray. While a chat tab is actively focused
+// on the same conversation, the notification is suppressed (the message is
+// already on screen), matching WhatsApp's behaviour.
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  let payload = {};
+  try {
+    payload = event.data.json() || {};
+  } catch {
+    payload = { title: 'Diamond Link', body: event.data.text() };
+  }
+
+  const title = payload.title || 'Diamond Link';
+  const options = {
+    body: payload.body || '',
+    icon: payload.icon || '/Logo.svg',
+    badge: payload.badge || '/Logo.svg',
+    tag: payload.tag,
+    data: payload.data || {},
+    vibrate: [100, 50, 100],
+    ...(payload.renotify ? { renotify: true } : {}),
+  };
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const anyFocused = windows.some((c) => 'focus' in c && c.focused);
+      if (anyFocused) {
+        const convId = payload.data && payload.data.conversationId;
+        if (!convId) return;
+        const alreadyOnIt = windows.some((c) => {
+          try {
+            return new URL(c.url).searchParams.get('conv') === convId;
+          } catch {
+            return false;
+          }
+        });
+        if (alreadyOnIt) return;
+      }
+      await self.registration.showNotification(title, options);
+    })()
+  );
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 

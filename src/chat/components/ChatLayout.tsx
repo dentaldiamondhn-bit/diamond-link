@@ -1,16 +1,36 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { useSearchParams } from 'next/navigation';
 import { useChatStore } from '@/chat/store/chatStore';
 import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { ChatRepository } from '@/chat/repository';
 import { useChatRealtime } from '@/chat/hooks/useChatRealtime';
 import { useTranslations } from '@/chat/i18n/useTranslations';
-import { bubbleTextColor } from '@/chat/utils';
-import type { ChatUser } from '@/types/chat';
+import { bubbleTextColor, stripHtml } from '@/chat/utils';
+import { triggerHiddenTabPush } from '@/chat/push/triggerHiddenTab';
+import type { ChatMessage, ChatUser } from '@/types/chat';
 import Sidebar from './Sidebar';
 import ChatPane from './ChatPane';
+
+/**
+ * Reads ?conv=<id> from the URL (set by push notifications / shared links) and
+ * opens that conversation once the list is loaded. Kept in its own component
+ * so useSearchParams lives under a <Suspense> boundary (Next 15 requirement).
+ */
+function DeepLinkEffect({ conversations }: { conversations: { id: string }[] }) {
+  const searchParams = useSearchParams();
+  const setSelectedConversation = useChatStore((s) => s.setSelectedConversation);
+  useEffect(() => {
+    const convId = searchParams?.get('conv');
+    if (!convId || !conversations.length) return;
+    if (conversations.some((c) => c.id === convId)) {
+      setSelectedConversation(convId);
+    }
+  }, [searchParams, conversations, setSelectedConversation]);
+  return null;
+}
 
 export const ChatLayout = () => {
   const { t } = useTranslations();
@@ -89,10 +109,32 @@ export const ChatLayout = () => {
     };
   }, [isLoaded, clerkUser, setCurrentUserId, setLoading, loadUsers, loadConversations]);
 
+  // Phase 5 — when a message for a chat I'm NOT looking at arrives while this
+  // tab is hidden, hand it to the push service so the OS tray still shows it.
+  const handleIncomingMessage = useCallback(
+    (message: ChatMessage) => {
+      if (!currentUserIdRef.current || !message.conversation_id) return;
+      if (document.visibilityState !== 'hidden') return;
+      const users = useChatStore.getState().users;
+      const sender = users[message.sender_id];
+      const senderName = sender
+        ? `${sender?.first_name || ''} ${sender?.last_name || ''}`.trim()
+        : '';
+      void triggerHiddenTabPush({
+        title: senderName || '💬',
+        body: stripHtml(message.content || '') || (message.message_type === 'image' ? '📷 Foto' : 'Mensaje'),
+        tag: `chat-${message.conversation_id}`,
+        data: { conversationId: message.conversation_id, senderId: message.sender_id, type: 'chat' },
+      });
+    },
+    []
+  );
+
   const { sendTyping } = useChatRealtime(
     selectedConversationId,
     currentUserId,
-    onConversationsChanged
+    onConversationsChanged,
+    handleIncomingMessage
   );
 
   useEffect(() => {
@@ -108,6 +150,30 @@ export const ChatLayout = () => {
     if (!currentUserId) return;
     setChatSettingsContext(currentUserId, selectedConversationId);
   }, [currentUserId, selectedConversationId, setChatSettingsContext]);
+
+  // Phase 5 — ensure the service worker is registered so push subscriptions
+  // work immediately when the user enables notifications.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => null);
+    }
+  }, []);
+
+  // Phase 5 — when the user taps a push notification while the app is
+  // already open, focus the window and select the conversation.
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICKED' && event.data?.data?.conversationId) {
+        window.focus();
+        setSelectedConversation(event.data.data.conversationId);
+      }
+    };
+    navigator.serviceWorker?.addEventListener?.('message', handler);
+    return () => navigator.serviceWorker?.removeEventListener?.('message', handler);
+  }, [setSelectedConversation]);
+
+  // Deep link handled by <DeepLinkEffect> rendered in the JSX (wrapped in
+  // Suspense to satisfy Next 15's useSearchParams boundary requirement).
 
   // Phase 8 — keyboard shortcuts for the whole chat shell:
   //   Ctrl/Cmd+K       focus the conversation search box
@@ -188,6 +254,9 @@ export const ChatLayout = () => {
       >
         {t('skipToMessages')}
       </a>
+      <Suspense fallback={null}>
+        <DeepLinkEffect conversations={conversations} />
+      </Suspense>
       <>
         {sidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 z-30 bg-black/50 md:hidden" />}
         <div

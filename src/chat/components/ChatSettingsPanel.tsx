@@ -12,10 +12,13 @@ import {
   Rows,
   Palette,
   MessageSquareText,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 import { useChatSettingsStore } from '@/chat/store/chatSettingsStore';
 import { useTranslations } from '@/chat/i18n/useTranslations';
 import { bubbleTextColor } from '@/chat/utils';
+import { usePushNotifications } from '@/chat/hooks/usePushNotifications';
 import type { ChatTextSize, ChatDensity } from '@/services/chatSettingsService';
 import {
   DEFAULT_WALLPAPERS,
@@ -100,6 +103,16 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [testSent, setTestSent] = useState(false);
+  const push = usePushNotifications();
+  const {
+    status: pushStatus,
+    loading,
+    enable,
+    disable,
+    sendTest,
+  } = push;
+  const subscribed = pushStatus === 'subscribed';
 
   const myColor = settings?.my_bubble_color ?? '#2563eb';
   const otherColor = settings?.other_bubble_color ?? '#ffffff';
@@ -456,6 +469,62 @@ export const ChatSettingsPanel = ({ onClose }: ChatSettingsPanelProps) => {
                 </div>
               </div>
             ))}
+          </section>
+          <section className="mb-6">
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <Bell className="h-4 w-4" />
+              {t('notificationsTitle')}
+            </h3>
+            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{t('notificationsDesc')}</p>
+            <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">{t('notificationsEnableHint')}</p>
+            {pushStatus === 'unsupported' ? (
+              <p className="text-xs text-gray-400">{t('notificationsUnsupportedLabel')}</p>
+            ) : pushStatus === 'denied' ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400">{t('notificationsDeniedLabel')}</p>
+            ) : (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (subscribed) {
+                      void disable();
+                    } else {
+                      void enable();
+                    }
+                  }}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:opacity-60 fd-accent-bg"
+                >
+                  {subscribed ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                  {subscribed ? t('notificationsDisable') : t('notificationsEnable')}
+                </button>
+                {subscribed && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await sendTest();
+                      if (ok) setTestSent(true);
+                    }}
+                    disabled={loading}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    {t('notificationsTest')}
+                  </button>
+                )}
+                {subscribed && (
+                  <span className="ml-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <Check className="h-3.5 w-3.5" />
+                    {t('notificationsEnabledLabel')}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="mt-2 text-xs text-gray-500">
+              {pushStatus === 'enabled' && <p>{t('notificationsEnabledHint')}</p>}
+              {testSent && (
+                <p className="mt-1 text-emerald-600 dark:text-emerald-400">{t('notificationsTestOk')}</p>
+              )}
+            </div>
           </section>
         </div>
       </div>
