@@ -6,14 +6,20 @@
 -- every new chat_messages row to /api/push/webhook, which fans out web-push to
 -- the other participants' subscriptions.
 --
--- Prerequisites:
+-- ⚠️ pg_net safety guard: the trigger is a no-op unless the `pg_net` extension
+-- is installed (the `net` schema exists). Previously the trigger called
+-- `net.http_post` unconditionally, so message INSERTs failed with
+-- `schema "net" does not exist` (error 3F000 → 400 on send) whenever pg_net
+-- was not enabled. With the guard below the trigger is harmless without it.
+--
+-- Prerequisites to ACTIVATE closed-tab push:
 --   1) Enable the `pg_net` extension in the Supabase Dashboard
 --      (Database -> Extensions -> pg_net -> Enable).
 --   2) Replace the _base_url and _secret constants below with your deployment
 --      (host + PUSH_WEBHOOK_SECRET from your app env).
 --   3) Run this file in the SQL Editor.
 -- If /api/push/webhook is unreachable the trigger logs to net._http_response
--- but never blocks chat writes.
+-- but never blocks chat writes. Re-running this file is idempotent.
 
 CREATE OR REPLACE FUNCTION public.notify_chat_message_webhook()
 RETURNS TRIGGER
@@ -28,6 +34,11 @@ DECLARE
 BEGIN
   -- System messages and soft-deletes are in-app only, never pushed.
   IF NEW.message_type = 'system' OR NEW.is_deleted THEN
+    RETURN NEW;
+  END IF;
+
+  -- Skip silently when pg_net is not installed, so chat writes never fail.
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'net') THEN
     RETURN NEW;
   END IF;
 
