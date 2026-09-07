@@ -21,6 +21,26 @@ Verified against `master` at `4d35fb1`.
 
 Status legend: ✅ delivered · ◑ partial · ⏳ not started.
 
+### Quick Status Summary (condensed)
+
+At-a-glance phase comparison. Detailed evidence lives in the full matrix below.
+
+| # | Phase | Status | Progress | Key evidence | Remaining gaps |
+|---|-------|--------|----------|--------------|----------------|
+| **0** | Preparation | ✅ | `████████████████████ 100%` | `src/chat/**` suite, repository/service data split, Zustand store, ESLint + `tsc` gate, feature flag active | Storybook not adopted (deferred — not needed for scope) |
+| **1** | Layout & Navigation | ✅ | `████████████████████ 100%` | Sidebar + ChatPane split, react-window virtualized list, responsive `<md` sidebar, keyboard nav | – |
+| **2** | Message Model & Realtime | ✅ | `████████████████████ 100%` | `useChatRealtime` consolidated hook, reactions JSONB, read-receipts + REPLICA IDENTITY FULL, typing indicator, ✓/✓✓ | minimal `delivered_at` (delivery shown via `chat_message_reads`) |
+| **3** | Rich-Text Composer | ✅ | `████████████████████ 100%` | Lexical (bold/italic/underline/lists/code), @mentions, 1870-emoji picker, drag-&-drop + image editor, text color/highlight, voice notes, composer editing | Ctrl+Enter explicit handling (Enter is the default send) |
+| **4** | Message UI Enhancements | ✅ | `████████████████████ 100%` | Grouping, reactions, Copy/Forward/Reply/Edit/Delete menu, quote w/ image snippet, "Reenviado" badge, soft-delete tombstones, sticky date pills | `edited_at` only as label; direct repo update vs PATCH |
+| **5** | Notifications & Push | ✅ | `████████████████░░░░ 80%` | VAPID + web-push, `push_subscriptions` table + RLS (migration applied), 6 API routes, SW push handler w/ focus-dedup, `usePushNotifications` + Settings UI, hidden-tab trigger, `?conv=` deep-link, pg_net optional trigger | pg_net dashboard activation + constant edits (optional, closed-tab); Vercel env vars; live device verification |
+| **6** | PWA & Installability | ✅ | `████████████████████ 100%` | manifest + SW offline shell precache (v9), install prompt + iOS hint, offline send queue | Lighthouse PWA audit deferred, optional |
+| **7** | Theming / Dark Mode / I18n | ✅ | `████████████████████ 100%` | ~150-key i18n (en/es) + language selector, nspell spell-check, `--fd-*` design tokens, per-user settings (wallpapers, bubble/text colors, text-size, density, accent) | 3 pending manual Supabase runs (`20260903_*` + `20260904`) → saves 400 until applied |
+| **8** | Accessibility & Polish | ✅ | `████████████████████ 100%` | aria-live, focus traps, ARIA roles, skip-link, Ctrl+K / Ctrl+Shift+M / Alt+↑↓, `:focus-visible`, `role="main"`, dynamic `<html lang>` | **live** axe/Lighthouse + NVDA/VoiceOver deferred to Phase 10 |
+| **9** | Performance & Bundle | ✅ | `██████████████████░░ 90%` | `/chat` → 1.37 kB loader, lazy composer/emoji/editor/lightbox/settings/modals, route-scoped chat CSS (fixes broken brace), bundle analyzer wired | `next/font` self-hosting deferred; analyzer report not yet generated |
+| **10** | Final QA, Migration & Roll-out | ◑ | `██████░░░░░░░░░░░░░░ 30%` | feature flag active, migrations written, headless-Chrome proofing, Vercel prod deploy green | Cross-browser/device test matrix; offline-queue test; rollback doc; changelog |
+
+Aggregate: **Phases 0–9 delivered** (9 × ✅, one ◑ at 90%). Only **Phase 10** remains ≈ ~2 person-days.
+
 | # | Phase | Status | Progress | Current codebase (implemented — evidence) | Remaining gaps |
 |---|-------|--------|----------|-------------------------------------------|----------------|
 | **0 – Preparation** | ✅ | `████████████████████ 100%` | `src/chat/**` suite built; data layer split (`repository.ts` + `services/chatService.ts`); Zustand store first used here; ESLint + `tsc --noEmit` verification gate run per commit; feature gate `NEXT_PUBLIC_USE_NEW_CHAT` (active in `.env`/`.env.local`); file-access tooling (`app/api/logs/route.ts`) | Storybook/component sandbox not adopted (deferred — not needed for scope) |
