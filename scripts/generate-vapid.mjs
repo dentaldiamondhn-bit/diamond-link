@@ -6,9 +6,12 @@
  *         node scripts/generate-vapid.mjs apply   (appends to .env.local)
  *
  * The pair is written (or appended) to .env.local as:
- *   NEXT_PUBLIC_VAPID_PUBLIC_KEY=<public>
- *   VAPID_PRIVATE_KEY=<private>
+ *   NEXT_PUBLIC_VAPID_PUBLIC_KEY_1=<public>
+ *   VAPID_PRIVATE_KEY_1=<private>
  *   VAPID_SUBJECT=mailto:admin@diamondlink.app
+ *
+ * (Names carry the _1 suffix to match the production vars already configured
+ * in Vercel; src/lib/push/vapid.ts also accepts the unsuffixed names.)
  *
  * Only the private key is a secret; the public key may live client-side.
  */
@@ -25,8 +28,8 @@ const { publicKey, privateKey } = webpush.generateVAPIDKeys();
 const lines = [
   '',
   '# VAPID web-push keys (Phase 5) — generate more: node scripts/generate-vapid.mjs apply',
-  `NEXT_PUBLIC_VAPID_PUBLIC_KEY=${publicKey}`,
-  `VAPID_PRIVATE_KEY=${privateKey}`,
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY_1=${publicKey}`,
+  `VAPID_PRIVATE_KEY_1=${privateKey}`,
   'VAPID_SUBJECT=mailto:admin@diamondlink.app',
   '',
 ];
@@ -34,8 +37,8 @@ const lines = [
 if (apply) {
   const envPath = join(ROOT, '.env.local');
   const existing = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
-  if (existing.includes('VAPID_PRIVATE_KEY=')) {
-    console.warn('VAPID_PRIVATE_KEY already set in .env.local — refusing to overwrite.');
+  if (existing.includes('VAPID_PRIVATE_KEY_1=')) {
+    console.warn('VAPID_PRIVATE_KEY_1 already set in .env.local — refusing to overwrite.');
     process.exit(1);
   }
   appendFileSync(envPath, lines.join('\n'));

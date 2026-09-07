@@ -6,8 +6,8 @@ import webpush from 'web-push';
  * Keys are generated once (scripts/generate-vapid.mjs) and live in the server
  * env. They are stored as standard base64 in .env.local; both the browser's
  * PushManager and web-push expect base64url WITHOUT padding, so normalize on
- * load. `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is already present in .env.local and is
- * accepted as a fallback so no change to existing environments is required.
+ * load. Vercel uses `NEXT_PUBLIC_VAPID_PUBLIC_KEY_1` / `VAPID_PRIVATE_KEY_1`; the
+ * unsuffixed names are kept as fallbacks so existing environments keep working.
  */
 
 export function toUrlBase64(base64: string): string {
@@ -25,10 +25,12 @@ export interface VapidConfig {
 
 export function getVapidConfig(): VapidConfig | null {
   const rawPublic =
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY_1 ||
+    process.env.VAPID_PUBLIC_KEY_1 ||
     process.env.VAPID_PUBLIC_KEY ||
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
     '';
-  const rawPrivate = process.env.VAPID_PRIVATE_KEY || '';
+  const rawPrivate = process.env.VAPID_PRIVATE_KEY_1 || process.env.VAPID_PRIVATE_KEY || '';
   const subject = process.env.VAPID_SUBJECT || 'mailto:admin@diamondlink.app';
   if (!rawPublic || !rawPrivate) return null;
   return {
