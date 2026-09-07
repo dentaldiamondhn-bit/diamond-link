@@ -1,5 +1,7 @@
 'use client';
 
+import type { NotificationAction } from '@/lib/push/pushService';
+
 /**
  * Phase 5 — client-side "hidden tab" push trigger.
  *
@@ -13,7 +15,10 @@ export async function triggerHiddenTabPush(params: {
   title: string;
   body: string;
   tag: string;
+  icon?: string;
+  badge?: string;
   data?: Record<string, unknown>;
+  actions?: NotificationAction[];
 }): Promise<void> {
   if (typeof document === 'undefined' || document.visibilityState === 'visible') return;
 

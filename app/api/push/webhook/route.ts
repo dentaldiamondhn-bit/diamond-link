@@ -77,10 +77,13 @@ export async function POST(request: NextRequest) {
   }
 
   let senderName = '';
+  let senderAvatar: string | undefined;
   try {
     const client = await clerkClient();
     const sender = await client.users.getUser(senderId);
-    senderName = `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || sender.username || '';
+    senderName =
+      `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || sender.username || '';
+    senderAvatar = sender.imageUrl || undefined;
   } catch (err) {
     console.warn('[push] could not resolve sender name:', (err as Error)?.message);
   }
@@ -98,11 +101,15 @@ export async function POST(request: NextRequest) {
       sendPushToUser(userId, {
         title,
         body,
-        icon: '/Logo.svg',
+        icon: senderAvatar || '/Logo.svg',
         badge: '/Logo.svg',
         tag,
         renotify: false,
         data: { conversationId, senderId, type: 'chat' },
+        actions: [
+          { action: 'open', title: 'Abrir chat' },
+          { action: 'reply', title: 'Responder' },
+        ],
       })
     )
   );

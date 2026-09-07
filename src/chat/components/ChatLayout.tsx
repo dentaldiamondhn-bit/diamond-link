@@ -120,11 +120,18 @@ export const ChatLayout = () => {
       const senderName = sender
         ? `${sender?.first_name || ''} ${sender?.last_name || ''}`.trim()
         : '';
+      const senderAvatar = sender?.profile_image_url || undefined;
       void triggerHiddenTabPush({
         title: senderName || '💬',
         body: stripHtml(message.content || '') || (message.message_type === 'image' ? '📷 Foto' : 'Mensaje'),
         tag: `chat-${message.conversation_id}`,
+        icon: senderAvatar || '/Logo.svg',
+        badge: '/Logo.svg',
         data: { conversationId: message.conversation_id, senderId: message.sender_id, type: 'chat' },
+        actions: [
+          { action: 'open', title: 'Abrir chat' },
+          { action: 'reply', title: 'Responder' },
+        ],
       });
     },
     []

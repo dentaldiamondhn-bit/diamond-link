@@ -20,9 +20,11 @@ export async function POST(request: NextRequest) {
     const payload: PushNotificationPayload = {
       title: body?.title || 'Diamond Link',
       body: body?.body || '',
-      icon: '/Logo.svg',
-      badge: '/Logo.svg',
+      icon: body?.icon || '/Logo.svg',
+      badge: body?.badge || '/Logo.svg',
       ...(body?.tag ? { tag: body.tag } : {}),
+      ...(body?.renotify ? { renotify: body.renotify } : {}),
+      ...(body?.actions && Array.isArray(body.actions) ? { actions: body.actions } : {}),
       ...(body?.data && typeof body.data === 'object' ? { data: body.data } : {}),
     };
 

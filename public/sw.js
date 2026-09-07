@@ -135,7 +135,13 @@ self.addEventListener('push', (event) => {
     tag: payload.tag,
     data: payload.data || {},
     vibrate: [100, 50, 100],
-    ...(payload.renotify ? { renotify: true } : {}),
+    renotify: payload.renotify ? true : undefined,
+    // Notification action buttons (desktop/Android). All carry a single
+    // `convId` so notificationclick can route to the right conversation.
+    actions: payload.actions || [
+      { action: 'open', title: 'Abrir chat', icon: '/Logo.svg' },
+      { action: 'reply', title: 'Responder', icon: '/Logo.svg' },
+    ],
   };
 
   event.waitUntil(
@@ -162,22 +168,27 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const data = event.notification.data || {};
-  let url = '/';
+  const notification = event.notification;
+  const data = notification.data || {};
+  const action = event.action;
+  const convId = data.conversationId;
+  let url =
+    action === 'reply'
+      ? (convId ? `/chat?conv=${convId}` : '/chat')
+      : data.eventId || data.conversationId
+      ? (convId ? `/chat?conv=${convId}` : '/calendario')
+      : data.patientId
+      ? `/menu-navegacion?id=${data.patientId}`
+      : data.url || '/';
 
-  if (data.eventId || data.conversationId) {
-    url = data.conversationId ? `/chat?conv=${data.conversationId}` : '/calendario';
-  } else if (data.patientId) {
-    url = `/menu-navegacion?id=${data.patientId}`;
-  } else if (data.url) {
-    url = data.url;
-  }
-
+  // If the app is already running, focus + signal the client. For 'reply',
+  // we focus the chat and let the client autofocus the composer (via the
+  // CONV already opened). Otherwise open a fresh window.
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-          client.postMessage({ type: 'NOTIFICATION_CLICKED', data });
+          client.postMessage({ type: 'NOTIFICATION_CLICKED', data, action });
           return client.focus();
         }
       }

@@ -10,6 +10,13 @@ import { ensureVapidConfigured } from './vapid';
  * session; the per-user routes still enforce Clerk auth before calling here.
  */
 
+/** Notification action button (as shown in the OS tray). */
+export interface NotificationAction {
+  action: string;
+  title: string;
+  icon?: string;
+}
+
 export interface PushNotificationPayload {
   title: string;
   /** Plain text body (HTML is stripped by callers). */
@@ -20,6 +27,8 @@ export interface PushNotificationPayload {
   tag?: string;
   renotify?: boolean;
   data?: Record<string, unknown>;
+  /** Buttons shown on the notification (see NotificationAction). */
+  actions?: NotificationAction[];
 }
 
 interface PushSubscriptionRow {

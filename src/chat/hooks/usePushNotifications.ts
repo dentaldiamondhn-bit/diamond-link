@@ -50,7 +50,14 @@ export function usePushNotifications() {
     error: null,
   }));
   const regRef = useRef<ServiceWorkerRegistration | null>(null);
+  // Cache the last browser-mapped status so refresh/mount re-syncs don't fire a
+  // server round-trip on every call. The server confirm (subscribe POST) only
+  // runs when we actually need to display the "subscribed" (server-registered)
+  // state — i.e. on first evaluation or when a real change is detected.
+  const lastPushState = useRef<{ status: PushStatus; subJSON: PushSubscriptionJSON | null } | null>(null);
 
+  /** Derive browser state locally; confirm against the server only when the
+   *  local shape changed since the last evaluation. */
   const resolveStatus = useCallback(async (): Promise<PushStatus> => {
     if (!isSupported()) return 'unsupported';
     let perm: NotificationPermission;
@@ -75,13 +82,28 @@ export function usePushNotifications() {
     try {
       const sub = await reg.pushManager.getSubscription();
       if (!sub) return 'enabled';
-      // If the subscription exists, validate that the server has it.
+
+      const localStatus: PushStatus = 'subscribed';
+      const subBase = sub.toJSON();
+      const prev = lastPushState.current;
+      const unchanged =
+        prev &&
+        prev.status === localStatus &&
+        !!prev.subJSON &&
+        JSON.stringify(prev.subJSON) === JSON.stringify(subBase);
+
+      if (unchanged) return prev.status;
+
+      // Subscription (or status) changed since last check — confirm against the
+      // server (idempotent upsert) before claiming "subscribed".
       const ok = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON(), confirm: false, userAgent: navigator.userAgent.slice(0, 512) }),
+        body: JSON.stringify({ subscription: subBase, confirm: false, userAgent: navigator.userAgent.slice(0, 512) }),
       }).then((r) => r.ok);
-      return ok ? 'subscribed' : 'enabled';
+      const status: PushStatus = ok ? 'subscribed' : 'enabled';
+      lastPushState.current = { status, subJSON: subBase };
+      return status;
     } catch {
       return 'enabled';
     }
