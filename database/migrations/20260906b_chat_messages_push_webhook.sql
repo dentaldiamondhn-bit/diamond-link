@@ -12,6 +12,11 @@
 -- `schema "net" does not exist` (error 3F000 → 400 on send) whenever pg_net
 -- was not enabled. With the guard below the trigger is harmless without it.
 --
+-- ⚠️ Call shape: `net.http_post` is invoked POSITIONALLY as
+-- `(url text, body jsonb, headers jsonb)`. Passing `body` as text or using
+-- named args produced "function net.http_post(url => text, headers => jsonb,
+-- body => text) does not exist" (42883) on Supabase's pg_net build.
+--
 -- Prerequisites to ACTIVATE closed-tab push:
 --   1) Enable the `pg_net` extension in the Supabase Dashboard
 --      (Database -> Extensions -> pg_net -> Enable).
@@ -43,23 +48,18 @@ BEGIN
   END IF;
 
   SELECT net.http_post(
-    url     := _base_url || '/api/push/webhook',
-    headers := jsonb_build_object(
-      'Content-Type',     'application/json',
-      'x-webhook-secret', _secret
-    ),
-    body    := jsonb_build_object(
-      'type',   'INSERT',
-      'table',  'chat_messages',
+    _base_url || '/api/push/webhook',
+    jsonb_build_object('type', 'INSERT', 'table', 'chat_messages',
       'record', jsonb_build_object(
         'id',             NEW.id,
         'conversation_id', NEW.conversation_id,
         'sender_id',       NEW.sender_id,
         'content',         NEW.content,
         'message_type',    NEW.message_type,
-        'created_at',      NEW.created_at
-      )
-    )::text
+        'created_at',      NEW.created_at)),
+    jsonb_build_object(
+      'Content-Type',     'application/json',
+      'x-webhook-secret', _secret)
   ) INTO _resp;
 
   RETURN NEW;
