@@ -215,6 +215,14 @@ export const useChatStore = create<ChatStoreState>()((set) => ({
   setSelectedConversation: (id) =>
     set((state) => {
       if (id === null) return { selectedConversationId: null };
+      // Idempotent: if this conversation is already selected, return state
+      // unchanged so subscribers (and effects keyed on the `conversations`
+      // array) don't re-run on every call. Without this, effects like the
+      // ?conv= deep-link callback loop: each call maps a fresh `conversations`
+      // array → the effect's dep changes → it selects again → new array → loop
+      // (React #185 "Maximum update depth"). The unread badge stays cleared
+      // because it is already 0 when the conversation is selected.
+      if (state.selectedConversationId === id) return state;
       return {
         selectedConversationId: id,
         conversations: state.conversations.map((c) =>

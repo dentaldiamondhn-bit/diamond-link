@@ -19,16 +19,26 @@ import ChatPane from './ChatPane';
  * opens that conversation once the list is loaded. Kept in its own component
  * so useSearchParams lives under a <Suspense> boundary (Next 15 requirement).
  */
-function DeepLinkEffect({ conversations }: { conversations: { id: string }[] }) {
+function DeepLinkEffect({
+  conversations,
+  selectedConversationId,
+}: {
+  conversations: { id: string }[];
+  selectedConversationId: string | null;
+}) {
   const searchParams = useSearchParams();
   const setSelectedConversation = useChatStore((s) => s.setSelectedConversation);
   useEffect(() => {
     const convId = searchParams?.get('conv');
     if (!convId || !conversations.length) return;
-    if (conversations.some((c) => c.id === convId)) {
+    // Only reach for the conversation if it exists and isn't already selected.
+    // Guarding on selectedConversationId + idempotent store setter prevents the
+    // effect from re-triggering itself (new conversations array → dep change →
+    // select again → new array → React #185 max-update-depth loop).
+    if (convId !== selectedConversationId && conversations.some((c) => c.id === convId)) {
       setSelectedConversation(convId);
     }
-  }, [searchParams, conversations, setSelectedConversation]);
+  }, [searchParams, conversations, selectedConversationId, setSelectedConversation]);
   return null;
 }
 
@@ -289,7 +299,7 @@ export const ChatLayout = () => {
         {t('skipToMessages')}
       </a>
       <Suspense fallback={null}>
-        <DeepLinkEffect conversations={conversations} />
+        <DeepLinkEffect conversations={conversations} selectedConversationId={selectedConversationId} />
       </Suspense>
       <>
         {sidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 z-30 bg-black/50 md:hidden" />}
