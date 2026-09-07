@@ -225,7 +225,34 @@ export const ChatLayout = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [conversations, selectedConversationId, setSelectedConversation]);
 
-  if (!isLoaded || !currentUserId) {
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>
+      </div>
+    );
+  }
+
+  // Signed out — e.g. a notification tap cold-booted the PWA with an expired JWT.
+  // clerk-js already had its chance to restore the session above; if nothing came
+  // back, show a plain sign-in action instead of an infinite spinner.
+  if (!clerkUser) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Sesión no disponible</div>
+          <a
+            href="/sign-in"
+            className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow transition hover:bg-teal-700"
+          >
+            Iniciar sesión
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUserId) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>

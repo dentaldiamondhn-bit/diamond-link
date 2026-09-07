@@ -74,6 +74,16 @@ export default clerkMiddleware(async (auth, req) => {
     const { userId } = await auth();
     
     if (!userId) {
+      // Push-notification taps cold-boot the PWA (Chromebook: `clients.openWindow`)
+      // as a plain top-level document load. That request can carry an expired JWT
+      // while the underlying Clerk session is still alive — and unlike RSC
+      // navigations, this path has no Clerk recovery/handshake. A hard 307 here
+      // cuts off clerk-js before it can silently restore the session, bouncing the
+      // user to sign-in. Render the chat shell instead and gate in the component
+      // (ChatLayout only shows a sign-in action if clerk-js cannot restore anything).
+      if (req.nextUrl.pathname === '/chat' || req.nextUrl.pathname.startsWith('/chat/')) {
+        return NextResponse.next();
+      }
       const { redirectToSignIn } = await auth();
       return redirectToSignIn();
     }
