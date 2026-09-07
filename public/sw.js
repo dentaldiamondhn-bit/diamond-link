@@ -114,53 +114,53 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Phase 5 — push notifications (VAPID). The server sends JSON payloads;
-// show them in the OS notification tray. While a chat tab is actively focused
-// on the same conversation, the notification is suppressed (the message is
-// already on screen), matching WhatsApp's behaviour.
+// show them in the OS notification tray. IMPORTANT: every push must end in a
+// showNotification() call. Chromium counts pushes that finish without a
+// visible notification as "silent substitutions" and, once the per-origin
+// budget is exhausted, STOPS WAKING THE WORKER FOR NEW PUSHES ENTIRELY — the
+// classic "delivered but never appears" failure with no console error. So no
+// early returns and no unguarded throws in here, ever.
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
   let payload = {};
   try {
-    payload = event.data.json() || {};
+    payload = (event.data && event.data.json()) || {};
   } catch {
-    payload = { title: 'Diamond Link', body: event.data.text() };
+    payload = {
+      title: 'Diamond Link',
+      body: (event.data && event.data.text()) || 'Nuevo mensaje',
+    };
   }
 
   const title = payload.title || 'Diamond Link';
   const options = {
     body: payload.body || '',
-    icon: payload.icon || '/Logo.svg',
-    badge: payload.badge || '/Logo.svg',
-    tag: payload.tag,
+    // Same-origin asset only. Chrome drops (and can reject) cross-origin
+    // notification icons, so we never ship remote avatar URLs here; the sender
+    // avatar still rides inside `data` for the click handler.
+    icon: '/Logo.svg',
+    badge: '/Logo.svg',
+    tag: payload.tag || undefined,
     data: payload.data || {},
     vibrate: [100, 50, 100],
-    renotify: payload.renotify ? true : undefined,
+    ...(payload.renotify ? { renotify: true } : {}),
     // Notification action buttons (desktop/Android). All carry a single
     // `convId` so notificationclick can route to the right conversation.
     actions: payload.actions || [
-      { action: 'open', title: 'Abrir chat', icon: '/Logo.svg' },
-      { action: 'reply', title: 'Responder', icon: '/Logo.svg' },
+      { action: 'open', title: 'Abrir chat' },
+      { action: 'reply', title: 'Responder' },
     ],
   };
 
   event.waitUntil(
     (async () => {
-      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      const anyFocused = windows.some((c) => 'focus' in c && c.focused);
-      if (anyFocused) {
-        const convId = payload.data && payload.data.conversationId;
-        if (!convId) return;
-        const alreadyOnIt = windows.some((c) => {
-          try {
-            return new URL(c.url).searchParams.get('conv') === convId;
-          } catch {
-            return false;
-          }
-        });
-        if (alreadyOnIt) return;
+      try {
+        await self.registration.showNotification(title, options);
+      } catch {
+        // Ensure the push is never silent even if a single option is rejected
+        // (e.g. platform-specific field). Chrome substitutes a generic tile
+        // otherwise, and repeated substitutions burn the budget above.
+        await self.registration.showNotification(title).catch(() => {});
       }
-      await self.registration.showNotification(title, options);
     })()
   );
 });
