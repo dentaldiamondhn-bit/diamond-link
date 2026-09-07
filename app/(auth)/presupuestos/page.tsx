@@ -256,7 +256,7 @@ function PresupuestosPageContent() {
     };
 
     const allTeeth = teethToCount;
-    const statusPriority: { [key: string]: number } = { 'cariado': 1, 'obturado': 2, 'resina': 3, 'amalgama': 4, 'fracturado': 5, 'endodoncia': 6, 'extraccionind': 7, 'corona': 8, 'implante': 9, 'protesis': 10, 'caries-restauracion': 11, 'sellante': 12, 'txpulpar': 13, 'ausente': 14, 'atricion': 15, 'erosion': 16, 'abfraccion': 17, 'abrasion': 18, 'erupcion': 19, 'apilado': 20, 'movilidad': 21, 'fistula': 22, 'odontopatia': 23, 'carilla': 24, 'temporal': 25, 'raiz': 26, 'sano': 27 };
+    const statusPriority: { [key: string]: number } = { 'cariado': 1, 'obturado': 2, 'resina': 3, 'amalgama': 4, 'fracturado': 5, 'endodoncia': 6, 'extraccionind': 7, 'corona': 8, 'implante': 9, 'protesis': 10, 'caries-restauracion': 11, 'sellante': 12, 'txpulpar': 13, 'ausente': 14, 'atricion': 15, 'erosion': 16, 'abfraccion': 17, 'abrasion': 18, 'erupcion': 19, 'apilado': 20, 'movilidad': 21, 'fistula': 22, 'odontopatia': 23, 'carilla': 24, 'carilla_resina': 25, 'carilla_defectuosa': 26, 'carilla_disilicato': 27, 'temporal': 28, 'raiz': 29, 'sano': 30 };
     allTeeth.forEach((toothNumber) => {
       const toothKey = toothNumber.toString();
       const diente = datos_odontograma.dientes[toothKey];

@@ -494,7 +494,7 @@ function MenuNavegacionContent() {
     const allStates = Object.entries(status_counts)
       .filter(([_, count]: [string, number]) => count > 0)
       .sort(([stateA, countA]: [string, number], [stateB, countB]: [string, number]) => {
-        const sortOrder = ['sano', 'ausente', 'cariado', 'obturado', 'resina', 'amalgama', 'extraccionind', 'corona', 'protesis', 'implante', 'endodoncia', 'fracturado', 'sellante', 'txpulpar', 'atricion', 'erosion', 'abfraccion', 'abrasion', 'erupcion', 'apilado', 'movilidad', 'fistula', 'odontopatia', 'carilla', 'temporal', 'raiz', 'caries-restauracion'];
+        const sortOrder = ['sano', 'ausente', 'cariado', 'obturado', 'resina', 'amalgama', 'extraccionind', 'corona', 'protesis', 'implante', 'endodoncia', 'fracturado', 'sellante', 'txpulpar', 'atricion', 'erosion', 'abfraccion', 'abrasion', 'erupcion', 'apilado', 'movilidad', 'fistula', 'odontopatia', 'carilla', 'carilla_resina', 'carilla_defectuosa', 'carilla_disilicato', 'temporal', 'raiz', 'caries-restauracion'];
         const aIndex = sortOrder.indexOf(stateA);
         const bIndex = sortOrder.indexOf(stateB);
         if (aIndex === -1 && bIndex === -1) return stateA.localeCompare(stateB);
@@ -530,6 +530,9 @@ function MenuNavegacionContent() {
         fistula: 'Fístula',
         odontopatia: 'Odontopatía',
         carilla: 'Carilla',
+        carilla_resina: 'Carilla de Resina',
+        carilla_defectuosa: 'Carilla Defectuosa',
+        carilla_disilicato: 'Carilla de Disilicato',
         temporal: 'Restauración Temporal',
         raiz: 'Raíz Residual',
         'caries-restauracion': 'Restauración con Caries',
