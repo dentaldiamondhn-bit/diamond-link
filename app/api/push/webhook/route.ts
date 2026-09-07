@@ -95,6 +95,21 @@ export async function POST(request: NextRequest) {
   const title = isGroup ? conv?.name || 'Grupo' : senderName || 'Diamond Link';
   const body = isGroup && senderName ? `${senderName}: ${clipped || fallback}` : clipped || fallback;
 
+  // Structured fields ride inside `data` so the service worker can aggregate
+  // per-thread (WhatsApp-style) notifications: title/body stay as plain-text
+  // fallbacks for any client that does not understand the aggregation.
+  const dataMessageText = text.slice(0, 500);
+  const data: Record<string, unknown> = {
+    conversationId,
+    senderId,
+    senderName,
+    messageText: dataMessageText,
+    conversationName: isGroup ? conv?.name || '' : senderName || '',
+    conversationType: conv?.type || 'direct',
+    url: `/chat?conv=${conversationId}`,
+    type: 'chat',
+  };
+
   const tag = `chat-${conversationId}`;
   const summary = await Promise.all(
     recipients.map((userId) =>
@@ -105,7 +120,7 @@ export async function POST(request: NextRequest) {
         badge: '/Logo.svg',
         tag,
         renotify: false,
-        data: { conversationId, senderId, type: 'chat' },
+        data,
         actions: [
           { action: 'open', title: 'Abrir chat' },
           { action: 'reply', title: 'Responder' },

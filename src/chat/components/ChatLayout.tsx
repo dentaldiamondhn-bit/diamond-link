@@ -57,6 +57,7 @@ export const ChatLayout = () => {
     setLoading,
     setError,
     setSelectedConversation,
+    markConversationRead,
   } = useChatStore();
   const setChatSettingsContext = useChatSettingsStore((s) => s.setContext);
   const chatSettings = useChatSettingsStore((s) => s.settings);
@@ -125,19 +126,34 @@ export const ChatLayout = () => {
     (message: ChatMessage) => {
       if (!currentUserIdRef.current || !message.conversation_id) return;
       if (document.visibilityState !== 'hidden') return;
-      const users = useChatStore.getState().users;
-      const sender = users[message.sender_id];
+      const state = useChatStore.getState();
+      const sender = state.users[message.sender_id];
       const senderName = sender
         ? `${sender?.first_name || ''} ${sender?.last_name || ''}`.trim()
         : '';
       const senderAvatar = sender?.profile_image_url || undefined;
+      const conversation = state.conversations.find((c) => c.id === message.conversation_id);
+      const isGroup = conversation?.type === 'group' || conversation?.type === 'channel';
+      const conversationName = conversation?.name || '';
+      const text = stripHtml(message.content || '');
       void triggerHiddenTabPush({
-        title: senderName || '💬',
-        body: stripHtml(message.content || '') || (message.message_type === 'image' ? '📷 Foto' : 'Mensaje'),
+        title: isGroup ? conversationName || senderName || '💬' : senderName || '💬',
+        body: text || (message.message_type === 'image' ? '📷 Foto' : 'Mensaje'),
         tag: `chat-${message.conversation_id}`,
         icon: senderAvatar || '/Logo.svg',
         badge: '/Logo.svg',
-        data: { conversationId: message.conversation_id, senderId: message.sender_id, type: 'chat' },
+        // Structured fields let the service worker aggregate per-thread
+        // (WhatsApp-style) notifications instead of one card per message.
+        data: {
+          conversationId: message.conversation_id,
+          senderId: message.sender_id,
+          senderName,
+          messageText: text,
+          conversationName: isGroup ? conversationName : senderName,
+          conversationType: conversation?.type || 'direct',
+          url: `/chat?conv=${message.conversation_id}`,
+          type: 'chat',
+        },
         actions: [
           { action: 'open', title: 'Abrir chat' },
           { action: 'reply', title: 'Responder' },
@@ -177,17 +193,42 @@ export const ChatLayout = () => {
   }, []);
 
   // Phase 5 — when the user taps a push notification while the app is
-  // already open, focus the window and select the conversation.
+  // already open, focus the window and route to the conversation.
+  //   • default / body tap      → open the thread
+  //   • responder / reply       → open the thread + focus the composer
+  //   • marcar_leido / mark_*  → clear the badge without navigating away
   useEffect(() => {
     const handler = (event: MessageEvent) => {
-      if (event.data?.type === 'NOTIFICATION_CLICKED' && event.data?.data?.conversationId) {
-        window.focus();
-        setSelectedConversation(event.data.data.conversationId);
+      if (event.data?.type !== 'NOTIFICATION_CLICKED') return;
+      const data = event.data?.data || {};
+      const conversationId = data.conversationId as string | undefined;
+      const action = event.data?.action as string | undefined;
+      window.focus();
+
+      if (action === 'marcar_leido' || action === 'mark_read' || action === 'mark_as_read') {
+        if (!conversationId) return;
+        markConversationRead(conversationId);
+        return;
+      }
+
+      if (!conversationId) return;
+      setSelectedConversation(conversationId);
+
+      if (action === 'responder' || action === 'reply') {
+        // The composer may still be mounting while the conversation loads;
+        // keep retrying briefly until it exists, then put the caret in it.
+        let tries = 0;
+        const focusComposer = () => {
+          const el = document.querySelector<HTMLElement>('[data-chat-composer]');
+          if (el) el.focus();
+          else if (tries++ < 30) setTimeout(focusComposer, 100);
+        };
+        setTimeout(focusComposer, 0);
       }
     };
     navigator.serviceWorker?.addEventListener?.('message', handler);
     return () => navigator.serviceWorker?.removeEventListener?.('message', handler);
-  }, [setSelectedConversation]);
+  }, [setSelectedConversation, markConversationRead]);
 
   // Deep link handled by <DeepLinkEffect> rendered in the JSX (wrapped in
   // Suspense to satisfy Next 15's useSearchParams boundary requirement).

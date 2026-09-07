@@ -1,4 +1,4 @@
-const CACHE_NAME = 'diamond-link-v9';
+const CACHE_NAME = 'diamond-link-v10';
 // Precached at install: the JS/CSS chunks the chat shell needs to boot offline.
 const SHELL_CACHE = 'diamond-link-shell-v1';
 // Only files whose URL carries a long content hash are immutable (safe to
@@ -113,6 +113,85 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// Push aggregation — WhatsApp-style per-thread notifications.
+//
+// sw.js is a plain static file (no bundler), so instead of importing
+// idb-keyval we talk to a tiny native IndexedDB store directly. Each thread
+// keeps a persistent unread record (count + last few message snippets) so the
+// tray card can be replaced/renotified per chat while the app is closed.
+// ---------------------------------------------------------------------------
+const PUSH_DB_NAME = 'diamond-link-push';
+const PUSH_DB_VERSION = 1;
+const PUSH_STORE = 'threads';
+const MAX_SNIPPETS = 3;
+
+function openPushDB() {
+  return new Promise((resolve, reject) => {
+    let request;
+    try {
+      request = indexedDB.open(PUSH_DB_NAME, PUSH_DB_VERSION);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(PUSH_STORE)) {
+        db.createObjectStore(PUSH_STORE, { keyPath: 'threadId' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function pushStoreAccess(mode) {
+  const db = await openPushDB();
+  return db.transaction(PUSH_STORE, mode).objectStore(PUSH_STORE);
+}
+
+// Every helper is defensive: push must never fall over because a side channel
+// (IndexedDB) is unavailable — the notification itself always still shows.
+async function getThread(threadId) {
+  try {
+    const store = await pushStoreAccess('readonly');
+    return await new Promise((resolve, reject) => {
+      const req = store.get(threadId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function saveThread(record) {
+  try {
+    const store = await pushStoreAccess('readwrite');
+    await new Promise((resolve, reject) => {
+      const req = store.put(record);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    // Non-fatal: aggregation state is best-effort.
+  }
+}
+
+async function deleteThread(threadId) {
+  try {
+    const store = await pushStoreAccess('readwrite');
+    await new Promise((resolve, reject) => {
+      const req = store.delete(threadId);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    // Non-fatal.
+  }
+}
+
 // Phase 5 — push notifications (VAPID). The server sends JSON payloads;
 // show them in the OS notification tray. IMPORTANT: every push must end in a
 // showNotification() call. Chromium counts pushes that finish without a
@@ -120,6 +199,96 @@ self.addEventListener('fetch', (event) => {
 // budget is exhausted, STOPS WAKING THE WORKER FOR NEW PUSHES ENTIRELY — the
 // classic "delivered but never appears" failure with no console error. So no
 // early returns and no unguarded throws in here, ever.
+const LEGACY_ACTIONS = [
+  { action: 'open', title: 'Abrir chat' },
+  { action: 'reply', title: 'Responder' },
+];
+
+// Per-thread (WhatsApp-style) notification. One tray card per conversation,
+// re-notifying/replacing on every new message for that chat.
+async function showThreadNotification(payload, data) {
+  const conversationId = String(data.conversationId);
+  const threadId = 'chat-thread-' + conversationId;
+  const senderName = String(data.senderName || '');
+  const messageText = String(data.messageText || payload.body || '');
+  const conversationName = String(data.conversationName || '');
+  const conversationType = String(data.conversationType || 'direct');
+
+  const prev = (await getThread(threadId)) || {
+    threadId,
+    conversationId,
+    conversationName,
+    conversationType,
+    count: 0,
+    messages: [],
+  };
+
+  // Direct chats title with the sender's name; groups/channels title with the
+  // conversation name. Each snippet for a group is prefixed with the sender.
+  const isDirect = conversationType === 'direct';
+  const chatTitle = isDirect
+    ? senderName || conversationName || 'Diamond Link'
+    : conversationName || 'Chat';
+  const snippet = !isDirect && senderName ? `${senderName}: ${messageText}` : messageText;
+
+  const count = (prev.count || 0) + 1;
+  const messages = [...(prev.messages || []), { text: snippet }].slice(-MAX_SNIPPETS);
+
+  const title = count > 1 ? `${chatTitle} (${count})` : chatTitle;
+  const body = messages.map((m) => m.text).join('\n');
+
+  await saveThread({
+    threadId,
+    conversationId,
+    conversationName,
+    conversationType,
+    count,
+    messages,
+  });
+
+  await self.registration.showNotification(title, {
+    body,
+    // Same-origin asset only. Chrome drops (and can reject) cross-origin
+    // notification icons, so we never ship remote avatar URLs here; the sender
+    // info still rides inside `data`.
+    icon: '/Logo.svg',
+    badge: '/Logo.svg',
+    tag: threadId,
+    renotify: true,
+    data: {
+      ...data,
+      conversationId,
+      conversationTitle: title,
+      unreadCount: count,
+      senderName,
+      messageText,
+    },
+    vibrate: [100, 50, 100],
+    // Chrome shows only the first 2 actions; body tap opens the chat.
+    actions: [
+      { action: 'responder', title: 'Responder' },
+      { action: 'marcar_leido', title: 'Marcar leído' },
+    ],
+  });
+}
+
+// Legacy payloads (test button, calendar/patient links) without thread data:
+// show exactly what the server sent, still guaranteed visible.
+async function showSimpleNotification(payload) {
+  const title = payload.title || 'Diamond Link';
+  const options = {
+    body: payload.body || '',
+    icon: '/Logo.svg',
+    badge: '/Logo.svg',
+    tag: payload.tag || undefined,
+    data: payload.data || {},
+    vibrate: [100, 50, 100],
+    ...(payload.renotify ? { renotify: true } : {}),
+    actions: payload.actions || LEGACY_ACTIONS,
+  };
+  await self.registration.showNotification(title, options);
+}
+
 self.addEventListener('push', (event) => {
   let payload = {};
   try {
@@ -131,35 +300,29 @@ self.addEventListener('push', (event) => {
     };
   }
 
-  const title = payload.title || 'Diamond Link';
-  const options = {
-    body: payload.body || '',
-    // Same-origin asset only. Chrome drops (and can reject) cross-origin
-    // notification icons, so we never ship remote avatar URLs here; the sender
-    // avatar still rides inside `data` for the click handler.
-    icon: '/Logo.svg',
-    badge: '/Logo.svg',
-    tag: payload.tag || undefined,
-    data: payload.data || {},
-    vibrate: [100, 50, 100],
-    ...(payload.renotify ? { renotify: true } : {}),
-    // Notification action buttons (desktop/Android). All carry a single
-    // `convId` so notificationclick can route to the right conversation.
-    actions: payload.actions || [
-      { action: 'open', title: 'Abrir chat' },
-      { action: 'reply', title: 'Responder' },
-    ],
-  };
-
   event.waitUntil(
     (async () => {
       try {
-        await self.registration.showNotification(title, options);
+        const data = (payload.data && typeof payload.data === 'object' ? payload.data : {}) || {};
+        if (data.conversationId) {
+          await showThreadNotification(payload, data);
+        } else {
+          await showSimpleNotification(payload);
+        }
       } catch {
         // Ensure the push is never silent even if a single option is rejected
         // (e.g. platform-specific field). Chrome substitutes a generic tile
-        // otherwise, and repeated substitutions burn the budget above.
-        await self.registration.showNotification(title).catch(() => {});
+        // otherwise, and repeated substitutions burn the silent budget that
+        // stops waking the worker entirely.
+        try {
+          await self.registration.showNotification('Diamond Link', {
+            body: payload.body || '',
+            icon: '/Logo.svg',
+            badge: '/Logo.svg',
+          });
+        } catch {
+          await self.registration.showNotification('Diamond Link').catch(() => {});
+        }
       }
     })()
   );
@@ -171,28 +334,41 @@ self.addEventListener('notificationclick', (event) => {
   const notification = event.notification;
   const data = notification.data || {};
   const action = event.action;
-  const convId = data.conversationId;
-  let url =
-    action === 'reply'
-      ? (convId ? `/chat?conv=${convId}` : '/chat')
-      : data.eventId || data.conversationId
-      ? (convId ? `/chat?conv=${convId}` : '/calendario')
-      : data.patientId
-      ? `/menu-navegacion?id=${data.patientId}`
-      : data.url || '/';
+  const conversationId = data.conversationId || null;
+  // `data.url` may point somewhere else (calendario, patient) for legacy
+  // notifications; chat notifications always deep-link to the thread.
+  const threadId = conversationId ? 'chat-thread-' + conversationId : null;
+  const url = conversationId
+    ? `/chat?conv=${conversationId}`
+    : data.url || '/';
 
-  // If the app is already running, focus + signal the client. For 'reply',
-  // we focus the chat and let the client autofocus the composer (via the
-  // CONV already opened). Otherwise open a fresh window.
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-          client.postMessage({ type: 'NOTIFICATION_CLICKED', data, action });
-          return client.focus();
-        }
+    (async () => {
+      // Opening a thread clears its pending unread count (the client resets
+      // the in-app badge by actually loading the conversation).
+      if (threadId) await deleteThread(threadId);
+
+      const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const sameOrigin = windowClients.filter((c) =>
+        c.url.startsWith(self.location.origin)
+      );
+      // Prefer the chat window (it owns the NOTIFICATION_CLICKED listener for
+      // reply/mark-read); fall back to any other app window.
+      const target =
+        sameOrigin.find((c) => c.url.includes('/chat')) ||
+        sameOrigin.find((c) => 'focus' in c);
+
+      if (target) {
+        // App already running: focus it and let the client route the thread /
+        // action (reply focuses the composer, marcar_leido clears the badge).
+        target.postMessage({ type: 'NOTIFICATION_CLICKED', data, action, threadId });
+        return target.focus();
       }
+
+      // App not running at all: open the deep link. For 'mark read' with no
+      // window open this still opens the chat (which marks it read) — the
+      // least-surprising behaviour.
       return clients.openWindow(url);
-    }),
+    })()
   );
 });
