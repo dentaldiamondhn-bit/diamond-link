@@ -6,9 +6,10 @@ Single source of truth for applied + verified live migrations. Each row: migrati
 
 | File | Applied | Verification |
 | --- | --- | --- |
-| `20260908_calendario_phase0_security.sql` | **Not yet applied** — Dashboard SQL editor | **Verify manually**: run `/tmp/opencode/probe_tables.cjs`; expect `calendar_*` → `MISSING`, `get_user_events/get_user_tasks` → gone, and anon `SELECT` on `events/tasks/reminders/event_invitees/event_reminders` → `ERR(...)` (RLS enforced) while service role still `OK` |
+| `20260908_calendario_phase0_security.sql` | ✓ 2026-09-08 (Dashboard SQL editor) | **✓ verified live** — `/tmp/opencode/probe_tables.cjs`: `calendar_*` → `MISSING`, all five canonical tables service-role `OK`, anon `42501`/`42P17` blocked |
+| `20260908b_calendario_phase0_fix_policy_recursion.sql` | ✓ 2026-09-08 (Dashboard SQL editor) | **✓ verified live** — anon on `events`/`event_invitees`/`event_reminders` now `42501 permission denied` (42P17 recursion eliminated); service role unchanged `OK`; `get_user_events`/`get_user_tasks` RPCs gone |
 
-Pre-apply live baseline (2026-09-08, `probe_tables.cjs`): all five canonical tables (`events`, `tasks`, `reminders`, `event_invitees`, `event_reminders`) and all four legacy tables (`calendar_events`, `calendar_tasks`, `calendar_reminders`, `calendar_invitees`) exist, **all RLS-off** (anon key can read everything), all empty. Hence the security migration is zero-loss.
+Pre-apply live baseline (2026-09-08, `probe_tables.cjs`): all five canonical tables (`events`, `tasks`, `reminders`, `event_invitees`, `event_reminders`) and all four legacy tables (`calendar_events`, `calendar_tasks`, `calendar_reminders`, `calendar_invitees`) exist, **all RLS-off** (anon key can read everything), all empty. Hence the security migration is zero-loss. Post-apply (both files): **anon locked out of all five canonical tables (`42501`), legacy tables dropped, recursion-free policies in place.**
 
 ## Chat overhaul — delivered (Phase 10)
 
