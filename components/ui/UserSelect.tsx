@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CalendarInviteesService } from '../../services/calendarInviteesService';
 import { UserAvatar, RoleBadge } from './UserComponents';
 
 interface User {
@@ -49,8 +48,12 @@ export const UserSelect: React.FC<UserSelectProps> = ({
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const allUsers = await CalendarInviteesService.getAllUsers();
-      setUsers(allUsers);
+      // Inline fetch replacing the former CalendarInviteesService.getAllUsers()
+      // (orphaned UUID-layer service removed in calendario Phase 0).
+      const res = await fetch('/api/users');
+      if (!res.ok) throw new Error('Error fetching users');
+      const users = await res.json();
+      setUsers(users || []);
     } catch (error) {
       console.error('Error loading users:', error);
     } finally {
@@ -84,32 +87,6 @@ export const UserSelect: React.FC<UserSelectProps> = ({
       return `${user.first_name || ''} ${user.last_name || ''}`.trim();
     }
     return user.email || 'Usuario sin nombre';
-  };
-
-  const getInitials = (user: User) => {
-    if (user.first_name && user.last_name) {
-      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
-    }
-    if (user.first_name) {
-      return user.first_name[0].toUpperCase();
-    }
-    if (user.email) {
-      return user.email[0].toUpperCase();
-    }
-    return 'U';
-  };
-
-  const getRoleColor = (role?: string) => {
-    switch (role?.toLowerCase()) {
-      case 'admin':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
-      case 'doctor':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
-      case 'staff':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
-    }
   };
 
   if (loading) {

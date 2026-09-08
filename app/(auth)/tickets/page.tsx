@@ -37,7 +37,6 @@ import {
 } from 'lucide-react';
 import { UserSelect } from '@/components/ui/UserSelect';
 import { UserAvatar } from '@/components/ui/UserComponents';
-import { CalendarInviteesService } from '@/services/calendarInviteesService';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { STATUS_LABELS, PRIORITY_LABELS, TYPE_LABELS, ACTIVITY_LABELS } from '@/lib/ticketLabels';
@@ -1032,7 +1031,8 @@ function CreateTicketModal({
   // Default the assignment to tech-support users so most tickets can be created without selecting assignees
   useEffect(() => {
     let cancelled = false;
-    CalendarInviteesService.getAllUsers()
+    fetch('/api/users')
+      .then((res) => (res.ok ? res.json() : []))
       .then((users) => {
         if (cancelled) return;
         const techSupportUsers = users.filter((u: any) => (u.role || '').toLowerCase() === 'tech_support');

@@ -1,26 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerServiceClient } from '@/lib/supabase/server';
+import { authorizeCalendar } from '@/lib/calendarAuth';
+import { isEventMember, isEventOwner } from '@/lib/calendarAccess';
 
 export const runtime = 'nodejs';
 
-function getUserId(req: NextRequest) {
-  return req.headers.get('x-user-id') || '';
-}
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const userId = getUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const supabase = createServerServiceClient();
+
+    if (!(await isEventMember(supabase, id, userId))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const eventId = id;
-    const supabase = await createClient();
     const { data, error } = await supabase
       .from('event_invitees')
       .select('*')
-      .eq('event_id', eventId)
+      .eq('event_id', id)
       .order('invited_at', { ascending: true });
 
     if (error) throw error;
@@ -30,15 +34,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
+
   try {
     const { id } = await params;
-    const userId = getUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const eventId = id;
     const body = await req.json();
     const { user_id, status = 'pending' } = body;
 
@@ -46,11 +51,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const supabase = createServerServiceClient();
+
+    if (!(await isEventOwner(supabase, id, userId))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { data, error } = await supabase
       .from('event_invitees')
       .insert({
-        event_id: eventId,
+        event_id: id,
         user_id,
         status,
         created_by: userId,
@@ -71,38 +81,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
+
   try {
     const { id } = await params;
-    const userId = getUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const eventId = id;
     const body = await req.json();
     const { user_id } = body;
 
-    const supabase = await createClient();
+    const supabase = createServerServiceClient();
 
-    if (user_id) {
-      const { error } = await supabase
-        .from('event_invitees')
-        .delete()
-        .eq('event_id', eventId)
-        .eq('user_id', user_id);
-
-      if (error) throw error;
-      return NextResponse.json({ ok: true }, { status: 200 });
+    if (!(await isEventOwner(supabase, id, userId))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { error } = await supabase
-      .from('event_invitees')
-      .delete()
-      .eq('event_id', eventId);
+    let query = supabase.from('event_invitees').delete().eq('event_id', id);
+    if (user_id) query = query.eq('user_id', user_id);
 
+    const { error } = await query;
     if (error) throw error;
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ ok: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

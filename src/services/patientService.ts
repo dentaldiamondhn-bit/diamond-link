@@ -226,7 +226,7 @@ export class PatientService {
       await supabase.from('patient_follow_ups').delete().eq('paciente_id', pacienteId);
       await supabase.from('patient_odontogram').delete().eq('paciente_id', pacienteId);
       await supabase.from('consentimientos').delete().eq('paciente_id', pacienteId);
-      await supabase.from('calendar_events').delete().eq('paciente_id', pacienteId);
+      await supabase.from('events').delete().eq('patient_id', pacienteId);
       
       // Finally delete the patient record
       const { error } = await supabase

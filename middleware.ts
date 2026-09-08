@@ -140,7 +140,8 @@ export default clerkMiddleware(async (auth, req) => {
       '/dashboard',
       '/pacientes',
       '/doctores',
-      '/calendario',
+      // NOTE: '/calendario' is intentionally NOT in this temporary list — it is
+      // gated by canAccessRouteServer (admin|doctor|assistant) below (Phase 0).
       '/patient-form',
       '/consentimientos',
       '/odontogram-pilot',

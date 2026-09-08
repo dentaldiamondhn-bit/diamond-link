@@ -1,32 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerServiceClient } from '@/lib/supabase/server';
+import { authorizeCalendar } from '@/lib/calendarAuth';
+import { isEventMember } from '@/lib/calendarAccess';
 
 export const runtime = 'nodejs';
 
-function getUserId(req: NextRequest) {
-  return req.headers.get('x-user-id') || '';
-}
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const userId = getUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const supabase = createServerServiceClient();
+
+    if (!(await isEventMember(supabase, id, userId))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const eventId = id;
-    const supabase = await createClient();
     const participants: any[] = [];
 
     const { data: eventData, error: eventError } = await supabase
       .from('events')
       .select('user_id, title')
-      .eq('id', eventId)
+      .eq('id', id)
       .single();
 
     if (eventError || !eventData) {
-      return NextResponse.json(participants, { status: 200 });
+      return NextResponse.json(participants);
     }
 
     const userIdsToFetch = new Set<string>();
@@ -35,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { data: invitees, error: inviteesError } = await supabase
       .from('event_invitees')
       .select('user_id, status')
-      .eq('event_id', eventId)
+      .eq('event_id', id)
       .in('status', ['pending', 'accepted']);
 
     if (!inviteesError && invitees && invitees.length > 0) {
@@ -77,7 +81,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
-    return NextResponse.json(participants, { status: 200 });
+    return NextResponse.json(participants);
   } catch (err: any) {
     if (process.env.NODE_ENV === 'development') {
       console.error('[participants] error', err);

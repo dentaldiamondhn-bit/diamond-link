@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServerServiceClient } from '@/lib/supabase/server';
+import { authorizeCalendar } from '@/lib/calendarAuth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+
   try {
     const { id } = await params;
     const patientId = id;
 
-    // Get patient events from calendar
+    // Canonical model (calendario Phase 0): patient events live in the `events`
+    // family, not the removed `calendar_events` UUID layer.
+    const supabase = createServerServiceClient();
     const { data: events, error } = await supabase
-      .from('calendar_events')
+      .from('events')
       .select('*')
       .eq('patient_id', patientId)
-      .order('start_date', { ascending: false });
+      .order('date', { ascending: false });
 
     if (error) {
       console.error('Error fetching events:', error);

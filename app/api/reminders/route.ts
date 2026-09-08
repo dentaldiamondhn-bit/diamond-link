@@ -1,45 +1,43 @@
-import { createClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+import { createServerServiceClient } from '@/lib/supabase/server';
+import { authorizeCalendar } from '@/lib/calendarAuth';
 
 export const runtime = 'nodejs';
 
-function getUserAndToken(req: Request) {
-  const userId = req.headers.get('x-user-id') || '';
-  if (!userId) return { user: null, error: 'Unauthorized' };
-  return { user: { id: userId }, error: null };
-}
-
-export async function GET(req: Request) {
-  const { user, error } = getUserAndToken(req);
-  if (error) return new Response(JSON.stringify({ error }), { status: 401 });
+export async function GET() {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
 
   try {
-    const supabase = await createClient();
+    const supabase = createServerServiceClient();
     const { data, error: dbError } = await supabase
       .from('reminders')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('remind_at', { ascending: true });
 
     if (dbError) throw dbError;
-    return new Response(JSON.stringify(data || []), { status: 200 });
+    return NextResponse.json(data || []);
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
-  const { user, error } = getUserAndToken(req);
-  if (error) return new Response(JSON.stringify({ error }), { status: 401 });
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
 
   try {
     const body = await req.json();
     const { message, remind_at } = body;
 
-    const supabase = await createClient();
+    const supabase = createServerServiceClient();
     const { data, error: dbError } = await supabase
       .from('reminders')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         message,
         remind_at,
         dismissed: false,
@@ -48,54 +46,56 @@ export async function POST(req: Request) {
       .single();
 
     if (dbError) throw dbError;
-    return new Response(JSON.stringify(data), { status: 201 });
+    return NextResponse.json(data, { status: 201 });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
 export async function PUT(req: Request) {
-  const { user, error } = getUserAndToken(req);
-  if (error) return new Response(JSON.stringify({ error }), { status: 401 });
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
 
   try {
     const body = await req.json();
     const { id, ...updates } = body;
 
-    const supabase = await createClient();
+    const supabase = createServerServiceClient();
     const { data, error: dbError } = await supabase
       .from('reminders')
       .update(updates)
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .select()
       .single();
 
     if (dbError) throw dbError;
-    return new Response(JSON.stringify(data), { status: 200 });
+    return NextResponse.json(data);
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
 export async function DELETE(req: Request) {
-  const { user, error } = getUserAndToken(req);
-  if (error) return new Response(JSON.stringify({ error }), { status: 401 });
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
 
   try {
     const body = await req.json();
     const { id } = body;
 
-    const supabase = await createClient();
+    const supabase = createServerServiceClient();
     const { error: dbError } = await supabase
       .from('reminders')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     if (dbError) throw dbError;
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

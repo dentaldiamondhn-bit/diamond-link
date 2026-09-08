@@ -1,26 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerServiceClient } from '@/lib/supabase/server';
+import { authorizeCalendar } from '@/lib/calendarAuth';
+import { isEventMember, isEventOwner } from '@/lib/calendarAccess';
 
 export const runtime = 'nodejs';
 
-function getUserId(req: NextRequest) {
-  return req.headers.get('x-user-id') || '';
-}
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const userId = getUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const supabase = createServerServiceClient();
+
+    if (!(await isEventMember(supabase, id, userId))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const eventId = id;
-    const supabase = await createClient();
     const { data, error } = await supabase
       .from('event_reminders')
       .select('*')
-      .eq('event_id', eventId)
+      .eq('event_id', id)
       .order('minutes_before', { ascending: true });
 
     if (error) throw error;
@@ -30,15 +34,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
+
   try {
     const { id } = await params;
-    const userId = getUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const eventId = id;
     const body = await req.json();
     const { minutes_before } = body;
 
@@ -48,14 +53,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const reminderTime = new Date();
     reminderTime.setMinutes(reminderTime.getMinutes() - minutes_before);
-    // This is just for compatibility; actual reminder_time is derived in save logic.
     const isoReminderTime = reminderTime.toISOString();
 
-    const supabase = await createClient();
+    const supabase = createServerServiceClient();
+
+    if (!(await isEventOwner(supabase, id, userId))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { data, error } = await supabase
       .from('event_reminders')
       .insert({
-        event_id: eventId,
+        event_id: id,
         minutes_before,
         reminder_time: isoReminderTime,
       })
@@ -69,38 +78,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
+
   try {
     const { id } = await params;
-    const userId = getUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const eventId = id;
     const body = await req.json();
     const { reminder_id } = body;
 
-    const supabase = await createClient();
+    const supabase = createServerServiceClient();
 
-    if (reminder_id) {
-      const { error } = await supabase
-        .from('event_reminders')
-        .delete()
-        .eq('event_id', eventId)
-        .eq('id', reminder_id);
-
-      if (error) throw error;
-      return NextResponse.json({ ok: true }, { status: 200 });
+    if (!(await isEventOwner(supabase, id, userId))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { error } = await supabase
-      .from('event_reminders')
-      .delete()
-      .eq('event_id', eventId);
+    let query = supabase.from('event_reminders').delete().eq('event_id', id);
+    if (reminder_id) query = query.eq('id', reminder_id);
 
+    const { error } = await query;
     if (error) throw error;
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ ok: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

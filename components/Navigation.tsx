@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import AnimatedUser from './AnimatedUser';
 import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
-import { CalendarNotificationCounter } from './ui/CalendarNotificationCounter';
 
 interface NavItem {
   href: string;
@@ -89,7 +88,6 @@ export default function Navigation() {
                   {typeof item.icon === 'string' ? (
                     <div className="mr-2">
                       <i className={`${item.icon}`}></i>
-                      {item.href === '/calendario' && <CalendarNotificationCounter className="ml-1" />}
                     </div>
                   ) : (
                     <>{item.icon}</>

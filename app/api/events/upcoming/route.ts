@@ -1,32 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerServiceClient } from '@/lib/supabase/server';
+import { authorizeCalendar } from '@/lib/calendarAuth';
+import { clinicDateKey } from '@/calendario/timezone';
 
 export const runtime = 'nodejs';
 
-function getUserId(req: NextRequest) {
-  return req.headers.get('x-user-id') || '';
-}
+export async function GET() {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
 
-export async function GET(req: NextRequest) {
   try {
-    const userId = getUserId(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const supabase = await createClient();
-    const nowLocal = new Date();
-    const startOfTodayUTC = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate()).toISOString();
-    const nextWeekLocal = new Date();
-    nextWeekLocal.setDate(nextWeekLocal.getDate() + 14);
-    const nextWeekUTC = nextWeekLocal.toISOString();
+    const supabase = createServerServiceClient();
+    const start = clinicDateKey();
+    const end = clinicDateKey(new Date(), 14);
 
     const { data: events, error: eventsError } = await supabase
       .from('events')
       .select('*')
       .eq('user_id', userId)
-      .gte('date', startOfTodayUTC.slice(0, 10))
-      .lte('date', nextWeekUTC.slice(0, 10))
+      .gte('date', start)
+      .lte('date', end)
       .neq('status', 'cancelled')
       .order('date', { ascending: true })
       .order('start_time', { ascending: true });

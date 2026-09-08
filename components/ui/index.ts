@@ -4,7 +4,6 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
 export { LoadingSpinner } from './LoadingSpinner';
 export { UserAvatar } from './UserComponents';
 export { UserSelect } from './UserSelect';
-export { CalendarNotificationCounter } from './CalendarNotificationCounter';
 export { Input } from './Input';
 export { Label } from './Label';
 export { Textarea } from './Textarea';

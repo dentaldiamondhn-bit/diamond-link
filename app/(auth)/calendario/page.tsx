@@ -1,12 +1,15 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
+import dynamic from 'next/dynamic';
 import { ToastProvider } from '@/components/calendar-new/Toast';
-import Dashboard from '@/components/calendar-new/Dashboard';
-import { useEffect, useState } from 'react';
+
+const CalendarCurrent = dynamic(() => import('@/components/calendar-new/Dashboard'), { ssr: false });
+const CalendarNew = dynamic(() => import('@/components/calendar-new/CalendarShell'), { ssr: false });
 
 export default function CalendarPage() {
   const { user, isLoaded } = useUser();
+  const useNewCalendar = process.env.NEXT_PUBLIC_USE_NEW_CALENDARIO === 'true';
 
   if (!isLoaded) {
     return (
@@ -32,7 +35,7 @@ export default function CalendarPage() {
 
   return (
     <ToastProvider>
-      <Dashboard userId={user.id} />
+      {useNewCalendar ? <CalendarNew userId={user.id} /> : <CalendarCurrent userId={user.id} />}
     </ToastProvider>
   );
 }
