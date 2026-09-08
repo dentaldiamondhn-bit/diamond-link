@@ -8,7 +8,30 @@ Single source of truth for applied + verified live migrations. Each row: migrati
 | --- | --- | --- |
 | `20260908_calendario_phase0_security.sql` | ✓ 2026-09-08 (Dashboard SQL editor) | **✓ verified live** — `/tmp/opencode/probe_tables.cjs`: `calendar_*` → `MISSING`, all five canonical tables service-role `OK`, anon `42501`/`42P17` blocked |
 | `20260908b_calendario_phase0_fix_policy_recursion.sql` | ✓ 2026-09-08 (Dashboard SQL editor) | **✓ verified live** — anon on `events`/`event_invitees`/`event_reminders` now `42501 permission denied` (42P17 recursion eliminated); service role unchanged `OK`; `get_user_events`/`get_user_tasks` RPCs gone |
-| `20260908c_calendario_phase2_realtime.sql` | ◻ authored 2026-09-08 — **apply in Dashboard SQL editor** | **Verify manually** after apply — probe: `events`/`tasks`/`reminders`/`event_invitees`/`event_reminders` ∈ `supabase_realtime` pub AND `relreplident = 'f'` (REPLICA IDENTITY FULL) |
+| `20260908c_calendario_phase2_realtime.sql` | ⚠ attempted 2026-09-08 — **NOT effective live** | **Verify manually** — realtime service-role probe (`/tmp/opencode/probe_realtime.cjs`, 2 runs): `events`/`reminders`/`event_invitees`/`event_reminders` INSERTs delivered (already published pre-migration), but **`tasks` subscriber never reaches `SUBSCRIBED`** (not in publication) and **no DELETE event fires on any table** (`payload.old` empty ⇒ no REPLICA IDENTITY FULL). Re-run the migration in the Dashboard SQL editor; confirm with the diagnostics below. |
+
+### Realtime/identity verification diagnostics (20260908c)
+
+Run in the Supabase Dashboard SQL editor after re-applying the migration:
+
+```sql
+-- 1) Should return 5 rows (one per canonical table) in supabase_realtime:
+SELECT pubname, schemaname, tablename
+FROM pg_publication_tables
+WHERE pubname = 'supabase_realtime'
+  AND tablename IN ('events','tasks','reminders','event_invitees','event_reminders')
+ORDER BY tablename;
+
+-- 2) Should show relreplident = f (FULL) for all five:
+SELECT c.relname, c.relreplident
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relname IN ('events','tasks','reminders','event_invitees','event_reminders')
+ORDER BY c.relname;
+```
+
+Live schema drift found while probing (2026-09-08, `/tmp/opencode/openapi.json`): the live `events` table has **no `procedure` / `dentist` columns** (PostgREST reports `PGRST204` on the app's POST `/api/events` which inserts both) — a follow-up `…d` migration is needed to add them.
 
 Pre-apply live baseline (2026-09-08, `probe_tables.cjs`): all five canonical tables (`events`, `tasks`, `reminders`, `event_invitees`, `event_reminders`) and all four legacy tables (`calendar_events`, `calendar_tasks`, `calendar_reminders`, `calendar_invitees`) exist, **all RLS-off** (anon key can read everything), all empty. Hence the security migration is zero-loss. Post-apply (both files): **anon locked out of all five canonical tables (`42501`), legacy tables dropped, recursion-free policies in place.**
 
