@@ -359,8 +359,10 @@ theming, a11y, perf). Auth stays Clerk.
   (10s debounce dedupe + tombstone guard + backoff reconnect); events GET `date_from/to`,
   batched `/api/events/participants?ids=`; shell refactored onto hooks + URL
   `?view=&date=&from=&to=`; middleware `no-store` on user-scoped calendar APIs;
-  migration `20260908c` (realtime publication + REPLICA IDENTITY FULL) **authored —
-  apply via Dashboard then mark applied in LEDGER**.
+  migration `20260908c` (realtime publication + REPLICA IDENTITY FULL) **applied +
+  verified live (2026-09-08)** — pub membership 5/5, `relreplident=f` 5/5, app-pattern
+  realtime probe green ×2 (see LEDGER); `events` `procedure`/`dentist` drift fixed by
+  `20260908d` (applied + verified).
 
 **Active**
 - **Phase 3 — Slot Selection & Event Modal UX** (next): RBC `onSelectSlot`
@@ -368,19 +370,18 @@ theming, a11y, perf). Auth stays Clerk.
   into Zod + RHF steps (Details → Timing → Invitees & Reminders), draft persistence.
 
 **Blocked**
-- Phase 2 realtime is gated on applying `20260908c_calendario_phase2_realtime.sql`
-  (Supabase Dashboard SQL editor); CRUD/range/batched participants work without it.
+- ~~Phase 2 realtime was gated on applying `20260908c`~~ — applied + **verified live** (2026-09-08);
+  note: hosted realtime needed a project restart to re-read the publication (per-table-channel joins
+  remain intermittently flaky — route uses one join, mitigated), and RLS keeps `payload.old` minimal
+  (invalidate-only guard is unaffected).
 - Live QA (C01–C36) needs deployed env + real auth credentials (same constraint as the
   chat plan; in-session checks cover API/SW/server paths).
 
 ### Next Move
-1. Apply `database/migrations/20260908c_calendario_phase2_realtime.sql` in the Dashboard
-   SQL editor, then mark verified in `database/migrations/LEDGER.md` (probe: realtime
-   pub membership + `REPLICA IDENTITY FULL` on the canonical five).
-2. Phase 3: slot-driven create/edit — `onSelectSlot({start,end})` pre-fills the modal,
+1. Phase 3: slot-driven create/edit — `onSelectSlot({start,end})` pre-fills the modal,
    `onSelectEvent` opens a detail drawer, modal split into modular steps (Zod + RHF).
-3. Phase 5 (reminder consolidation + push route-through) reuses the chat web-push pipeline.
-4. Keep the gate below.
+2. Phase 5 (reminder consolidation + push route-through) reuses the chat web-push pipeline.
+3. Keep the gate below.
 
 ### Verification Gate
 ```bash

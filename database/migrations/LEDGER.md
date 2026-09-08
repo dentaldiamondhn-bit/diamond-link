@@ -8,12 +8,12 @@ Single source of truth for applied + verified live migrations. Each row: migrati
 | --- | --- | --- |
 | `20260908_calendario_phase0_security.sql` | ✓ 2026-09-08 (Dashboard SQL editor) | **✓ verified live** — `/tmp/opencode/probe_tables.cjs`: `calendar_*` → `MISSING`, all five canonical tables service-role `OK`, anon `42501`/`42P17` blocked |
 | `20260908b_calendario_phase0_fix_policy_recursion.sql` | ✓ 2026-09-08 (Dashboard SQL editor) | **✓ verified live** — anon on `events`/`event_invitees`/`event_reminders` now `42501 permission denied` (42P17 recursion eliminated); service role unchanged `OK`; `get_user_events`/`get_user_tasks` RPCs gone |
-| `20260908c_calendario_phase2_realtime.sql` | ⚠ attempted 2026-09-08 — **NOT effective live** | **Verify manually** — realtime service-role probe (`/tmp/opencode/probe_realtime.cjs`, 2 runs): `events`/`reminders`/`event_invitees`/`event_reminders` INSERTs delivered (already published pre-migration), but **`tasks` subscriber never reaches `SUBSCRIBED`** (not in publication) and **no DELETE event fires on any table** (`payload.old` empty ⇒ no REPLICA IDENTITY FULL). Re-run the migration in the Dashboard SQL editor; confirm with the diagnostics below. |
-| `20260908d_events_add_procedure_dentist.sql` | ◻ authored 2026-09-08 | **Verify manually** — apply in Dashboard, then `SELECT column_name FROM information_schema.columns WHERE table_name='events' AND column_name IN ('procedure','dentist')` must return 2 rows; app `POST /api/events` stops returning `PGRST204`. Fixes live drift vs `create_new_calendar_tables.sql` (lines 6–7). |
+| `20260908c_calendario_phase2_realtime.sql` | ✓ 2026-09-08 (Dashboard SQL editor; first apply ineffective → verified **NOT effective live** via probes, re-applied, live verified after Management-API project restart) | **✓ verified live (2026-09-08)** — Dashboard SQL: `pg_publication_tables` → 5/5 canonical tables in `supabase_realtime`; `pg_class.relreplident` → `f` on all five; **app-pattern probe** `/tmp/opencode/probe_route.cjs` (1 channel / 4 bindings `events`+`tasks`+`reminders`+`event_invitees`, exactly the `/api/events/realtime` shape) **✓ ×2**: join `SUBSCRIBED`, INSERT delivered for all four (incl. `tasks`). Known caveats: (1) hosted realtime caches pre-migration state — restart required (`POST /v1/projects/{ref}/restart`), and *per-table-channel* joins remain intermittently flaky (`TIMED_OUT`; matches supabase/realtime #1747/#1871) — route uses a single join so unaffected; (2) with RLS on, `payload.old` stays minimal (PK-only) even with FULL identity — documented Supabase limitation, irrelevant to the invalidate-only client guard. |
+| `20260908d_events_add_procedure_dentist.sql` | ✓ 2026-09-08 (Dashboard SQL editor) | **✓ verified live (2026-09-08)** — live `events` now 19 columns; realtime/PostgREST report `procedure` + `dentist`; app INSERTs (probe rows incl. both fields) succeed, `PGRST204` gone. Fixes drift vs `create_new_calendar_tables.sql` (lines 6–7). |
 
-### Realtime/identity verification diagnostics (20260908c)
+### Realtime/identity verification output (20260908c) — used to confirm, after apply
 
-Run in the Supabase Dashboard SQL editor after re-applying the migration:
+Ran in the Supabase Dashboard SQL editor (2026-09-08):
 
 ```sql
 -- 1) Should return 5 rows (one per canonical table) in supabase_realtime:
@@ -32,7 +32,7 @@ WHERE n.nspname = 'public'
 ORDER BY c.relname;
 ```
 
-Live schema drift found while probing (2026-09-08, `/tmp/opencode/openapi.json`): the live `events` table has **no `procedure` / `dentist` columns** (PostgREST reports `PGRST204` on the app's POST `/api/events` which inserts both) — fixes by `20260908d_…` above.
+Live schema drift found while probing (2026-09-08, `/tmp/opencode/openapi.json`): the live `events` table had **no `procedure` / `dentist` columns** (PostgREST reports `PGRST204` on the app's POST `/api/events` which inserts both) — fixed by `20260908d_…` above (applied + verified).
 
 Pre-apply live baseline (2026-09-08, `probe_tables.cjs`): all five canonical tables (`events`, `tasks`, `reminders`, `event_invitees`, `event_reminders`) and all four legacy tables (`calendar_events`, `calendar_tasks`, `calendar_reminders`, `calendar_invitees`) exist, **all RLS-off** (anon key can read everything), all empty. Hence the security migration is zero-loss. Post-apply (both files): **anon locked out of all five canonical tables (`42501`), legacy tables dropped, recursion-free policies in place.**
 

@@ -16,8 +16,11 @@ export const dynamic = 'force-dynamic';
  *
  * Filters: `events` / `tasks` / `reminders` where `user_id = X` (the caller's
  * rows) and `event_invitees` where `user_id = X` (events the caller is invited
- * to). REPLICA IDENTITY FULL (migration 20260908c) guarantees UPDATE/DELETE
- * payloads carry full new/old rows for the client tombstone guard.
+ * to). One channel join, four bindings (keeps the join robust — see LEDGER for
+ * hosted per-table-channel flakiness). Migration 20260908c set `REPLICA IDENTITY
+ * FULL` on the canonical five; note that with RLS on, `payload.old` still only
+ * carries the PK (documented Supabase limitation) — the client guard invalidates
+ * rather than merges, so this is fine.
  */
 export async function GET() {
   const authz = await authorizeCalendar();
