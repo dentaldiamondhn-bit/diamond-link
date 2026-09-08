@@ -1,20 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function GET(req: NextRequest) {
   const authz = await authorizeCalendar();
   if ('response' in authz) return authz.response;
   const { userId } = authz;
 
+  const { searchParams } = new URL(req.url);
+  const dateFrom = searchParams.get('date_from');
+  const dateTo = searchParams.get('date_to');
+  if (dateFrom && !DATE_RE.test(dateFrom)) {
+    return NextResponse.json({ error: 'date_from must be YYYY-MM-DD' }, { status: 400 });
+  }
+  if (dateTo && !DATE_RE.test(dateTo)) {
+    return NextResponse.json({ error: 'date_to must be YYYY-MM-DD' }, { status: 400 });
+  }
+
   try {
     const supabase = createServerServiceClient();
-    const { data, error: dbError } = await supabase
+    let query = supabase
       .from('events')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', userId);
+
+    if (dateFrom) query = query.gte('date', dateFrom);
+    if (dateTo) query = query.lte('date', dateTo);
+
+    const { data, error: dbError } = await query
       .order('date', { ascending: true })
       .order('start_time', { ascending: true });
 

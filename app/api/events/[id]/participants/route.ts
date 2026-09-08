@@ -53,6 +53,8 @@ export async function GET(
       .select('id, first_name, last_name, email, profile_image_url')
       .in('id', Array.from(userIdsToFetch));
 
+    if (usersError) throw usersError;
+
     const userMap = new Map((usersData || []).map((u) => [u.id, u]));
 
     if (eventData.user_id) {

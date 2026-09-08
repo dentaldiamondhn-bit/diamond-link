@@ -231,8 +231,21 @@ function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
   
   // Handle API routes differently for Cloudflare caching
   if (req.nextUrl.pathname.startsWith('/api/')) {
-    // Exclude odysseus-chat from caching to allow real-time health checks
-    if (!req.nextUrl.pathname.includes('/api/odysseus-chat') && !req.nextUrl.pathname.includes('/api/groq-chat') && !req.nextUrl.pathname.includes('/api/ollama-chat')) {
+    // Calendar APIs are user-scoped (Phase 0/2): never cache them publicly, and
+    // avoid double-setting the header for the SSE route (which manages its own).
+    const isUserScopedCalendarApi =
+      req.nextUrl.pathname.startsWith('/api/events') ||
+      req.nextUrl.pathname.startsWith('/api/tasks') ||
+      req.nextUrl.pathname.startsWith('/api/reminders');
+    const isCalendarRealtime = req.nextUrl.pathname.includes('/api/events/realtime');
+
+    if (isUserScopedCalendarApi && !isCalendarRealtime) {
+      response.headers.set('Cache-Control', 'no-store');
+    } else if (
+      !req.nextUrl.pathname.includes('/api/odysseus-chat') &&
+      !req.nextUrl.pathname.includes('/api/groq-chat') &&
+      !req.nextUrl.pathname.includes('/api/ollama-chat')
+    ) {
       response.headers.set('Cache-Control', 'public, max-age=7200, s-maxage=7200');
     }
     response.headers.set('X-RateLimit-Limit', '100');

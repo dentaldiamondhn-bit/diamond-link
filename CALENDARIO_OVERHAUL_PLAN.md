@@ -1,6 +1,6 @@
 # Calendario Overhaul Plan (Diamond Link) — React-Big-Calendar (RBC) Edition
 
-> **Last updated:** 2026-09-08 · **Status:** Phases 0–1 complete (`████████░░░░░░░░░░░░ 40%`)
+> **Last updated:** 2026-09-08 · **Status:** Phases 0–2 complete (`████████████░░░░░░░░░░ 60%`)
 >
 > This plan keeps the point-for-point structure of `CHAT_OVERHAUL_PLAN.md` (same 11-phase
 > skeleton, quick/full/original matrices, analysis, comparison, effort, priority,
@@ -111,7 +111,7 @@
 |---|-------|--------|----------|--------------|----------------|
 | **0** | Foundation, Data Model & Security | ✅ | `████████████████████ 100%` | Two models coexist; RLS inconsistent; `x-user-id` trust; `/api/(.*)` public; `send-to-user` unauthenticated; timezone shims; unversioned SQL | Canonical `events` family; Clerk-session auth; RLS ownership predicates; timezone policy + RBC localizer alignment; versioned migrations + `NEXT_PUBLIC_USE_NEW_CALENDARIO` |
 | **1** | RBC Layout & Navigation Engine | ✅ | `████████████████████ 100%` | Custom month-only `CalendarGrid` + `DayDetail`; `en-US` label; framer-motion tiles | Install `react-big-calendar` + `date-fns`; localizer (es, Monday start); Month/Week/Work-Week/Day/Agenda; toolbar → URL sync (`?view=&date=`); responsive shell |
-| **2** | Data Layer, RBC Bridge & Realtime | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Raw `fetch` + `Promise.all` + refetch-all; react-query unused; realtime on orphaned tables; no REPLICA IDENTITY; N+1; public `Cache-Control:7200` | Repository layer; `rbcAdapter` (`ClinicEvent` ↔ `RBCEvent`); react-query per user/range; realtime on live tables + REPLICA IDENTITY FULL + publication fix; dedupe; batched participants; remove stale caching |
+| **2** | Data Layer, RBC Bridge & Realtime | ✅ | `████████████████████ 100%` | Raw `fetch` + `Promise.all` + refetch-all; react-query unused; realtime on orphaned tables; no REPLICA IDENTITY; N+1; public `Cache-Control:7200` | Repository layer; `rbcAdapter` (`ClinicEvent` ↔ `RBCEvent`); react-query per user/range; realtime on live tables + REPLICA IDENTITY FULL + publication fix; dedupe; batched participants; remove stale caching |
 | **3** | Slot Selection & Event Modal UX | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | 883-line `EventModal` monolith with patient/invitee search, colors, multi-reminders, delete | Split into modular steps (Zod + RHF): Details → Timing (pre-filled from RBC slot) → Invitees & Reminders; `onSelectSlot` quick-add; `onSelectEvent` detail drawer; draft persistence |
 | **4** | Custom RBC Rendering & DnD | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Custom month cells + dots today; no week/day/agenda; no drag | Custom RBC `components.event` (procedure badge, patient name, dentist color dot, `EVENT_COLORS`); agenda rows = WhatsApp-style with status chips; `withDragAndDrop` drag/resize + optimistic updates + chair/cubicle overlap check (desktop) |
 | **5** | Notifications & Push Pipeline | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Bell + `notifications` table; unauthenticated `send-to-user`; no web-push; 3 reminder stores; dead `CalendarNotificationCounter` | One reminder schedule; pg_net trigger on `events`/`event_invitees` → `/api/push/webhook` (calendar payload); SW calendar cards (aggregated per event); `notificationclick` → `/calendario?view=day&date=&eventId=`; secure send routes; bell+push parity |
@@ -129,7 +129,7 @@ Aggregate: **Baseline functional; overhaul planned (~0%). Est. ≈ 24–26 perso
 |---|-------|--------|----------|--------------------------|------------------------------|
 | **0 – Foundation, Data Model & Security** | ✅ | `████████████████████ 100%` | Live `events`/`tasks`/`reminders`/`event_invitees` (SERIAL, string dates, `src/lib/types-calendar.ts`) vs orphaned UUID `src/services/calendar*` + RPCs + `app/api/calendar/*`; RLS partial/experimental; `app/api/events/route.ts::getUserAndToken` trusts `x-user-id` (Bearer ignored); `middleware.ts` `/api/(.*)` public + TEMPORARY allow-list; `/api/notifications/send-to-user` unauthenticated; `SimpleTimezoneFix` −6 h shim + `+6h` data-fix scripts; unversioned SQL | **Canonical model:** keep live `events` family as the data core (UI + data + RBC adapter target); port invitee/reminder/realtime onto it; DELETE UUID services/types/routes/RPCs. **Security:** identity from Clerk session server-side everywhere (never the header); middleware gating for `/calendario` (admin\|doctor\|assistant); secure `send-to-user`; RLS ownership + invitee predicates on every live table. **Timezone:** explicit clinic-local policy + RBC localizer under `America/Tegucigalpa`; remove −6h/+6h shims. **Versioning:** date-prefixed migrations + ledger; **feature flag** `NEXT_PUBLIC_USE_NEW_CALENDARIO` + page-loader (fallback = current Dashboard). | **✅ Delivered & live-tested (commits `d4af0c2` + fix `5155588`, 2026-09-08):** UUID layer deleted (services `src/services/calendar*.ts` + `inviteeNotificationService.ts`, types, `app/api/calendar/**`, `components/ui/CalendarNotificationCounter.tsx`, DB tables + `get_user_events`/`get_user_tasks` RPCs); live CRUD routes hardened to Clerk-session auth via `src/lib/calendarAuth.ts` (`authorizeCalendar`/`getCalendarSession`/`roleFromSessionClaims`) + service-role client; invitee routes gated owner/member (23505→409); `send-to-user` now `auth().userId`; `middleware.ts` role-gates `/calendario` (allow-list removed); patients `[id]/events` + `patientService` repointed to canonical `events`; timezone policy `src/calendario/timezone.ts` (`America/Tegucigalpa`, `clinicDateKey`) wired into `/upcoming`, `fix_existing_event_timezones.sql` deleted; feature flag `NEXT_PUBLIC_USE_NEW_CALENDARIO` + dynamic loader (fallback = Dashboard). **Migrations applied + verified live** (`LEDGER.md`): anon locked out of all five canonical tables (`42501`, probe-verified), legacy tables dropped, RLS recursion (`42P17`) found & fixed. **Remaining:** flip flag → `true` once the RBC shell ships (Phase 1) |
 | **1 – RBC Layout & Navigation Engine** | ✅ | `████████████████████ 100%` | Custom month-only `CalendarGrid` (42 cells, `en-US`), `DayDetail`, `TaskPanel`, `ReminderPanel`; framer-motion; full-screen spinner; no week/day/agenda | Install `react-big-calendar` + `date-fns` (+ dnd peers `react-dnd`, `react-dnd-html5-backend` once Phase 4 lands); `dateFnsLocalizer` (`es` locale, Monday `startOfWeek`); shell: `Views.MONTH/WEEK/WORK_WEEK/DAY/AGENDA`; toolbar (Today/Back/Next/View) bound to URL `?view=&date=`; responsive `< lg` layout; `next/dynamic(…, {ssr:false})` + `CalendarSkeleton`. | **✅ Delivered (2026-09-08):** `react-big-calendar@1.20.0` + `@types/react-big-calendar` installed (React 18 — no 19 peer concern; `date-fns@4` already present, `es` via `date-fns/locale`); `dateFnsLocalizer` (es, Monday start) + Spanish `messages`; `src/calendario/rbcAdapter.ts` (`clinicEventToRbc` start/end on clinic-local Date, `resource` = `ClinicEvent`); `src/calendario/RbcCalendar.tsx` (heavy chunk) shows `MONTH/WEEK/WORK_WEEK/DAY/AGENDA`, `selectable`, popup overflow, event colored via `eventPropGetter`; `src/calendario/CalendarShell.tsx` = flagged path (RBC + reused `DayDetail`/`TaskPanel`/`ReminderPanel`/`EventModal`, CRUD via existing API) with **URL sync `?view=&date=`** (`history.replaceState`, no `useSearchParams`/Suspense) + `CalendarSkeleton` via `next/dynamic ssr:false`; `components/calendar-new/CalendarShell.tsx` placeholder deleted; loader repointed to `@/calendario/CalendarShell`; **flag `NEXT_PUBLIC_USE_NEW_CALENDARIO=true`**; `next build` green — `/calendario` route 2.07 kB, RBC in separate 92 kB lazy chunk + own CSS; gate clean (tsc + scoped ESLint). **Remaining (Phase 2+):** react-query + realtime, slot→modal prefill + modal split (Phase 3), custom pills/agenda rows + DnD (Phase 4). |
-| **2 – Data Layer, RBC Bridge & Realtime** | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | `Dashboard` raw `fetch`/`Promise.all` + refetch-every-action; react-query provided (`contexts/QueryProvider`) unused; `calendarRealtimeService` watches orphaned UUID tables (`calendar_invitees` subscribed, not published; no REPLICA IDENTITY); dashboard N+1 participants; middleware `Cache-Control: public, max-age=7200` | Single repository (mirror `src/chat/repository.ts` + service split); **`src/calendario/adapters/rbcAdapter.ts`** (`ClinicEvent` → `RBCEvent {id,title,start,end,resource}` + inverse); react-query `useCalendarEvents(range)` per user w/ optimistic updates + invalidate-on-action; realtime `postgres_changes` on **live** tables (+ `event_invitees` to publication, REPLICA IDENTITY FULL) → cache invalidation; dedupe + tombstone guard; batched `/api/events/participants?ids=`; drop public cache header on user-scoped APIs. |
+| **2 – Data Layer, RBC Bridge & Realtime** | ✅ | `████████████████████ 100%` | `Dashboard` raw `fetch`/`Promise.all` + refetch-every-action; react-query provided (`contexts/QueryProvider`) unused; `calendarRealtimeService` watches orphaned UUID tables (`calendar_invitees` subscribed, not published; no REPLICA IDENTITY); dashboard N+1 participants; middleware `Cache-Control: public, max-age=7200` | **✅ Delivered (2026-09-08):** `src/calendario/calendarRepository.ts` (thin repo mirroring `src/chat/repository.ts`: `getEvents(range)` + full CRUD for events/tasks/reminders + **batched `getParticipants(ids)`**); `src/calendario/range.ts` `viewToRange` (month/week/work_week/day/agenda fetch windows from the RBC view+date); react-query hooks `src/calendario/hooks/useCalendarData.ts` (`useCalendarEvents(range)` per-range cache, `useCalendarTasks`, `useCalendarReminders`, `useCalendarMutations` with optimistic task toggle + invalidate-on-action); **Clerk-gated service-role SSE** `app/api/events/realtime/route.ts` (owner + invitee filters, keepalive, cleanup-on-cancel) + `src/calendario/hooks/useCalendarRealtime.ts` (10s debounced invalidation dedupe, tombstone-guard refetch, exponential-backoff reconnect); `CalendarShell.tsx` refactored off raw fetch onto the hooks + URL `?view=&date=&from=&to=`; `app/api/events/route.ts` GET now takes `date_from`/`date_to`; batched `app/api/events/participants/route.ts` (`?ids=` → `{[eventId]: Participant[]}`, folded-in membership check, no N+1); **middleware drops `Cache-Control: public…7200`** on user-scoped calendar APIs (`no-store`; SSE leaves its own header alone); migration `20260908c_calendario_phase2_realtime.sql` (**supabase_realtime pub membership + REPLICA IDENTITY FULL** on the canonical five) authored — **apply via Dashboard, then `date_from`/`date_to` + participants batch are gated on it only for realtime**; gate green (`tsc --noEmit` 0, scoped ESLint 0 errors, `next build` ✓ — `/api/events/realtime` dynamic, `/calendario` 2.09 kB). |
 | **3 – Slot Selection & Event Modal UX** | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | `EventModal.tsx` (883 lines): patient search, invitee search (`/api/users`), `EVENT_COLORS` swatch, multi-reminder, delete; `TaskPanel` inline add/toggle/delete; no Zod/RHF | RBC callbacks: `selectable={true}`, `onSelectSlot={({start,end}) => openCreateModal(start,end)}`, `onSelectEvent={({resource}) => openDetailDrawer(resource)}`; refactor into modular steps (**Zod + RHF**): *Details* (patient `/pacientes` search, procedure `PROCEDURES`, dentist `DENTISTS`) → *Timing* (pre-filled from RBC slot, same field set that persists today) → *Invitees & Reminders* (assistants, multi-reminders); quick-add prefill from slot; edit-in-drawer; draft persistence (`calendar-draft:{date}`); delete-confirm. **Custom options preserved end-to-end.** |
 | **4 – Custom RBC Rendering & DnD** | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Month dots, per-day lists, string status/priority/type, `EVENT_COLORS` | Custom RBC `components`: event pill (procedure badge, patient name, **dentist color dot**, `EVENT_COLORS`), `agenda.event` WhatsApp-style rows with status chips (Confirmed/In Progress/Completed/Cancelled), `toolbar` (ours, i18n), `header` (Monday-first es); `withDragAndDrop`: `onEventDrop`/`onEventResize` → optimistic react-query mutation + server save + **chair/cubicle overlap check**; desktop DnD only (mobile via drawer edit — platform constraint, documented). |
 | **5 – Notifications & Push Pipeline** | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Bell + `notifications` table + `useNotificationListener` (→ `/calendario`); `inviteeNotificationService`/`calendarReminderService` → unauthenticated `send-to-user`; calendar never touches chat web-push; `CalendarNotificationCounter` dead UI | **Single reminder schedule** (retire the 3 stores); pg_net trigger on live `events`/`event_invitees` INSERT → `/api/push/webhook` (**calendar payload type**, secret-gated, hits same VAPID/`push_subscriptions`/`public/sw.js` pipeline as chat); SW renders per-event tray cards (aggregated like chat per-thread, `tag:'calendar-<eventId>'`, `renotify`); `notificationclick` → `/calendario?view=day&date=YYYY-MM-DD&eventId=X`; secure `send-to-user` (service-role/signed); bell + push read parity; role-aware recipients (`created_by`, invitees via `event_invitees`, task `assigned_to`). |
@@ -341,30 +341,46 @@ theming, a11y, perf). Auth stays Clerk.
   (`5420017`), anon-key client (`3ce012c`).
 - **Audit (2026-09-07/08):** full inventory (two models, auth/RLS holes, timezone shims,
   realtime drift, 3 reminder stores, dead code, unversioned SQL).
-- **Plan adaptation (this session, 2026-09-08):** plan re-based onto
-  **`react-big-calendar` + `date-fns`** as the view engine — Phases 1/4 reduced,
-  Phase 3 slot/drawer UX, Phase 9 lazy RBC, `rbcAdapter` bridge — while preserving all
-  dental custom options and the chat-parity phases (0/2/5/6/7/8/10).
+- **Plan adaptation (2026-09-08):** plan re-based onto **`react-big-calendar` +
+  `date-fns`** as the view engine — Phases 1/4 reduced, Phase 3 slot/drawer UX,
+  Phase 9 lazy RBC, `rbcAdapter` bridge — while preserving all dental custom options
+  and the chat-parity phases (0/2/5/6/7/8/10).
+- **Phase 0 (2026-09-08, ✅):** canonical `events` family + RLS ownership predicates
+  (anon fully locked out, `42501` verified live), UUID layer + RPCs deleted, Clerk-session
+  authz everywhere, timezone policy, versioned migrations + ledger, feature flag. Commits
+  `d4af0c2`/`5155588`/`90bb1b0`; migrations `20260908…a`/`…b` applied + live-verified.
+- **Phase 1 (2026-09-08, ✅):** RBC `MONTH/WEEK/WORK_WEEK/DAY/AGENDA` shell behind the
+  flag (`40b31a1`): `RbcCalendar` (es localizer, Monday start), `rbcAdapter`,
+  `CalendarShell` with URL `?view=&date=` sync, `next/dynamic` + `CalendarSkeleton` +
+  `CalendarSkeleton`-gated route refetch. `next build` green.
+- **Phase 2 (2026-09-08, ✅):** `calendarRepository` + `viewToRange` + react-query hooks
+  (`useCalendarEvents(range)` per-range cache, `useCalendarMutations` optimistic toggle);
+  **Clerk-gated service-role SSE** `/api/events/realtime` + `useCalendarRealtime`
+  (10s debounce dedupe + tombstone guard + backoff reconnect); events GET `date_from/to`,
+  batched `/api/events/participants?ids=`; shell refactored onto hooks + URL
+  `?view=&date=&from=&to=`; middleware `no-store` on user-scoped calendar APIs;
+  migration `20260908c` (realtime publication + REPLICA IDENTITY FULL) **authored —
+  apply via Dashboard then mark applied in LEDGER**.
 
 **Active**
-- Nothing — the RBC-adapted plan is drafted; Phase 0 work begins on approval.
+- **Phase 3 — Slot Selection & Event Modal UX** (next): RBC `onSelectSlot`
+  pre-filled `EventModal` + `onSelectEvent` detail drawer; split the 883-line modal
+  into Zod + RHF steps (Details → Timing → Invitees & Reminders), draft persistence.
 
 **Blocked**
-- Phase 0 needs the **canonical model** decision (recommended: live `events` family) and
-  **timezone storage policy** (recommended: clinic-local + explicit `timezone` marker,
-  RBC localizer aligned).
-- **RBC/React 19 peer check** pending during Phase 1 install (pin/overrides if needed).
+- Phase 2 realtime is gated on applying `20260908c_calendario_phase2_realtime.sql`
+  (Supabase Dashboard SQL editor); CRUD/range/batched participants work without it.
 - Live QA (C01–C36) needs deployed env + real auth credentials (same constraint as the
   chat plan; in-session checks cover API/SW/server paths).
 
 ### Next Move
-1. Approve the RBC adaptation → Phase 0: canonical model + auth/RLS hardening + timezone
-   policy + versioned migrations + `NEXT_PUBLIC_USE_NEW_CALENDARIO` page-loader.
-2. Then Phase 2 (`rbcAdapter` + react-query + realtime on live tables) and Phase 5
-   (reminder consolidation + push route-through).
-3. Phase 1 (RBC shell) can start in parallel once dependencies + React 19 peers are
-   validated and the localizer is aligned to `America/Tegucigalpa`.
-4. Keep the gate: `npx tsc --noEmit` + scoped ESLint below.
+1. Apply `database/migrations/20260908c_calendario_phase2_realtime.sql` in the Dashboard
+   SQL editor, then mark verified in `database/migrations/LEDGER.md` (probe: realtime
+   pub membership + `REPLICA IDENTITY FULL` on the canonical five).
+2. Phase 3: slot-driven create/edit — `onSelectSlot({start,end})` pre-fills the modal,
+   `onSelectEvent` opens a detail drawer, modal split into modular steps (Zod + RHF).
+3. Phase 5 (reminder consolidation + push route-through) reuses the chat web-push pipeline.
+4. Keep the gate below.
 
 ### Verification Gate
 ```bash
@@ -378,11 +394,18 @@ NODE_OPTIONS="--max-old-space-size=4096" npx eslint src/calendario components/ca
 - `components/calendar-new/` — `Dashboard.tsx`, `CalendarGrid.tsx` (to be superseded by
   RBC `Calendar`), `DayDetail.tsx` (→ RBC DAY), `EventModal.tsx` (to be split, Phase 3),
   `TaskPanel.tsx`, `ReminderPanel.tsx`, `UpcomingEvents.tsx` (orphaned), `Toast.tsx`.
-- **RBC additions (planned):** `package.json` → `react-big-calendar`, `date-fns`,
-  `react-dnd`, `react-dnd-html5-backend`; `src/calendario/adapters/rbcAdapter.ts`
-  (`ClinicEvent` ↔ `RBCEvent`); `src/calendario/components/BigCalendar.tsx` (shell +
-  localizer + toolbar); `src/calendario/i18n/…` (typed es/en); `app/styles/rbc-theme.css`
-  (`.rbc-*` → `--fd-*`); `src/calendario/hooks/useCalendarEvents.ts` (react-query).
+- **RBC additions (delivered):** `package.json` → `react-big-calendar@1.20.0`,
+  `date-fns@4`; `src/calendario/rbcAdapter.ts` (`ClinicEvent` ↔ `RBCEvent`),
+  `src/calendario/RbcCalendar.tsx` (RBC + es localizer), `src/calendario/CalendarShell.tsx`
+  (URL `?view=&date=&from=&to=`), `src/calendario/CalendarSkeleton.tsx`;
+  **Phase 2 data layer:** `src/calendario/calendarRepository.ts` (repo + `EventInput`),
+  `src/calendario/range.ts` (`viewToRange`), `src/calendario/hooks/useCalendarData.ts`
+  (react-query: events/tasks/reminders + optimistic `useCalendarMutations`),
+  `src/calendario/hooks/useCalendarRealtime.ts` (SSE client), `app/api/events/realtime/route.ts`
+  (Clerk-gated service-role SSE), `app/api/events/participants/route.ts` (batched `?ids=`),
+  `database/migrations/20260908c_calendario_phase2_realtime.sql` (pub + REPLICA IDENTITY).
+  Deferred to later phases: `react-dnd` peers (Phase 4), i18n (`src/calendario/i18n/…`),
+  `app/styles/rbc-theme.css` (Phase 7).
 - `app/api/events/route.ts` + `app/api/events/upcoming/route.ts` +
   `app/api/events/[id]/{invitees,participants,reminders}/route.ts` ·
   `app/api/tasks/route.ts` · `app/api/reminders/route.ts` — live CRUD (auth to harden).

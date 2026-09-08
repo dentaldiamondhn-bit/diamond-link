@@ -1,11 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Plus, Loader2 } from 'lucide-react';
 import type { View } from 'react-big-calendar';
-import type { ClinicEvent, Task, Reminder } from '@/lib/types-calendar';
+import type { ClinicEvent, Task } from '@/lib/types-calendar';
 import { eventsToRbc, dateToDateStr } from '@/calendario/rbcAdapter';
+import { viewToRange } from '@/calendario/range';
+import {
+  useCalendarEvents,
+  useCalendarTasks,
+  useCalendarReminders,
+  useCalendarMutations,
+} from '@/calendario/hooks/useCalendarData';
+import { useCalendarRealtime } from '@/calendario/hooks/useCalendarRealtime';
 import CalendarSkeleton from '@/calendario/CalendarSkeleton';
 import DayDetail from '@/components/calendar-new/DayDetail';
 import TaskPanel from '@/components/calendar-new/TaskPanel';
@@ -50,53 +58,44 @@ export default function CalendarShell({ userId }: Props) {
   const [view, setView] = useState<View>(initialView);
   const [date, setDate] = useState<Date>(() => parseDateStr(initialDateStr()));
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDateStr());
-  const [events, setEvents] = useState<ClinicEvent[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
-
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
+
+  // The fetch window is derived from view + date (deterministic URL restore),
+  // and mirrored into ?from=&to= for deep links / debugging.
+  const range = useMemo(() => viewToRange(view, date), [view, date]);
+
+  const eventsQuery = useCalendarEvents(range);
+  const tasksQuery = useCalendarTasks();
+  const remindersQuery = useCalendarReminders();
+  const mutations = useCalendarMutations();
+  useCalendarRealtime(true);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     params.set('view', view);
     params.set('date', dateToDateStr(date));
+    params.set('from', range.from);
+    params.set('to', range.to);
     window.history.replaceState(null, '', `?${params.toString()}`);
-  }, [view, date]);
+  }, [view, date, range]);
 
-  const fetchAll = useCallback(async () => {
-    try {
-      const [evRes, taskRes, remRes] = await Promise.all([
-        fetch('/api/events'),
-        fetch('/api/tasks'),
-        fetch('/api/reminders'),
-      ]);
-      const [evData, taskData, remData] = await Promise.all([evRes.json(), taskRes.json(), remRes.json()]);
-      setEvents(evData || []);
-      setTasks(taskData || []);
-      setReminders(remData || []);
-    } catch (err) {
-      console.error('Fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
+  const tasks = tasksQuery.data ?? [];
+  const reminders = remindersQuery.data ?? [];
 
   const rbcEvents = useMemo(() => eventsToRbc(events), [events]);
 
+  const invalidateForModal = () => {
+    eventsQuery.refetch();
+    tasksQuery.refetch();
+    remindersQuery.refetch();
+  };
+
   const addTask = async (title: string, priority: Task['priority'], due_date: string) => {
     try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, priority, due_date }),
-      });
-      if (!res.ok) throw new Error('Failed to add task');
+      await mutations.addTask.mutateAsync({ title, priority, due_date });
       push('Task added', 'success');
-      fetchAll();
     } catch {
       push('Failed to add task', 'error');
     }
@@ -104,13 +103,7 @@ export default function CalendarShell({ userId }: Props) {
 
   const toggleTask = async (task: Task) => {
     try {
-      const res = await fetch('/api/tasks', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: task.id, completed: !task.completed }),
-      });
-      if (!res.ok) throw new Error('Failed to update task');
-      fetchAll();
+      await mutations.toggleTask.mutateAsync({ id: task.id, completed: !task.completed });
     } catch {
       push('Failed to update task', 'error');
     }
@@ -118,14 +111,8 @@ export default function CalendarShell({ userId }: Props) {
 
   const deleteTask = async (id: number) => {
     try {
-      const res = await fetch('/api/tasks', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) throw new Error('Failed to delete task');
+      await mutations.deleteTask.mutateAsync(id);
       push('Task deleted', 'success');
-      fetchAll();
     } catch {
       push('Failed to delete task', 'error');
     }
@@ -133,14 +120,8 @@ export default function CalendarShell({ userId }: Props) {
 
   const addReminder = async (message: string, remind_at: string) => {
     try {
-      const res = await fetch('/api/reminders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, remind_at }),
-      });
-      if (!res.ok) throw new Error('Failed to set reminder');
+      await mutations.addReminder.mutateAsync({ message, remind_at });
       push('Reminder set', 'success');
-      fetchAll();
     } catch {
       push('Failed to set reminder', 'error');
     }
@@ -148,13 +129,7 @@ export default function CalendarShell({ userId }: Props) {
 
   const dismissReminder = async (id: number) => {
     try {
-      const res = await fetch('/api/reminders', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, dismissed: true }),
-      });
-      if (!res.ok) throw new Error('Failed to dismiss reminder');
-      fetchAll();
+      await mutations.dismissReminder.mutateAsync({ id, dismissed: true });
     } catch {
       push('Failed to dismiss reminder', 'error');
     }
@@ -162,14 +137,8 @@ export default function CalendarShell({ userId }: Props) {
 
   const deleteReminder = async (id: number) => {
     try {
-      const res = await fetch('/api/reminders', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) throw new Error('Failed to delete reminder');
+      await mutations.deleteReminder.mutateAsync(id);
       push('Reminder deleted', 'success');
-      fetchAll();
     } catch {
       push('Failed to delete reminder', 'error');
     }
@@ -194,7 +163,9 @@ export default function CalendarShell({ userId }: Props) {
     openEditEvent(rbcEvent.resource);
   };
 
-  if (loading) {
+  const queryError = eventsQuery.error || tasksQuery.error || remindersQuery.error;
+
+  if (eventsQuery.isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
@@ -207,6 +178,12 @@ export default function CalendarShell({ userId }: Props) {
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {queryError ? (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+          No se pudieron cargar algunos datos del calendario. Reintentando…
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -272,7 +249,7 @@ export default function CalendarShell({ userId }: Props) {
         dateStr={selectedDate}
         editingEvent={editingEvent}
         userId={userId}
-        onSaved={fetchAll}
+        onSaved={invalidateForModal}
       />
     </div>
   );
