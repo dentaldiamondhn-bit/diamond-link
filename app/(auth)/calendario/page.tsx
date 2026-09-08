@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { ToastProvider } from '@/components/calendar-new/Toast';
 
 const CalendarCurrent = dynamic(() => import('@/components/calendar-new/Dashboard'), { ssr: false });
-const CalendarNew = dynamic(() => import('@/components/calendar-new/CalendarShell'), { ssr: false });
+const CalendarNew = dynamic(() => import('@/calendario/CalendarShell'), { ssr: false });
 
 export default function CalendarPage() {
   const { user, isLoaded } = useUser();
