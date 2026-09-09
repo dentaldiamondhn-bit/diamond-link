@@ -37,7 +37,8 @@ export interface RbcCalendarProps {
   view: View;
   onView: (view: View) => void;
   onNavigate: (date: Date) => void;
-  onSelectSlot: (start: Date) => void;
+  /** Phase 3 C17 — slot selection carries both bounds so the modal can pre-fill. */
+  onSelectSlot: (slot: { start: Date; end: Date }) => void;
   onSelectEvent: (event: RbcEvent) => void;
 }
 
@@ -51,7 +52,7 @@ export default function RbcCalendar({
   onSelectEvent,
 }: RbcCalendarProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" style={{ height: '600px' }}>
       <Calendar
         localizer={localizer}
         culture="es"
@@ -64,12 +65,13 @@ export default function RbcCalendar({
         views={[Views.MONTH, Views.WEEK, Views.WORK_WEEK, Views.DAY, Views.AGENDA]}
         selectable
         popup
-        onSelectSlot={({ start }) => onSelectSlot(start)}
+        onSelectSlot={(slot) => onSelectSlot({ start: slot.start, end: slot.end })}
         onSelectEvent={(event) => onSelectEvent(event as RbcEvent)}
         eventPropGetter={(event) => {
           const rbcEvent = event as RbcEvent;
           return { style: { backgroundColor: rbcEvent.color, borderColor: rbcEvent.color } };
         }}
+        style={{ height: '100%' }}
       />
     </div>
   );

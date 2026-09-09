@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { Plus, Loader2 } from 'lucide-react';
 import type { View } from 'react-big-calendar';
 import type { ClinicEvent, Task } from '@/lib/types-calendar';
-import { eventsToRbc, dateToDateStr } from '@/calendario/rbcAdapter';
+import { eventsToRbc, dateToDateStr, dateToTimeStr } from '@/calendario/rbcAdapter';
 import { viewToRange } from '@/calendario/range';
 import {
   useCalendarEvents,
@@ -18,7 +18,8 @@ import CalendarSkeleton from '@/calendario/CalendarSkeleton';
 import DayDetail from '@/components/calendar-new/DayDetail';
 import TaskPanel from '@/components/calendar-new/TaskPanel';
 import ReminderPanel from '@/components/calendar-new/ReminderPanel';
-import EventModal from '@/components/calendar-new/EventModal';
+import EventModal, { type ModalPrefill } from '@/components/calendar-new/EventModal';
+import EventDetailDrawer from '@/components/calendar-new/EventDetailDrawer';
 import { useToast } from '@/components/calendar-new/Toast';
 import type { RbcEvent } from '@/calendario/rbcAdapter';
 
@@ -60,6 +61,8 @@ export default function CalendarShell({ userId }: Props) {
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDateStr());
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
+  const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
+  const [drawerEvent, setDrawerEvent] = useState<ClinicEvent | null>(null);
 
   // The fetch window is derived from view + date (deterministic URL restore),
   // and mirrored into ?from=&to= for deep links / debugging.
@@ -146,21 +149,39 @@ export default function CalendarShell({ userId }: Props) {
 
   const openNewEvent = () => {
     setEditingEvent(null);
+    setModalPrefill(null);
+    setDrawerEvent(null);
     setModalOpen(true);
   };
 
   const openEditEvent = (event: ClinicEvent) => {
     setEditingEvent(event);
+    setModalPrefill(null);
+    setDrawerEvent(null);
     setModalOpen(true);
   };
 
-  const handleSelectSlot = (start: Date) => {
-    setSelectedDate(dateToDateStr(start));
+  /**
+   * Phase 3 C17 — clicking/pressing a slot pre-fills the create modal with the
+   * slot's times. Month/agenda views have no time granularity, so they fall back
+   * to the clinic default window.
+   */
+  const handleSelectSlot = (slot: { start: Date; end: Date }) => {
+    setSelectedDate(dateToDateStr(slot.start));
+    const timeView = view === 'week' || view === 'work_week' || view === 'day';
+    setModalPrefill({
+      start: timeView ? dateToTimeStr(slot.start) : '09:00',
+      end: timeView ? dateToTimeStr(slot.end) : '09:30',
+    });
+    setEditingEvent(null);
+    setDrawerEvent(null);
+    setModalOpen(true);
   };
 
+  /** Phase 3 C18 — selecting an event opens the detail drawer (Edit/Delete inside). */
   const handleSelectEvent = (rbcEvent: RbcEvent) => {
     setSelectedDate(dateToDateStr(rbcEvent.start));
-    openEditEvent(rbcEvent.resource);
+    setDrawerEvent(rbcEvent.resource);
   };
 
   const queryError = eventsQuery.error || tasksQuery.error || remindersQuery.error;
@@ -249,7 +270,18 @@ export default function CalendarShell({ userId }: Props) {
         dateStr={selectedDate}
         editingEvent={editingEvent}
         userId={userId}
+        prefill={modalPrefill}
         onSaved={invalidateForModal}
+      />
+
+      <EventDetailDrawer
+        event={drawerEvent}
+        onClose={() => setDrawerEvent(null)}
+        onEdit={openEditEvent}
+        onDeleted={() => {
+          setDrawerEvent(null);
+          invalidateForModal();
+        }}
       />
     </div>
   );

@@ -1,10 +1,53 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Loader2, Trash2, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  X,
+  Loader2,
+  Trash2,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  UserRound,
+  Clock,
+  Bell,
+  Pencil,
+  Check,
+} from 'lucide-react';
+import { useForm, useController, type Control } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import type { ClinicEvent } from '@/lib/types-calendar';
-import { EVENT_COLORS } from '@/lib/types-calendar';
+import { EVENT_COLORS, PROCEDURES } from '@/lib/types-calendar';
+import {
+  eventFormSchema,
+  defaultEventForm,
+  REMINDER_OPTIONS,
+  EVENT_TYPES,
+  EVENT_TYPE_LABELS,
+  STATUS_LABELS,
+  PRIORITY_LABELS,
+  type EventFormValues,
+  type EventType,
+  type EventStatus,
+  type EventPriority,
+} from '@/calendario/event/eventSchema';
+import { Field, TextInput, TextArea, Select } from '@/calendario/event/fields';
+import {
+  saveEventDraft,
+  loadEventDraft,
+  clearEventDraft,
+  type DraftInvitee,
+} from '@/calendario/event/eventDraft';
+import { CalendarRepository } from '@/calendario/calendarRepository';
+import { useCalendarMutations } from '@/calendario/hooks/useCalendarData';
+import { useToast } from '@/components/calendar-new/Toast';
+
+export interface ModalPrefill {
+  start: string;
+  end: string;
+}
 
 interface Props {
   open: boolean;
@@ -12,363 +55,306 @@ interface Props {
   onSaved: () => void;
   dateStr: string | null;
   editingEvent: ClinicEvent | null;
-  userId: string;
+  /** Kept for legacy callers ({@link Dashboard}); identity is server-side now. */
+  userId?: string;
+  /** Phase 3 C17 — slot click => pre-filled start/end times. */
+  prefill?: ModalPrefill | null;
 }
 
-interface Patient {
+type Step = 'details' | 'timing' | 'invite';
+
+interface SearchResult {
   paciente_id: string;
   nombre_completo: string;
   telefono?: string;
-  email?: string;
 }
 
-interface Invitee {
-  id: string;
-  user_id: string;
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  role?: string;
-  profileImageUrl?: string | null;
-}
+const avatarFor = (u: DraftInvitee) =>
+  u.profileImageUrl ||
+  `https://ui-avatars.com/api/?name=${encodeURIComponent((u.first_name || '') + ' ' + (u.last_name || ''))}&background=random`;
 
-export default function EventModal({ open, onClose, onSaved, dateStr, editingEvent, userId }: Props) {
-  const [form, setForm] = useState({
-    title: '',
-    patient_name: '',
-    date: '',
-    start_time: '09:00',
-    end_time: '09:30',
-    color: EVENT_COLORS[0].value,
-    notes: '',
-    description: '',
-    location: '',
-    event_type: 'appointment' as ClinicEvent['event_type'],
-    status: 'scheduled' as ClinicEvent['status'],
-    priority: 'medium' as ClinicEvent['priority'],
-    reminder_minutes: 30,
-    patient_id: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+export default function EventModal({ open, onClose, onSaved, dateStr, editingEvent, prefill }: Props) {
+  const { push } = useToast();
+  const mutations = useCalendarMutations();
+
+  const [step, setStep] = useState<Step>('details');
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loadingChildren, setLoadingChildren] = useState(false);
+  const [error, setError] = useState('');
 
+  // step 1 — patient search
   const [showPatientSearch, setShowPatientSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientResults, setPatientResults] = useState<SearchResult[]>([]);
+  const [patientSearching, setPatientSearching] = useState(false);
 
-  const [showInviteeSearch, setShowInviteeSearch] = useState(false);
+  // step 3 — invitees + reminders
+  const [invitees, setInvitees] = useState<DraftInvitee[]>([]);
+  const [userPool, setUserPool] = useState<DraftInvitee[]>([]);
+  const [showInviteePicker, setShowInviteePicker] = useState(false);
   const [inviteeQuery, setInviteeQuery] = useState('');
-  const [users, setUsers] = useState<Invitee[]>([]);
-  const [selectedUsers, setSelectedUsers] = useState<Invitee[]>([]);
-  const [inviteesLoading, setInviteesLoading] = useState(false);
+  const [reminders, setReminders] = useState<number[]>([30]);
 
-  const [reminders, setReminders] = useState<Array<{ id?: string; minutes_before: number }>>([]);
+  // drafts (create mode only — C20)
+  const [draftAvailable, setDraftAvailable] = useState(false);
 
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
-  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
+  const isCreate = !editingEvent;
+
+  // Guard: only allow form submission via explicit click on the submit button
+  const submitTriggeredRef = useRef(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    control,
+    trigger,
+    formState: { errors, isDirty },
+  } = useForm<EventFormValues>({
+    resolver: zodResolver(eventFormSchema),
+    defaultValues: defaultEventForm(),
+  });
+
+  const values = watch();
+
+  // a11y — Escape closes the dialog (C18: never while delete-confirm is up)
   useEffect(() => {
     if (!open) return;
-    if (editingEvent) {
-      setForm({
-        title: editingEvent.title || '',
-        patient_name: editingEvent.patient_name || '',
-        date: editingEvent.date || dateStr || '',
-        start_time: editingEvent.start_time || '09:00',
-        end_time: editingEvent.end_time || '09:30',
-        color: editingEvent.color || EVENT_COLORS[0].value,
-        notes: editingEvent.notes || '',
-        description: (editingEvent as any).description || '',
-        location: (editingEvent as any).location || '',
-        event_type: (editingEvent as any).event_type || 'appointment',
-        status: (editingEvent as any).status || 'scheduled',
-        priority: (editingEvent as any).priority || 'medium',
-        reminder_minutes: (editingEvent as any).reminder_minutes ?? 30,
-        patient_id: (editingEvent as any).patient_id || '',
-      });
-      setSelectedPatient((editingEvent as any).patient_id ? { paciente_id: (editingEvent as any).patient_id, nombre_completo: editingEvent.patient_name } as Patient : null);
-      setSelectedUsers([]);
-      setReminders([{ minutes_before: (editingEvent as any).reminder_minutes ?? 30 }]);
-      loadInvitees(editingEvent.id);
-      loadReminders(editingEvent.id);
-    } else {
-      setForm({
-        title: '',
-        patient_name: '',
-        date: dateStr || '',
-        start_time: '09:00',
-        end_time: '09:30',
-        color: EVENT_COLORS[0].value,
-        notes: '',
-        description: '',
-        location: '',
-        event_type: 'appointment',
-        status: 'scheduled',
-        priority: 'medium',
-        reminder_minutes: 30,
-        patient_id: '',
-      });
-      setSelectedPatient(null);
-      setSelectedUsers([]);
-      setReminders([{ minutes_before: 30 }]);
-      setDeleteOpen(false);
-      setDeleteError('');
-      setDeleteSuccess(false);
-    }
-    setErrors({});
-    setSearchQuery('');
-    setPatients([]);
-    setInviteeQuery('');
-  }, [editingEvent, dateStr, open]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !confirmDelete) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, confirmDelete, onClose]);
 
-  const loadReminders = async (eventId: number) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/reminders`, {
-        headers: { 'x-user-id': userId },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.length > 0) {
-          setReminders(data.map((r: any) => ({ id: r.id, minutes_before: r.minutes_before })));
-        }
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const loadInvitees = async (eventId: number) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/invitees`, {
-        headers: { 'x-user-id': userId },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const enriched = await Promise.all(
-          (data || []).map(async (invitee: any) => {
-            try {
-              const userRes = await fetch(`/api/users?id=${invitee.user_id}`, {
-                headers: { 'x-user-id': userId },
-              });
-              if (userRes.ok) {
-                const userData = await userRes.json();
-                return {
-                  ...invitee,
-                  id: invitee.user_id,
-                  first_name: userData.first_name || '',
-                  last_name: userData.last_name || '',
-                  email: userData.email || '',
-                  profileImageUrl: userData.profileImageUrl || null,
-                };
-              }
-            } catch {
-              // ignore
-            }
-            return {
-              ...invitee,
-              id: invitee.user_id,
-              first_name: '',
-              last_name: '',
-              email: '',
-              profileImageUrl: null,
-            };
-          })
-        );
-        setSelectedUsers(enriched);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
+  // ---------------------------------------------------------------- open/reset
   useEffect(() => {
-    if (!showPatientSearch) return;
-    if (searchQuery.trim() === '') {
-      setPatients([]);
+    if (!open) return;
+    setStep('details');
+    setError('');
+    setBusy(false);
+
+    if (!isCreate) {
+      // edit mode — hydrate from the event + its children; drafts/prefill ignored
+      const e = editingEvent!;
+      reset({
+        title: e.title || '',
+        patient_name: e.patient_name || '',
+        patient_id: e.patient_id || '',
+        procedure: e.procedure || '',
+        dentist: e.dentist || '',
+        date: e.date || dateStr || '',
+        start_time: e.start_time || '09:00',
+        end_time: e.end_time || '09:30',
+        color: e.color || EVENT_COLORS[0].value,
+        notes: e.notes || '',
+        description: e.description || '',
+        location: e.location || '',
+        event_type: (e.event_type ?? 'appointment') as EventType,
+        status: (e.status ?? 'scheduled') as EventStatus,
+        priority: (e.priority ?? 'medium') as EventPriority,
+        reminder_minutes: e.reminder_minutes ?? 30,
+      });
+      setInvitees([]);
+      setReminders([e.reminder_minutes ?? 30]);
+      setDraftAvailable(false);
+      void loadChildren(e.id);
       return;
     }
-    const timeout = setTimeout(async () => {
-      setSearchLoading(true);
+
+    // create mode — prefill from the RBC slot (C17) + optional draft prompt (C20)
+    const base = defaultEventForm();
+    if (dateStr) base.date = dateStr;
+    if (prefill) {
+      base.start_time = prefill.start || base.start_time;
+      base.end_time = prefill.end || base.end_time;
+    }
+    reset(base);
+    setInvitees([]);
+    setReminders([base.reminder_minutes ?? 30]);
+    setShowPatientSearch(false);
+    setShowInviteePicker(false);
+
+    // Load user pool for invitee picker (doctors)
+    fetch('/api/users')
+      .then((r) => (r.ok ? r.json() : []))
+      .catch(() => [])
+      .then((users) => setUserPool(users as DraftInvitee[]));
+
+    const draft = dateStr ? loadEventDraft(dateStr) : null;
+    setDraftAvailable(!!draft && draft.values.date === dateStr);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingEvent, dateStr, prefill]);
+
+  // autosave create-mode drafts while the user types (debounced) — C20.
+  // A pending (un-restored) draft is never clobbered: the user explicitly
+  // Restaura/Descartar first, then autosave resumes.
+  useEffect(() => {
+    if (!open || !isCreate || !dateStr) return;
+    if (draftAvailable || !isDirty) return;
+    const t = setTimeout(() => {
+      saveEventDraft(dateStr, values, invitees, reminders);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values, invitees, reminders, open, isCreate, dateStr]);
+
+  const restoreDraft = () => {
+    if (!dateStr) return;
+    const draft = loadEventDraft(dateStr);
+    if (!draft) return;
+    reset(draft.values);
+    setInvitees(draft.invitees ?? []);
+    setReminders(draft.reminders?.length ? draft.reminders : [draft.values.reminder_minutes ?? 30]);
+    setDraftAvailable(false);
+  };
+
+  const discardDraft = () => {
+    if (dateStr) clearEventDraft(dateStr);
+    setDraftAvailable(false);
+  };
+
+  const loadChildren = async (eventId: number) => {
+    setLoadingChildren(true);
+    try {
+      const [inviteeRows, reminderMins, users] = await Promise.all([
+        CalendarRepository.getEventInvitees(eventId),
+        CalendarRepository.getEventReminders(eventId),
+        fetch('/api/users')
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => []),
+      ]);
+      const byId = new Map((users as DraftInvitee[]).map((u) => [u.id, u]));
+      setInvitees(inviteeRows.map((row) => ({ id: row.user_id, ...byId.get(row.user_id) })));
+      setReminders(reminderMins.length ? reminderMins : [editingEvent?.reminder_minutes ?? 30]);
+      setUserPool(users as DraftInvitee[]);
+    } catch {
+      // children load best-effort; the form itself is still usable
+    } finally {
+      setLoadingChildren(false);
+    }
+  };
+
+  // patient search debounce (step 1)
+  useEffect(() => {
+    if (!showPatientSearch || patientQuery.trim() === '') {
+      setPatientResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setPatientSearching(true);
       try {
-        const res = await fetch(`/api/patients/search?q=${encodeURIComponent(searchQuery)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setPatients(data.slice(0, 5));
-        }
+        const res = await fetch(`/api/patients/search?q=${encodeURIComponent(patientQuery)}`);
+        if (res.ok) setPatientResults((await res.json()).slice(0, 6));
       } catch {
         // ignore
       } finally {
-        setSearchLoading(false);
+        setPatientSearching(false);
       }
     }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchQuery, showPatientSearch]);
+    return () => clearTimeout(t);
+  }, [patientQuery, showPatientSearch]);
 
-  useEffect(() => {
-    if (!showInviteeSearch) return;
-    const load = async () => {
-      setInviteesLoading(true);
-      try {
-        const res = await fetch('/api/users');
-        if (res.ok) {
-          const data = await res.json();
-          setUsers(data);
-        }
-      } catch {
-        // ignore
-      } finally {
-        setInviteesLoading(false);
-      }
-    };
-    load();
-  }, [showInviteeSearch]);
-
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.patient_name.trim()) e.patient_name = 'Patient name is required';
-    if (!form.date) e.date = 'Date is required';
-    if (!form.start_time) e.start_time = 'Start time is required';
-    if (!form.end_time) e.end_time = 'End time is required';
-    if (form.start_time && form.end_time && form.start_time >= form.end_time) {
-      e.end_time = 'End time must be after start time';
-    }
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    if (!validate()) return;
-    setBusy(true);
-    try {
-      const body = {
-        ...form,
-        title: form.title || `Appointment - ${form.patient_name}`,
-      };
-
-      let eventId: number | undefined = editingEvent?.id;
-
-      if (editingEvent?.id) {
-        const res = await fetch('/api/events', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-          body: JSON.stringify({ id: editingEvent.id, ...body }),
-        });
-        if (!res.ok) throw new Error('Failed to update appointment');
-      } else {
-        const res = await fetch('/api/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error('Failed to create appointment');
-        const created = await res.json();
-        eventId = created.id;
-      }
-
-      if (eventId) {
-        await syncInvitees(eventId);
-        await syncReminders(eventId);
-      }
-      onSaved();
-      onClose();
-    } catch {
-      alert('Failed to save appointment');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const syncInvitees = async (eventId: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/invitees`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify({}),
-      });
-    } catch {
-      // ignore
-    }
-    for (const user of selectedUsers) {
-      try {
-        await fetch(`/api/events/${eventId}/invitees`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-          body: JSON.stringify({ user_id: user.id, status: 'pending' }),
-        });
-      } catch {
-        // ignore
-      }
-    }
-  };
-
-  const syncReminders = async (eventId: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/reminders`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify({}),
-      });
-    } catch {
-      // ignore
-    }
-    for (const r of reminders) {
-      if (r.minutes_before > 0) {
-        try {
-          await fetch(`/api/events/${eventId}/reminders`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-            body: JSON.stringify({ minutes_before: r.minutes_before }),
-          });
-        } catch {
-          // ignore
-        }
-      }
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!editingEvent?.id) return;
-    setDeleteLoading(true);
-    setDeleteError('');
-    try {
-      await fetch('/api/events', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify({ id: editingEvent.id }),
-      });
-      setDeleteSuccess(true);
-      setTimeout(() => {
-        setDeleteOpen(false);
-        onClose();
-      }, 800);
-    } catch {
-      setDeleteError('Error al eliminar la cita');
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  const handlePatientSelect = (patient: Patient) => {
-    setSelectedPatient(patient);
-    setForm((f) => ({
-      ...f,
-      patient_id: patient.paciente_id,
-      patient_name: patient.nombre_completo,
-      title: f.title || `Cita con ${patient.nombre_completo}`,
+  const selectPatient = (p: SearchResult) => {
+    reset((prev) => ({
+      ...prev,
+      patient_id: p.paciente_id,
+      patient_name: p.nombre_completo,
+      title: prev.title || `Cita con ${p.nombre_completo}`,
     }));
     setShowPatientSearch(false);
   };
 
-  const handleRemovePatient = () => {
-    setSelectedPatient(null);
-    setForm((f) => ({ ...f, patient_id: '', patient_name: '', title: '' }));
+  // ---------------------------------------------------------------- steps
+  const validateStep = async (target: Step): Promise<boolean> => {
+    if (target === 'details') return trigger(['patient_name']);
+    if (target === 'timing') return trigger(['date', 'start_time', 'end_time']);
+    return true;
   };
+
+  const goNext = async () => {
+    if (step === 'details' && (await validateStep('details'))) setStep('timing');
+    else if (step === 'timing' && (await validateStep('timing'))) setStep('invite');
+  };
+
+  const goBack = () => {
+    if (step === 'timing') setStep('details');
+    else if (step === 'invite') setStep('timing');
+  };
+
+  // ---------------------------------------------------------------- submit
+  const onSave = handleSubmit(async (formData) => {
+    // Only proceed if submission was triggered by explicit click on submit button
+    if (!submitTriggeredRef.current) {
+      return;
+    }
+    submitTriggeredRef.current = false; // reset guard
+    setBusy(true);
+    setError('');
+    try {
+      const firstInvitee = invitees[0];
+      const dentistName = firstInvitee
+        ? `${firstInvitee.first_name || ''} ${firstInvitee.last_name || ''}`.trim()
+        : '';
+      const body = {
+        ...formData,
+        title: formData.title || `Cita con ${formData.patient_name}`,
+        dentist: formData.dentist || dentistName || '',
+      };
+      let eventId: number | undefined = editingEvent?.id;
+      if (editingEvent?.id) {
+        await mutations.updateEvent.mutateAsync({ id: editingEvent.id, updates: body });
+      } else {
+        const created = await mutations.createEvent.mutateAsync(body);
+        eventId = created.id;
+      }
+      if (eventId) {
+        await CalendarRepository.setEventInvitees(eventId, invitees.map((i) => i.id));
+        await CalendarRepository.setEventReminders(eventId, reminders);
+      }
+      if (dateStr) clearEventDraft(dateStr);
+      push(editingEvent ? 'Cita actualizada' : 'Cita creada', 'success');
+      onSaved();
+      onClose();
+    } catch {
+      setError('No se pudo guardar la cita. Inténtalo de nuevo.');
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  const onDelete = async () => {
+    if (!editingEvent?.id) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await mutations.deleteEvent.mutateAsync(editingEvent.id);
+      if (dateStr) clearEventDraft(dateStr);
+      push('Cita eliminada', 'success');
+      onSaved();
+      onClose();
+    } catch {
+      setError('Error al eliminar la cita');
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const filteredPool = userPool.filter((u) => {
+    const q = inviteeQuery.toLowerCase();
+    const matchesQuery =
+      `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q);
+    const isDoctor = (u.role || '').toLowerCase() === 'doctor';
+    return matchesQuery && isDoctor;
+  });
+
+  const selectedCount = invitees.length;
 
   if (!open) return null;
 
@@ -382,502 +368,570 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, filter: 'blur(8px)' }}
-          animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-          exit={{ scale: 0.95, opacity: 0, filter: 'blur(8px)' }}
-          transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-          className="bg-white dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700"
+          initial={{ scale: 0.96, opacity: 0, y: 8 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.96, opacity: 0, y: 8 }}
+          transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+          className="bg-white dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700"
+          role="dialog"
+          aria-modal="true"
+          aria-label={isCreate ? 'Nueva cita' : 'Editar cita'}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between p-5 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-800">
-              {editingEvent ? 'Edit Appointment' : 'New Appointment'}
-            </h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900/95 z-10">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 flex items-center justify-center">
+                <Pencil size={18} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-tight">
+                  {isCreate ? 'Nueva cita' : 'Editar cita'}
+                </h2>
+                <p className="text-xs text-gray-400">
+                  {step === 'details' && '1 de 3 · Detalles'}
+                  {step === 'timing' && '2 de 3 · Horario'}
+                  {step === 'invite' && '3 de 3 · Invitados y recordatorios'}
+                </p>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" aria-label="Cerrar">
+              <X size={20} />
+            </button>
           </div>
-          <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700">Patient Name *</label>
-              <div className="flex gap-2 mt-1">
-                <input
-                  value={form.patient_name}
-                  onChange={(e) => setForm({ ...form, patient_name: e.target.value })}
-                  className={`flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none ${errors.patient_name ? 'border-rose-400' : ''}`}
-                  placeholder="Patient name"
-                />
+
+          {draftAvailable && (
+            <div className="mx-5 mt-4 flex items-center justify-between gap-3 text-sm rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 px-3 py-2.5">
+              <span className="text-amber-800 dark:text-amber-200">Tienes un borrador sin guardar para este día.</span>
+              <div className="flex items-center gap-2 shrink-0">
                 <button
-                  type="button"
-                  onClick={() => setShowPatientSearch(true)}
-                  className="px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  onClick={restoreDraft}
+                  className="flex items-center gap-1 text-amber-900 dark:text-amber-100 font-medium hover:underline"
                 >
-                  <Search size={18} />
+                  <RotateCcw size={13} /> Restaurar
+                </button>
+                <button onClick={discardDraft} className="text-amber-700 dark:text-amber-300 hover:underline">
+                  Descartar
                 </button>
               </div>
-              {selectedPatient && (
-                <div className="mt-2 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                  <span className="text-sm text-gray-700">{selectedPatient.nombre_completo}</span>
-                  <button type="button" onClick={handleRemovePatient} className="text-gray-400 hover:text-gray-600">
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-              {errors.patient_name && <p className="text-xs text-rose-500 mt-1">{errors.patient_name}</p>}
             </div>
+          )}
 
-            <div>
-              <label className="text-sm font-medium text-gray-700">Description</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={2}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none resize-none"
-                placeholder="Event details..."
-              />
-            </div>
+          <form
+            onSubmit={onSave}
+            onKeyDown={(e) => {
+              // Prevent Enter from submitting the form; only allow explicit submit button click
+              if (e.key === 'Enter' && e.target instanceof HTMLButtonElement === false) {
+                e.preventDefault();
+              }
+            }}
+            className="p-5 space-y-5"
+          >
+            <StepBar step={step} />
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700">Date *</label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className={`mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none ${errors.date ? 'border-rose-400' : ''}`}
-                />
-                {errors.date && <p className="text-xs text-rose-500 mt-1">{errors.date}</p>}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">Location</label>
-                <input
-                  value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none"
-                  placeholder="Clinic / Room"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700">Start *</label>
-                <input
-                  type="time"
-                  value={form.start_time}
-                  onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">End *</label>
-                <input
-                  type="time"
-                  value={form.end_time}
-                  onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none"
-                />
-                {errors.end_time && <p className="text-xs text-rose-500 mt-1">{errors.end_time}</p>}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700">Status</label>
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value as any })}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none"
-                >
-                  <option value="scheduled">Scheduled</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">Priority</label>
-                <select
-                  value={form.priority}
-                  onChange={(e) => setForm({ ...form, priority: e.target.value as any })}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700">Color</label>
-              <div className="flex gap-2 mt-1">
-                {EVENT_COLORS.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => setForm({ ...form, color: c.value })}
-                    className={`w-8 h-8 rounded-full transition ${form.color === c.value ? 'ring-2 ring-offset-2 ring-gray-400' : ''}`}
-                    style={{ backgroundColor: c.value }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700 flex items-center justify-between">
-                <span>Reminders</span>
-                <button
-                  type="button"
-                  onClick={() => setReminders([...reminders, { minutes_before: 30 }])}
-                  className="text-xs text-teal-600 hover:text-teal-700"
-                >
-                  + Add
-                </button>
-              </label>
-              <div className="mt-2 space-y-2">
-                {reminders.map((r, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <select
-                      value={r.minutes_before}
-                      onChange={(e) => {
-                        const next = reminders.slice();
-                        next[index] = { ...next[index], minutes_before: parseInt(e.target.value) };
-                        setReminders(next);
-                      }}
-                      className="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none text-sm"
-                    >
-                      <option value={0}>No reminder</option>
-                      <option value={10}>10 minutes</option>
-                      <option value={15}>15 minutes</option>
-                      <option value={30}>30 minutes</option>
-                      <option value={60}>1 hour</option>
-                      <option value={120}>2 hours</option>
-                      <option value={1440}>1 day</option>
-                    </select>
-                    {reminders.length > 1 && (
+            {/* ------------------------------------------------ STEP 1: details */}
+            {step === 'details' && (
+              <>
+                <div>
+                  <Field label="Paciente *" error={errors.patient_name?.message}>
+                    <div className="flex gap-2">
+                      <TextInput
+                        invalid={!!errors.patient_name}
+                        placeholder="Nombre del paciente"
+                        {...register('patient_name')}
+                      />
                       <button
                         type="button"
-                        onClick={() => setReminders(reminders.filter((_, i) => i !== index))}
-                        className="text-rose-500 hover:text-rose-600"
+                        onClick={() => setShowPatientSearch((v) => !v)}
+                        className="shrink-0 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                        aria-label="Buscar paciente"
                       >
-                        <Trash2 size={16} />
+                        <Search size={18} />
                       </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+                    </div>
+                  </Field>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700">Invitees (Optional)</label>
-              <button
-                type="button"
-                onClick={() => setShowInviteeSearch(true)}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 text-left text-sm text-gray-500 hover:bg-gray-50"
-              >
-                {selectedUsers.length === 0 ? 'Select users to invite...' : `${selectedUsers.length} user(s) selected`}
-              </button>
-              {selectedUsers.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedUsers.map((u) => {
-                    const avatarUrl = u.profileImageUrl || `https://ui-avatars.com/api/?name=${u.first_name}+${u.last_name}&background=random`;
-                    return (
-                      <span key={u.id} className="inline-flex items-center gap-2 pl-1 pr-2 py-1 bg-gray-100 rounded-full text-xs text-gray-700">
-                        <img
-                          src={avatarUrl}
-                          alt={`${u.first_name} ${u.last_name}`}
-                          className="h-6 w-6 rounded-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://ui-avatars.com/api/?name=${u.first_name}+${u.last_name}&background=random`;
-                          }}
-                        />
-                        <span className="max-w-[120px] truncate">{u.first_name} {u.last_name}</span>
-                        <button type="button" onClick={() => setSelectedUsers(selectedUsers.filter((x) => x.id !== u.id))} className="text-gray-400 hover:text-gray-600">
-                          <X size={12} />
-                        </button>
-                      </span>
-                    );
-                  })}
+                  {showPatientSearch && (
+                    <div className="mt-2 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                      <input
+                        autoFocus
+                        value={patientQuery}
+                        onChange={(e) => setPatientQuery(e.target.value)}
+                        placeholder="Buscar por nombre o identidad…"
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm dark:bg-gray-800 dark:border-gray-700 focus:border-teal-500 outline-none"
+                      />
+                      <div className="mt-2 max-h-48 overflow-y-auto">
+                        {patientSearching ? (
+                          <p className="text-center py-3 text-sm text-gray-400">Buscando…</p>
+                        ) : patientResults.length > 0 ? (
+                          patientResults.map((p) => (
+                            <button
+                              key={p.paciente_id}
+                              type="button"
+                              onClick={() => selectPatient(p)}
+                              className="w-full text-left p-2.5 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-900/30 text-sm"
+                            >
+                              <span className="font-medium text-gray-800 dark:text-gray-100">{p.nombre_completo}</span>
+                              {p.telefono ? <span className="text-xs text-gray-400 ml-2">{p.telefono}</span> : null}
+                            </button>
+                          ))
+                        ) : patientQuery.trim() !== '' ? (
+                          <p className="text-center py-3 text-sm text-gray-400">Sin resultados</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700">Notes</label>
-              <textarea
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                rows={2}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none resize-none"
-                placeholder="Additional notes..."
-              />
-            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <CustomOptionField
+                    label="Procedimiento"
+                    options={PROCEDURES}
+                    control={control}
+                    name="procedure"
+                    error={errors.procedure?.message}
+                  />
+                </div>
 
-            <div className="flex items-center justify-between pt-2">
+                <Field label="Título">
+                  <TextInput placeholder="Cita con {paciente} (auto)" {...register('title')} />
+                </Field>
+
+                <Field label="Descripción">
+                  <TextArea rows={2} placeholder="Detalles de la cita…" {...register('description')} />
+                </Field>
+
+                <Field label="Ubicación">
+                  <TextInput placeholder="Clínica / Consultorio" {...register('location')} />
+                </Field>
+              </>
+            )}
+
+            {/* ------------------------------------------------ STEP 2: timing */}
+            {step === 'timing' && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Field label="Fecha *" error={errors.date?.message}>
+                    <TextInput type="date" invalid={!!errors.date} {...register('date')} />
+                  </Field>
+                  <Field label="Inicio *" error={errors.start_time?.message}>
+                    <TextInput type="time" invalid={!!errors.start_time} {...register('start_time')} />
+                  </Field>
+                  <Field label="Fin *" error={errors.end_time?.message}>
+                    <TextInput type="time" invalid={!!errors.end_time} {...register('end_time')} />
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Field label="Tipo">
+                    <Select {...register('event_type')}>
+                      {EVENT_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {EVENT_TYPE_LABELS[t]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Estado">
+                    <Select {...register('status')}>
+                      {(Object.keys(STATUS_LABELS) as EventStatus[]).map((s) => (
+                        <option key={s} value={s}>
+                          {STATUS_LABELS[s]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Prioridad">
+                    <Select {...register('priority')}>
+                      {(Object.keys(PRIORITY_LABELS) as EventPriority[]).map((p) => (
+                        <option key={p} value={p}>
+                          {PRIORITY_LABELS[p]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+
+                <Field label="Color">
+                  <div className="flex gap-2 mt-1">
+                    {EVENT_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => reset((prev) => ({ ...prev, color: c.value }))}
+                        className={`w-8 h-8 rounded-full transition ${
+                          values.color === c.value
+                            ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-offset-gray-900 scale-110'
+                            : 'hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: c.value }}
+                        aria-label={c.name}
+                      />
+                    ))}
+                  </div>
+                </Field>
+              </>
+            )}
+
+            {/* ------------------------------------------------ STEP 3: invitees + reminders */}
+            {step === 'invite' && (
+              <>
+                <div>
+                  <Field label="Invitados" hint={`${selectedCount} seleccionado${selectedCount === 1 ? '' : 's'}`}>
+                    <button
+                      type="button"
+                      onClick={() => setShowInviteePicker((v) => !v)}
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-left text-sm text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      {selectedCount === 0 ? 'Buscar usuarios para invitar…' : `${selectedCount} usuario(s)`}
+                    </button>
+                  </Field>
+
+                  {showInviteePicker && (
+                    <div className="mt-2 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                      <input
+                        value={inviteeQuery}
+                        onChange={(e) => setInviteeQuery(e.target.value)}
+                        placeholder="Filtrar usuarios…"
+                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm dark:bg-gray-800 dark:border-gray-700 focus:border-teal-500 outline-none"
+                      />
+                      <div className="mt-2 max-h-56 overflow-y-auto space-y-1">
+                        {filteredPool.length === 0 ? (
+                          <p className="text-center py-3 text-sm text-gray-400">Sin usuarios</p>
+                        ) : (
+                          filteredPool.map((u) => {
+                            const selected = invitees.some((i) => i.id === u.id);
+                            return (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() =>
+                                  setInvitees((prev) => (selected ? prev.filter((i) => i.id !== u.id) : [...prev, u]))
+                                }
+                                className={`w-full text-left p-2.5 rounded-lg border text-sm flex items-center gap-3 ${
+                                  selected
+                                    ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30'
+                                    : 'border-gray-200 dark:border-gray-700'
+                                }`}
+                              >
+                                <img
+                                  src={avatarFor(u)}
+                                  alt={`${u.first_name || ''} ${u.last_name || ''}`}
+                                  className="h-8 w-8 rounded-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.src = avatarFor({ ...u, profileImageUrl: '' });
+                                  }}
+                                />
+                                <span className="flex-1 min-w-0">
+                                  <span className="block font-medium text-gray-800 dark:text-gray-100 truncate">
+                                    {u.first_name || ''} {u.last_name || ''}
+                                  </span>
+                                  {u.email ? (
+                                    <span className="block text-xs text-gray-400 truncate">{u.email}</span>
+                                  ) : null}
+                                </span>
+                                {selected && <Check size={16} className="text-teal-600" />}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {invitees.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {invitees.map((u) => (
+                        <span
+                          key={u.id}
+                          className="inline-flex items-center gap-2 pl-1 pr-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-700 dark:text-gray-200"
+                        >
+                          <img
+                            src={avatarFor(u)}
+                            alt=""
+                            className="h-6 w-6 rounded-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = avatarFor({ ...u, profileImageUrl: '' });
+                            }}
+                          />
+                          <span className="max-w-[120px] truncate">
+                            {u.first_name || ''} {u.last_name || ''}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setInvitees((prev) => prev.filter((i) => i.id !== u.id))}
+                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            aria-label="Quitar"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Field label="Recordatorios">
+                    <div className="space-y-2">
+                      {reminders.map((minutes, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Select
+                            value={String(minutes)}
+                            onChange={(e) => {
+                              const next = reminders.slice();
+                              next[index] = Number(e.target.value);
+                              setReminders(next);
+                            }}
+                          >
+                            {REMINDER_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </Select>
+                          {reminders.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setReminders(reminders.filter((_, i) => i !== index))}
+                              className="text-rose-500 hover:text-rose-600"
+                              aria-label="Quitar recordatorio"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setReminders([...reminders, 30])}
+                        className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                      >
+                        + Añadir recordatorio
+                      </button>
+                    </div>
+                  </Field>
+                </div>
+
+                <Field label="Notas">
+                  <TextArea rows={2} placeholder="Notas adicionales…" {...register('notes')} />
+                </Field>
+              </>
+            )}
+
+            {error && <p className="text-sm text-rose-600">{error}</p>}
+            {loadingChildren && (
+              <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                <Loader2 size={12} className="animate-spin" /> Cargando invitados y recordatorios…
+              </p>
+            )}
+
+            {/* --------------------------------------------------- footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
               {editingEvent ? (
                 <button
                   type="button"
-                  onClick={() => setDeleteOpen(true)}
-                  className="flex items-center gap-1.5 text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-lg text-sm font-medium transition"
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-3 py-2 rounded-lg text-sm font-medium transition"
                 >
-                  <Trash2 size={16} /> Delete
+                  <Trash2 size={16} /> Eliminar
                 </button>
-              ) : <div />}
-              <div className="flex gap-2">
-                <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium">Cancel</button>
-                <button type="submit" disabled={busy} className="bg-teal-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-teal-700 transition disabled:opacity-50 flex items-center gap-2">
-                  {busy && <Loader2 className="animate-spin" size={16} />}
-                  {editingEvent ? 'Update' : 'Create'}
-                </button>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs text-gray-400 pl-1">
+                  <Clock size={13} /> {values.start_time} – {values.end_time}
+                </span>
+              )}
+
+              <div className="flex items-center gap-2">
+                {step !== 'details' && (
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 text-sm font-medium"
+                  >
+                    <ChevronLeft size={16} /> Atrás
+                  </button>
+                )}
+                {step !== 'invite' ? (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    className="flex items-center gap-1 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition"
+                  >
+                    Continuar <ChevronRight size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    onClick={() => {
+                      submitTriggeredRef.current = true;
+                    }}
+                    disabled={busy || deleting}
+                    className="flex items-center gap-2 bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition disabled:opacity-50"
+                  >
+                    {busy && <Loader2 className="animate-spin" size={16} />}
+                    {busy ? 'Guardando…' : editingEvent ? 'Actualizar' : 'Crear cita'}
+                  </button>
+                )}
               </div>
             </div>
           </form>
         </motion.div>
       </motion.div>
 
-      <PatientSearchModal
-        isOpen={showPatientSearch}
-        onClose={() => setShowPatientSearch(false)}
-        onSelectPatient={handlePatientSelect}
-      />
-
-      <InviteeSelectModal
-        isOpen={showInviteeSearch}
-        onClose={() => setShowInviteeSearch(false)}
-        selectedUsers={selectedUsers}
-        onUsersChange={setSelectedUsers}
-      />
-
-      {deleteOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/40 backdrop-blur-md z-[60] flex items-center justify-center p-4"
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0, filter: 'blur(8px)' }}
-            animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-            exit={{ scale: 0.95, opacity: 0, filter: 'blur(8px)' }}
-            transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-            className="bg-white dark:bg-gray-900/90 backdrop-blur-xl rounded-xl shadow-xl w-full max-w-md p-6 border border-gray-200 dark:border-gray-700"
-          >
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Delete Appointment</h3>
-            {deleteError && <p className="text-sm text-rose-600 mb-2">{deleteError}</p>}
-            {deleteSuccess ? (
-              <p className="text-sm text-teal-600 mb-4">Appointment deleted successfully.</p>
-            ) : (
-              <p className="text-sm text-gray-600 mb-4">Are you sure? This will permanently remove this appointment and its reminders/invitees.</p>
-            )}
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleteOpen(false)} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium">Cancel</button>
-              {!deleteSuccess && (
-                <button onClick={handleDelete} disabled={deleteLoading} className="bg-rose-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-rose-700 disabled:opacity-50">
-                  {deleteLoading ? 'Deleting...' : 'Delete'}
-                </button>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
+      {confirmDelete && <DeleteConfirm busy={deleting} error={error} onCancel={() => setConfirmDelete(false)} onConfirm={onDelete} />}
     </>
   );
 }
 
-const PatientSearchModal = ({ isOpen, onClose, onSelectPatient }: any) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [patients, setPatients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<any | null>(null);
+// ------------------------------------------------------------------ sub-components
 
-  useEffect(() => {
-    if (!isOpen) return;
-    if (searchQuery.trim() === '') {
-      setPatients([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/patients/search?q=${encodeURIComponent(searchQuery)}`);
-        if (res.ok) setPatients(await res.json());
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchQuery, isOpen]);
-
-  if (!isOpen) return null;
-
+function StepBar({ step }: { step: Step }) {
+  const items: Array<{ step: Step; label: string; icon: typeof UserRound }> = [
+    { step: 'details', label: 'Detalles', icon: UserRound },
+    { step: 'timing', label: 'Horario', icon: Clock },
+    { step: 'invite', label: 'Invitados', icon: Bell },
+  ];
+  const idx = items.findIndex((i) => i.step === step);
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/40 backdrop-blur-md z-[70] flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0, filter: 'blur(8px)' }}
-        animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-        exit={{ scale: 0.95, opacity: 0, filter: 'blur(8px)' }}
-        transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-        className="bg-white dark:bg-gray-900/90 backdrop-blur-xl rounded-xl shadow-xl w-full max-w-md border border-gray-200 dark:border-gray-700"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800">Search Patient</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-        </div>
-        <div className="p-4">
-          <input
-            autoFocus
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name or ID..."
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none"
-          />
-          <div className="mt-3 max-h-60 overflow-y-auto">
-            {loading ? (
-              <div className="text-center py-4 text-sm text-gray-400">Searching...</div>
-            ) : patients.length > 0 ? (
-              patients.map((p: any) => (
-                <button
-                  key={p.paciente_id}
-                  onClick={() => setSelected(p)}
-                  className={`w-full text-left p-3 rounded-lg border mb-2 ${selected?.paciente_id === p.paciente_id ? 'border-teal-500 bg-teal-50' : 'border-gray-200'}`}
-                >
-                  <div className="font-medium text-gray-800">{p.nombre_completo}</div>
-                  <div className="text-xs text-gray-500">ID: {p.numero_identidad} • {p.telefono}</div>
-                </button>
-              ))
-            ) : searchQuery.trim() !== '' ? (
-              <div className="text-center py-4 text-sm text-gray-400">No patients found</div>
-            ) : null}
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 text-sm font-medium">Cancel</button>
-            <button
-              onClick={() => {
-                if (selected) {
-                  onSelectPatient(selected);
-                  onClose();
-                }
-              }}
-              disabled={!selected}
-              className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium disabled:opacity-50"
+    <div className="flex items-center gap-2">
+      {items.map((item, i) => {
+        const Icon = item.icon;
+        const active = i === idx;
+        const done = i < idx;
+        return (
+          <div key={item.step} className="flex items-center gap-2 flex-1">
+            <div
+              className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full flex-1 justify-center ${
+                active
+                  ? 'bg-teal-600 text-white'
+                  : done
+                    ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
+                    : 'bg-gray-100 text-gray-400 dark:bg-gray-800'
+              }`}
             >
-              Select
-            </button>
+              <Icon size={13} />
+              <span className="hidden sm:inline">{item.label}</span>
+            </div>
+            {i < items.length - 1 && <div className="h-px w-3 bg-gray-200 dark:bg-gray-700" />}
           </div>
-        </div>
-      </motion.div>
-    </motion.div>
+        );
+      })}
+    </div>
   );
-};
+}
 
-const InviteeSelectModal = ({ isOpen, onClose, selectedUsers, onUsersChange }: any) => {
-  const [users, setUsers] = useState<Invitee[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState('');
+/**
+ * Clinic option list with a free-text escape (C21 — clinic-defined
+ * dentist/procedure labels survive because the DB column is VARCHAR, not enum).
+ */
+function CustomOptionField({
+  label,
+  options,
+  control,
+  name,
+  error,
+}: {
+  label: string;
+  options: string[];
+  control: Control<EventFormValues>;
+  name: 'procedure' | 'dentist';
+  error?: string;
+}) {
+  const { field } = useController({ control, name });
+  const [customOpen, setCustomOpen] = useState(false);
+  const hasCustom = field.value !== '' && !options.includes(field.value);
+  const showCustom = customOpen || hasCustom;
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setLoading(true);
-    fetch('/api/users')
-      .then((r) => r.ok ? r.json() : [])
-      .then(setUsers)
-      .finally(() => setLoading(false));
-  }, [isOpen]);
+  return (
+    <Field label={label} error={error}>
+      {showCustom ? (
+        <div className="flex gap-2">
+          <TextInput
+            value={field.value}
+            onChange={(e) => field.onChange(e.target.value)}
+            placeholder="Escribe una opción personalizada…"
+            invalid={!!error}
+          />
+          <button
+            type="button"
+            onClick={() => setCustomOpen(false)}
+            className="shrink-0 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 text-xs"
+          >
+            Usar lista
+          </button>
+        </div>
+      ) : (
+        <Select
+          value={field.value || ''}
+          onChange={(e) => {
+            if (e.target.value === '__custom__') {
+              setCustomOpen(true);
+              field.onChange('');
+            } else {
+              field.onChange(e.target.value);
+            }
+          }}
+          invalid={!!error}
+        >
+          <option value="">Seleccionar…</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+          <option value="__custom__">✎ Personalizado…</option>
+        </Select>
+      )}
+    </Field>
+  );
+}
 
-  if (!isOpen) return null;
-
-  const filtered = users.filter((u) => {
-    const q = query.toLowerCase();
-    return (
-      `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase().includes(q) ||
-      (u.email || '').toLowerCase().includes(q) ||
-      (u.role || '').toLowerCase().includes(q)
-    );
-  });
-
-  const toggle = (u: Invitee) => {
-    const exists = selectedUsers.find((s: Invitee) => s.id === u.id);
-    if (exists) {
-      onUsersChange(selectedUsers.filter((s: Invitee) => s.id !== u.id));
-    } else {
-      onUsersChange([...selectedUsers, u]);
-    }
-  };
-
+function DeleteConfirm({
+  busy,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  busy: boolean;
+  error?: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/40 backdrop-blur-md z-[70] flex items-center justify-center p-4"
-      onClick={onClose}
+      className="fixed inset-0 bg-black/40 backdrop-blur-md z-[60] flex items-center justify-center p-4"
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0, filter: 'blur(8px)' }}
-        animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-        exit={{ scale: 0.95, opacity: 0, filter: 'blur(8px)' }}
-        transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-        className="bg-white dark:bg-gray-900/90 backdrop-blur-xl rounded-xl shadow-xl w-full max-w-md border border-gray-200 dark:border-gray-700"
-        onClick={(e) => e.stopPropagation()}
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white dark:bg-gray-950 rounded-xl shadow-xl w-full max-w-md p-6 border border-gray-200 dark:border-gray-700"
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-800">Invite Users</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-        </div>
-        <div className="p-4">
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search users..."
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none"
-          />
-          <div className="mt-3 max-h-60 overflow-y-auto">
-            {loading ? (
-              <div className="text-center py-4 text-sm text-gray-400">Loading users...</div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-4 text-sm text-gray-400">No users found</div>
-            ) : (
-              filtered.map((u) => {
-                const isSelected = selectedUsers.some((s: Invitee) => s.id === u.id);
-                const avatarUrl = u.profileImageUrl || `https://ui-avatars.com/api/?name=${u.first_name}+${u.last_name}&background=random`;
-                return (
-                  <button
-                    key={u.id}
-                    onClick={() => toggle(u)}
-                    className={`w-full text-left p-3 rounded-lg border mb-2 flex items-center gap-3 ${isSelected ? 'border-teal-500 bg-teal-50' : 'border-gray-200'}`}
-                  >
-                    <img
-                      src={avatarUrl}
-                      alt={`${u.first_name} ${u.last_name}`}
-                      className="h-9 w-9 rounded-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${u.first_name}+${u.last_name}&background=random`;
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-800">{u.first_name} {u.last_name}</div>
-                      <div className="text-xs text-gray-500">{u.email} {u.role ? `• ${u.role}` : ''}</div>
-                    </div>
-                    {isSelected && <span className="text-teal-600 text-xs font-medium">Selected</span>}
-                  </button>
-                );
-              })
-            )}
-          </div>
-          <div className="mt-4 flex justify-end">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">Done</button>
-          </div>
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">Eliminar cita</h3>
+        {error && <p className="text-sm text-rose-600 mb-2">{error}</p>}
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+          ¿Seguro? Se eliminará de forma permanente junto con sus recordatorios e invitados.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 font-medium"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="bg-rose-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-rose-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {busy && <Loader2 className="animate-spin" size={16} />}
+            {busy ? 'Eliminando…' : 'Eliminar'}
+          </button>
         </div>
       </motion.div>
     </motion.div>
   );
-};
+}

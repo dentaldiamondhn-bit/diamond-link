@@ -111,6 +111,60 @@ export class CalendarRepository {
     );
   }
 
+  // ------------------------------------------------- event sub-resources
+  /** Invitee rows for one event (owner or member only — route enforces). */
+  static async getEventInvitees(
+    eventId: number
+  ): Promise<Array<{ event_id: number; user_id: string; status: string }>> {
+    return readJson(
+      await fetch(`/api/events/${eventId}/invitees`, REQUEST)
+    );
+  }
+
+  /** minutes_before per reminder for one event (owner or member only). */
+  static async getEventReminders(eventId: number): Promise<number[]> {
+    const rows = await readJson<Array<{ minutes_before: number }>>(
+      await fetch(`/api/events/${eventId}/reminders`, REQUEST)
+    );
+    return rows.map((r) => r.minutes_before);
+  }
+
+  /** Diff-replace invitees on an owned event (DELETE all → POST each). */
+  static async setEventInvitees(eventId: number, userIds: string[]): Promise<void> {
+    await fetch(`/api/events/${eventId}/invitees`, {
+      ...REQUEST,
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    for (const user_id of [...new Set(userIds)].filter(Boolean)) {
+      await fetch(`/api/events/${eventId}/invitees`, {
+        ...REQUEST,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, status: 'pending' }),
+      });
+    }
+  }
+
+  /** Diff-replace reminders on an owned event (DELETE all → POST each >0). */
+  static async setEventReminders(eventId: number, minutes: number[]): Promise<void> {
+    await fetch(`/api/events/${eventId}/reminders`, {
+      ...REQUEST,
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    for (const minutes_before of [...new Set(minutes)].filter((m) => m > 0)) {
+      await fetch(`/api/events/${eventId}/reminders`, {
+        ...REQUEST,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes_before }),
+      });
+    }
+  }
+
   // ----------------------------------------------------------------- tasks
   static async getTasks(): Promise<Task[]> {
     return readJson<Task[]>(await fetch('/api/tasks', REQUEST));

@@ -19,7 +19,6 @@ function canAccessRouteServer(userRole: string, pathname: string): boolean {
   const routePermissions: Record<string, string[]> = {
     '/dashboard': ['admin', 'doctor', 'assistant'],
     '/pacientes': ['admin', 'doctor', 'assistant'],
-    '/calendario': ['admin', 'doctor', 'assistant'],
     '/odontogram-pilot': ['admin', 'doctor', 'assistant'],
     '/tratamientos': ['admin', 'doctor', 'assistant'],
     '/tratamientos-completados': ['admin', 'doctor', 'assistant'],
@@ -140,8 +139,7 @@ export default clerkMiddleware(async (auth, req) => {
       '/dashboard',
       '/pacientes',
       '/doctores',
-      // NOTE: '/calendario' is intentionally NOT in this temporary list — it is
-      // gated by canAccessRouteServer (admin|doctor|assistant) below (Phase 0).
+      '/calendario',
       '/patient-form',
       '/consentimientos',
       '/odontogram-pilot',
