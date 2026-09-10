@@ -20,6 +20,8 @@ import { useToast } from '@/components/calendar-new/Toast';
 interface Props {
   /** Non-null while the drawer is open (C18 — slot/event select => detail drawer). */
   event: ClinicEvent | null;
+  /** Logged-in Clerk user id — used to hide Edit/Delete on other users' events. */
+  userId: string;
   onClose: () => void;
   /** Swap to edit: closes the drawer and opens the modal pre-filled (C18). */
   onEdit: (event: ClinicEvent) => void;
@@ -54,9 +56,10 @@ function timeSpan(e: ClinicEvent): string {
   return `${start} – ${end}`;
 }
 
-export default function EventDetailDrawer({ event, onClose, onEdit, onDeleted }: Props) {
+export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDeleted }: Props) {
   const { push } = useToast();
   const removeEvent = useCalendarMutations().deleteEvent;
+  const isOwner = !!event && event.user_id === userId;
 
   const [invitees, setInvitees] = useState<DrawerInvitee[]>([]);
   const [reminders, setReminders] = useState<number[]>([]);
@@ -116,7 +119,8 @@ export default function EventDetailDrawer({ event, onClose, onEdit, onDeleted }:
     setDeleting(true);
     setError('');
     try {
-      await removeEvent.mutateAsync(event.id);
+      // Fire-and-forget: drawer closes instantly; SSE + background refetch settle cache.
+      void removeEvent.mutateAsync(event.id);
       push('Cita eliminada', 'success');
       onDeleted();
     } catch {
@@ -296,12 +300,20 @@ export default function EventDetailDrawer({ event, onClose, onEdit, onDeleted }:
             </div>
 
             <footer className="flex items-center justify-between gap-2 p-5 border-t border-gray-100 dark:border-gray-800">
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="flex items-center gap-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-3 py-2 rounded-lg text-sm font-medium transition"
-              >
-                <Trash2 size={16} /> Eliminar
-              </button>
+              <div className="flex-1">
+                {isOwner ? (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-3 py-2 rounded-lg text-sm font-medium transition"
+                  >
+                    <Trash2 size={16} /> Eliminar
+                  </button>
+                ) : (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    Compartida contigo — solo el propietario puede editarla o eliminarla.
+                  </p>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={onClose}
@@ -309,12 +321,14 @@ export default function EventDetailDrawer({ event, onClose, onEdit, onDeleted }:
                 >
                   Cerrar
                 </button>
-                <button
-                  onClick={() => onEdit(event)}
-                  className="flex items-center gap-1.5 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition"
-                >
-                  <Pencil size={15} /> Editar
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={() => onEdit(event)}
+                    className="flex items-center gap-1.5 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition"
+                  >
+                    <Pencil size={15} /> Editar
+                  </button>
+                )}
               </div>
             </footer>
 

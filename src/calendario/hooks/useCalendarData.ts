@@ -1,9 +1,11 @@
 'use client';
 
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryKey,
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
@@ -22,11 +24,14 @@ export const calendarKeys = {
   reminders: ['calendario', 'reminders'] as const,
 };
 
-/** Events inside a date window — cache is keyed per range (C16: no full refetch on nav). */
+/** Events inside a date window — cache is keyed per range (C16: no full refetch on nav).
+ *  `keepPreviousData` keeps the old range visible while the new range loads,
+ *  preventing the full-screen spinner flash on every view switch. */
 export function useCalendarEvents(range: EventRange): UseQueryResult<ClinicEvent[], Error> {
   return useQuery({
     queryKey: calendarKeys.events(range),
     queryFn: () => CalendarRepository.getEvents(range),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -65,6 +70,11 @@ export interface CalendarMutations {
  * CRUD mutations with optimistic task toggle + invalidate-on-action. Invalidates
  * the whole `calendario` key so range- and list-caches all settle (the same
  * invalidation realtime uses, so no stale window survives an action).
+ *
+ * Performance: createEvent/deleteEvent use `onSettled` with fire-and-forget
+ * invalidation so mutateAsync resolves immediately after the HTTP response,
+ * keeping UI transitions (modal close, toast) instant. Realtime SSE + the
+ * periodic refetch cover any remaining stale window.
  */
 export function useCalendarMutations(): CalendarMutations {
   const queryClient = useQueryClient();
@@ -72,22 +82,47 @@ export function useCalendarMutations(): CalendarMutations {
 
   const createEvent = useMutation({
     mutationFn: (payload: EventInput) => CalendarRepository.createEvent(payload),
-    onSuccess: invalidateAll,
+    // Fire-and-forget: modal closes instantly; SSE + background refetch settle cache.
+    onSettled: () => { void invalidateAll(); },
   });
   const updateEvent = useMutation({
     mutationFn: ({ id, updates }: { id: number; updates: Partial<EventInput> }) =>
       CalendarRepository.updateEvent(id, updates),
-    onSuccess: invalidateAll,
+    // Phase 4 C10/C11 — optimistic move/resize: apply to every cached range
+    // immediately, roll back if the server rejects the save.
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: calendarKeys.all });
+      const snapshot = new Map<QueryKey, ClinicEvent[]>();
+      queryClient
+        .getQueriesData<ClinicEvent[]>({ queryKey: calendarKeys.all })
+        .forEach(([key, data]) => {
+          if (data) snapshot.set(key, data);
+        });
+      snapshot.forEach((data, key) => {
+        queryClient.setQueryData<ClinicEvent[]>(key, (old) =>
+          old?.map((e) => (e.id === id ? { ...e, ...updates } : e))
+        );
+      });
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!ctx?.snapshot) return;
+      ctx.snapshot.forEach((data, key) => {
+        queryClient.setQueryData<ClinicEvent[]>(key, data);
+      });
+    },
+    // Fire-and-forget: optimistic update already applied; background refetch confirms.
+    onSettled: () => { void invalidateAll(); },
   });
   const deleteEvent = useMutation({
     mutationFn: (id: number) => CalendarRepository.deleteEvent(id),
-    onSuccess: invalidateAll,
+    onSettled: () => { void invalidateAll(); },
   });
 
   const addTask = useMutation({
     mutationFn: ({ title, priority, due_date }: { title: string; priority: Task['priority']; due_date: string }) =>
       CalendarRepository.createTask(title, priority, due_date),
-    onSuccess: invalidateAll,
+    onSettled: () => { void invalidateAll(); },
   });
   const toggleTask = useMutation({
     mutationFn: ({ id, completed }: { id: number; completed: boolean }) =>
@@ -103,26 +138,26 @@ export function useCalendarMutations(): CalendarMutations {
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(calendarKeys.tasks, ctx.previous);
     },
-    onSettled: invalidateAll,
+    onSettled: () => { void invalidateAll(); },
   });
   const deleteTask = useMutation({
     mutationFn: (id: number) => CalendarRepository.deleteTask(id),
-    onSuccess: invalidateAll,
+    onSettled: () => { void invalidateAll(); },
   });
 
   const addReminder = useMutation({
     mutationFn: ({ message, remind_at }: { message: string; remind_at: string }) =>
       CalendarRepository.createReminder(message, remind_at),
-    onSuccess: invalidateAll,
+    onSettled: () => { void invalidateAll(); },
   });
   const dismissReminder = useMutation({
     mutationFn: ({ id, dismissed }: { id: number; dismissed: boolean }) =>
       CalendarRepository.updateReminder(id, { dismissed }),
-    onSuccess: invalidateAll,
+    onSettled: () => { void invalidateAll(); },
   });
   const deleteReminder = useMutation({
     mutationFn: (id: number) => CalendarRepository.deleteReminder(id),
-    onSuccess: invalidateAll,
+    onSettled: () => { void invalidateAll(); },
   });
 
   return {

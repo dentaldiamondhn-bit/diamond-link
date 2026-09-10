@@ -2,7 +2,7 @@
 
 // Force dynamic rendering for this page
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
 import { SupabaseDoctorService } from '@/services/supabaseDoctorService';
@@ -15,6 +15,7 @@ import SignatureDisplay from '@/components/SignatureDisplay';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
+import { savePatientDraft, loadPatientDraft, clearPatientDraft, patientDraftKey } from '@/patient/patientDraft';
 
 // Isolated component to prevent authentication conflicts
 const IsolatedDocumentDisplay: React.FC<{ documents: string[], patientId: string, removable?: boolean, onRemove?: (index: number) => void }> = React.memo(({ documents, patientId, removable = false, onRemove }) => {
@@ -62,7 +63,7 @@ import {
   User, Phone, Mail, MapPin, Heart, Activity, Coffee, 
   FileText, Edit3, ArrowLeft, Download, Printer, 
   AlertTriangle, Calendar, Clock, Stethoscope, Smile,
-  Save, X, ChevronLeft, UserPlus, FileCheck, AlertCircle
+  Save, X, ChevronLeft, UserPlus, FileCheck, AlertCircle, RotateCcw
 } from 'lucide-react';
 
 // Medical condition severity calculation (same as menu-navegacion)
@@ -447,6 +448,218 @@ function PatientFormContent() {
   
   // Examen Intraoral state variables
   const [diagnostico, setDiagnostico] = useState('');
+
+  // ── Draft persistence (create mode only — parity with C20 event-modal drafts) ──
+  const patientId = searchParams.get('id');
+  const draftKey = patientDraftKey(patientId);
+  const [draftAvailable, setDraftAvailable] = useState(false);
+
+  // The three country-code selects have no `name` attribute (not in form.elements),
+  // so their state is captured separately and kept fresh in a ref for the timer.
+  const countryRef = useRef({ phone: '504', emergency: '504', legal: '504' });
+  countryRef.current = { phone: selectedPhoneCountry, emergency: selectedEmergencyCountry, legal: selectedLegalRepCountry };
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  // Map of every CONTROLLED field name → its state setter. Used only on restore
+  // (saving reads the live DOM, which already reflects React state). Uncontrolled
+  // fields (nombre_completo, fecha_nacimiento, telefono, contacto_telefono,
+  // fecha_inicio, visitas_dentista, obsgen) have no setter and are restored via DOM.
+  const draftSetters: Record<string, (v: string) => void> = {
+    tipo_identificacion: (v) => setTipoIdentificacion(v),
+    otro_tipo_identificacion: (v) => setOtroTipoIdentificacion(v),
+    parentesco: (v) => setParentesco(v),
+    otro_parentesco: (v) => setOtroParentesco(v),
+    representante_legal: (v) => setRepresentanteLegal(v),
+    rep_tipo_identificacion: (v) => setRepTipoIdentificacion(v),
+    rep_otro_tipo_identificacion: (v) => setRepOtroTipoIdentificacion(v),
+    rep_numero_identidad: (v) => setRepNumeroIdentidad(v),
+    numero_identidad: (v) => setCurrentIdNumber(v),
+    sexo: (v) => setSexo(v),
+    otro_genero: (v) => setOtroGenero(v),
+    tipo_sangre: (v) => setTipoSangre(v),
+    direccion: (v) => setDireccion(v),
+    escolaridad: (v) => setEscolaridad(v),
+    estado_civil: (v) => setEstadoCivil(v),
+    email: (v) => setEmail(v),
+    trabajo: (v) => setTrabajo(v),
+    contacto_emergencia: (v) => setContactoEmergencia(v),
+    contacto_telefono: (v) => setContactoTelefono(v),
+    medico_cabecera: (v) => setMedicoCabecera(v),
+    apodo: (v) => setApodo(v),
+    enfermedades_sistemicas_texto: (v) => setEnfermedadesSistemicasTexto(v),
+    pediatra_otorrinolaringologo: (v) => setPediatraOtorrinolaringologo(v),
+    pediatra: (v) => setPediatra(v),
+    psicologo: (v) => setPsicologo(v),
+    otro_medico: (v) => setOtroMedico(v),
+    frecuencia_cepillado_detalle: (v) => setFrecuenciaCepilladoDetalle(v),
+    cepillado_acompanado: (v) => setCepilladoAcompanado(v),
+    peso: (v) => setPeso(v === '' ? '' : Number(v)),
+    talla: (v) => setTalla(v === '' ? '' : Number(v)),
+    tipo_alimentacion: (v) => setTipoAlimentacion(v),
+    momentos_azucar: (v) => setMomentosAzucar(v),
+    doctor: (v) => setDoctor(v),
+    fecha_inicio: (v) => setFechaInicio(v),
+    seguro: (v) => setSeguro(v),
+    otro_seguro: (v) => setOtroSeguro(v),
+    poliza: (v) => setPoliza(v),
+    contacto: (v) => setContacto(v),
+    hospitalizaciones: (v) => setHospitalizaciones(v),
+    cirugias: (v) => setCirugias(v),
+    embarazo: (v) => setEmbarazo(v),
+    semanas_embarazo: (v) => setSemanasEmbarazo(v),
+    medicamentos_embarazo: (v) => setMedicamentosEmbarazo(v),
+    vacunas: (v) => setVacunas(v),
+    observaciones_medicas: (v) => setObservacionesMedicas(v),
+    antecedentes_familiares: (v) => setAntecedentesFamiliares(v),
+    enfermedades: (v) => setEnfermedades(v),
+    alergias: (v) => setAlergias(v),
+    medicamentos: (v) => setMedicamentos(v),
+    motivo_consulta: (v) => setMotivoConsulta(v),
+    plan_tratamiento: (v) => setPlanTratamiento(v),
+    proximo_control: (v) => setProximoControl(v),
+    notas_odontologo: (v) => setNotasOdontologo(v),
+    tratamiento: (v) => setTratamiento(v),
+    observaciones_plan: (v) => setObservacionesPlan(v),
+    fuma: (v) => setFuma(v),
+    fuma_cantidad: (v) => setFumaCantidad(v),
+    fuma_frecuencia: (v) => setFumaFrecuencia(v),
+    alcohol: (v) => setAlcohol(v),
+    alcohol_cantidad: (v) => setAlcoholCantidad(v),
+    alcohol_frecuencia: (v) => setAlcoholFrecuencia(v),
+    drogas: (v) => setDrogas(v),
+    tipo_droga: (v) => setDrogasTipo(v),
+    drogas_frecuencia: (v) => setDrogasFrecuencia(v),
+    cafe: (v) => setCafe(v),
+    cantidad_tazas: (v) => setCafeTazas(v),
+    cafe_frecuencia: (v) => setCafeFrecuencia(v),
+    morder: (v) => setMorder(v),
+    hielo: (v) => setHielo(v),
+    boca: (v) => setBoca(v),
+    refrescos: (v) => setRefrescos(v),
+    dulces: (v) => setDulces(v),
+    pegajosos: (v) => setPegajosos(v),
+    azucarados: (v) => setAzucarados(v),
+    obs: (v) => setObs(v),
+    visitas_dentista: (v) => setVisitasDentista(v),
+    obsgen: (v) => setObsgen(v),
+    motivo: (v) => setMotivo(v),
+    historial: (v) => setHistorial(v),
+    encias: (v) => setEncias(v),
+    sangrado_encia: (v) => setSangradoEncia(v),
+    dolor: (v) => setDolor(v),
+    dolor_masticar: (v) => setDolorMasticar(v),
+    dolor_cabeza: (v) => setDolorCabeza(v),
+    dolor_cabeza_detalle: (v) => setDolorCabezaDetalle(v),
+    chasquidos: (v) => setChasquidos(v),
+    chasquidos_mandibulares: (v) => setChasquidosMandibulares(v),
+    dolor_oido: (v) => setDolorOido(v),
+    dolor_oido_detalle: (v) => setDolorOidoDetalle(v),
+    suction_digital: (v) => setSuctionDigital(v),
+    protesis: (v) => setProtesis(v),
+    protesis_tipo: (v) => setProtesisTipo(v),
+    protesis_nocturno: (v) => setProtesisNocturno(v),
+    ortodoncia: (v) => setOrtodoncia(v),
+    orto_finalizado: (v) => setFinalizoTratamiento(v),
+    orto_motivo_no_finalizado: (v) => setOrtodonciaMotivoNoFinalizado(v),
+    reaccion_adversa_anestesico: (v) => setReaccionAdversaAnestesico(v),
+    tipo_reaccion: (v) => setTipoReaccion(v),
+    experiencia_traumatica: (v) => setExperienciaTraumatica(v),
+    que_sucedio: (v) => setQueSucedio(v),
+    bruxismo: (v) => setBruxismo(v),
+    tipo_bruxismo: (v) => setTipoBruxismo(v),
+    sensibilidad: (v) => setSensibilidad(v),
+    tipo_sensibilidad: (v) => setTipoSensibilidad(v),
+    ultima_limpieza: (v) => setUltimaLimpieza(v),
+    f_cepillado: (v) => setFCepillado(v),
+    tipocepillo: (v) => setTipocepillo(v),
+    pastadental: (v) => setPastadental(v),
+    cambio_cepillo: (v) => setCambioCepillo(v),
+    hilo_dental: (v) => setHiloDental(v),
+    enjuague_bucal: (v) => setEnjuagueBucal(v),
+    tipo_enjuague_bucal: (v) => setTipoEnjuagueBucal(v),
+    observaciones_generales: (v) => setObservacionesGenerales(v),
+    diagnostico: (v) => setDiagnostico(v),
+    edad: (v) => setEdad(v === '' ? '' : Number(v)),
+  };
+
+  // Collect every form field's current value from the live DOM. The form mixes
+  // controlled and uncontrolled inputs, but the DOM always holds the truth, so
+  // this is the single reliable snapshot source (mirrors handleSubmit).
+  const collectFormValues = (): Record<string, string> => {
+    const values: Record<string, string> = {};
+    const form = formRef.current;
+    if (form) {
+      for (let i = 0; i < form.elements.length; i++) {
+        const el = form.elements[i] as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+        if (el.name && el.type !== 'file') {
+          if (el.type === 'checkbox') {
+            values[el.name] = (el as HTMLInputElement).checked ? 'true' : 'false';
+          } else {
+            values[el.name] = el.value || '';
+          }
+        }
+      }
+    }
+    const c = countryRef.current;
+    values['_phoneCountry'] = c.phone;
+    values['_emergencyCountry'] = c.emergency;
+    values['_legalRepCountry'] = c.legal;
+    return values;
+  };
+
+  const hasAnyDraftValue = (values: Record<string, string>) =>
+    Object.entries(values).some(([k, v]) => !k.startsWith('_') && v && v.trim() !== '');
+
+  // Show the restore banner on mount if a draft exists (create mode only).
+  useEffect(() => {
+    if (patientId) return; // edit mode reloads base data from Supabase
+    if (loadPatientDraft(draftKey)) setDraftAvailable(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Periodic autosave — every 2s the live DOM snapshot is written to localStorage.
+  // A polling interval (instead of per-keystroke debounce) avoids wiring ~100
+  // per-field onChange handlers; worst case on a crash is 2s of data loss.
+  useEffect(() => {
+    if (patientId) return; // create mode only
+    if (draftAvailable) return; // never clobber an un-restored draft
+    const interval = setInterval(() => {
+      const values = collectFormValues();
+      if (hasAnyDraftValue(values)) savePatientDraft(draftKey, values);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [patientId, draftKey, draftAvailable]);
+
+  const restoreDraft = () => {
+    const draft = loadPatientDraft(draftKey);
+    if (!draft) return;
+    const v = draft.values;
+    // Controlled fields → React state (triggers re-render which writes DOM).
+    for (const name of Object.keys(draftSetters)) {
+      if (v[name] !== undefined) draftSetters[name](v[name]);
+    }
+    // Country selects + any uncontrolled fields → direct DOM writes after render.
+    setSelectedPhoneCountry(v['_phoneCountry'] || '504');
+    setSelectedEmergencyCountry(v['_emergencyCountry'] || '504');
+    setSelectedLegalRepCountry(v['_legalRepCountry'] || '504');
+    requestAnimationFrame(() => {
+      const form = formRef.current;
+      if (!form) return;
+      for (let i = 0; i < form.elements.length; i++) {
+        const el = form.elements[i] as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+        if (el.name && el.type !== 'file' && el.name in v) {
+          if (el.type === 'checkbox') (el as HTMLInputElement).checked = v[el.name] === 'true';
+          else el.value = v[el.name] || '';
+        }
+      }
+    });
+    setDraftAvailable(false);
+  };
+
+  const discardDraft = () => {
+    clearPatientDraft(draftKey);
+    setDraftAvailable(false);
+  };
 
   // Calculate age from birthdate
   const handleFechaNacimientoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1423,6 +1636,9 @@ function PatientFormContent() {
       
       // Clear validation highlighting on successful submission
       clearValidationHighlighting();
+
+      // Successful save → persist nothing: discard any draft
+      clearPatientDraft(draftKey);
       
       // Server action handles redirect, so no need for client-side redirect
     } catch (error: any) {
@@ -1574,6 +1790,41 @@ function PatientFormContent() {
       <h1 className="text-3xl font-bold text-center mb-8 text-teal-700">
         {isEditing ? 'Editar Historia Clínica' : 'Nueva Historia Clínica'}
       </h1>
+
+      {/* Draft Restore Banner */}
+      {!isEditing && draftAvailable && (
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 rounded-xl px-4 py-3">
+          <div className="flex items-start gap-3 flex-1">
+            <AlertTriangle className="w-5 h-5 mt-0.5 text-amber-500 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                Tienes un borrador sin guardar
+              </p>
+              <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
+                Se encontró un formulario en progreso de hace menos de 24 horas. Restauráralo o descártalo.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 sm:ml-4 shrink-0">
+            <button
+              type="button"
+              onClick={restoreDraft}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition-all hover:shadow-md active:scale-95"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Restaurar
+            </button>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="flex items-center gap-1.5 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-amber-300 dark:border-gray-600 text-amber-800 dark:text-amber-200 text-sm font-medium px-3.5 py-2 rounded-lg transition-all active:scale-95"
+            >
+              <X className="w-4 h-4" />
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Historical Mode Banner */}
       <HistoricalBanner
@@ -1591,7 +1842,7 @@ function PatientFormContent() {
         loading={false}
       />
       
-      <form onSubmit={handleSubmit} data-rr-block className="space-y-8" noValidate>
+      <form ref={formRef} id="patient-form" onSubmit={handleSubmit} data-rr-block className="space-y-8" noValidate>
         {/* Datos Personales */}
         <section>
           <h2 className="text-xl font-semibold mb-4 border-b-2 border-teal-300 pb-2">Datos Personales</h2>

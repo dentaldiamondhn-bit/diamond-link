@@ -22,6 +22,8 @@ import EventModal, { type ModalPrefill } from '@/components/calendar-new/EventMo
 import EventDetailDrawer from '@/components/calendar-new/EventDetailDrawer';
 import { useToast } from '@/components/calendar-new/Toast';
 import type { RbcEvent } from '@/calendario/rbcAdapter';
+import type { DragDropResult } from '@/calendario/RbcCalendar';
+import { findDentistOverlap, dragTargetUpdates, resizeTargetUpdates } from '@/calendario/calendarDnD';
 
 const RbcCalendar = dynamic(() => import('@/calendario/RbcCalendar'), {
   ssr: false,
@@ -88,6 +90,13 @@ export default function CalendarShell({ userId }: Props) {
   const reminders = remindersQuery.data ?? [];
 
   const rbcEvents = useMemo(() => eventsToRbc(events), [events]);
+
+  // Keep the drawer's event in sync with the freshest query data (SSE or refetch).
+  // Without this, the drawer shows a frozen snapshot and never live-updates.
+  const liveDrawerEvent = useMemo(() => {
+    if (!drawerEvent) return null;
+    return events.find((e) => e.id === drawerEvent.id) ?? drawerEvent;
+  }, [drawerEvent, events]);
 
   const invalidateForModal = () => {
     eventsQuery.refetch();
@@ -184,9 +193,88 @@ export default function CalendarShell({ userId }: Props) {
     setDrawerEvent(rbcEvent.resource);
   };
 
+  /** Day list rows: owned events go straight to edit; shared ones open the read-only drawer. */
+  const handleDayDetailClick = (ev: ClinicEvent) => {
+    if (ev.user_id === userId) {
+      openEditEvent(ev);
+    } else {
+      setSelectedDate(ev.date);
+      setDrawerEvent(ev);
+    }
+  };
+
+  /**
+   * Phase 4 C10 — drop carries a new slot. Month/all-day drops only rebase the
+   * date (no time granularity); time views carry exact times. A same-dentist
+   * collision blocks the move with a clear message (C12).
+   */
+  const handleEventDrop = async ({ event, start, end, isAllDay }: DragDropResult) => {
+    const clinic = event.resource;
+    // Invitees can see shared events but only the owner may move them.
+    if (clinic.user_id !== userId) {
+      push('No puedes mover una cita que no es tuya.', 'error');
+      return;
+    }
+    const updates = dragTargetUpdates(clinic, start, end, isAllDay, view === 'month');
+    const colliding = findDentistOverlap(
+      events,
+      clinic,
+      updates.date ?? clinic.date,
+      updates.start_time ?? clinic.start_time,
+      updates.end_time ?? clinic.end_time
+    );
+    if (colliding) {
+      const who = colliding.patient_name || colliding.title || 'otra cita';
+      push(
+        `Conflicto de agenda: ${clinic.dentist} ya tiene una cita con ${who} a esa hora (${colliding.start_time}).`,
+        'error'
+      );
+      return;
+    }
+    try {
+      await mutations.updateEvent.mutateAsync({ id: clinic.id, updates });
+      push('Cita movida', 'success');
+    } catch {
+      push('No se pudo mover la cita', 'error');
+    }
+  };
+
+  /** Phase 4 C11 — resize only moves the end bound (clamped, overlap-checked). */
+  const handleEventResize = async ({ event, end }: DragDropResult) => {
+    const clinic = event.resource;
+    if (clinic.user_id !== userId) {
+      push('No puedes mover una cita que no es tuya.', 'error');
+      return;
+    }
+    const updates = resizeTargetUpdates(clinic, end);
+    const colliding = findDentistOverlap(
+      events,
+      clinic,
+      clinic.date,
+      clinic.start_time,
+      updates.end_time ?? clinic.end_time
+    );
+    if (colliding) {
+      const who = colliding.patient_name || colliding.title || 'otra cita';
+      push(
+        `No se puede extender: ${clinic.dentist} ya tiene una cita con ${who} en ese horario.`,
+        'error'
+      );
+      return;
+    }
+    try {
+      await mutations.updateEvent.mutateAsync({ id: clinic.id, updates });
+      push('Cita actualizada', 'success');
+    } catch {
+      push('No se pudo actualizar la cita', 'error');
+    }
+  };
+
   const queryError = eventsQuery.error || tasksQuery.error || remindersQuery.error;
 
-  if (eventsQuery.isPending) {
+  // Only block on true cold-boot (no cached data at all). View switches use
+// keepPreviousData so the previous range stays visible while the new one loads.
+if (eventsQuery.isPending && !eventsQuery.data) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
@@ -225,6 +313,8 @@ export default function CalendarShell({ userId }: Props) {
             onNavigate={setDate}
             onSelectSlot={handleSelectSlot}
             onSelectEvent={handleSelectEvent}
+            onEventDrop={handleEventDrop}
+            onEventResize={handleEventResize}
           />
 
           <div className="mt-6 lg:hidden">
@@ -232,7 +322,7 @@ export default function CalendarShell({ userId }: Props) {
               dateStr={selectedDate}
               events={events}
               onClose={() => setSelectedDate(null)}
-              onEditEvent={openEditEvent}
+              onEditEvent={handleDayDetailClick}
               onAddEvent={openNewEvent}
             />
           </div>
@@ -244,7 +334,7 @@ export default function CalendarShell({ userId }: Props) {
               dateStr={selectedDate}
               events={events}
               onClose={() => setSelectedDate(null)}
-              onEditEvent={openEditEvent}
+              onEditEvent={handleDayDetailClick}
               onAddEvent={openNewEvent}
             />
           </div>
@@ -275,7 +365,8 @@ export default function CalendarShell({ userId }: Props) {
       />
 
       <EventDetailDrawer
-        event={drawerEvent}
+        event={liveDrawerEvent}
+        userId={userId}
         onClose={() => setDrawerEvent(null)}
         onEdit={openEditEvent}
         onDeleted={() => {

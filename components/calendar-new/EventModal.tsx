@@ -296,9 +296,11 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     setBusy(true);
     setError('');
     try {
-      const firstInvitee = invitees[0];
-      const dentistName = firstInvitee
-        ? `${firstInvitee.first_name || ''} ${firstInvitee.last_name || ''}`.trim()
+      const firstDoctor = invitees.find(
+        (i) => (i.role || '').toLowerCase() === 'doctor'
+      );
+      const dentistName = firstDoctor
+        ? `${firstDoctor.first_name || ''} ${firstDoctor.last_name || ''}`.trim()
         : '';
       const body = {
         ...formData,
@@ -312,9 +314,11 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
         const created = await mutations.createEvent.mutateAsync(body);
         eventId = created.id;
       }
+      // Fire-and-forget: SSE + background refetch cover these; skipping the
+      // await removes 4+ sequential round-trips from the modal-close path.
       if (eventId) {
-        await CalendarRepository.setEventInvitees(eventId, invitees.map((i) => i.id));
-        await CalendarRepository.setEventReminders(eventId, reminders);
+        void CalendarRepository.setEventInvitees(eventId, invitees.map((i) => i.id));
+        void CalendarRepository.setEventReminders(eventId, reminders);
       }
       if (dateStr) clearEventDraft(dateStr);
       push(editingEvent ? 'Cita actualizada' : 'Cita creada', 'success');
@@ -332,7 +336,8 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     setDeleting(true);
     setError('');
     try {
-      await mutations.deleteEvent.mutateAsync(editingEvent.id);
+      // Fire-and-forget: modal closes instantly; SSE + background refetch settle cache.
+      void mutations.deleteEvent.mutateAsync(editingEvent.id);
       if (dateStr) clearEventDraft(dateStr);
       push('Cita eliminada', 'success');
       onSaved();
@@ -345,13 +350,15 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     }
   };
 
+  // Invitees = any clinic user (admin/doctor/assistant/tech_support). No role
+  // filter — the search narrows the pool; the dentist auto-fill below only
+  // considers invitees whose role is `doctor`.
   const filteredPool = userPool.filter((u) => {
     const q = inviteeQuery.toLowerCase();
-    const matchesQuery =
+    return (
       `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase().includes(q) ||
-      (u.email || '').toLowerCase().includes(q);
-    const isDoctor = (u.role || '').toLowerCase() === 'doctor';
-    return matchesQuery && isDoctor;
+      (u.email || '').toLowerCase().includes(q)
+    );
   });
 
   const selectedCount = invitees.length;

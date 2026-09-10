@@ -1,4 +1,5 @@
 import type { ClinicEvent } from '@/lib/types-calendar';
+import { clinicDateKey } from '@/calendario/timezone';
 
 export interface RbcEvent {
   id: string;
@@ -42,10 +43,7 @@ export function eventsToRbc(events: ClinicEvent[]): RbcEvent[] {
 }
 
 export function dateToDateStr(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return clinicDateKey(date);
 }
 
 export function dateToTimeStr(date: Date): string {

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Prevent static generation for this API route
-export const revalidate = 0;
+// Ensure a fresh, dynamic response every time (route handlers default to static in some configs)
+export const dynamic = 'force-dynamic';
 
 // GET /api/maintenance-alerts - Fetch active maintenance alerts
 export async function GET(request: NextRequest) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
+import { CLINIC_TIME_ZONE } from '@/calendario/timezone';
 
 export const runtime = 'nodejs';
 
@@ -23,10 +24,22 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = createServerServiceClient();
-    let query = supabase
-      .from('events')
-      .select('*')
+    // Visible events = owned OR invited (matches the `events` RLS predicate and the
+    // realtime `event_invitees` binding, so invitee calendars actually populate).
+    const { data: inviteeRows } = await supabase
+      .from('event_invitees')
+      .select('event_id')
       .eq('user_id', userId);
+    const inviteeEventIds = (inviteeRows ?? [])
+      .map((r) => Number(r.event_id))
+      .filter((n) => Number.isFinite(n));
+
+    let query = supabase.from('events').select('*');
+    if (inviteeEventIds.length > 0) {
+      query = query.or(`user_id.eq.${userId},id.in.(${inviteeEventIds.join(',')})`);
+    } else {
+      query = query.eq('user_id', userId);
+    }
 
     if (dateFrom) query = query.gte('date', dateFrom);
     if (dateTo) query = query.lte('date', dateTo);
@@ -73,7 +86,14 @@ export async function POST(req: Request) {
       user_id: userId,
       title: title || `Appointment - ${patient_name}`,
       patient_name: patient_name || '',
-      date: date || new Date().toISOString().slice(0, 10),
+      date: date || (() => {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: CLINIC_TIME_ZONE,
+          year: 'numeric', month: '2-digit', day: '2-digit',
+        }).formatToParts(new Date());
+        const v = (t: string) => parts.find(p => p.type === t)?.value || '';
+        return `${v('year')}-${v('month')}-${v('day')}`;
+      })(),
       start_time: start_time || '09:00',
       end_time: end_time || '09:30',
       color: color || '#0d9488',
@@ -132,6 +152,12 @@ export async function PUT(req: Request) {
       .single();
 
     if (dbError) {
+      if (dbError.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: 'Evento no encontrado o no tienes permiso para editarlo' },
+          { status: 404 }
+        );
+      }
       return NextResponse.json(
         {
           error: dbError.message,
@@ -142,6 +168,14 @@ export async function PUT(req: Request) {
         { status: 400 }
       );
     }
+    // Best-effort realtime ping for invited calendars (C13): bumping the invitee
+    // rows fires the invitee's `event_invitees` SSE binding → client invalidates →
+    // refetches the (now invitee-inclusive) GET. Needs migration 20260909e for the
+    // column; if it's not applied yet this call errors harmlessly and is swallowed.
+    await supabase
+      .from('event_invitees')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('event_id', id);
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -158,13 +192,20 @@ export async function DELETE(req: Request) {
     const { id } = body;
 
     const supabase = createServerServiceClient();
-    const { error: dbError } = await supabase
+    const { data, error: dbError } = await supabase
       .from('events')
       .delete()
       .eq('id', id)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .select('id');
 
     if (dbError) throw dbError;
+    if (!data || data.length === 0) {
+      return NextResponse.json(
+        { error: 'Evento no encontrado o no tienes permiso para eliminarlo' },
+        { status: 404 }
+      );
+    }
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
