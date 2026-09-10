@@ -9,7 +9,8 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import type { ClinicEvent, Task, Reminder } from '@/lib/types-calendar';
+import { useMemo } from 'react';
+import type { ClinicEvent, Task, Reminder, EventReminder } from '@/lib/types-calendar';
 import {
   CalendarRepository,
   type EventInput,
@@ -22,6 +23,7 @@ export const calendarKeys = {
   eventsList: ['calendario', 'events'] as const,
   tasks: ['calendario', 'tasks'] as const,
   reminders: ['calendario', 'reminders'] as const,
+  eventReminders: (ids: string) => ['calendario', 'eventReminders', ids] as const,
 };
 
 /** Events inside a date window — cache is keyed per range (C16: no full refetch on nav).
@@ -49,6 +51,18 @@ export function useCalendarReminders(): UseQueryResult<Reminder[], Error> {
   });
 }
 
+/** Event reminders for a specific set of events (deduped/sorted ids as the key). */
+export function useEventReminders(eventIds: number[]): UseQueryResult<EventReminder[], Error> {
+  const ids = useMemo(() => [...new Set(eventIds)].sort((a, b) => a - b), [eventIds]);
+  const key = ids.length ? ids.join(',') : 'none';
+  return useQuery({
+    queryKey: calendarKeys.eventReminders(key),
+    queryFn: () => CalendarRepository.getEventRemindersBatch(ids),
+    enabled: ids.length > 0,
+    placeholderData: [] as EventReminder[],
+  });
+}
+
 export function useInvalidateCalendar() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: calendarKeys.all });
@@ -64,6 +78,7 @@ export interface CalendarMutations {
   addReminder: UseMutationResult<Reminder, Error, { message: string; remind_at: string }>;
   dismissReminder: UseMutationResult<Reminder, Error, { id: number; dismissed: boolean }>;
   deleteReminder: UseMutationResult<void, Error, number>;
+  deleteEventReminder: UseMutationResult<void, Error, { eventId: number; reminderId: number }>;
 }
 
 /**
@@ -159,6 +174,11 @@ export function useCalendarMutations(): CalendarMutations {
     mutationFn: (id: number) => CalendarRepository.deleteReminder(id),
     onSettled: () => { void invalidateAll(); },
   });
+  const deleteEventReminder = useMutation({
+    mutationFn: ({ eventId, reminderId }: { eventId: number; reminderId: number }) =>
+      CalendarRepository.deleteEventReminder(eventId, reminderId),
+    onSettled: () => { void invalidateAll(); },
+  });
 
   return {
     createEvent,
@@ -170,5 +190,6 @@ export function useCalendarMutations(): CalendarMutations {
     addReminder,
     dismissReminder,
     deleteReminder,
+    deleteEventReminder,
   };
 }

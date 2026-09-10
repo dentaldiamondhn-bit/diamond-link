@@ -14,6 +14,7 @@ import {
   type EventPriority,
 } from '@/calendario/event/eventSchema';
 import { CalendarRepository } from '@/calendario/calendarRepository';
+import { reminderLabel } from '@/calendario/reminderLabel';
 import { useCalendarMutations } from '@/calendario/hooks/useCalendarData';
 import { useToast } from '@/components/calendar-new/Toast';
 
@@ -41,14 +42,6 @@ interface DrawerInvitee {
 const avatarFor = (u: DrawerInvitee) =>
   u.profileImageUrl ||
   `https://ui-avatars.com/api/?name=${encodeURIComponent((u.first_name || '') + ' ' + (u.last_name || ''))}&background=random`;
-
-function reminderLabel(min: number): string {
-  if (min <= 0) return 'Sin recordatorio';
-  if (min < 60) return `${min} min antes`;
-  if (min === 60) return '1 hora antes';
-  if (min < 1440) return `${min / 60} h antes`;
-  return '1 día antes';
-}
 
 function timeSpan(e: ClinicEvent): string {
   const start = `${e.start_time || '09:00'}`;

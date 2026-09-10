@@ -11,6 +11,7 @@ import {
   useCalendarEvents,
   useCalendarTasks,
   useCalendarReminders,
+  useEventReminders,
   useCalendarMutations,
 } from '@/calendario/hooks/useCalendarData';
 import { useCalendarRealtime } from '@/calendario/hooks/useCalendarRealtime';
@@ -88,6 +89,9 @@ export default function CalendarShell({ userId }: Props) {
   const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
   const tasks = tasksQuery.data ?? [];
   const reminders = remindersQuery.data ?? [];
+  const eventIds = useMemo(() => events.map((e) => e.id), [events]);
+  const eventRemindersQuery = useEventReminders(eventIds);
+  const eventReminders = eventRemindersQuery.data ?? [];
 
   const rbcEvents = useMemo(() => eventsToRbc(events), [events]);
 
@@ -107,9 +111,9 @@ export default function CalendarShell({ userId }: Props) {
   const addTask = async (title: string, priority: Task['priority'], due_date: string) => {
     try {
       await mutations.addTask.mutateAsync({ title, priority, due_date });
-      push('Task added', 'success');
+      push('Tarea añadida', 'success');
     } catch {
-      push('Failed to add task', 'error');
+      push('No se pudo añadir la tarea', 'error');
     }
   };
 
@@ -117,25 +121,25 @@ export default function CalendarShell({ userId }: Props) {
     try {
       await mutations.toggleTask.mutateAsync({ id: task.id, completed: !task.completed });
     } catch {
-      push('Failed to update task', 'error');
+      push('No se pudo actualizar la tarea', 'error');
     }
   };
 
   const deleteTask = async (id: number) => {
     try {
       await mutations.deleteTask.mutateAsync(id);
-      push('Task deleted', 'success');
+      push('Tarea eliminada', 'success');
     } catch {
-      push('Failed to delete task', 'error');
+      push('No se pudo eliminar la tarea', 'error');
     }
   };
 
   const addReminder = async (message: string, remind_at: string) => {
     try {
       await mutations.addReminder.mutateAsync({ message, remind_at });
-      push('Reminder set', 'success');
+      push('Recordatorio fijado', 'success');
     } catch {
-      push('Failed to set reminder', 'error');
+      push('No se pudo fijar el recordatorio', 'error');
     }
   };
 
@@ -143,16 +147,25 @@ export default function CalendarShell({ userId }: Props) {
     try {
       await mutations.dismissReminder.mutateAsync({ id, dismissed: true });
     } catch {
-      push('Failed to dismiss reminder', 'error');
+      push('No se pudo descartar el recordatorio', 'error');
     }
   };
 
   const deleteReminder = async (id: number) => {
     try {
       await mutations.deleteReminder.mutateAsync(id);
-      push('Reminder deleted', 'success');
+      push('Recordatorio eliminado', 'success');
     } catch {
-      push('Failed to delete reminder', 'error');
+      push('No se pudo eliminar el recordatorio', 'error');
+    }
+  };
+
+  const deleteEventReminder = async (eventId: number, reminderId: number) => {
+    try {
+      await mutations.deleteEventReminder.mutateAsync({ eventId, reminderId });
+      push('Recordatorio de cita eliminado', 'success');
+    } catch {
+      push('No se pudo eliminar el recordatorio de la cita', 'error');
     }
   };
 
@@ -279,7 +292,7 @@ if (eventsQuery.isPending && !eventsQuery.data) {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="animate-spin text-teal-500" size={32} />
-          <p className="text-gray-400 text-sm">Loading your clinic calendar...</p>
+          <p className="text-gray-400 text-sm">Cargando tu agenda...</p>
         </div>
       </div>
     );
@@ -296,7 +309,9 @@ if (eventsQuery.isPending && !eventsQuery.data) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500 hidden sm:block">{events.length} cita(s)</p>
+            <p className="text-sm text-gray-500 hidden sm:block">
+              {events.length} {events.length === 1 ? 'cita' : 'citas'}
+            </p>
             <button
               onClick={openNewEvent}
               className="flex items-center gap-1.5 bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-teal-700 transition shadow-sm"
@@ -338,18 +353,20 @@ if (eventsQuery.isPending && !eventsQuery.data) {
               onAddEvent={openNewEvent}
             />
           </div>
+          <ReminderPanel
+            reminders={reminders}
+            eventReminders={eventReminders}
+            onAdd={addReminder}
+            onDismiss={dismissReminder}
+            onDelete={deleteReminder}
+            onDeleteEventReminder={deleteEventReminder}
+          />
           <TaskPanel
             tasks={tasks}
             selectedDate={selectedDate}
             onAdd={addTask}
             onToggle={toggleTask}
             onDelete={deleteTask}
-          />
-          <ReminderPanel
-            reminders={reminders}
-            onAdd={addReminder}
-            onDismiss={dismissReminder}
-            onDelete={deleteReminder}
           />
         </div>
       </div>

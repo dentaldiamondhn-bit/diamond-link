@@ -1,11 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseClient } from './supabase'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabaseAdmin = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
+/**
+ * Anon-key Supabase client for admin-ish/storage work.
+ *
+ * Uses the SAME shared anon client as `src/lib/supabase.ts` — creating a second
+ * `createClient()` call here would spin up another GoTrueClient under the same
+ * `sb-<url>-auth-token` storage key and re-trigger the "Multiple GoTrueClient
+ * instances detected" browser warning whenever both modules load in one session.
+ */
+export const supabaseAdmin = getSupabaseClient()

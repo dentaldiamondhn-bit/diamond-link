@@ -39,6 +39,24 @@ export interface Reminder {
   created_at: string;
 }
 
+/** One `event_reminders` row joined with enough event data to show it in the
+ *  Recordatorios card (fire time = event start − minutes_before). */
+export interface EventReminder {
+  id: number;
+  event_id: number;
+  minutes_before: number;
+  event: {
+    id: number;
+    user_id: string;
+    title: string | null;
+    patient_name: string | null;
+    date: string;
+    start_time: string | null;
+    end_time: string | null;
+    status: string | null;
+  } | null;
+}
+
 export const PROCEDURES = [
   'Cleaning',
   'Checkup',

@@ -3,13 +3,24 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Singleton pattern to avoid multiple GoTrueClient instances
-let supabaseInstance: SupabaseClient | null = null
-let realtimeSupabaseInstance: SupabaseClient | null = null
+/**
+ * ONE GoTrueClient per browser context.
+ *
+ * Next.js bundles `src/lib/supabase.ts` into every route chunk that imports it,
+ * and each module copy would otherwise create its own Supabase/goTrue client
+ * under the same `sb-<url>-auth-token` storage key — Supabase warns loudly about
+ * this ("Multiple GoTrueClient instances detected"). Caching on `globalThis`
+ * makes every copy of the module agree on a single shared instance, so exactly
+ * one client exists per page, and realtime channels run through it too
+ * (`realtimeSupabase === supabase`).
+ */
+const shared = globalThis as {
+  __diamondSupabaseClient?: SupabaseClient
+}
 
 function getSupabaseClient(): SupabaseClient {
-  if (!supabaseInstance) {
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+  if (!shared.__diamondSupabaseClient) {
+    shared.__diamondSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         detectSessionInUrl: true,
@@ -30,34 +41,14 @@ function getSupabaseClient(): SupabaseClient {
       }
     })
   }
-  return supabaseInstance
-}
-
-function getRealtimeSupabaseClient(): SupabaseClient {
-  if (!realtimeSupabaseInstance) {
-    realtimeSupabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: false,
-        detectSessionInUrl: false,
-        autoRefreshToken: false,
-      },
-      db: {
-        schema: 'public'
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10
-        }
-      }
-    })
-  }
-  return realtimeSupabaseInstance
+  return shared.__diamondSupabaseClient
 }
 
 export const supabase = getSupabaseClient()
-export const realtimeSupabase = getRealtimeSupabaseClient()
+// Realtime channels use the SAME client/goTrue instance — no second GoTrueClient.
+export const realtimeSupabase = supabase
 
-export { createClient }
+export { createClient, getSupabaseClient }
 
 export function createServiceClient(): SupabaseClient {
   return createClient(

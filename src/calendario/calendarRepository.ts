@@ -1,4 +1,4 @@
-import type { ClinicEvent, Task, Reminder } from '@/lib/types-calendar';
+import type { ClinicEvent, Task, Reminder, EventReminder } from '@/lib/types-calendar';
 import type { ParticipantMap } from '@/app/api/events/participants/route';
 
 export interface EventRange {
@@ -145,6 +145,26 @@ export class CalendarRepository {
         body: JSON.stringify({ user_id, status: 'pending' }),
       });
     }
+  }
+
+  /** Batch reminders for many events at once (ReminderPanel "citas" rows). */
+  static async getEventRemindersBatch(eventIds: number[]): Promise<EventReminder[]> {
+    if (eventIds.length === 0) return [];
+    return readJson<EventReminder[]>(
+      await fetch(`/api/events/reminders?ids=${eventIds.join(',')}`, REQUEST)
+    );
+  }
+
+  /** Remove a single event reminder (owner only). */
+  static async deleteEventReminder(eventId: number, reminderId: number): Promise<void> {
+    await readJson<{ ok: boolean }>(
+      await fetch(`/api/events/${eventId}/reminders`, {
+        ...REQUEST,
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reminder_id: reminderId }),
+      })
+    );
   }
 
   /** Diff-replace reminders on an owned event (DELETE all → POST each >0). */

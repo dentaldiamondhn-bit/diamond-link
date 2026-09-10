@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-react';
-import type { ClinicEvent, Task, Reminder } from '@/lib/types-calendar';
+import type { ClinicEvent, Task, Reminder, EventReminder } from '@/lib/types-calendar';
 import CalendarGrid from '@/components/calendar-new/CalendarGrid';
 import DayDetail from '@/components/calendar-new/DayDetail';
 import EventModal from '@/components/calendar-new/EventModal';
@@ -14,6 +14,11 @@ interface Props {
   userId: string;
 }
 
+const MONTHS_LONG = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
 export default function Dashboard({ userId }: Props) {
   const { push } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -21,6 +26,7 @@ export default function Dashboard({ userId }: Props) {
   const [events, setEvents] = useState<ClinicEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [eventReminders, setEventReminders] = useState<EventReminder[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -40,9 +46,18 @@ export default function Dashboard({ userId }: Props) {
         }),
       ]);
       const [evData, taskData, remData] = await Promise.all([evRes.json(), taskRes.json(), remRes.json()]);
+      const ids = ((evData || []) as ClinicEvent[]).map((e) => e.id);
+      const eventRem = ids.length
+        ? await fetch(`/api/events/reminders?ids=${ids.join(',')}`, {
+            headers: { 'x-user-id': userId },
+          })
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => [])
+        : [];
       setEvents(evData || []);
       setTasks(taskData || []);
       setReminders(remData || []);
+      setEventReminders(eventRem || []);
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
@@ -60,10 +75,10 @@ export default function Dashboard({ userId }: Props) {
         body: JSON.stringify({ title, priority, due_date }),
       });
       if (!res.ok) throw new Error('Failed to add task');
-      push('Task added', 'success');
+      push('Tarea añadida', 'success');
       fetchAll();
     } catch {
-      push('Failed to add task', 'error');
+      push('No se pudo añadir la tarea', 'error');
     }
   };
 
@@ -77,7 +92,7 @@ export default function Dashboard({ userId }: Props) {
       if (!res.ok) throw new Error('Failed to update task');
       fetchAll();
     } catch {
-      push('Failed to update task', 'error');
+      push('No se pudo actualizar la tarea', 'error');
     }
   };
 
@@ -89,10 +104,10 @@ export default function Dashboard({ userId }: Props) {
         body: JSON.stringify({ id }),
       });
       if (!res.ok) throw new Error('Failed to delete task');
-      push('Task deleted', 'success');
+      push('Tarea eliminada', 'success');
       fetchAll();
     } catch {
-      push('Failed to delete task', 'error');
+      push('No se pudo eliminar la tarea', 'error');
     }
   };
 
@@ -104,10 +119,10 @@ export default function Dashboard({ userId }: Props) {
         body: JSON.stringify({ message, remind_at }),
       });
       if (!res.ok) throw new Error('Failed to set reminder');
-      push('Reminder set', 'success');
+      push('Recordatorio fijado', 'success');
       fetchAll();
     } catch {
-      push('Failed to set reminder', 'error');
+      push('No se pudo fijar el recordatorio', 'error');
     }
   };
 
@@ -121,7 +136,7 @@ export default function Dashboard({ userId }: Props) {
       if (!res.ok) throw new Error('Failed to dismiss reminder');
       fetchAll();
     } catch {
-      push('Failed to dismiss reminder', 'error');
+      push('No se pudo descartar el recordatorio', 'error');
     }
   };
 
@@ -133,14 +148,29 @@ export default function Dashboard({ userId }: Props) {
         body: JSON.stringify({ id }),
       });
       if (!res.ok) throw new Error('Failed to delete reminder');
-      push('Reminder deleted', 'success');
+      push('Recordatorio eliminado', 'success');
       fetchAll();
     } catch {
-      push('Failed to delete reminder', 'error');
+      push('No se pudo eliminar el recordatorio', 'error');
     }
   };
 
-  const monthLabel = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const deleteEventReminder = async (eventId: number, reminderId: number) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/reminders`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ reminder_id: reminderId }),
+      });
+      if (!res.ok) throw new Error('Failed to delete event reminder');
+      push('Recordatorio de cita eliminado', 'success');
+      fetchAll();
+    } catch {
+      push('No se pudo eliminar el recordatorio de la cita', 'error');
+    }
+  };
+
+  const monthLabel = `${MONTHS_LONG[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
 
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
@@ -165,7 +195,7 @@ export default function Dashboard({ userId }: Props) {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="animate-spin text-teal-500" size={32} />
-          <p className="text-gray-400 text-sm">Loading your clinic calendar...</p>
+          <p className="text-gray-400 text-sm">Cargando tu agenda...</p>
         </div>
       </div>
     );
@@ -187,10 +217,10 @@ export default function Dashboard({ userId }: Props) {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={goToday} className="text-sm font-medium text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition">
-                Today
+                Hoy
               </button>
               <button onClick={openNewEvent} className="flex items-center gap-1.5 bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-teal-700 transition shadow-sm">
-                <Plus size={16} /> <span className="hidden sm:inline">Appointment</span>
+                <Plus size={16} /> <span className="hidden sm:inline">Nueva cita</span>
               </button>
             </div>
           </div>
@@ -223,18 +253,20 @@ export default function Dashboard({ userId }: Props) {
               onAddEvent={openNewEvent}
             />
           </div>
+          <ReminderPanel
+            reminders={reminders}
+            eventReminders={eventReminders}
+            onAdd={addReminder}
+            onDismiss={dismissReminder}
+            onDelete={deleteReminder}
+            onDeleteEventReminder={deleteEventReminder}
+          />
           <TaskPanel
             tasks={tasks}
             selectedDate={selectedDate}
             onAdd={addTask}
             onToggle={toggleTask}
             onDelete={deleteTask}
-          />
-          <ReminderPanel
-            reminders={reminders}
-            onAdd={addReminder}
-            onDismiss={dismissReminder}
-            onDelete={deleteReminder}
           />
         </div>
       </div>

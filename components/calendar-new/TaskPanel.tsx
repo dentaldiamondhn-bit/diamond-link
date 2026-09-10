@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Plus, Trash2, Flag, Loader2 } from 'lucide-react';
+import { PRIORITY_LABELS } from '@/calendario/event/eventSchema';
 
 interface Task {
   id: number;
@@ -54,7 +55,7 @@ export default function TaskPanel({ tasks, selectedDate, onAdd, onToggle, onDele
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b border-gray-100">
         <h3 className="font-bold text-gray-800 flex items-center gap-2">
-          <Check size={18} className="text-teal-500" /> Tasks
+          <Check size={18} className="text-teal-500" /> Tareas
         </h3>
         {selectedDate && (
           <button
@@ -78,7 +79,7 @@ export default function TaskPanel({ tasks, selectedDate, onAdd, onToggle, onDele
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Task title..."
+              placeholder="Título de la tarea..."
               autoFocus
               className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-teal-500 outline-none text-sm"
             />
@@ -88,15 +89,15 @@ export default function TaskPanel({ tasks, selectedDate, onAdd, onToggle, onDele
                   key={p}
                   type="button"
                   onClick={() => setPriority(p)}
-                  className={`flex-1 text-xs py-1.5 rounded-lg font-medium capitalize transition ${
+                  className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition ${
                     priority === p ? 'bg-teal-100 text-teal-700' : 'bg-white text-gray-500 border border-gray-200'
                   }`}
                 >
-                  {p}
+                  {PRIORITY_LABELS[p]}
                 </button>
               ))}
               <button type="submit" disabled={busy} className="bg-teal-600 text-white px-3 rounded-lg text-sm disabled:opacity-50">
-                {busy ? <Loader2 size={14} className="animate-spin" /> : 'Add'}
+                {busy ? <Loader2 size={14} className="animate-spin" /> : 'Añadir'}
               </button>
             </div>
           </motion.form>
@@ -106,7 +107,7 @@ export default function TaskPanel({ tasks, selectedDate, onAdd, onToggle, onDele
       <div className="max-h-[300px] overflow-y-auto">
         {sorted.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-400">
-            {selectedDate ? 'No tasks for this day.' : 'Select a day to see tasks.'}
+            {selectedDate ? 'No hay tareas para este día.' : 'Selecciona un día para ver tareas.'}
           </div>
         ) : (
           sorted.map((task) => (
