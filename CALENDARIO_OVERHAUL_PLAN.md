@@ -485,6 +485,13 @@ Preceding UI passes also shipped in the same commit: "Próximos esta semana" pre
     untouched; `sources.tasks` in dispatcher response). TaskPanel gains optional datetime + "Cada N días"
     inputs + reminder/repeat badges (`formatTaskTime`); repo/hook/`CalendarShell.addTask` accept the new
     fields. Dispatcher is per-source isolated (one schema-drift failure can't take down the others).
+  - **Fix — fired event reminders stay visible (`1b3a03c`, deployed 2026-09-11):** the Recordatorios
+    card dropped reminders of citas that had already ended, so a reminder created after the event's
+    window passed vanished with no trace (e.g. event created for a past slot → dispatcher fires it within
+    minutes → card silently hides it). The card now keeps ended/fired citas' reminders listed as overdue
+    (rose) with an **Enviado** tag (`event_reminders.sent` now returned by `/api/events/reminders`
+    batch + `EventReminder.sent` type) and a per-device dismiss (localStorage); X still deletes the
+    reminder server-side.
   - **Remaining:** commit + deploy (`vercel --prod`) + live QA — see Next Move.
 
 **Blocked**
