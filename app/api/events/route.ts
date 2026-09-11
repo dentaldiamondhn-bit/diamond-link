@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
-import { CLINIC_TIME_ZONE } from '@/calendario/timezone';
+import { CLINIC_TIME_ZONE, clinicWallClockTimestamp } from '@/calendario/timezone';
 import {
   findDentistConflicts,
   dentistConflictMessage,
@@ -278,6 +278,25 @@ export async function PUT(req: Request) {
       .from('event_invitees')
       .update({ updated_at: new Date().toISOString() })
       .eq('event_id', eventId);
+
+    // Single reminder schedule — a moved window re-anchors every reminder to the
+    // new start (event_start − minutes_before) and clears the sent flag so a
+    // rescheduled cita reminds again from the correct instant.
+    if (scheduleMoved && newDate && newStart) {
+      const { data: reminderRows } = await supabase
+        .from('event_reminders')
+        .select('id, minutes_before')
+        .eq('event_id', eventId);
+      for (const r of reminderRows || []) {
+        const anchor = clinicWallClockTimestamp(newDate, newStart);
+        anchor.setMinutes(anchor.getMinutes() - (r.minutes_before ?? 0));
+        await supabase
+          .from('event_reminders')
+          .update({ reminder_time: anchor.toISOString(), sent: false })
+          .eq('id', r.id);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

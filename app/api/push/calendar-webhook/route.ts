@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
-import { sendPushToUser } from '@/lib/push/pushService';
+import { deliverCalendarToUser } from '@/services/calendarNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,16 +122,21 @@ export async function POST(request: NextRequest) {
 
     const summary = await Promise.all(
       recipients.map((userId) =>
-        sendPushToUser(userId, {
-          title,
-          body,
-          icon: '/Logo.svg',
-          badge: '/Logo.svg',
-          tag: `calendar-${id}`,
-          renotify: true,
-          data,
-          actions: [{ action: 'open', title: 'Abrir cita' }],
-        })
+        deliverCalendarToUser(
+          db,
+          userId,
+          {
+            title,
+            body,
+            icon: '/Logo.svg',
+            badge: '/Logo.svg',
+            tag: `calendar-${id}`,
+            renotify: true,
+            data,
+            actions: [{ action: 'open', title: 'Abrir cita' }],
+          },
+          { type: 'calendar_event', title, message: body, metadata: data }
+        )
       )
     );
 
@@ -171,25 +176,33 @@ export async function POST(request: NextRequest) {
   const window = `${event.start_time || '--:--'}–${event.end_time || '--:--'}`;
   const dentistSuffix = (event.dentist || '').trim() ? ` · ${event.dentist}` : '';
 
-  const result = await sendPushToUser(inviteeId, {
-    title: 'Invitación a cita',
-    body: `${who} · ${dateLabel} ${window}${dentistSuffix}`,
-    icon: '/Logo.svg',
-    badge: '/Logo.svg',
-    tag: `calendar-${eventId}`,
-    renotify: true,
-    data: {
-      type: 'calendar',
-      source: 'event_invitees',
-      eventId,
-      date: event.date,
-      startTime: event.start_time,
-      patientName: event.patient_name || '',
-      dentist: event.dentist || '',
-      url: `/calendario?view=day&date=${encodeURIComponent(event.date)}&eventId=${eventId}`,
+  const inviteeData: Record<string, unknown> = {
+    type: 'calendar',
+    source: 'event_invitees',
+    eventId,
+    date: event.date,
+    startTime: event.start_time,
+    patientName: event.patient_name || '',
+    dentist: event.dentist || '',
+    url: `/calendario?view=day&date=${encodeURIComponent(event.date)}&eventId=${eventId}`,
+  };
+  const inviteBody = `${who} · ${dateLabel} ${window}${dentistSuffix}`;
+
+  const result = await deliverCalendarToUser(
+    db,
+    inviteeId,
+    {
+      title: 'Invitación a cita',
+      body: inviteBody,
+      icon: '/Logo.svg',
+      badge: '/Logo.svg',
+      tag: `calendar-${eventId}`,
+      renotify: true,
+      data: inviteeData,
+      actions: [{ action: 'open', title: 'Abrir cita' }],
     },
-    actions: [{ action: 'open', title: 'Abrir cita' }],
-  });
+    { type: 'calendar_event', title: 'Invitación a cita', message: inviteBody, metadata: inviteeData }
+  );
 
   return NextResponse.json({ ok: true, recipients: 1, ...result });
 }

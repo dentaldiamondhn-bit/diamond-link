@@ -441,8 +441,7 @@ Preceding UI passes also shipped in the same commit: "Próximos esta semana" pre
   confirm practical to observe).
 
 **Active**
-- **Phase 5 (Notifications & Push Pipeline)** — single reminder schedule, pg_net trigger →
-  webhook → SW calendar cards, `notificationclick` deep-link, bell + push parity. See Next Move.
+- **Phase 5 (Notifications & Push Pipeline)** — pg_net trigger → **calendar webhook → SW cards → deep-link: ✅ DELIVERED** · **invitee double-booking gate: ✅ verified live (409 INVITEE_CONFLICT + "Guardar de todos modos")** · **5b reminder schedule + bell/push parity: ✅ built (uncommitted until QA) — reminder_time anchored to event start (clinic tz), cron dispatcher `/api/cron/reminders` (Vercel cron, minute cadence), PUT re-anchors + resets `sent`, every calendar delivery writes both tray + `notifications` bell** · Remaining: deploy `vercel --prod`, set `CRON_SECRET` in Vercel, live QA (see Next Move).
 
 **Blocked**
 - ~~Phase 2 realtime was gated on applying `20260908c`~~ — applied + **verified live** (2026-09-08);
@@ -453,15 +452,13 @@ Preceding UI passes also shipped in the same commit: "Próximos esta semana" pre
   verify live refresh during Phase 4 QA (C10 part ③).
 
 ### Next Move
-1. **Server-side conflict feature committed + pushed (`4cd7993`, `e7af050`) — live
-   verification folded into Phase 5.** When testing: A creates/drop an event on Dr. B's busy
-   slot → block + "Guardar de todos modos" → force persists; notifications (Phase 5) make the
-   blocked/double-booked interaction observable across users.
-2. **Phase 5 (Notifications & Push Pipeline)** — single reminder schedule, pg_net trigger on
-   `events`/`event_invitees` → `/api/push/webhook` (calendar payload type → chat web-push
-   pipeline), SW calendar tray cards (aggregated per event, `tag:'calendar-<id>'`),
-   `notificationclick` → `/calendario?view=day&date=&eventId=` (no React #185), secure
-   send routes, bell + push parity.
+1. **Server-side conflict feature committed + pushed (`4cd7993`, `e7af050`) + invitee gate `e33a48b` —
+   live verified (2026-09-10).** A drops on B's busy slot → 409 INVITEE_CONFLICT (or DENTIST_CONFLICT) →
+   block + "Guardar de todos modos" → force persists; pushed invite notifies B the moment A saves.
+2. **Phase 5 code complete — deploy + verify**: `vercel --prod` (ships webhook route, cron route,
+   sw.js, deep-link, conflicts), set **`CRON_SECRET`** in Vercel env (already in `.env.local`),
+   then QA: create cita + reminder minutes antes → minute-cron tray card + bell; drag onto invitee's
+   slot → 409 → force saves → invitee gets "Nueva cita" push+bell; tap deep-links to event drawer.
 3. Keep the gate below.
 
 ### Verification Gate

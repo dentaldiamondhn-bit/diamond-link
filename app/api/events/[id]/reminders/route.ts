@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
 import { isEventMember, isEventOwner } from '@/lib/calendarAccess';
+import { clinicWallClockTimestamp } from '@/calendario/timezone';
 
 export const runtime = 'nodejs';
 
@@ -51,15 +52,27 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid minutes_before' }, { status: 400 });
     }
 
-    const reminderTime = new Date();
-    reminderTime.setMinutes(reminderTime.getMinutes() - minutes_before);
-    const isoReminderTime = reminderTime.toISOString();
-
     const supabase = createServerServiceClient();
 
     if (!(await isEventOwner(supabase, id, userId))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    // Anchor the reminder to the appointment's start in clinic-local time
+    // (event_start − minutes_before), NOT to now() — a "30 min before" reminder
+    // must fire at the right absolute instant regardless of when it was added.
+    const { data: event, error: eventError } = await supabase
+      .from('events')
+      .select('date, start_time')
+      .eq('id', id)
+      .maybeSingle();
+    if (eventError) throw eventError;
+    if (!event) {
+      return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+    }
+    const reminderAnchor = clinicWallClockTimestamp(event.date, event.start_time);
+    reminderAnchor.setMinutes(reminderAnchor.getMinutes() - minutes_before);
+    const isoReminderTime = reminderAnchor.toISOString();
 
     const { data, error } = await supabase
       .from('event_reminders')

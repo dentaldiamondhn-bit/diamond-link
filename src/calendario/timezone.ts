@@ -23,3 +23,17 @@ export function clinicDateKey(date: Date = new Date(), offsetDays = 0): string {
     parts.find((part) => part.type === type)?.value || '';
   return `${value('year')}-${value('month')}-${value('day')}`;
 }
+
+/**
+ * The true UTC instant whose *clinic-local* clock shows `date` + `time` (wall
+ * clock). `America/Tegucigalpa` has no DST, so the offset is a constant
+ * UTC−06:00 (Phase 0 policy) — this is what `event_reminders.reminder_time`
+ * must be anchored to (event start − minutes_before), not `now()`.
+ */
+export function clinicWallClockTimestamp(date: string, time?: string): Date {
+  const [y = '0', mo = '0', d = '0'] = (date || '').split('-');
+  const [h = '0', mi = '0'] = (time || '09:00').split(':');
+  const wall = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
+  const clinicOffsetMs = 6 * 3600 * 1000; // UTC−06:00 = wall + 6h in UTC
+  return new Date(wall + clinicOffsetMs);
+}
