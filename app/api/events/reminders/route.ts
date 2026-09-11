@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     const visibleIds = visible.map((e) => Number(e.id));
     const { data: reminderRows, error: remError } = await supabase
       .from('event_reminders')
-      .select('id, event_id, minutes_before')
+      .select('id, event_id, minutes_before, sent')
       .in('event_id', visibleIds)
       .order('minutes_before', { ascending: true });
     if (remError) throw remError;
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
         id: r.id,
         event_id: Number(r.event_id),
         minutes_before: r.minutes_before,
+        sent: !!r.sent,
         event: byId.get(Number(r.event_id)) ?? null,
       }))
     );

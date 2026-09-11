@@ -13,6 +13,18 @@ interface Props {
   onDeleteEventReminder: (eventId: number, reminderId: number) => Promise<void>;
 }
 
+const EVENT_REM_DISMISS_KEY = 'cal-event-rem-dismissed';
+
+function readDismissedEventReminders(): number[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(EVENT_REM_DISMISS_KEY) || '[]');
+    return Array.isArray(raw) ? raw.filter((n) => Number.isInteger(n)) : [];
+  } catch {
+    return [];
+  }
+}
+
 const MONTHS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 function formatDateTime(d: Date) {
@@ -49,6 +61,9 @@ export default function ReminderPanel({
   const [message, setMessage] = useState('');
   const [remindAt, setRemindAt] = useState('');
   const [busy, setBusy] = useState(false);
+  const [dismissedEventReminders, setDismissedEventReminders] = useState<number[]>(
+    readDismissedEventReminders
+  );
 
   const now = new Date();
 
@@ -56,10 +71,24 @@ export default function ReminderPanel({
   const overdue = active.filter((r) => new Date(r.remind_at).getTime() < now.getTime());
   const upcoming = active.filter((r) => new Date(r.remind_at).getTime() >= now.getTime());
 
-  // Event reminders: real fire time = event start − minutes_before. Drop reminder
-  // offsets that are off (0), citas already over, and cancelled citas (moot).
+  const dismissEventReminderLocally = (reminder: EventReminder) => {
+    const next = dismissedEventReminders.includes(reminder.id)
+      ? dismissedEventReminders
+      : [...dismissedEventReminders, reminder.id];
+    setDismissedEventReminders(next);
+    try {
+      localStorage.setItem(EVENT_REM_DISMISS_KEY, JSON.stringify(next));
+    } catch {
+      /* storage full / disabled — dismissal still applies for this render */
+    }
+  };
+
+  // Event reminders: real fire time = event start − minutes_before. Unlike citas
+  // already over, reminders keep showing after they fire (so the user can see a
+  // reminder was delivered) — fired ones render as overdue with an "Enviado" tag.
   const eventRows = eventReminders
     .filter((r) => r.event && r.minutes_before > 0 && r.event.status !== 'cancelled')
+    .filter((r) => !dismissedEventReminders.includes(r.id))
     .map((r) => {
       const ev = r.event!;
       const start = localDateTime(ev.date, ev.start_time ?? '00:00');
@@ -72,12 +101,11 @@ export default function ReminderPanel({
         ended: end.getTime() < now.getTime(),
       };
     })
-    .filter((x) => !x.ended)
     .sort((a, b) => a.at.getTime() - b.at.getTime());
 
-  const eventOverdue = eventRows.filter((x) => x.at.getTime() < now.getTime());
+  const eventFired = eventRows.filter((x) => x.at.getTime() < now.getTime());
   const eventUpcoming = eventRows.filter((x) => x.at.getTime() >= now.getTime());
-  const overdueCount = overdue.length + eventOverdue.length;
+  const overdueCount = overdue.length + eventFired.length;
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,9 +132,21 @@ export default function ReminderPanel({
         <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
           <Clock size={11} /> {reminderLabel(row.reminder.minutes_before)}
           {row.patient ? ` · ${row.patient}` : ''} · {formatDateTime(row.at)}
+          {row.reminder.sent && (
+            <span className="inline-flex items-center gap-0.5 text-teal-600">
+              <Check size={11} /> enviado
+            </span>
+          )}
         </p>
       </div>
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+        <button
+          onClick={() => dismissEventReminderLocally(row.reminder)}
+          className="text-gray-400 hover:text-teal-500 p-1"
+          title="Descartar recordatorio de la cita"
+        >
+          <Check size={14} />
+        </button>
         <button
           onClick={() => onDeleteEventReminder(row.reminder.event_id, row.reminder.id)}
           className="text-gray-400 hover:text-rose-500 p-1"
@@ -200,7 +240,7 @@ export default function ReminderPanel({
           </div>
         ) : (
           <>
-            {eventOverdue.map((row) => renderEventReminder(row, true))}
+            {eventFired.map((row) => renderEventReminder(row, true))}
             {overdue.map((r) => renderReminder(r, true))}
             {eventUpcoming.map((row) => renderEventReminder(row, false))}
             {upcoming.map((r) => renderReminder(r, false))}

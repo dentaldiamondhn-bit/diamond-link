@@ -49,6 +49,8 @@ export interface EventReminder {
   id: number;
   event_id: number;
   minutes_before: number;
+  /** True once the cron dispatcher delivered this reminder (`sent` flag). */
+  sent: boolean;
   event: {
     id: number;
     user_id: string;
