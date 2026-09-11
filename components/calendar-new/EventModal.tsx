@@ -40,9 +40,10 @@ import {
   clearEventDraft,
   type DraftInvitee,
 } from '@/calendario/event/eventDraft';
-import { CalendarRepository } from '@/calendario/calendarRepository';
+import { CalendarRepository, isDentistConflictError, type EventInput } from '@/calendario/calendarRepository';
 import { useCalendarMutations } from '@/calendario/hooks/useCalendarData';
 import { useToast } from '@/components/calendar-new/Toast';
+import ConflictOverrideDialog from '@/components/calendar-new/ConflictOverrideDialog';
 
 export interface ModalPrefill {
   start: string;
@@ -100,6 +101,10 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Server-side dentist conflict (409 DENTIST_CONFLICT) — offer a force-save.
+  const [conflict, setConflict] = useState<{ message: string; formData: EventFormValues } | null>(null);
+  const [conflictBusy, setConflictBusy] = useState(false);
 
   const isCreate = !editingEvent;
 
@@ -293,6 +298,10 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       return;
     }
     submitTriggeredRef.current = false; // reset guard
+    await persistSave(formData, false);
+  });
+
+  const persistSave = async (formData: EventFormValues, force: boolean) => {
     setBusy(true);
     setError('');
     try {
@@ -302,11 +311,12 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       const dentistName = firstDoctor
         ? `${firstDoctor.first_name || ''} ${firstDoctor.last_name || ''}`.trim()
         : '';
-      const body = {
+      const body: EventInput = {
         ...formData,
         title: formData.title || `Cita con ${formData.patient_name}`,
         dentist: formData.dentist || dentistName || '',
       };
+      if (force) body.force_conflict = true;
       let eventId: number | undefined = editingEvent?.id;
       if (editingEvent?.id) {
         await mutations.updateEvent.mutateAsync({ id: editingEvent.id, updates: body });
@@ -324,12 +334,29 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       push(editingEvent ? 'Cita actualizada' : 'Cita creada', 'success');
       onSaved();
       onClose();
-    } catch {
-      setError('No se pudo guardar la cita. Inténtalo de nuevo.');
+    } catch (err) {
+      if (isDentistConflictError(err)) {
+        push(err.message, 'error');
+        setConflict({ message: err.message, formData });
+      } else {
+        setError('No se pudo guardar la cita. Inténtalo de nuevo.');
+      }
     } finally {
       setBusy(false);
     }
-  });
+  };
+
+  const confirmConflictOverride = async () => {
+    if (!conflict) return;
+    const formData = conflict.formData;
+    setConflictBusy(true);
+    setConflict(null);
+    try {
+      await persistSave(formData, true);
+    } finally {
+      setConflictBusy(false);
+    }
+  };
 
   const onDelete = async () => {
     if (!editingEvent?.id) return;
@@ -786,6 +813,14 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       </motion.div>
 
       {confirmDelete && <DeleteConfirm busy={deleting} error={error} onCancel={() => setConfirmDelete(false)} onConfirm={onDelete} />}
+
+      <ConflictOverrideDialog
+        open={!!conflict}
+        busy={conflictBusy}
+        message={conflict?.message ?? ''}
+        onCancel={() => setConflict(null)}
+        onConfirm={() => void confirmConflictOverride()}
+      />
     </>
   );
 }

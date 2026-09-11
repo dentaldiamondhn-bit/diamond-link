@@ -1,5 +1,6 @@
 import type { ClinicEvent, Task, Reminder, EventReminder } from '@/lib/types-calendar';
 import type { ParticipantMap } from '@/app/api/events/participants/route';
+import type { DentistConflict } from '@/lib/dentistAvailability';
 
 export interface EventRange {
   /** Inclusive YYYY-MM-DD start of the window. */
@@ -26,18 +27,53 @@ export interface EventInput {
   patient_id?: string;
   procedure?: string;
   dentist?: string;
+  /** Server-side dentist-availability escape hatch (409 DENTIST_CONFLICT override). */
+  force_conflict?: boolean;
+}
+
+/** Rich fetch error: carries HTTP status, server `code` and any payload. */
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  payload?: unknown;
+  constructor(message: string, status: number, code?: string, payload?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.payload = payload;
+  }
+}
+
+/** True when the server refused the save because the dentist is already booked. */
+export function isDentistConflictError(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.code === 'DENTIST_CONFLICT';
+}
+
+/** The conflicting bookings carried by a DENTIST_CONFLICT rejection. */
+export function dentistConflictsOf(err: unknown): DentistConflict[] {
+  if (err instanceof ApiError && err.payload && typeof err.payload === 'object') {
+    const conflicts = (err.payload as { conflicts?: unknown }).conflicts;
+    if (Array.isArray(conflicts)) return conflicts as DentistConflict[];
+  }
+  return [];
 }
 
 async function readJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
+    let code: string | undefined;
+    let payload: unknown;
     try {
       const body = await res.json();
       if (body?.error) msg = body.error;
+      if (body?.code) code = body.code;
+      if (body?.conflicts) payload = body;
+      else payload = body;
     } catch {
       // keep the default message
     }
-    throw new Error(msg);
+    throw new ApiError(msg, res.status, code, payload);
   }
   return res.json() as Promise<T>;
 }

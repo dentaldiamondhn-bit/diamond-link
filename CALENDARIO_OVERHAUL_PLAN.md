@@ -1,6 +1,6 @@
 # Calendario Overhaul Plan (Diamond Link) — React-Big-Calendar (RBC) Edition
 
-> **Last updated:** 2026-09-10 · **Status:** Phases 0–3 complete, Phase 4 code complete + gate green — **browser QA pending** (`██████████████████████ 80%`)
+> **Last updated:** 2026-09-10 · **Status:** Phases 0–4 complete (browser QA passed 2026-09-10) — Phase 5 next (`████████████████████ 100%`)
 >
 > This plan keeps the point-for-point structure of `CHAT_OVERHAUL_PLAN.md` (same 11-phase
 > skeleton, quick/full/original matrices, analysis, comparison, effort, priority,
@@ -113,7 +113,7 @@
 | **1** | RBC Layout & Navigation Engine | ✅ | `████████████████████ 100%` | Custom month-only `CalendarGrid` + `DayDetail`; `en-US` label; framer-motion tiles | Install `react-big-calendar` + `date-fns`; localizer (es, Monday start); Month/Week/Work-Week/Day/Agenda; toolbar → URL sync (`?view=&date=`); responsive shell |
 | **2** | Data Layer, RBC Bridge & Realtime | ✅ | `████████████████████ 100%` | Raw `fetch` + `Promise.all` + refetch-all; react-query unused; realtime on orphaned tables; no REPLICA IDENTITY; N+1; public `Cache-Control:7200` | Repository layer; `rbcAdapter` (`ClinicEvent` ↔ `RBCEvent`); react-query per user/range; realtime on live tables + REPLICA IDENTITY FULL + publication fix; dedupe; batched participants; remove stale caching |
 | **3** | Slot Selection & Event Modal UX | ✅ | `████████████████████ 100%` | RBC slot closes create modal (un-pre-filled); event select pries open 883-line modal; no Zod/RHF; no drafts | **Implemented + committed (`764f97b`, 2026-09-08):** `onSelectSlot({start,end})` + pre-filled create modal; `onSelectEvent` → detail drawer (edit/delete); **Zod + RHF first adoption** — multi-step Details→Timing→Invitees&Reminders with per-step validation; dentist auto-populated from first doctor invitee (mock dropdown removed) + optional in schema; custom dentist/procedure free-text preserved; `calendar-draft:{date}` debounced autosave + one-tap restore (create-only, submit guarded to explicit button click, no Enter); repo `set/getEventInvitees`/`set/getEventReminders` + `dateToTimeStr`; patient link → `/patient-preview/[id]`; modal + drawer hardened (Escape-to-close, `role=dialog`/`aria-modal`, initial focus); **auth:** `/calendario` open to all authenticated roles (middleware routePermissions + `authorizeCalendar` accept any session; RLS owns scoping) — superuser 403 gone; **layout:** `RbcCalendar` wrapper pinned `height:600px` (RBC `.rbc-month-view{height:100%}` now resolves → month event tiles no longer collapse to headers-only); invitee picker loads in create mode too; both legacy callers intact; gate green (tsc 0 / ESLint 0 errors) | **QA C17–C21 + C25 passed in-browser (2026-09-09)**; a11y focus trap (`useFocusTrap`) deferred to Phase 8; visual mobile pass folded into Phase 4 QA |
-| **4** | Custom RBC Rendering & DnD | ◔ | `██████████████████████ 80%` | Custom month cells + dots today; no week/day/agenda; no drag; monolithic `RbcCalendar` wrapper | **Implemented (2026-09-09) + perf/invitee tail (committed `c19de75`):** custom RBC `components` — event pill (dentist color dot, patient name, procedure badge), WhatsApp-style agenda rows with status chips, es toolbar (Hoy/‹/› + view switcher), es weekday/month headers (today highlight); `withDragAndDrop` (react-dnd + html5-backend peers installed) with `onEventDrop`/`onEventResize` → optimistic react-query move/resize (snapshot rollback) + **chair/cubicle overlap check** (`findDentistOverlap` — same-dentist collision blocks the move with a toast; cancelled events never block); month/all-day drops preserve existing times (date-only rebase); resize clamps to ≥ start +30 min and within the day; addon DnD CSS; gate green (tsc 0 / ESLint 0 errors, `next build` ✓). **Perf pass:** all mutations `onSettled → void invalidateAll()` (RQ v5 awaits `onSuccess` — modal/drawer close is snappy again), `keepPreviousData` on event range, cold-boot-only spinner, `dateToDateStr` → `clinicDateKey` (clinic-tz off-by-one on DayDetail fixed). **Invitee realtime for guests:** `20260909e` (event_invitees.updated_at) **applied + LEDGER ✓ (2026-09-09)** — owner move/resize now live-refreshes invitee B's calendar. **Remaining:** browser QA **C10–C12** + custom-rendering pass (C01/C21 visuals) in-browser; milestone-wrap mobile pass (desktop DnD only — mobile via drawer edit, platform constraint) |
+| **4** | Custom RBC Rendering & DnD | ✅ | `████████████████████ 100%` | Custom month cells + dots today; no week/day/agenda; no drag; monolithic `RbcCalendar` wrapper | **Implemented (2026-09-09) + perf/invitee tail (committed `c19de75`):** custom RBC `components` — event pill (dentist color dot, patient name, procedure badge), WhatsApp-style agenda rows with status chips, es toolbar (Hoy/‹/› + view switcher), es weekday/month headers (today highlight); `withDragAndDrop` (react-dnd + html5-backend peers installed) with `onEventDrop`/`onEventResize` → optimistic react-query move/resize (snapshot rollback) + **chair/cubicle overlap check** (`findDentistOverlap` — same-dentist collision blocks the move with a toast; cancelled events never block); month/all-day drops preserve existing times (date-only rebase); resize clamps to ≥ start +30 min and within the day; addon DnD CSS; gate green (tsc 0 / ESLint 0 errors, `next build` ✓). **Perf pass:** all mutations `onSettled → void invalidateAll()` (RQ v5 awaits `onSuccess` — modal/drawer close is snappy again), `keepPreviousData` on event range, cold-boot-only spinner, `dateToDateStr` → `clinicDateKey` (clinic-tz off-by-one on DayDetail fixed). **Invitee realtime for guests:** `20260909e` (event_invitees.updated_at) **applied + LEDGER ✓ (2026-09-09)** — owner move/resize now live-refreshes invitee B's calendar. **Browser QA PASSED + 4 follow-up fixes (committed `59b3b02`, deployed @ app.dentaldiamondhn.com ✓):** realtime debounce 10s → **1.5s** (invitee updates ~2s); **touch DnD** via `react-dnd-touch-backend` (coarse-pointer devices, 200ms long-press grace; desktop stays HTML5); **conflict check no longer skips** when the dragged event has no dentist — falls back to any-occupied-slot block + clearer es toast (`conflictMessage`); **`PROCEDURES` dropdown → Spanish** (Limpieza/Chequeo/Empaste/Endodoncia/Corona/Extracción/Blanqueamiento/Radiografía/Ortodoncia/Implante/Otro); ended-phase infra — `próximos esta semana` preview card (today→Sunday, Libre/Agendar, Cancelada chips), GoTrueClient singleton warning fixed, side cards es-HN (Recordatorios above Tareas, event reminders merged in). Gate green (tsc 0 / ESLint 0 errors) | **None — Phase 4 complete** |
 | **5** | Notifications & Push Pipeline | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Bell + `notifications` table; unauthenticated `send-to-user`; no web-push; 3 reminder stores; dead `CalendarNotificationCounter` | One reminder schedule; pg_net trigger on `events`/`event_invitees` → `/api/push/webhook` (calendar payload); SW calendar cards (aggregated per event); `notificationclick` → `/calendario?view=day&date=&eventId=`; secure send routes; bell+push parity |
 | **6** | PWA & Offline | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | `sw.js` precache excludes `/calendario`; react-query no persister; Capacitor installed/service gone | Precache `/calendario` + RBC CSS; `react-query-persist-client` IndexedDB read cache + "Última sincronización"; offline create/reschedule queue (mirror chat `offlineQueue`) |
 | **7** | Theming & i18n (es-HN) | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | `--fd-*` tokens chat-scoped; calendar hardcodes `teal-*`; mixed locales | `app/styles/rbc-theme.css` mapping `.rbc-*` to `--fd-*` (dark mode); typed es/en i18n (`CalendarTranslationKey`); `date-fns/locale/es` localizer + Monday `startOfWeek`; central es-HN `America/Tegucigalpa` formatter |
@@ -230,9 +230,10 @@ laboral | Día | Agenda` (active = teal), `?view=&date=` URL sync. Headers: es w
 number, Monday-first; month cells have today's teal circle. Dark-mode spot-check (Phase 7 will
 re-tokenize to `--fd-*`).
 
-**Mobile wrap.** `< lg`: layout stacks, DayDetail below calendar; touch long-press does NOT drag
-(documented platform constraint) — tap event → drawer → Editar for time edits; no accidental
-modal on scroll.
+**Mobile wrap.** `< lg`: layout stacks, DayDetail below calendar; **drag/move/resize works on
+touch** via `react-dnd-touch-backend` (coarse-pointer devices, 200 ms long-press grace so
+scroll/swipe stays scroll; desktop keeps HTML5). Tap event → drawer → Editar remains the
+precise-edit path; short taps never start a drag.
 
 ---
 
@@ -292,8 +293,9 @@ react-query realtime on live tables, es-HN i18n + `--fd-*` RBC theme, a11y pass,
   all survive the RBC swap unchanged (they live in the domain/data layers RBC renders).
 - **Timezone = clinic-local, explicit** (`America/Tegucigalpa`), single formatter, no
   per-device ±6 h math; RBC localizer configured to the same clinic zone.
-- **Desktop DnD only.** HTML5 backend has no touch support — mobile uses the drawer
-  (tap → edit times). Documented platform behavior, not a bug.
+- **Drag/move works on both pointer types.** HTML5 backend on mouse; `react-dnd-touch-backend`
+  on coarse-pointer devices with a 200 ms grace so native scroll wins on swipe and long-press
+  starts a drag. Tap → drawer remains the precise-edit path on mobile.
 - **Push via the existing chat web-push pipeline**, not a parallel one.
 - **PWA-first; Capacitor deferred.** Installed deps stay dormant; mobile story = PWA.
 - **No Storybook** (same decision as chat — accepted).
@@ -421,12 +423,17 @@ theming, a11y, perf). Auth stays Clerk.
   DnD/delete hardening, **migration `20260909e` applied + LEDGER ✓**, and the **perf
   pass** (fire-and-forget `onSettled` invalidations, `keepPreviousData`, cold-boot spinner
   gate, `clinicDateKey` off-by-one fix).
+- **Phase 4 browser QA PASSED + 4 follow-up fixes (2026-09-10, committed `59b3b02`,
+  deployed @ app.dentaldiamondhn.com ✓):** realtime debounce → 1.5s (invitee peek ~2s);
+  touch DnD (`react-dnd-touch-backend`, coarse-pointer, 200ms grace); conflict check
+  no-dentist fallback (any-occupied-slot block, `conflictMessage` toast); `PROCEDURES` es.
+  Preceding UI passes also shipped in the same commit: "Próximos esta semana" preview
+  (today→Sunday, Libre/Agendar, Cancelada chips), GoTrueClient singleton fix, es-HN side
+  cards with the Recordatorios card merged event reminders and reordered above Tareas.
 
 **Active**
-- **Phase 4 — browser QA only (code complete, gate green, committed `c19de75`):** All Phase 4
-  code + invitee/perf tail is written and verified (`tsc` + ESA). Remaining work is the
-  in-browser walkthrough — see **Next Move** (C10–C12 + custom-rendering pass + mobile wrap).
-  On pass → mark Phase 4 ✅ in the status tables.
+- **Phase 5 (Notifications & Push Pipeline)** — single reminder schedule, pg_net trigger →
+  webhook → SW calendar cards, `notificationclick` deep-link, bell+push parity. See Next Move.
 
 **Blocked**
 - ~~Phase 2 realtime was gated on applying `20260908c`~~ — applied + **verified live** (2026-09-08);
@@ -437,26 +444,14 @@ theming, a11y, perf). Auth stays Clerk.
   verify live refresh during Phase 4 QA (C10 part ③).
 
 ### Next Move
-1. Phase 4 browser QA — **the remaining Phase 4 work**. Two authenticated tabs (A = owner,
-   B = invitee), three pre-created events (A 09:00–09:30 Dr. Lee, B 11:00–11:30 Dr. Lee,
-   C 09:00–09:30 Dr. Patel), then run:
-   - **C10 drag:** week drag B → 14:00 (optimistic, "Cita movida", hard-refresh persisted,
-     tab B auto-updates via SSE); month drag A → date-only rebase (times preserved); agenda
-     no drag cursor.
-   - **C11 resize:** week/day resize 09:30 → 10:30; clamp ≥ +30 min; clamp same-day (23:59);
-     month has no handle.
-   - **C12 overlap:** drag B onto A's 09:00 window → blocked + conflict toast; back-to-back
-     09:30–10:00 allowed; cancelled event never blocks; different dentist allowed.
-   - **Custom-rendering pass:** month pills (color + dentist dot + name/procedure badge),
-     week/day pill (dot + name), agenda WhatsApp rows + status chips, es toolbar
-     (Hoy/‹/›/view-switcher, active teal), es Monday-first headers, today circle, URL
-     `?view=&date=` sync.
-   - **Mobile wrap:** `< lg` stacks, tap → drawer → Editar for time edits, no drag, no
-     accidental modal on scroll.
-   On pass → mark Phase 4 ✅ (status tables + header progress).
-2. Phase 5 (Notifications & Push Pipeline — single reminder schedule, pg_net trigger →
-   webhook → SW calendar cards, `notificationclick` deep-link, bell+push parity) begins after
-   Phase 4 QA.
+1. **Phase 4 browser QA — PASSED (2026-09-10, deployed @ app.dentaldiamondhn.com ✓)** with four
+   follow-up fixes shipped in `59b3b02` (realtime debounce 1.5s, touch DnD, no-dentist conflict
+   fallback, `PROCEDURES` es). Verified live by user.
+2. **Phase 5 (Notifications & Push Pipeline)** — the next phase: single reminder schedule,
+   pg_net trigger on `events`/`event_invitees` → `/api/push/webhook` (calendar payload →
+   chat web-push pipeline), SW calendar tray cards (aggregated per event, `tag:'calendar-<id>'`),
+   `notificationclick` → `/calendario?view=day&date=&eventId=` (no React #185), secure
+   send routes, bell + push parity.
 3. Keep the gate below.
 
 ### Verification Gate

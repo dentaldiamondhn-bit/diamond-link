@@ -21,10 +21,12 @@ import TaskPanel from '@/components/calendar-new/TaskPanel';
 import ReminderPanel from '@/components/calendar-new/ReminderPanel';
 import EventModal, { type ModalPrefill } from '@/components/calendar-new/EventModal';
 import EventDetailDrawer from '@/components/calendar-new/EventDetailDrawer';
+import ConflictOverrideDialog from '@/components/calendar-new/ConflictOverrideDialog';
 import { useToast } from '@/components/calendar-new/Toast';
 import type { RbcEvent } from '@/calendario/rbcAdapter';
 import type { DragDropResult } from '@/calendario/RbcCalendar';
-import { findDentistOverlap, dragTargetUpdates, resizeTargetUpdates } from '@/calendario/calendarDnD';
+import { findDentistOverlap, conflictMessage, dragTargetUpdates, resizeTargetUpdates } from '@/calendario/calendarDnD';
+import { isDentistConflictError } from '@/calendario/calendarRepository';
 
 const RbcCalendar = dynamic(() => import('@/calendario/RbcCalendar'), {
   ssr: false,
@@ -66,6 +68,10 @@ export default function CalendarShell({ userId }: Props) {
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
   const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
   const [drawerEvent, setDrawerEvent] = useState<ClinicEvent | null>(null);
+
+  // Server-side dentist conflict (409 DENTIST_CONFLICT) — offer a force-save.
+  const [conflictOverride, setConflictOverride] = useState<{ message: string; retry: () => Promise<void> } | null>(null);
+  const [conflictBusy, setConflictBusy] = useState(false);
 
   // The fetch window is derived from view + date (deterministic URL restore),
   // and mirrored into ?from=&to= for deep links / debugging.
@@ -237,18 +243,30 @@ export default function CalendarShell({ userId }: Props) {
       updates.end_time ?? clinic.end_time
     );
     if (colliding) {
-      const who = colliding.patient_name || colliding.title || 'otra cita';
-      push(
-        `Conflicto de agenda: ${clinic.dentist} ya tiene una cita con ${who} a esa hora (${colliding.start_time}).`,
-        'error'
-      );
+      push(conflictMessage(clinic, colliding), 'error');
       return;
     }
+    const perform = (force: boolean) =>
+      mutations.updateEvent.mutateAsync({
+        id: clinic.id,
+        updates: force ? { ...updates, force_conflict: true } : updates,
+      });
     try {
-      await mutations.updateEvent.mutateAsync({ id: clinic.id, updates });
+      await perform(false);
       push('Cita movida', 'success');
-    } catch {
-      push('No se pudo mover la cita', 'error');
+    } catch (err) {
+      if (isDentistConflictError(err)) {
+        push(err.message, 'error');
+        setConflictOverride({
+          message: err.message,
+          retry: async () => {
+            await perform(true);
+            push('Cita movida', 'success');
+          },
+        });
+      } else {
+        push('No se pudo mover la cita', 'error');
+      }
     }
   };
 
@@ -268,18 +286,44 @@ export default function CalendarShell({ userId }: Props) {
       updates.end_time ?? clinic.end_time
     );
     if (colliding) {
-      const who = colliding.patient_name || colliding.title || 'otra cita';
-      push(
-        `No se puede extender: ${clinic.dentist} ya tiene una cita con ${who} en ese horario.`,
-        'error'
-      );
+      push(`No se puede extender: ${conflictMessage(clinic, colliding)}`, 'error');
       return;
     }
+    const perform = (force: boolean) =>
+      mutations.updateEvent.mutateAsync({
+        id: clinic.id,
+        updates: force ? { ...updates, force_conflict: true } : updates,
+      });
     try {
-      await mutations.updateEvent.mutateAsync({ id: clinic.id, updates });
+      await perform(false);
       push('Cita actualizada', 'success');
+    } catch (err) {
+      if (isDentistConflictError(err)) {
+        push(err.message, 'error');
+        setConflictOverride({
+          message: err.message,
+          retry: async () => {
+            await perform(true);
+            push('Cita actualizada', 'success');
+          },
+        });
+      } else {
+        push('No se pudo actualizar la cita', 'error');
+      }
+    }
+  };
+
+  const confirmConflictOverride = async () => {
+    if (!conflictOverride) return;
+    const retry = conflictOverride.retry;
+    setConflictBusy(true);
+    setConflictOverride(null);
+    try {
+      await retry();
     } catch {
-      push('No se pudo actualizar la cita', 'error');
+      push('No se pudo guardar de todos modos', 'error');
+    } finally {
+      setConflictBusy(false);
     }
   };
 
@@ -390,6 +434,14 @@ if (eventsQuery.isPending && !eventsQuery.data) {
           setDrawerEvent(null);
           invalidateForModal();
         }}
+      />
+
+      <ConflictOverrideDialog
+        open={!!conflictOverride}
+        busy={conflictBusy}
+        message={conflictOverride?.message ?? ''}
+        onCancel={() => setConflictOverride(null)}
+        onConfirm={() => void confirmConflictOverride()}
       />
     </div>
   );

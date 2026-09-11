@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
 import { CLINIC_TIME_ZONE } from '@/calendario/timezone';
+import { findDentistConflicts, dentistConflictMessage } from '@/lib/dentistAvailability';
 
 export const runtime = 'nodejs';
 
@@ -65,9 +66,6 @@ export async function POST(req: Request) {
     const {
       title,
       patient_name,
-      date,
-      start_time,
-      end_time,
       color,
       notes,
       description,
@@ -82,20 +80,44 @@ export async function POST(req: Request) {
     } = body;
 
     const supabase = createServerServiceClient();
+
+    // Server-side dentist availability (A may not see B's private calendar).
+    // Refuse with 409 + DENTIST_CONFLICT unless `force_conflict` overrides it.
+    const forceConflicts = !!body.force_conflict;
+    const effectiveDate = body.date || (() => {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: CLINIC_TIME_ZONE,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(new Date());
+      const v = (t: string) => parts.find(p => p.type === t)?.value || '';
+      return `${v('year')}-${v('month')}-${v('day')}`;
+    })();
+    const effectiveStart = body.start_time || '09:00';
+    const effectiveEnd = body.end_time || '09:30';
+    const dentistName = (body.dentist || '').trim();
+    if (dentistName && !forceConflicts) {
+      const conflicts = await findDentistConflicts(
+        supabase, dentistName, effectiveDate, effectiveStart, effectiveEnd
+      );
+      if (conflicts.length > 0) {
+        return NextResponse.json(
+          {
+            error: dentistConflictMessage(dentistName),
+            code: 'DENTIST_CONFLICT',
+            conflicts,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const baseInsert: Record<string, unknown> = {
       user_id: userId,
       title: title || `Appointment - ${patient_name}`,
       patient_name: patient_name || '',
-      date: date || (() => {
-        const parts = new Intl.DateTimeFormat('en-US', {
-          timeZone: CLINIC_TIME_ZONE,
-          year: 'numeric', month: '2-digit', day: '2-digit',
-        }).formatToParts(new Date());
-        const v = (t: string) => parts.find(p => p.type === t)?.value || '';
-        return `${v('year')}-${v('month')}-${v('day')}`;
-      })(),
-      start_time: start_time || '09:00',
-      end_time: end_time || '09:30',
+      date: effectiveDate,
+      start_time: effectiveStart,
+      end_time: effectiveEnd,
       color: color || '#0d9488',
       notes: notes || '',
     };
@@ -140,13 +162,59 @@ export async function PUT(req: Request) {
 
   try {
     const body = await req.json();
-    const { id, ...updates } = body;
+    const { id: eventId, force_conflict, ...updates } = body;
 
     const supabase = createServerServiceClient();
+
+    // Owner-scoped read of the current row so we can detect a window/dentist
+    // change below (notes-only edits must not retrigger the conflict gate).
+    const { data: existing, error: fetchError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Evento no encontrado o no tienes permiso para editarlo' },
+        { status: 404 }
+      );
+    }
+
+    // Only gate when the schedule-relevant fields actually move AND the event is
+    // not being cancelled (cancelling frees the slot).
+    const newDate = updates.date ?? existing.date;
+    const newStart = updates.start_time ?? existing.start_time;
+    const newEnd = updates.end_time ?? existing.end_time;
+    const newDentist = ((updates.dentist ?? existing.dentist) || '').trim();
+    const scheduleMoved =
+      (updates.date !== undefined && updates.date !== existing.date) ||
+      (updates.start_time !== undefined && updates.start_time !== existing.start_time) ||
+      (updates.end_time !== undefined && updates.end_time !== existing.end_time) ||
+      (updates.dentist !== undefined && updates.dentist !== (existing.dentist || ''));
+    const becomingCancelled = (updates.status ?? existing.status) === 'cancelled';
+
+    if (scheduleMoved && !becomingCancelled && newDentist && !force_conflict) {
+      const conflicts = await findDentistConflicts(
+        supabase, newDentist, newDate, newStart, newEnd, Number(eventId)
+      );
+      if (conflicts.length > 0) {
+        return NextResponse.json(
+          {
+            error: dentistConflictMessage(newDentist),
+            code: 'DENTIST_CONFLICT',
+            conflicts,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const { data, error: dbError } = await supabase
       .from('events')
       .update({ ...updates })
-      .eq('id', id)
+      .eq('id', eventId)
       .eq('user_id', userId)
       .select()
       .single();
@@ -175,7 +243,7 @@ export async function PUT(req: Request) {
     await supabase
       .from('event_invitees')
       .update({ updated_at: new Date().toISOString() })
-      .eq('event_id', id);
+      .eq('event_id', eventId);
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
