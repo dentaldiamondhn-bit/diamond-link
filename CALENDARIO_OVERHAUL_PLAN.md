@@ -506,10 +506,12 @@ Preceding UI passes also shipped in the same commit: "Próximos esta semana" pre
    - Drag onto invitee's busy slot → 409 `INVITEE_CONFLICT` → "Guardar de todos modos" → force saves →
      invitee B gets "Nueva cita" push + bell.
    - Tap notification → deep-link opens `/calendario?view=day&date=…&eventId=…` detail drawer.
-4. **Phase 5b extension:** commit dispatcher rewrite + UI/types/repo changes → `vercel --prod` → re-run
-   local smoke (personal reminder → `dismissed=true` + bell; task recur → +N days / one-shot → cleared) →
-   user Live QA: schedule a personal ReminderPanel note + a recurring task with `remind_at` in the past →
-   ≤5 min later both arrive (push + bell); complete the task → it stops firing.
+4. **Phase 5b extension:** ~~commit dispatcher rewrite + UI/types/repo changes~~ ✅ (`f15fe4a`, pushed
+   `origin/master`) → ~~`vercel --prod`~~ ✅ (deployed + probed: cron 401 w/o secret / 200 `sources`
+   with secret / vapid 200 / events-POST 401) + ~~local smoke~~ ✅ (personal reminder → `dismissed`+bell;
+   task recur +2d / one-shot cleared / completed untouched) → **user Live QA:** schedule a personal
+   ReminderPanel note + a recurring task with `remind_at` in the past → ≤5 min later both arrive (push + bell);
+   complete the task → it stops firing.
 5. **Post-QA:** mark Phase 5 + 5b rows → ✅ in the status table, then scope Phase 6 (PWA/offline) or
    Phase 10 (final QA matrix C01–C36 + rollback + changelog).
 
