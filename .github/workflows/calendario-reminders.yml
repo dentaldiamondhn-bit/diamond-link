@@ -4,9 +4,10 @@ name: calendario-reminders
 # Vercel Cron, which needs Pro for sub-daily precision on Hobby).
 #
 # GitHub lets scheduled runs drift (5-min is their practical floor and runs can
-# be delayed under queue load), so use `*/5`. The reminder_time anchor absorbs
-# the jitter: anything already due is dispatched ~≤5 min after it becomes due.
-# `concurrency` + the route's `sent` flag together guarantee at-most-once.
+# be delayed under queue load), so use `*/5`. The route's 5-min lean window
+# (REMINDER_LEAN_MINUTES) treats reminders as due 5 min before their anchored
+# reminder_time, compensating for that lag. The `sent` flag + `concurrency`
+# together guarantee at-most-once.
 
 on:
   schedule:

@@ -8,15 +8,18 @@ export const runtime = 'nodejs';
 /**
  * Calendario Phase 5b — single reminder schedule dispatcher.
  *
- * Fired every minute by Vercel Cron (`vercel.json` → `/api/cron/reminders`).
- * Reads due, unsent `event_reminders` (reminder_time <= now, event active),
- * then fans out push + bell to the event owner and every invitee. `sent` is
- * flipped only after delivery succeeds, so the one-minute cadence can never
- * double-fire.
+ * Fired by GitHub Actions every 5 minutes (`/api/cron/reminders`), but the
+ * scheduler composes Kubernetes-agnostic... it's just an HTTP call the workflow
+ * makes — see `.github/workflows/calendario-reminders.yml`.
  *
- * Gate: Vercel Cron sets `x-vercel-cron: 1` (not spoofable → tells Vercel not
- * to bill it), and we additionally require `x-cron-secret` to equal
- * `CRON_SECRET` so brute-forcing the route can't spam the whole clinic.
+ * Dispatch uses a **lean window**: reminders are treated as due `LEAN_MINUTES`
+ * (default 5) before their anchored `reminder_time`, compensating precisely for
+ * the scheduler's expected lag so a "N minutos antes" reminder still arrives on
+ * time. `sent` is flipped only after delivery succeeds, so the cadence can
+ * never double-fire.
+ *
+ * Gate: `x-cron-secret` must equal `CRON_SECRET` (set in both GitHub Actions
+ * secrets and the Vercel Production env).
  */
 
 const MAX_REMINDERS = 200;
@@ -69,7 +72,11 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createServiceClient();
-  const now = new Date().toISOString();
+  // Lean the due-window forward by LEAN_MINUTES so scheduler lag doesn't make
+  // reminders late: `reminder_time <= now + lean` means "due before the next
+  // tick" — dispatched now, at most ~LEAN_MINUTES early.
+  const leanMinutes = Math.max(0, Number(process.env.REMINDER_LEAN_MINUTES) || 5);
+  const dueAt = new Date(Date.now() + leanMinutes * 60_000).toISOString();
   let processed = 0;
   let pushed = 0;
   let bell = 0;
@@ -80,7 +87,7 @@ export async function GET(req: NextRequest) {
       .from('event_reminders')
       .select('id, event_id, minutes_before')
       .eq('sent', false)
-      .lte('reminder_time', now)
+      .lte('reminder_time', dueAt)
       .order('reminder_time', { ascending: true })
       .limit(MAX_REMINDERS);
     if (dueError) throw dueError;
