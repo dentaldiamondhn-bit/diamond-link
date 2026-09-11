@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
 import { CLINIC_TIME_ZONE } from '@/calendario/timezone';
-import { findDentistConflicts, dentistConflictMessage } from '@/lib/dentistAvailability';
+import {
+  findDentistConflicts,
+  dentistConflictMessage,
+  findInviteeConflicts,
+  inviteeConflictMessage,
+} from '@/lib/dentistAvailability';
+import type { DentistConflict } from '@/lib/dentistAvailability';
 
 export const runtime = 'nodejs';
 
@@ -195,15 +201,43 @@ export async function PUT(req: Request) {
       (updates.dentist !== undefined && updates.dentist !== (existing.dentist || ''));
     const becomingCancelled = (updates.status ?? existing.status) === 'cancelled';
 
-    if (scheduleMoved && !becomingCancelled && newDentist && !force_conflict) {
-      const conflicts = await findDentistConflicts(
-        supabase, newDentist, newDate, newStart, newEnd, Number(eventId)
-      );
-      if (conflicts.length > 0) {
+    // The event's invitees are booked too: the dentist check can't see B's own
+    // private calendar, so any window/dentist move also asks each invitee's
+    // schedule. Both gates share the `force_conflict` escape hatch.
+    const { data: inviteeRows } = await supabase
+      .from('event_invitees')
+      .select('user_id')
+      .eq('event_id', eventId);
+    const inviteeIds = (inviteeRows || []).map((r) => r.user_id).filter(Boolean);
+
+    if (scheduleMoved && !becomingCancelled && !force_conflict) {
+      let conflicts: DentistConflict[] = [];
+      let code: string | null = null;
+      let message = '';
+      if (newDentist) {
+        conflicts = await findDentistConflicts(
+          supabase, newDentist, newDate, newStart, newEnd, Number(eventId)
+        );
+        if (conflicts.length > 0) {
+          code = 'DENTIST_CONFLICT';
+          message = dentistConflictMessage(newDentist);
+        }
+      }
+      if (!conflicts.length && inviteeIds.length > 0) {
+        const inviteeConflicts = await findInviteeConflicts(
+          supabase, inviteeIds, newDate, newStart, newEnd, Number(eventId)
+        );
+        if (inviteeConflicts.length > 0) {
+          code = 'INVITEE_CONFLICT';
+          message = inviteeConflictMessage(inviteeConflicts);
+          conflicts = inviteeConflicts;
+        }
+      }
+      if (code) {
         return NextResponse.json(
           {
-            error: dentistConflictMessage(newDentist),
-            code: 'DENTIST_CONFLICT',
+            error: message,
+            code,
             conflicts,
           },
           { status: 409 }

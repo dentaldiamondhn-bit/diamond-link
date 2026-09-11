@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
 import { isEventMember, isEventOwner } from '@/lib/calendarAccess';
+import { findInviteeConflicts, inviteeConflictMessage } from '@/lib/dentistAvailability';
 
 export const runtime = 'nodejs';
 
@@ -55,6 +56,40 @@ export async function POST(
 
     if (!(await isEventOwner(supabase, id, userId))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Inviting books the invitee in this slot too — refuse when the invitee
+    // already owns an overlapping event there (the create/edit paths add
+    // invitees separately from the event row, so this is the only gate that
+    // sees the real invite).
+    if (!body.force_conflict) {
+      const { data: event } = await supabase
+        .from('events')
+        .select('id, date, start_time, end_time, status')
+        .eq('id', id)
+        .maybeSingle();
+      const active =
+        event && event.status !== 'cancelled' && event.status !== 'completed';
+      if (active) {
+        const inviteeConflicts = await findInviteeConflicts(
+          supabase,
+          [user_id],
+          event.date,
+          event.start_time,
+          event.end_time,
+          Number(id)
+        );
+        if (inviteeConflicts.length > 0) {
+          return NextResponse.json(
+            {
+              error: inviteeConflictMessage(inviteeConflicts),
+              code: 'INVITEE_CONFLICT',
+              conflicts: inviteeConflicts,
+            },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     const { data, error } = await supabase

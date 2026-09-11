@@ -1,6 +1,6 @@
 import type { ClinicEvent, Task, Reminder, EventReminder } from '@/lib/types-calendar';
 import type { ParticipantMap } from '@/app/api/events/participants/route';
-import type { DentistConflict } from '@/lib/dentistAvailability';
+import type { DentistConflict, InviteeConflict } from '@/lib/dentistAvailability';
 
 export interface EventRange {
   /** Inclusive YYYY-MM-DD start of the window. */
@@ -45,16 +45,19 @@ export class ApiError extends Error {
   }
 }
 
-/** True when the server refused the save because the dentist is already booked. */
+/** True when the server refused the save because someone's schedule is double-booked. */
 export function isDentistConflictError(err: unknown): err is ApiError {
-  return err instanceof ApiError && err.code === 'DENTIST_CONFLICT';
+  return (
+    err instanceof ApiError &&
+    (err.code === 'DENTIST_CONFLICT' || err.code === 'INVITEE_CONFLICT')
+  );
 }
 
-/** The conflicting bookings carried by a DENTIST_CONFLICT rejection. */
-export function dentistConflictsOf(err: unknown): DentistConflict[] {
+/** The conflicting bookings carried by a schedule-conflict rejection. */
+export function dentistConflictsOf(err: unknown): Array<DentistConflict | InviteeConflict> {
   if (err instanceof ApiError && err.payload && typeof err.payload === 'object') {
     const conflicts = (err.payload as { conflicts?: unknown }).conflicts;
-    if (Array.isArray(conflicts)) return conflicts as DentistConflict[];
+    if (Array.isArray(conflicts)) return conflicts as Array<DentistConflict | InviteeConflict>;
   }
   return [];
 }
@@ -167,19 +170,23 @@ export class CalendarRepository {
 
   /** Diff-replace invitees on an owned event (DELETE all → POST each). */
   static async setEventInvitees(eventId: number, userIds: string[]): Promise<void> {
-    await fetch(`/api/events/${eventId}/invitees`, {
-      ...REQUEST,
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    for (const user_id of [...new Set(userIds)].filter(Boolean)) {
+    await readJson<{ ok: boolean }>(
       await fetch(`/api/events/${eventId}/invitees`, {
         ...REQUEST,
-        method: 'POST',
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id, status: 'pending' }),
-      });
+        body: JSON.stringify({}),
+      })
+    );
+    for (const user_id of [...new Set(userIds)].filter(Boolean)) {
+      await readJson<{ event_id: number; user_id: string; status: string }>(
+        await fetch(`/api/events/${eventId}/invitees`, {
+          ...REQUEST,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id, status: 'pending' }),
+        })
+      );
     }
   }
 

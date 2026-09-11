@@ -327,8 +327,15 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       // Fire-and-forget: SSE + background refetch cover these; skipping the
       // await removes 4+ sequential round-trips from the modal-close path.
       if (eventId) {
-        void CalendarRepository.setEventInvitees(eventId, invitees.map((i) => i.id));
         void CalendarRepository.setEventReminders(eventId, reminders);
+        // Invitee double-booking (409 INVITEE_CONFLICT) must reach the user even
+        // though the save itself already succeeded — hence the .catch instead of
+        // an await in the close path.
+        CalendarRepository.setEventInvitees(eventId, invitees.map((i) => i.id)).catch(
+          (err) => {
+            if (isDentistConflictError(err)) push(err.message, 'error');
+          }
+        );
       }
       if (dateStr) clearEventDraft(dateStr);
       push(editingEvent ? 'Cita actualizada' : 'Cita creada', 'success');
