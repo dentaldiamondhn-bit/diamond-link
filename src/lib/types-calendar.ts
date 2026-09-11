@@ -28,6 +28,10 @@ export interface Task {
   due_date: string;
   completed: boolean;
   created_at: string;
+  /** Next reminder occurrence (ISO). NULL = no reminder on this task. */
+  remind_at: string | null;
+  /** >0: re-remind every N days until the task is completed. NULL/0: one-shot. */
+  repeat_every_days: number | null;
 }
 
 export interface Reminder {

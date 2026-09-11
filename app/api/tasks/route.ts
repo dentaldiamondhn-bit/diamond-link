@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title, priority, due_date } = body;
+    const { title, priority, due_date, remind_at = null, repeat_every_days = null } = body;
 
     const supabase = createServerServiceClient();
     const { data, error: dbError } = await supabase
@@ -43,6 +43,8 @@ export async function POST(req: Request) {
         priority: priority || 'medium',
         due_date,
         completed: false,
+        remind_at,
+        repeat_every_days: Number.isFinite(repeat_every_days) ? repeat_every_days : null,
       })
       .select()
       .single();

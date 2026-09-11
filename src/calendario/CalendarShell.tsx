@@ -135,9 +135,15 @@ export default function CalendarShell({ userId }: Props) {
     remindersQuery.refetch();
   };
 
-  const addTask = async (title: string, priority: Task['priority'], due_date: string) => {
+  const addTask = async (
+    title: string,
+    priority: Task['priority'],
+    due_date: string,
+    remind_at: string | null = null,
+    repeat_every_days: number | null = null
+  ) => {
     try {
-      await mutations.addTask.mutateAsync({ title, priority, due_date });
+      await mutations.addTask.mutateAsync({ title, priority, due_date, remind_at, repeat_every_days });
       push('Tarea añadida', 'success');
     } catch {
       push('No se pudo añadir la tarea', 'error');

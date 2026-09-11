@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { deliverCalendarToUser } from '@/services/calendarNotifications';
+import { clinicDateKey } from '@/calendario/timezone';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -8,15 +9,22 @@ export const runtime = 'nodejs';
 /**
  * Calendario Phase 5b — single reminder schedule dispatcher.
  *
- * Fired by GitHub Actions every 5 minutes (`/api/cron/reminders`), but the
- * scheduler composes Kubernetes-agnostic... it's just an HTTP call the workflow
- * makes — see `.github/workflows/calendario-reminders.yml`.
+ * Fired by GitHub Actions every 5 minutes (`/api/cron/reminders`). Covers three
+ * sources with the same outward behavior (OS tray push + in-app bell):
+ *
+ *   - `event_reminders` → owner + every invitee of the event.
+ *   - `reminders` (personal notes) → the note's owner, one-shot, then dismissed.
+ *   - `tasks` (recur-until-completed) → the task owner; advances `remind_at` by
+ *     `repeat_every_days` until the task is completed (completed tasks never fire).
  *
  * Dispatch uses a **lean window**: reminders are treated as due `LEAN_MINUTES`
  * (default 5) before their anchored `reminder_time`, compensating precisely for
  * the scheduler's expected lag so a "N minutos antes" reminder still arrives on
- * time. `sent` is flipped only after delivery succeeds, so the cadence can
- * never double-fire.
+ * time. Every source flips its guard column only after delivery succeeds, so the
+ * cadence can never double-fire.
+ *
+ * Sources are isolated: a schema-drift failure in one branch is reported in
+ * `errors` and never takes the other two down.
  *
  * Gate: `x-cron-secret` must equal `CRON_SECRET` (set in both GitHub Actions
  * secrets and the Vercel Production env).
@@ -37,6 +45,10 @@ function fmtDate(date: string): string {
   }
 }
 
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 interface EventRow {
   id: number;
   user_id: string;
@@ -51,6 +63,21 @@ interface ReminderRow {
   id: number;
   event_id: number;
   minutes_before: number;
+}
+
+interface PersonalReminderRow {
+  id: number;
+  user_id: string;
+  message: string | null;
+}
+
+interface TaskRow {
+  id: number;
+  user_id: string;
+  title: string;
+  due_date: string | null;
+  remind_at: string | null;
+  repeat_every_days: number | null;
 }
 
 function authorized(req: NextRequest): boolean {
@@ -73,15 +100,22 @@ export async function GET(req: NextRequest) {
 
   const db = createServiceClient();
   // Lean the due-window forward by LEAN_MINUTES so scheduler lag doesn't make
-  // reminders late: `reminder_time <= now + lean` means "due before the next
-  // tick" — dispatched now, at most ~LEAN_MINUTES early.
+  // reminders late: `remind_at <= now + lean` means "due before the next tick"
+  // — dispatched now, at most ~LEAN_MINUTES early.
   const leanMinutes = Math.max(0, Number(process.env.REMINDER_LEAN_MINUTES) || 5);
   const dueAt = new Date(Date.now() + leanMinutes * 60_000).toISOString();
-  let processed = 0;
-  let pushed = 0;
-  let bell = 0;
-  let failed = 0;
 
+  const state = {
+    sources: { event_reminders: 0, reminders: 0, tasks: 0 },
+    processed: 0,
+    pushed: 0,
+    bell: 0,
+    failed: 0,
+  };
+  const errors: Record<string, string> = {};
+
+  // ------------------------------------------------------------------- 1.
+  // Event reminders → owner + invitees (original Phase 5b behavior).
   try {
     const { data: due, error: dueError } = await db
       .from('event_reminders')
@@ -91,87 +125,216 @@ export async function GET(req: NextRequest) {
       .order('reminder_time', { ascending: true })
       .limit(MAX_REMINDERS);
     if (dueError) throw dueError;
-    if (!due || due.length === 0) {
-      return NextResponse.json({ ok: true, processed: 0 });
+
+    if (due && due.length > 0) {
+      const eventIds = [...new Set((due as ReminderRow[]).map((r) => r.event_id))];
+
+      const [{ data: events }, { data: inviteeRows }] = await Promise.all([
+        db
+          .from('events')
+          .select('id, user_id, title, patient_name, date, start_time, status')
+          .in('id', eventIds),
+        db.from('event_invitees').select('event_id, user_id').in('event_id', eventIds),
+      ]);
+
+      const eventMap = new Map<number, EventRow>(
+        ((events ?? []) as EventRow[])
+          .filter((e) => e.status !== 'cancelled' && e.status !== 'completed')
+          .map((e) => [e.id, e])
+      );
+
+      const recipientsByEvent = new Map<number, Set<string>>();
+      for (const inv of (inviteeRows || []) as Array<{ event_id: number; user_id: string }>) {
+        const set = recipientsByEvent.get(inv.event_id) || new Set<string>();
+        set.add(inv.user_id);
+        recipientsByEvent.set(inv.event_id, set);
+      }
+
+      for (const reminder of due as ReminderRow[]) {
+        const ev = eventMap.get(reminder.event_id);
+        if (!ev) continue; // cancelled/completed/deleted — leave unsent, next tick compacts
+
+        const recipients = new Set<string>([ev.user_id]);
+        for (const uid of recipientsByEvent.get(ev.id) || []) recipients.add(uid);
+
+        const dateLabel = fmtDate(ev.date);
+        const who = (ev.patient_name?.trim() || ev.title?.trim() || 'Cita');
+        const body = `${who} · ${dateLabel} ${ev.start_time || '--:--'}`;
+        const title = `Recordatorio: ${who}`;
+        const metadata: Record<string, unknown> = {
+          type: 'calendar',
+          source: 'event_reminders',
+          eventId: ev.id,
+          date: ev.date,
+          startTime: ev.start_time,
+          url: `/calendario?view=day&date=${encodeURIComponent(ev.date)}&eventId=${ev.id}`,
+        };
+
+        try {
+          for (const userId of recipients) {
+            const pushResult = await deliverCalendarToUser(
+              db,
+              userId,
+              {
+                title,
+                body,
+                icon: '/Logo.svg',
+                badge: '/Logo.svg',
+                tag: `calendar-${ev.id}`,
+                renotify: true,
+                data: metadata,
+                actions: [{ action: 'open', title: 'Ver cita' }],
+              },
+              { type: 'calendar_reminder', title, message: body, metadata }
+            );
+            state.pushed += pushResult.sent;
+            state.bell += recipients.size;
+          }
+          await db.from('event_reminders').update({ sent: true }).eq('id', reminder.id);
+          state.processed++;
+          state.sources.event_reminders++;
+        } catch (err) {
+          state.failed++;
+          console.error('[cron/reminders] event reminder failed', reminder.id, errMsg(err));
+        }
+      }
     }
+  } catch (err) {
+    errors.event_reminders = errMsg(err);
+    console.error('[cron/reminders] event_reminders branch failed', errMsg(err));
+  }
 
-    const eventIds = [...new Set((due as ReminderRow[]).map((r) => r.event_id))];
+  // ------------------------------------------------------------------- 2.
+  // Personal reminders (ReminderPanel notes) → the note's owner, one-shot.
+  try {
+    const { data: dueNotes, error: notesError } = await db
+      .from('reminders')
+      .select('id, user_id, message')
+      .eq('dismissed', false)
+      .lte('remind_at', dueAt)
+      .order('remind_at', { ascending: true })
+      .limit(MAX_REMINDERS);
+    if (notesError) throw notesError;
 
-    const [{ data: events }, { data: inviteeRows }] = await Promise.all([
-      db
-        .from('events')
-        .select('id, user_id, title, patient_name, date, start_time, status')
-        .in('id', eventIds),
-      db.from('event_invitees').select('event_id, user_id').in('event_id', eventIds),
-    ]);
-
-    const eventMap = new Map<number, EventRow>(
-      ((events ?? []) as EventRow[])
-        .filter(
-          (e) => e.status !== 'cancelled' && e.status !== 'completed'
-        )
-        .map((e) => [e.id, e])
-    );
-
-    const recipientsByEvent = new Map<number, Set<string>>();
-    for (const inv of inviteeRows || []) {
-      const set = recipientsByEvent.get(inv.event_id) || new Set<string>();
-      set.add(inv.user_id);
-      recipientsByEvent.set(inv.event_id, set);
-    }
-
-    for (const reminder of due as ReminderRow[]) {
-      const ev = eventMap.get(reminder.event_id);
-      if (!ev) continue; // cancelled/completed/deleted — leave unsent, next tick compacts
-      processed++;
-
-      const recipients = new Set<string>([ev.user_id]);
-      for (const uid of recipientsByEvent.get(ev.id) || []) recipients.add(uid);
-
-      const dateLabel = fmtDate(ev.date);
-      const who = (ev.patient_name?.trim() || ev.title?.trim() || 'Cita');
-      const body = `${who} · ${dateLabel} ${ev.start_time || '--:--'}`;
-      const title = `Recordatorio: ${who}`;
+    for (const note of (dueNotes ?? []) as PersonalReminderRow[]) {
+      const title = 'Recordatorio';
+      const body = note.message?.trim() || 'Tienes un recordatorio pendiente';
       const metadata: Record<string, unknown> = {
         type: 'calendar',
-        source: 'event_reminders',
-        eventId: ev.id,
-        date: ev.date,
-        startTime: ev.start_time,
-        url: `/calendario?view=day&date=${encodeURIComponent(ev.date)}&eventId=${ev.id}`,
+        source: 'reminders',
+        url: `/calendario?view=day&date=${clinicDateKey()}`,
       };
 
       try {
-        for (const userId of recipients) {
-          const pushResult = await deliverCalendarToUser(
-            db,
-            userId,
-            {
-              title,
-              body,
-              icon: '/Logo.svg',
-              badge: '/Logo.svg',
-              tag: `calendar-${ev.id}`,
-              renotify: true,
-              data: metadata,
-              actions: [{ action: 'open', title: 'Ver cita' }],
-            },
-            { type: 'calendar_reminder', title, message: body, metadata }
-          );
-          pushed += pushResult.sent;
-          bell += recipients.size;
-        }
-        await db.from('event_reminders').update({ sent: true }).eq('id', reminder.id);
+        const pushResult = await deliverCalendarToUser(
+          db,
+          note.user_id,
+          {
+            title,
+            body,
+            icon: '/Logo.svg',
+            badge: '/Logo.svg',
+            tag: `reminder-${note.id}`,
+            renotify: true,
+            data: metadata,
+            actions: [{ action: 'open', title: 'Ver calendario' }],
+          },
+          { type: 'calendar_reminder', title, message: body, metadata }
+        );
+        state.pushed += pushResult.sent;
+        state.bell += 1;
+        await db.from('reminders').update({ dismissed: true }).eq('id', note.id);
+        state.processed++;
+        state.sources.reminders++;
       } catch (err) {
-        failed++;
-        console.error('[cron/reminders] dispatch failed', reminder.id, (err as Error)?.message);
+        state.failed++;
+        console.error('[cron/reminders] personal reminder failed', note.id, errMsg(err));
       }
     }
-
-    return NextResponse.json({ ok: true, processed, pushed, bell, failed });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    errors.reminders = errMsg(err);
+    console.error('[cron/reminders] reminders branch failed', errMsg(err));
   }
+
+  // ------------------------------------------------------------------- 3.
+  // Tasks — recur-until-completed: notify the owner, then advance `remind_at`
+  // by `repeat_every_days` (or clear it for one-shot) while still incomplete.
+  try {
+    const { data: dueTasks, error: tasksError } = await db
+      .from('tasks')
+      .select('id, user_id, title, due_date, remind_at, repeat_every_days')
+      .eq('completed', false)
+      .not('remind_at', 'is', null)
+      .lte('remind_at', dueAt)
+      .order('remind_at', { ascending: true })
+      .limit(MAX_REMINDERS);
+    if (tasksError) throw tasksError;
+
+    for (const task of (dueTasks ?? []) as TaskRow[]) {
+      const who = task.title.trim() || 'Tarea';
+      const body = `Tarea: ${who}`;
+      const metadata: Record<string, unknown> = {
+        type: 'calendar',
+        source: 'tasks',
+        taskId: task.id,
+        url: `/calendario?view=day&date=${encodeURIComponent(task.due_date || clinicDateKey())}`,
+      };
+
+      try {
+        const pushResult = await deliverCalendarToUser(
+          db,
+          task.user_id,
+          {
+            title: who,
+            body,
+            icon: '/Logo.svg',
+            badge: '/Logo.svg',
+            tag: `task-${task.id}`,
+            renotify: true,
+            data: metadata,
+            actions: [{ action: 'open', title: 'Ver tarea' }],
+          },
+          { type: 'calendar_reminder', title: who, message: body, metadata }
+        );
+        state.pushed += pushResult.sent;
+        state.bell += 1;
+
+        // Compute the next occurrence in JS (avoid raw update expressions).
+        const days = Number(task.repeat_every_days) || 0;
+        let nextAt: string | null = null;
+        if (days > 0 && task.remind_at) {
+          const base = new Date(task.remind_at).getTime() + days * 86_400_000;
+          nextAt = new Date(base).toISOString();
+        }
+
+        const { error: advanceError } = await db
+          .from('tasks')
+          .update({ remind_at: nextAt })
+          .eq('id', task.id)
+          .eq('completed', false); // never resurrect a task completed mid-flight
+        if (advanceError) throw advanceError;
+
+        state.processed++;
+        state.sources.tasks++;
+      } catch (err) {
+        state.failed++;
+        console.error('[cron/reminders] task reminder failed', task.id, errMsg(err));
+      }
+    }
+  } catch (err) {
+    errors.tasks = errMsg(err);
+    console.error('[cron/reminders] tasks branch failed', errMsg(err));
+  }
+
+  return NextResponse.json({
+    ok: true,
+    processed: state.processed,
+    pushed: state.pushed,
+    bell: state.bell,
+    failed: state.failed,
+    sources: state.sources,
+    ...(Object.keys(errors).length ? { errors } : {}),
+  });
 }
 
 export const POST = GET;

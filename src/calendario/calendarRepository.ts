@@ -233,13 +233,19 @@ export class CalendarRepository {
     return readJson<Task[]>(await fetch('/api/tasks', REQUEST));
   }
 
-  static async createTask(title: string, priority: Task['priority'], due_date: string): Promise<Task> {
+  static async createTask(
+    title: string,
+    priority: Task['priority'],
+    due_date: string,
+    remind_at: string | null = null,
+    repeat_every_days: number | null = null
+  ): Promise<Task> {
     return readJson<Task>(
       await fetch('/api/tasks', {
         ...REQUEST,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, priority, due_date }),
+        body: JSON.stringify({ title, priority, due_date, remind_at, repeat_every_days }),
       })
     );
   }

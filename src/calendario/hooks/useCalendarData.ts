@@ -72,7 +72,17 @@ export interface CalendarMutations {
   createEvent: UseMutationResult<ClinicEvent, Error, EventInput>;
   updateEvent: UseMutationResult<ClinicEvent, Error, { id: number; updates: Partial<EventInput> }>;
   deleteEvent: UseMutationResult<void, Error, number>;
-  addTask: UseMutationResult<Task, Error, { title: string; priority: Task['priority']; due_date: string }>;
+  addTask: UseMutationResult<
+    Task,
+    Error,
+    {
+      title: string;
+      priority: Task['priority'];
+      due_date: string;
+      remind_at?: string | null;
+      repeat_every_days?: number | null;
+    }
+  >;
   toggleTask: UseMutationResult<Task, Error, { id: number; completed: boolean }>;
   deleteTask: UseMutationResult<void, Error, number>;
   addReminder: UseMutationResult<Reminder, Error, { message: string; remind_at: string }>;
@@ -135,8 +145,19 @@ export function useCalendarMutations(): CalendarMutations {
   });
 
   const addTask = useMutation({
-    mutationFn: ({ title, priority, due_date }: { title: string; priority: Task['priority']; due_date: string }) =>
-      CalendarRepository.createTask(title, priority, due_date),
+    mutationFn: ({
+      title,
+      priority,
+      due_date,
+      remind_at = null,
+      repeat_every_days = null,
+    }: {
+      title: string;
+      priority: Task['priority'];
+      due_date: string;
+      remind_at?: string | null;
+      repeat_every_days?: number | null;
+    }) => CalendarRepository.createTask(title, priority, due_date, remind_at, repeat_every_days),
     onSettled: () => { void invalidateAll(); },
   });
   const toggleTask = useMutation({
