@@ -464,10 +464,18 @@ Preceding UI passes also shipped in the same commit: "Próximos esta semana" pre
     early (`dueAt = now + lean`); stored `reminder_time` + UI unchanged.
   - **Deploy + scheduler — ✅ live (2026-09-11):** `vercel --prod` shipped `cdb0f9a`; deployed
     `/api/cron/reminders` returns `401` without the secret (gate live). Commits pushed to
-    `origin/master`; because the repo **default branch is `main`** (unrelated history to `master`),
+    `origin/master`; because the repo **default branch was `main`** (unrelated history to `master`),
     the self-contained workflow was also committed to `main` (`bac82db`) — Actions registered it
     (`active`), a manual `workflow_dispatch` run succeeded end-to-end
-    (`{"ok":true,"processed":0}`), and the `*/5` schedule is now live.
+    (`{"ok":true,"processed":0}`), and the `*/5` schedule became live.
+  - **⚠ Branch-layout incident + fix (2026-09-11):** the `bac82db` push to `main` triggered Vercel's
+    git integration (project `link.productionBranch = "main"`) to **auto-deploy the unrelated `main`
+    codebase to production**, 404-ing every calendar/chat API route until production was redeployed
+    from `master`. **Fix:** removed the repo's `main` default branch → `master` (Actions schedules now
+    read `master`'s workflow, verified by a green `workflow_dispatch` on `master`); `main` is orphaned
+    and must NOT be pushed (Vercel `productionBranch` stays `main` but nothing pushes it). Deploy
+    method = manual `vercel --prod` from `master` (custom-credential git link has no Production Branch
+    UI setting).
   - **Remaining:** live QA (reminder tray/bell, invitee 409→force→push, deep-link) — see Next Move.
 
 **Blocked**
