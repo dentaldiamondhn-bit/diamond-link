@@ -93,6 +93,27 @@ export default function CalendarShell({ userId }: Props) {
   }, [view, date, range]);
 
   const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
+
+  // Phase 5 — push deep-link: `?eventId=` (calendar notification tap) opens the
+  // event drawer + day view once that event is in the cache, then drops the
+  // param so a later refetch never re-opens it.
+  useEffect(() => {
+    if (events.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('eventId');
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id)) return;
+    const ev = events.find((e) => e.id === id);
+    if (!ev) return;
+    setView('day');
+    setDate(parseDateStr(ev.date));
+    setSelectedDate(ev.date);
+    setDrawerEvent(ev);
+    setEditingEvent(null);
+    params.delete('eventId');
+    window.history.replaceState(null, '', `?${params.toString()}`);
+  }, [events]);
   const tasks = tasksQuery.data ?? [];
   const reminders = remindersQuery.data ?? [];
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);

@@ -427,13 +427,22 @@ theming, a11y, perf). Auth stays Clerk.
   deployed @ app.dentaldiamondhn.com ✓):** realtime debounce → 1.5s (invitee peek ~2s);
   touch DnD (`react-dnd-touch-backend`, coarse-pointer, 200ms grace); conflict check
   no-dentist fallback (any-occupied-slot block, `conflictMessage` toast); `PROCEDURES` es.
-  Preceding UI passes also shipped in the same commit: "Próximos esta semana" preview
-  (today→Sunday, Libre/Agendar, Cancelada chips), GoTrueClient singleton fix, es-HN side
-  cards with the Recordatorios card merged event reminders and reordered above Tareas.
+Preceding UI passes also shipped in the same commit: "Próximos esta semana" preview
+   (today→Sunday, Libre/Agendar, Cancelada chips), GoTrueClient singleton fix, es-HN side
+   cards with the Recordatorios card merged event reminders and reordered above Tareas.
+- **Server-side dentist conflict enforcement (2026-09-10, committed `4cd7993` + `e7af050`,
+  pushed to `origin/master`):** clinic-wide availability check that catches the dentist's
+  own private bookings (unseeable to the creator) — POST create + PUT move/resize return
+  `409 DENTIST_CONFLICT` (Spanish message + conflicting rows) unless `force_conflict` is set;
+  both Save and drag/resize paths block with a toast → `ConflictOverrideDialog` ("Guardar de
+  todos modos") → resubmit with `force_conflict: true`. Same round: realtime debounce → 1.5s,
+  touch DnD backup, no-dentist conflict fallback, `PROCEDURES` es. **Live verification
+  deferred to Phase 5** (notifications make the block/double-booked demo and cross-user
+  confirm practical to observe).
 
 **Active**
 - **Phase 5 (Notifications & Push Pipeline)** — single reminder schedule, pg_net trigger →
-  webhook → SW calendar cards, `notificationclick` deep-link, bell+push parity. See Next Move.
+  webhook → SW calendar cards, `notificationclick` deep-link, bell + push parity. See Next Move.
 
 **Blocked**
 - ~~Phase 2 realtime was gated on applying `20260908c`~~ — applied + **verified live** (2026-09-08);
@@ -444,12 +453,13 @@ theming, a11y, perf). Auth stays Clerk.
   verify live refresh during Phase 4 QA (C10 part ③).
 
 ### Next Move
-1. **Phase 4 browser QA — PASSED (2026-09-10, deployed @ app.dentaldiamondhn.com ✓)** with four
-   follow-up fixes shipped in `59b3b02` (realtime debounce 1.5s, touch DnD, no-dentist conflict
-   fallback, `PROCEDURES` es). Verified live by user.
-2. **Phase 5 (Notifications & Push Pipeline)** — the next phase: single reminder schedule,
-   pg_net trigger on `events`/`event_invitees` → `/api/push/webhook` (calendar payload →
-   chat web-push pipeline), SW calendar tray cards (aggregated per event, `tag:'calendar-<id>'`),
+1. **Server-side conflict feature committed + pushed (`4cd7993`, `e7af050`) — live
+   verification folded into Phase 5.** When testing: A creates/drop an event on Dr. B's busy
+   slot → block + "Guardar de todos modos" → force persists; notifications (Phase 5) make the
+   blocked/double-booked interaction observable across users.
+2. **Phase 5 (Notifications & Push Pipeline)** — single reminder schedule, pg_net trigger on
+   `events`/`event_invitees` → `/api/push/webhook` (calendar payload type → chat web-push
+   pipeline), SW calendar tray cards (aggregated per event, `tag:'calendar-<id>'`),
    `notificationclick` → `/calendario?view=day&date=&eventId=` (no React #185), secure
    send routes, bell + push parity.
 3. Keep the gate below.

@@ -289,6 +289,46 @@ async function showSimpleNotification(payload) {
   await self.registration.showNotification(title, options);
 }
 
+// Calendario Phase 5 — per-event aggregation (one tray card per cita, replacing
+// and re-notifying on every change for that event, keyed `calendar-<eventId>`).
+// Reuses the same IndexedDB "threads" store as chat, with a calendar-typed key.
+async function showCalendarNotification(payload, data) {
+  const eventId = String(data.eventId);
+  const threadId = 'calendar-' + eventId;
+  const snippet = String(payload.body || '');
+
+  const prev = (await getThread(threadId)) || {
+    threadId,
+    eventId,
+    count: 0,
+    messages: [],
+  };
+
+  const count = (prev.count || 0) + 1;
+  const messages = [...(prev.messages || []), { text: snippet }].slice(-MAX_SNIPPETS);
+  const baseTitle = String(data.title || payload.title || 'Cita');
+  const title = count > 1 ? `${baseTitle} (${count})` : baseTitle;
+  const body = messages.map((m) => m.text).join('\n');
+
+  await saveThread({ threadId, eventId, count, messages });
+
+  await self.registration.showNotification(title, {
+    body,
+    icon: '/Logo.svg',
+    badge: '/Logo.svg',
+    tag: threadId,
+    renotify: true,
+    data: {
+      ...data,
+      eventId,
+      url: data.url || `/calendario?view=day&date=${String(data.date || '')}&eventId=${eventId}`,
+      unreadCount: count,
+    },
+    vibrate: [100, 50, 100],
+    actions: [{ action: 'open', title: 'Abrir cita' }],
+  });
+}
+
 self.addEventListener('push', (event) => {
   let payload = {};
   try {
@@ -306,6 +346,8 @@ self.addEventListener('push', (event) => {
         const data = (payload.data && typeof payload.data === 'object' ? payload.data : {}) || {};
         if (data.conversationId) {
           await showThreadNotification(payload, data);
+        } else if (data.type === 'calendar' && data.eventId) {
+          await showCalendarNotification(payload, data);
         } else {
           await showSimpleNotification(payload);
         }
@@ -337,7 +379,11 @@ self.addEventListener('notificationclick', (event) => {
   const conversationId = data.conversationId || null;
   // `data.url` may point somewhere else (calendario, patient) for legacy
   // notifications; chat notifications always deep-link to the thread.
-  const threadId = conversationId ? 'chat-thread-' + conversationId : null;
+  const threadId = conversationId
+    ? 'chat-thread-' + conversationId
+    : data.type === 'calendar' && data.eventId
+      ? 'calendar-' + data.eventId
+      : null;
   const url = conversationId
     ? `/chat?conv=${conversationId}`
     : data.url || '/';
