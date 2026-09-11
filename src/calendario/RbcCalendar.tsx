@@ -1,11 +1,12 @@
 'use client';
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
 import type { View, ViewProps } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { RbcEvent } from '@/calendario/rbcAdapter';
@@ -135,10 +136,26 @@ const InnerRbcCalendar = memo(function InnerRbcCalendar({
   );
 });
 
-/** Outer wrapper keeps DndProvider stable across re-renders (never re-mounts). */
+/**
+ * Outer wrapper keeps DndProvider stable across re-renders (never re-mounts).
+ * Drag/move runs on HTML5 (mouse) on desktop and, on coarse-pointer devices,
+ * on the touch backend with a 200ms grace so swiping/scrolling doesn't start a
+ * drag (long-press then drag). Resize handles use the same backend.
+ */
 export default memo(function RbcCalendar(props: RbcCalendarProps) {
+  const isTouch = useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches,
+    []
+  );
+
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider
+      backend={isTouch ? TouchBackend : HTML5Backend}
+      options={isTouch ? { enableTouchEvents: true, enableMouseEvents: true, delay: 200 } : undefined}
+    >
       <InnerRbcCalendar {...props} />
     </DndProvider>
   );

@@ -18,9 +18,11 @@ function intervalOf(ev: Pick<ClinicEvent, 'date' | 'start_time' | 'end_time'>): 
 }
 
 /**
- * C12 — chair/cubicle overlap check. A fellow event of the same dentist whose
- * window overlaps the target window blocks the move. Cancelled events never
- * block (a cancelled slot is free).
+ * C12 — chair/cubicle overlap check. A fellow event whose window overlaps the
+ * target window blocks the move. When the moved event has a dentist, only
+ * same-dentist bookings conflict; when it has **no** dentist (undefined → the
+ * old behavior silently skipped every check), any active event in the slot
+ * blocks — you can't double-book a mystery chair. Cancelled events never block.
  */
 export function findDentistOverlap(
   events: ClinicEvent[],
@@ -30,18 +32,26 @@ export function findDentistOverlap(
   newEndTime: string
 ): ClinicEvent | undefined {
   const dentist = (moved.dentist || '').trim().toLowerCase();
-  if (!dentist) return undefined;
 
   const [target0, target1] = intervalOf({ date: newDate, start_time: newStartTime, end_time: newEndTime });
 
   for (const ev of events) {
     if (ev.id === moved.id) continue;
-    if (((ev.dentist || '').trim().toLowerCase()) !== dentist) continue;
     if (ev.status === 'cancelled') continue;
+    if (dentist && ((ev.dentist || '').trim().toLowerCase()) !== dentist) continue;
     const [a, b] = intervalOf(ev);
     if (a < target1 && target0 < b) return ev;
   }
   return undefined;
+}
+
+/** es-HN toast text for a blocked move/resize (handles the empty-dentist case). */
+export function conflictMessage(moved: ClinicEvent, colliding: ClinicEvent): string {
+  const who = colliding.patient_name || colliding.title || 'otra cita';
+  const time = colliding.start_time ? ` a esa hora (${colliding.start_time})` : '';
+  return moved.dentist
+    ? `Conflicto de agenda: ${moved.dentist} ya tiene una cita con ${who}${time}.`
+    : `Conflicto de agenda: esa franja ya está ocupada por ${who}.`;
 }
 
 /**

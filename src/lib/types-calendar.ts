@@ -58,17 +58,17 @@ export interface EventReminder {
 }
 
 export const PROCEDURES = [
-  'Cleaning',
-  'Checkup',
-  'Filling',
-  'Root Canal',
-  'Crown',
-  'Extraction',
-  'Whitening',
-  'X-Ray',
-  'Orthodontic',
-  'Implant',
-  'Other',
+  'Limpieza',
+  'Chequeo',
+  'Empaste',
+  'Endodoncia',
+  'Corona',
+  'Extracción',
+  'Blanqueamiento',
+  'Radiografía',
+  'Ortodoncia',
+  'Implante',
+  'Otro',
 ];
 
 export const DENTISTS = ['Dr. Smith', 'Dr. Lee', 'Dr. Patel', 'Dr. Garcia', 'Dr. Nguyen'];

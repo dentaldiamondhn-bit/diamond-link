@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { calendarKeys } from '@/calendario/hooks/useCalendarData';
 
-const DEBOUNCE_MS = 10_000;
+const DEBOUNCE_MS = 1_500;
 const MAX_RETRY_MS = 30_000;
 
 /**
@@ -12,8 +12,9 @@ const MAX_RETRY_MS = 30_000;
  *
  * The server already filters to the caller's rows (owner + invitee), so this
  * hook only has to turn frames into cache invalidation:
- *   - **dedupe:** bursts are collapsed by a 10s debounce — one invalidate per
- *     window no matter how many events the server forwards;
+ *   - **dedupe:** bursts are collapsed by a 1.5s debounce — one invalidate per
+ *     window no matter how many events the server forwards (snappy enough that
+ *     invitee calendars see an owner's move within ~2s);
  *   - **tombstone guard:** we never mutate the cache from a frame. A DELETE
  *     (or anything else) only schedules a server refetch, so deleted events can
  *     not be resurrected by a stale INSERT echo that lands after the DELETE.
