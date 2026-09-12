@@ -38,7 +38,8 @@ const messages = {
   noEventsInRange: 'No hay citas en este rango',
 };
 
-// 12-hour hh:mm a.m./p.m. across every time surface (request #2) — es meridiem.
+// 12-hour hh:mm a.m./p.m. on the time surfaces (request #2) — es meridiem.
+// Date/day-tile labels keep their existing RBC defaults (unchanged).
 const formats = {
   timeGutterFormat: 'h:mm a',
   eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
@@ -48,10 +49,6 @@ const formats = {
     `${format(start, 'h:mm a', { locale: es })} – ${format(end, 'h:mm a', { locale: es })}`,
   selectRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
     `${format(start, 'h:mm a', { locale: es })} – ${format(end, 'h:mm a', { locale: es })}`,
-  dateFormat: 'EEE d MMM',
-  dayHeaderFormat: 'EEEE d \'de\' MMMM',
-  weekdayFormat: 'EEE',
-  monthHeaderFormat: 'MMMM yyyy',
 };
 
 /** Desktop DnD addon — wrapped calendar (Add drag/resize handlers in the shell). */
