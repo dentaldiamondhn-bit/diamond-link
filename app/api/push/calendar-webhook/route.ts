@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { deliverCalendarToUser } from '@/services/calendarNotifications';
+import { formatClock12 } from '@/calendario/timezone';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,7 +97,9 @@ export async function POST(request: NextRequest) {
 
     const dateLabel = fmtDate(event.date);
     const who = clip(event.patient_name || event.title || 'Cita');
-    const window = `${event.start_time || '--:--'}–${event.end_time || '--:--'}`;
+    const window = `${event.start_time ? formatClock12(event.start_time) : '--:--'}–${
+      event.end_time ? formatClock12(event.end_time) : '--:--'
+    }`;
     const dentistSuffix = (event.dentist || '').trim() ? ` · ${event.dentist}` : '';
 
     const cancelled = event.status === 'cancelled';
@@ -173,7 +176,9 @@ export async function POST(request: NextRequest) {
 
   const dateLabel = fmtDate(event.date);
   const who = clip(event.patient_name || event.title || 'Cita');
-  const window = `${event.start_time || '--:--'}–${event.end_time || '--:--'}`;
+  const window = `${event.start_time ? formatClock12(event.start_time) : '--:--'}–${
+    event.end_time ? formatClock12(event.end_time) : '--:--'
+  }`;
   const dentistSuffix = (event.dentist || '').trim() ? ` · ${event.dentist}` : '';
 
   const inviteeData: Record<string, unknown> = {

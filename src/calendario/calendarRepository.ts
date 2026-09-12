@@ -212,19 +212,23 @@ export class CalendarRepository {
 
   /** Diff-replace reminders on an owned event (DELETE all → POST each >0). */
   static async setEventReminders(eventId: number, minutes: number[]): Promise<void> {
-    await fetch(`/api/events/${eventId}/reminders`, {
-      ...REQUEST,
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    for (const minutes_before of [...new Set(minutes)].filter((m) => m > 0)) {
+    await readJson<{ ok: boolean }>(
       await fetch(`/api/events/${eventId}/reminders`, {
         ...REQUEST,
-        method: 'POST',
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minutes_before }),
-      });
+        body: JSON.stringify({}),
+      })
+    );
+    for (const minutes_before of [...new Set(minutes)].filter((m) => m > 0)) {
+      await readJson<{ event_id: number; minutes_before: number }>(
+        await fetch(`/api/events/${eventId}/reminders`, {
+          ...REQUEST,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ minutes_before }),
+        })
+      );
     }
   }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { deliverCalendarToUser } from '@/services/calendarNotifications';
-import { clinicDateKey } from '@/calendario/timezone';
+import { clinicDateKey, formatClock12 } from '@/calendario/timezone';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
  *     `repeat_every_days` until the task is completed (completed tasks never fire).
  *
  * Dispatch uses a **lean window**: reminders are treated as due `LEAN_MINUTES`
- * (default 5) before their anchored `reminder_time`, compensating precisely for
+ * (default 1) before their anchored `reminder_time`, compensating precisely for
  * the scheduler's expected lag so a "N minutos antes" reminder still arrives on
  * time. Every source flips its guard column only after delivery succeeds, so the
  * cadence can never double-fire.
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
   // Lean the due-window forward by LEAN_MINUTES so scheduler lag doesn't make
   // reminders late: `remind_at <= now + lean` means "due before the next tick"
   // — dispatched now, at most ~LEAN_MINUTES early.
-  const leanMinutes = Math.max(0, Number(process.env.REMINDER_LEAN_MINUTES) || 5);
+  const leanMinutes = Math.max(0, Number(process.env.REMINDER_LEAN_MINUTES) || 1);
   const dueAt = new Date(Date.now() + leanMinutes * 60_000).toISOString();
 
   const state = {
@@ -159,7 +159,9 @@ export async function GET(req: NextRequest) {
 
         const dateLabel = fmtDate(ev.date);
         const who = (ev.patient_name?.trim() || ev.title?.trim() || 'Cita');
-        const body = `${who} · ${dateLabel} ${ev.start_time || '--:--'}`;
+        const body = `${who} · ${dateLabel} · ${
+          ev.start_time ? formatClock12(ev.start_time) : '--:--'
+        }`;
         const title = `Recordatorio: ${who}`;
         const metadata: Record<string, unknown> = {
           type: 'calendar',

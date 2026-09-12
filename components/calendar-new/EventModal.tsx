@@ -397,16 +397,25 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
         const created = await mutations.createEvent.mutateAsync(body);
         eventId = created.id;
       }
-      // Fire-and-forget: SSE + background refetch cover these; skipping the
-      // await removes 4+ sequential round-trips from the modal-close path.
+      // Sub-resources (reminders + invitees) are awaited so failures become
+      // visible instead of being swallowed: a reminder that never lands is exactly
+      // the silent bug we're fixing. A failure here must NOT block the modal
+      // close — the event itself already saved.
       if (eventId) {
-        void CalendarRepository.setEventReminders(eventId, reminders);
-        // Invitee double-booking (409 INVITEE_CONFLICT) must reach the user even
-        // though the save itself already succeeded — hence the .catch instead of
-        // an await in the close path.
-        CalendarRepository.setEventInvitees(eventId, invitees.map((i) => i.id)).catch(
+        try {
+          await CalendarRepository.setEventReminders(eventId, reminders);
+        } catch (err) {
+          console.error('[EventModal] reminders save failed', err);
+          push('Cita guardada, pero el recordatorio no se pudo guardar', 'error');
+        }
+        await CalendarRepository.setEventInvitees(eventId, invitees.map((i) => i.id)).catch(
           (err) => {
-            if (isDentistConflictError(err)) push(err.message, 'error');
+            if (isDentistConflictError(err)) {
+              push(err.message, 'error');
+            } else {
+              console.error('[EventModal] invitees save failed', err);
+              push('Cita guardada, pero los invitados no se pudieron guardar', 'error');
+            }
           }
         );
       }
