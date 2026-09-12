@@ -68,6 +68,8 @@ export default function CalendarShell({ userId }: Props) {
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
   const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
   const [drawerEvent, setDrawerEvent] = useState<ClinicEvent | null>(null);
+  /** Duplicate flow (request #3) — modal hydrates a NEW event copied from this one. */
+  const [duplicateOf, setDuplicateOf] = useState<ClinicEvent | null>(null);
 
   // Server-side dentist conflict (409 DENTIST_CONFLICT) — offer a force-save.
   const [conflictOverride, setConflictOverride] = useState<{ message: string; retry: () => Promise<void> } | null>(null);
@@ -205,12 +207,24 @@ export default function CalendarShell({ userId }: Props) {
   const openNewEvent = () => {
     setEditingEvent(null);
     setModalPrefill(null);
+    setDuplicateOf(null);
     setDrawerEvent(null);
     setModalOpen(true);
   };
 
   const openEditEvent = (event: ClinicEvent) => {
     setEditingEvent(event);
+    setModalPrefill(null);
+    setDuplicateOf(null);
+    setDrawerEvent(null);
+    setModalOpen(true);
+  };
+
+  /** Request #3 — copy any cita into a new, still-editable one (own reminders). */
+  const openDuplicateEvent = (event: ClinicEvent) => {
+    setSelectedDate(event.date);
+    setDuplicateOf(event);
+    setEditingEvent(null);
     setModalPrefill(null);
     setDrawerEvent(null);
     setModalOpen(true);
@@ -229,6 +243,7 @@ export default function CalendarShell({ userId }: Props) {
       end: timeView ? dateToTimeStr(slot.end) : '09:30',
     });
     setEditingEvent(null);
+    setDuplicateOf(null);
     setDrawerEvent(null);
     setModalOpen(true);
   };
@@ -409,6 +424,7 @@ if (eventsQuery.isPending && !eventsQuery.data) {
               events={events}
               onClose={() => setSelectedDate(null)}
               onEditEvent={handleDayDetailClick}
+              onDuplicate={openDuplicateEvent}
               onAddEvent={openNewEvent}
             />
           </div>
@@ -421,6 +437,7 @@ if (eventsQuery.isPending && !eventsQuery.data) {
               events={events}
               onClose={() => setSelectedDate(null)}
               onEditEvent={handleDayDetailClick}
+              onDuplicate={openDuplicateEvent}
               onAddEvent={openNewEvent}
             />
           </div>
@@ -444,11 +461,13 @@ if (eventsQuery.isPending && !eventsQuery.data) {
 
       <EventModal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingEvent(null); }}
+        onClose={() => { setModalOpen(false); setEditingEvent(null); setDuplicateOf(null); }}
         dateStr={selectedDate}
         editingEvent={editingEvent}
         userId={userId}
         prefill={modalPrefill}
+        duplicateOf={duplicateOf}
+        onDuplicate={openDuplicateEvent}
         onSaved={invalidateForModal}
       />
 
@@ -457,6 +476,7 @@ if (eventsQuery.isPending && !eventsQuery.data) {
         userId={userId}
         onClose={() => setDrawerEvent(null)}
         onEdit={openEditEvent}
+        onDuplicate={openDuplicateEvent}
         onDeleted={() => {
           setDrawerEvent(null);
           invalidateForModal();

@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { X, Trash2, Pencil, Loader2, MapPin, UserRound, CalendarDays, Clock, Stethoscope, FileText, Bell, Mail, ArrowUpRight, type LucideIcon } from 'lucide-react';
+import { X, Trash2, Pencil, CopyPlus, Loader2, MapPin, UserRound, CalendarDays, Clock, Stethoscope, FileText, Bell, Mail, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import type { ClinicEvent } from '@/lib/types-calendar';
+import { formatClock12 } from '@/calendario/timezone';
 import {
   EVENT_TYPE_LABELS,
   STATUS_LABELS,
@@ -26,6 +27,8 @@ interface Props {
   onClose: () => void;
   /** Swap to edit: closes the drawer and opens the modal pre-filled (C18). */
   onEdit: (event: ClinicEvent) => void;
+  /** Copy this event into a new (still-editable) one — works for shared citas too. */
+  onDuplicate: (event: ClinicEvent) => void;
   /** Called after a successful delete (parent refetches + closes). */
   onDeleted: () => void;
 }
@@ -44,12 +47,10 @@ const avatarFor = (u: DrawerInvitee) =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent((u.first_name || '') + ' ' + (u.last_name || ''))}&background=random`;
 
 function timeSpan(e: ClinicEvent): string {
-  const start = `${e.start_time || '09:00'}`;
-  const end = e.end_time || e.start_time || start;
-  return `${start} – ${end}`;
+  return `${formatClock12(e.start_time)} – ${formatClock12(e.end_time || e.start_time)}`;
 }
 
-export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDeleted }: Props) {
+export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDuplicate, onDeleted }: Props) {
   const { push } = useToast();
   const removeEvent = useCalendarMutations().deleteEvent;
   const isOwner = !!event && event.user_id === userId;
@@ -313,6 +314,12 @@ export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDe
                   className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 text-sm font-medium"
                 >
                   Cerrar
+                </button>
+                <button
+                  onClick={() => onDuplicate(event)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-teal-600 hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-900/30 transition"
+                >
+                  <CopyPlus size={15} /> Duplicar
                 </button>
                 {isOwner && (
                   <button

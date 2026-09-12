@@ -37,3 +37,32 @@ export function clinicWallClockTimestamp(date: string, time?: string): Date {
   const clinicOffsetMs = 6 * 3600 * 1000; // UTC−06:00 = wall + 6h in UTC
   return new Date(wall + clinicOffsetMs);
 }
+
+/** Coerce a stored clock value to `HH:MM` (strips browser `:ss` suffixes, blanks). */
+export function normalizeTime(time?: string | null): string {
+  const [h, mi] = (time ?? '').split(':');
+  const hh = String(Number(h));
+  const mm = (mi || '').slice(0, 2) || '00';
+  const ok =
+    /^\d{1,2}$/.test(hh) &&
+    Number(hh) <= 23 &&
+    /^\d{2}$/.test(mm) &&
+    Number(mm) <= 59;
+  return ok ? `${hh.padStart(2, '0')}:${mm}` : '09:00';
+}
+
+/** `17:45` → `5:45 p. m.` — the es-HN 12-hour display (only `hh:mm`, no seconds). */
+export function formatClock12(time?: string | null): string {
+  const t = normalizeTime(time);
+  const h24 = Number(t.slice(0, 2));
+  const h = h24 % 12 === 0 ? 12 : h24 % 12;
+  const suffix = h24 >= 12 ? 'p. m.' : 'a. m.';
+  return `${h}:${t.slice(3, 5)} ${suffix}`;
+}
+
+/** `17:45` + 60 → `18:45` (`HH:MM`). Wraps past midnight within the same key. */
+export function addHourToTime(time?: string | null, hours = 1): string {
+  const t = normalizeTime(time);
+  const h24 = (Number(t.slice(0, 2)) + hours) % 24;
+  return `${String(h24).padStart(2, '0')}:${t.slice(3, 5)}`;
+}

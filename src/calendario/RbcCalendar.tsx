@@ -38,6 +38,22 @@ const messages = {
   noEventsInRange: 'No hay citas en este rango',
 };
 
+// 12-hour hh:mm a.m./p.m. across every time surface (request #2) — es meridiem.
+const formats = {
+  timeGutterFormat: 'h:mm a',
+  eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, 'h:mm a', { locale: es })} – ${format(end, 'h:mm a', { locale: es })}`,
+  agendaTimeFormat: 'h:mm a',
+  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, 'h:mm a', { locale: es })} – ${format(end, 'h:mm a', { locale: es })}`,
+  selectRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, 'h:mm a', { locale: es })} – ${format(end, 'h:mm a', { locale: es })}`,
+  dateFormat: 'EEE d MMM',
+  dayHeaderFormat: 'EEEE d \'de\' MMMM',
+  weekdayFormat: 'EEE',
+  monthHeaderFormat: 'MMMM yyyy',
+};
+
 /** Desktop DnD addon — wrapped calendar (Add drag/resize handlers in the shell). */
 const DragCalendar = withDragAndDrop<RbcEvent, object>(Calendar);
 
@@ -115,6 +131,7 @@ const InnerRbcCalendar = memo(function InnerRbcCalendar({
         localizer={localizer}
         culture="es"
         messages={messages}
+        formats={formats}
         events={events}
         date={date}
         view={view}

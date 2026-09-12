@@ -15,6 +15,7 @@ import {
   Bell,
   Pencil,
   Check,
+  CopyPlus,
 } from 'lucide-react';
 import { useForm, useController, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,7 +34,7 @@ import {
   type EventStatus,
   type EventPriority,
 } from '@/calendario/event/eventSchema';
-import { Field, TextInput, TextArea, Select } from '@/calendario/event/fields';
+import { Field, TextInput, TextArea, Select, TimeInput } from '@/calendario/event/fields';
 import {
   saveEventDraft,
   loadEventDraft,
@@ -44,6 +45,7 @@ import { CalendarRepository, isDentistConflictError, type EventInput } from '@/c
 import { useCalendarMutations } from '@/calendario/hooks/useCalendarData';
 import { useToast } from '@/components/calendar-new/Toast';
 import ConflictOverrideDialog from '@/components/calendar-new/ConflictOverrideDialog';
+import { formatClock12, normalizeTime, addHourToTime } from '@/calendario/timezone';
 
 export interface ModalPrefill {
   start: string;
@@ -60,6 +62,10 @@ interface Props {
   userId?: string;
   /** Phase 3 C17 — slot click => pre-filled start/end times. */
   prefill?: ModalPrefill | null;
+  /** Duplicate flow — hydrate the modal as a NEW event copied from this one. */
+  duplicateOf?: ClinicEvent | null;
+  /** Edit-mode footer: copy this event into a new one. */
+  onDuplicate?: (e: ClinicEvent) => void;
 }
 
 type Step = 'details' | 'timing' | 'invite';
@@ -74,7 +80,7 @@ const avatarFor = (u: DraftInvitee) =>
   u.profileImageUrl ||
   `https://ui-avatars.com/api/?name=${encodeURIComponent((u.first_name || '') + ' ' + (u.last_name || ''))}&background=random`;
 
-export default function EventModal({ open, onClose, onSaved, dateStr, editingEvent, prefill }: Props) {
+export default function EventModal({ open, onClose, onSaved, dateStr, editingEvent, prefill, duplicateOf, onDuplicate }: Props) {
   const { push } = useToast();
   const mutations = useCalendarMutations();
 
@@ -111,6 +117,12 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
   // Guard: only allow form submission via explicit click on the submit button
   const submitTriggeredRef = useRef(false);
 
+  // Auto-end (request #1): while the user is still picking a start, keep
+  // end = start + 1h. Any manual end edit turns this off for that session.
+  const autoEndRef = useRef(true);
+  // Baseline used to detect real start changes (vs the reset on each open).
+  const sessionStartRef = useRef('');
+
   const {
     register,
     handleSubmit,
@@ -118,6 +130,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     watch,
     control,
     trigger,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -125,6 +138,10 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
   });
 
   const values = watch();
+
+  // 12h AM/PM pickers (TimeInput) — emitted value is 24h HH:MM (schema-compatible)
+  const startTimeField = useController({ control, name: 'start_time' });
+  const endTimeField = useController({ control, name: 'end_time' });
 
   // a11y — Escape closes the dialog (C18: never while delete-confirm is up)
   useEffect(() => {
@@ -146,6 +163,9 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     if (!isCreate) {
       // edit mode — hydrate from the event + its children; drafts/prefill ignored
       const e = editingEvent!;
+      const start = normalizeTime(e.start_time);
+      autoEndRef.current = false;
+      sessionStartRef.current = start;
       reset({
         title: e.title || '',
         patient_name: e.patient_name || '',
@@ -153,8 +173,39 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
         procedure: e.procedure || '',
         dentist: e.dentist || '',
         date: e.date || dateStr || '',
-        start_time: e.start_time || '09:00',
-        end_time: e.end_time || '09:30',
+        start_time: start,
+        end_time: normalizeTime(e.end_time),
+        color: e.color || EVENT_COLORS[0].value,
+        notes: e.notes || '',
+        description: e.description || '',
+        location: e.location || '',
+        event_type: (e.event_type ?? 'appointment') as EventType,
+        status: (e.status ?? 'scheduled') as EventStatus,
+        priority: (e.priority ?? 'medium') as EventPriority,
+        reminder_minutes: e.reminder_minutes ?? 30,
+      });
+      setInvitees([]);
+      setReminders([e.reminder_minutes ?? 30]);
+      setDraftAvailable(false);
+      void loadChildren(e.id);
+      return;
+    }
+
+    if (duplicateOf) {
+      // duplicate mode — copy of an existing event as a NEW one (own reminders)
+      const e = duplicateOf;
+      const start = normalizeTime(e.start_time);
+      autoEndRef.current = false;
+      sessionStartRef.current = start;
+      reset({
+        title: e.title || '',
+        patient_name: e.patient_name || '',
+        patient_id: e.patient_id || '',
+        procedure: e.procedure || '',
+        dentist: e.dentist || '',
+        date: dateStr || e.date || '',
+        start_time: start,
+        end_time: normalizeTime(e.end_time || addHourToTime(start)),
         color: e.color || EVENT_COLORS[0].value,
         notes: e.notes || '',
         description: e.description || '',
@@ -177,7 +228,13 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     if (prefill) {
       base.start_time = prefill.start || base.start_time;
       base.end_time = prefill.end || base.end_time;
+      autoEndRef.current = false; // respect the exact slot the user drew
+    } else {
+      // Default window: Fin = Inicio + 1 h (request #1).
+      base.end_time = addHourToTime(base.start_time, 1);
+      autoEndRef.current = true;
     }
+    sessionStartRef.current = base.start_time;
     reset(base);
     setInvitees([]);
     setReminders([base.reminder_minutes ?? 30]);
@@ -193,7 +250,21 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     const draft = dateStr ? loadEventDraft(dateStr) : null;
     setDraftAvailable(!!draft && draft.values.date === dateStr);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editingEvent, dateStr, prefill]);
+  }, [open, editingEvent, dateStr, prefill, duplicateOf]);
+
+  // Auto-end (request #1): end follows start +1h until the user edits end
+  // manually. Only genuine start changes trigger it — the reset on every open
+  // rebaselines `sessionStartRef` so a reopened modal never inherits stale times.
+  useEffect(() => {
+    if (!open || isCreate === false || !autoEndRef.current) return;
+    if (sessionStartRef.current === values.start_time) return;
+    sessionStartRef.current = values.start_time;
+    const next = addHourToTime(values.start_time, 1);
+    if (next !== values.end_time) {
+      setValue('end_time', next, { shouldValidate: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.start_time, open]);
 
   // autosave create-mode drafts while the user types (debounced) — C20.
   // A pending (un-restored) draft is never clobbered: the user explicitly
@@ -212,6 +283,8 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     if (!dateStr) return;
     const draft = loadEventDraft(dateStr);
     if (!draft) return;
+    autoEndRef.current = false; // a draft was explicitly saved with its own end
+    sessionStartRef.current = draft.values.start_time;
     reset(draft.values);
     setInvitees(draft.invitees ?? []);
     setReminders(draft.reminders?.length ? draft.reminders : [draft.values.reminder_minutes ?? 30]);
@@ -555,10 +628,23 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
                     <TextInput type="date" invalid={!!errors.date} {...register('date')} />
                   </Field>
                   <Field label="Inicio *" error={errors.start_time?.message}>
-                    <TextInput type="time" invalid={!!errors.start_time} {...register('start_time')} />
+                    <TimeInput
+                      aria-label="Hora de inicio"
+                      invalid={!!errors.start_time}
+                      value={startTimeField.field.value}
+                      onChange={(v) => startTimeField.field.onChange(v)}
+                    />
                   </Field>
                   <Field label="Fin *" error={errors.end_time?.message}>
-                    <TextInput type="time" invalid={!!errors.end_time} {...register('end_time')} />
+                    <TimeInput
+                      aria-label="Hora de fin"
+                      invalid={!!errors.end_time}
+                      value={endTimeField.field.value}
+                      onChange={(v) => {
+                        autoEndRef.current = false;
+                        endTimeField.field.onChange(v);
+                      }}
+                    />
                   </Field>
                 </div>
 
@@ -769,16 +855,25 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
             {/* --------------------------------------------------- footer */}
             <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
               {editingEvent ? (
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  className="flex items-center gap-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-3 py-2 rounded-lg text-sm font-medium transition"
-                >
-                  <Trash2 size={16} /> Eliminar
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { if (editingEvent && onDuplicate) onDuplicate(editingEvent); }}
+                    className="flex items-center gap-1.5 text-teal-600 hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-900/30 px-3 py-2 rounded-lg text-sm font-medium transition"
+                  >
+                    <CopyPlus size={16} /> Duplicar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-3 py-2 rounded-lg text-sm font-medium transition"
+                  >
+                    <Trash2 size={16} /> Eliminar
+                  </button>
+                </div>
               ) : (
                 <span className="flex items-center gap-1.5 text-xs text-gray-400 pl-1">
-                  <Clock size={13} /> {values.start_time} – {values.end_time}
+                  <Clock size={13} /> {formatClock12(values.start_time)} – {formatClock12(values.end_time)}
                 </span>
               )}
 

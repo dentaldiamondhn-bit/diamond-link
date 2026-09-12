@@ -14,6 +14,15 @@ export const runtime = 'nodejs';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Strip stray `:ss` (browser time inputs / legacy rows) → `HH:MM`, else blank. */
+function normalizeStoredTime(t?: string | null): string {
+  const [h = '', m = ''] = (t ?? '').split(':');
+  const hh = h.trim().padStart(2, '0');
+  const mm = m.slice(0, 2) || '00';
+  const valid = /^\d{2}$/.test(hh) && Number(hh) <= 23 && /^\d{2}$/.test(mm) && Number(mm) <= 59;
+  return valid ? `${hh}:${mm}` : '';
+}
+
 export async function GET(req: NextRequest) {
   const authz = await authorizeCalendar();
   if ('response' in authz) return authz.response;
@@ -98,8 +107,8 @@ export async function POST(req: Request) {
       const v = (t: string) => parts.find(p => p.type === t)?.value || '';
       return `${v('year')}-${v('month')}-${v('day')}`;
     })();
-    const effectiveStart = body.start_time || '09:00';
-    const effectiveEnd = body.end_time || '09:30';
+    const effectiveStart = normalizeStoredTime(body.start_time) || '09:00';
+    const effectiveEnd = normalizeStoredTime(body.end_time) || '09:30';
     const dentistName = (body.dentist || '').trim();
     if (dentistName && !forceConflicts) {
       const conflicts = await findDentistConflicts(
@@ -169,6 +178,18 @@ export async function PUT(req: Request) {
   try {
     const body = await req.json();
     const { id: eventId, force_conflict, ...updates } = body;
+
+    // Normalize times before any conflict/schedule logic runs (`HH:MM` only).
+    if (updates.start_time !== undefined) {
+      const n = normalizeStoredTime(updates.start_time);
+      if (n) updates.start_time = n;
+      else delete updates.start_time;
+    }
+    if (updates.end_time !== undefined) {
+      const n = normalizeStoredTime(updates.end_time);
+      if (n) updates.end_time = n;
+      else delete updates.end_time;
+    }
 
     const supabase = createServerServiceClient();
 

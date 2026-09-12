@@ -1,13 +1,14 @@
 import { motion } from 'framer-motion';
-import { X, Clock, User, Stethoscope, Calendar as CalIcon, Plus } from 'lucide-react';
+import { X, Clock, User, Stethoscope, Calendar as CalIcon, Plus, CopyPlus } from 'lucide-react';
 import type { ClinicEvent } from '@/lib/types-calendar';
-import { clinicDateKey } from '@/calendario/timezone';
+import { clinicDateKey, formatClock12 } from '@/calendario/timezone';
 
 interface Props {
   dateStr: string | null;
   events: ClinicEvent[];
   onClose: () => void;
   onEditEvent: (event: ClinicEvent) => void;
+  onDuplicate: (event: ClinicEvent) => void;
   onAddEvent: () => void;
 }
 
@@ -24,7 +25,7 @@ function parseDay(key: string): Date {
  * tomorrow's appointments are visible without selecting a date. Day labels use
  * hard-coded es-HN strings to stay deterministic on every ICU (C24).
  */
-export default function DayDetail({ dateStr, events, onClose, onEditEvent, onAddEvent }: Props) {
+export default function DayDetail({ dateStr, events, onClose, onEditEvent, onDuplicate, onAddEvent }: Props) {
   const todayKey = clinicDateKey();
   const today = parseDay(todayKey);
 
@@ -112,42 +113,51 @@ export default function DayDetail({ dateStr, events, onClose, onEditEvent, onAdd
               ) : (
                 <div className="space-y-1.5">
                   {dayEvents.map((e) => (
-                    <button
-                      key={e.id}
-                      onClick={() => onEditEvent(e)}
-                      className={`w-full text-left flex gap-3 px-3 py-2 rounded-lg border transition ${
-                        e.status === 'cancelled'
-                          ? 'opacity-60 border-red-100 dark:border-red-900/40 hover:bg-red-50/40 dark:hover:bg-red-500/10'
-                          : 'border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      <div className="w-1 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Clock size={13} className="text-gray-400" />
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                            {e.start_time} – {e.end_time}
-                          </span>
-                          {e.status === 'cancelled' && (
-                            <span className="text-[10px] font-semibold uppercase text-red-500 bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded">
-                              Cancelada
+                    <div key={e.id} className="relative">
+                      <button
+                        onClick={() => onEditEvent(e)}
+                        className={`w-full text-left flex gap-3 px-3 py-2 pr-12 rounded-lg border transition ${
+                          e.status === 'cancelled'
+                            ? 'opacity-60 border-red-100 dark:border-red-900/40 hover:bg-red-50/40 dark:hover:bg-red-500/10'
+                            : 'border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <div className="w-1 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Clock size={13} className="text-gray-400" />
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                              {formatClock12(e.start_time)} – {formatClock12(e.end_time || e.start_time)}
                             </span>
-                          )}
+                            {e.status === 'cancelled' && (
+                              <span className="text-[10px] font-semibold uppercase text-red-500 bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded">
+                                Cancelada
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mt-0.5 truncate">
+                            {e.patient_name}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <Stethoscope size={11} /> {e.procedure}
+                            </span>
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <User size={11} /> {e.dentist}
+                            </span>
+                          </div>
+                          {e.notes && <p className="text-xs text-gray-400 mt-1 italic truncate">{e.notes}</p>}
                         </div>
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mt-0.5 truncate">
-                          {e.patient_name}
-                        </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <Stethoscope size={11} /> {e.procedure}
-                          </span>
-                          <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <User size={11} /> {e.dentist}
-                          </span>
-                        </div>
-                        {e.notes && <p className="text-xs text-gray-400 mt-1 italic truncate">{e.notes}</p>}
-                      </div>
-                    </button>
+                      </button>
+                      <button
+                        onClick={() => onDuplicate(e)}
+                        title="Duplicar cita"
+                        aria-label="Duplicar cita"
+                        className="absolute right-2 top-2 h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-500/10 transition"
+                      >
+                        <CopyPlus size={14} />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}

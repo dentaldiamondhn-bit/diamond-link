@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-react';
 import type { ClinicEvent, Task, Reminder, EventReminder } from '@/lib/types-calendar';
 import CalendarGrid from '@/components/calendar-new/CalendarGrid';
 import DayDetail from '@/components/calendar-new/DayDetail';
-import EventModal from '@/components/calendar-new/EventModal';
+import EventModal, { type ModalPrefill } from '@/components/calendar-new/EventModal';
 import TaskPanel from '@/components/calendar-new/TaskPanel';
 import ReminderPanel from '@/components/calendar-new/ReminderPanel';
 import { useToast } from '@/components/calendar-new/Toast';
@@ -31,6 +31,8 @@ export default function Dashboard({ userId }: Props) {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ClinicEvent | null>(null);
+  const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
+  const [duplicateOf, setDuplicateOf] = useState<ClinicEvent | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -182,11 +184,23 @@ export default function Dashboard({ userId }: Props) {
 
   const openNewEvent = () => {
     setEditingEvent(null);
+    setModalPrefill(null);
+    setDuplicateOf(null);
     setModalOpen(true);
   };
 
   const openEditEvent = (event: ClinicEvent) => {
     setEditingEvent(event);
+    setModalPrefill(null);
+    setDuplicateOf(null);
+    setModalOpen(true);
+  };
+
+  const openDuplicateEvent = (event: ClinicEvent) => {
+    setSelectedDate(event.date);
+    setDuplicateOf(event);
+    setEditingEvent(null);
+    setModalPrefill(null);
     setModalOpen(true);
   };
 
@@ -238,6 +252,7 @@ export default function Dashboard({ userId }: Props) {
               events={events}
               onClose={() => setSelectedDate(null)}
               onEditEvent={openEditEvent}
+              onDuplicate={openDuplicateEvent}
               onAddEvent={openNewEvent}
             />
           </div>
@@ -250,6 +265,7 @@ export default function Dashboard({ userId }: Props) {
               events={events}
               onClose={() => setSelectedDate(null)}
               onEditEvent={openEditEvent}
+              onDuplicate={openDuplicateEvent}
               onAddEvent={openNewEvent}
             />
           </div>
@@ -273,10 +289,13 @@ export default function Dashboard({ userId }: Props) {
 
       <EventModal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingEvent(null); }}
+        onClose={() => { setModalOpen(false); setEditingEvent(null); setDuplicateOf(null); }}
         dateStr={selectedDate}
         editingEvent={editingEvent}
         userId={userId}
+        prefill={modalPrefill}
+        duplicateOf={duplicateOf}
+        onDuplicate={openDuplicateEvent}
         onSaved={fetchAll}
       />
     </div>
