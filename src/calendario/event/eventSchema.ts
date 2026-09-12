@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 import { EVENT_COLORS } from '@/lib/types-calendar';
+import { validatePhoneNumber, getPhonePlaceholder } from '@/utils/formatUtils';
 
 export const EVENT_TYPES = [
   'appointment',
@@ -32,6 +33,8 @@ export const eventFormSchema = z
     patient_id: z.string().optional(),
     procedure: z.string().trim(),
     dentist: z.string().trim().optional(),
+    phone: z.string().trim().optional(),
+    phone_country: z.string().trim().optional(),
     date: z.string().regex(DATE_RE, 'Fecha inválida'),
     start_time: z.string().regex(TIME_RE, 'Hora de inicio inválida'),
     end_time: z.string().regex(TIME_RE, 'Hora de fin inválida'),
@@ -50,6 +53,14 @@ export const eventFormSchema = z
         code: z.ZodIssueCode.custom,
         path: ['end_time'],
         message: 'La hora de fin debe ser posterior a la de inicio',
+      });
+    }
+    const phone = value.phone?.trim();
+    if (phone && !validatePhoneNumber(phone, value.phone_country || '504')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['phone'],
+        message: `Número de teléfono inválido (ej. ${getPhonePlaceholder(value.phone_country || '504')})`,
       });
     }
   });
@@ -88,6 +99,8 @@ export function defaultEventForm(): EventFormValues {
     patient_id: '',
     procedure: '',
     dentist: '',
+    phone: '',
+    phone_country: '504',
     date: '',
     start_time: '09:00',
     end_time: '09:30',

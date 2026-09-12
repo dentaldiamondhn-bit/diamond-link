@@ -5,6 +5,8 @@ export interface ClinicEvent {
   patient_name: string;
   procedure: string;
   dentist: string;
+  phone?: string;
+  phone_country?: string;
   date: string;
   start_time: string;
   end_time: string;

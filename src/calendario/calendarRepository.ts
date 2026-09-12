@@ -27,6 +27,10 @@ export interface EventInput {
   patient_id?: string;
   procedure?: string;
   dentist?: string;
+  /** Patient phone stored on the event (modal "Teléfono" next to Procedimiento). */
+  phone?: string;
+  /** Dialing code of the phone (same split as patient-form's `codigopais`). */
+  phone_country?: string;
   /** Server-side dentist-availability escape hatch (409 DENTIST_CONFLICT override). */
   force_conflict?: boolean;
 }

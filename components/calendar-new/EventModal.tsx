@@ -45,7 +45,43 @@ import { CalendarRepository, isDentistConflictError, type EventInput } from '@/c
 import { useCalendarMutations } from '@/calendario/hooks/useCalendarData';
 import { useToast } from '@/components/calendar-new/Toast';
 import ConflictOverrideDialog from '@/components/calendar-new/ConflictOverrideDialog';
-import { formatClock12, normalizeTime, addHourToTime } from '@/calendario/timezone';
+import { formatClock12, normalizeTime, addHourToTime, clinicWallClockTimestamp } from '@/calendario/timezone';
+import { countries } from '@/utils/phoneUtils';
+import { formatPhoneNumber, getPhonePlaceholder } from '@/utils/formatUtils';
+
+/**
+ * Smart default Recordatorios (request): [10 min, 1 h, 1 día]. A lead time is
+ * skipped when its fire instant (event start − minutes) is already in the past,
+ * which covers both rules:
+ *   - same-day event → the "1 día antes" anchor is gone → dropped;
+ *   - event starting within the same hour → the "1 h antes" anchor is gone → dropped.
+ * The 10-min level is always kept so the section never looks empty.
+ */
+const DEFAULT_REMINDER_LEVELS = [10, 60, 1440];
+function smartDefaultReminders(date: string, startTime: string): number[] {
+  if (!date || !startTime) return [...DEFAULT_REMINDER_LEVELS];
+  const startMs = clinicWallClockTimestamp(date, startTime).getTime();
+  const nowMs = Date.now();
+  const future = DEFAULT_REMINDER_LEVELS.filter((min) => startMs - min * 60_000 > nowMs);
+  return future.length ? future : [10];
+}
+
+/**
+ * Normalize a stored event phone on open (ported from patient-form): handles
+ * both the legacy combined form ("+504 9999-9999") and the split storage
+ * (phone + phone_country). Returns the country code and the number formatted
+ * for that country so the input shows the expected mask right away.
+ */
+function phoneOnOpen(phone?: string, storedCountry?: string): { country: string; number: string } {
+  if (!phone) return { country: storedCountry || '504', number: '' };
+  const cleaned = phone.replace(/^\+/, '').trim();
+  const parts = cleaned.split(/\s+/);
+  const inferred =
+    parts.length >= 2 && countries.some((c) => c.code === parts[0]) ? parts[0] : undefined;
+  const country = storedCountry || inferred || '504';
+  const number = inferred ? parts.slice(1).join(' ') : cleaned;
+  return { country, number: formatPhoneNumber(number, country) };
+}
 
 export interface ModalPrefill {
   start: string;
@@ -122,6 +158,9 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
   const autoEndRef = useRef(true);
   // Baseline used to detect real start changes (vs the reset on each open).
   const sessionStartRef = useRef('');
+  // Once the user edits the Recordatorios list, stop re-deriving smart defaults
+  // when the date/time changes (their explicit choices win from then on).
+  const remindersTouchedRef = useRef(false);
 
   const {
     register,
@@ -166,12 +205,15 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       const start = normalizeTime(e.start_time);
       autoEndRef.current = false;
       sessionStartRef.current = start;
+      const editPhone = phoneOnOpen(e.phone, e.phone_country);
       reset({
         title: e.title || '',
         patient_name: e.patient_name || '',
         patient_id: e.patient_id || '',
         procedure: e.procedure || '',
         dentist: e.dentist || '',
+        phone: editPhone.number,
+        phone_country: editPhone.country,
         date: e.date || dateStr || '',
         start_time: start,
         end_time: normalizeTime(e.end_time),
@@ -197,12 +239,15 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       const start = normalizeTime(e.start_time);
       autoEndRef.current = false;
       sessionStartRef.current = start;
+      const dupPhone = phoneOnOpen(e.phone, e.phone_country);
       reset({
         title: e.title || '',
         patient_name: e.patient_name || '',
         patient_id: e.patient_id || '',
         procedure: e.procedure || '',
         dentist: e.dentist || '',
+        phone: dupPhone.number,
+        phone_country: dupPhone.country,
         date: dateStr || e.date || '',
         start_time: start,
         end_time: normalizeTime(e.end_time || addHourToTime(start)),
@@ -217,6 +262,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       });
       setInvitees([]);
       setReminders([e.reminder_minutes ?? 30]);
+      remindersTouchedRef.current = true; // a duplicate keeps its source schedule
       setDraftAvailable(false);
       void loadChildren(e.id);
       return;
@@ -237,7 +283,10 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     sessionStartRef.current = base.start_time;
     reset(base);
     setInvitees([]);
-    setReminders([base.reminder_minutes ?? 30]);
+    // Smart default Recordatorios: [10 min, 1 h, 1 día], minus any lead time
+    // whose anchor is already in the past for the chosen window.
+    setReminders(smartDefaultReminders(base.date, base.start_time));
+    remindersTouchedRef.current = false;
     setShowPatientSearch(false);
     setShowInviteePicker(false);
 
@@ -266,6 +315,17 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.start_time, open]);
 
+  // Smart Recordatorios (request): re-derive the default schedule whenever the
+  // chosen date/start time changes — but ONLY while the user hasn't manually
+  // touched the list, so a later manual edit is never clobbered by a date move.
+  useEffect(() => {
+    if (!open || !isCreate || duplicateOf) return;
+    if (remindersTouchedRef.current) return;
+    if (values.date && values.start_time) {
+      setReminders(smartDefaultReminders(values.date, values.start_time));
+    }
+  }, [values.date, values.start_time, open, isCreate, duplicateOf, remindersTouchedRef]);
+
   // autosave create-mode drafts while the user types (debounced) — C20.
   // A pending (un-restored) draft is never clobbered: the user explicitly
   // Restaura/Descartar first, then autosave resumes.
@@ -288,6 +348,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     reset(draft.values);
     setInvitees(draft.invitees ?? []);
     setReminders(draft.reminders?.length ? draft.reminders : [draft.values.reminder_minutes ?? 30]);
+    remindersTouchedRef.current = true; // a restored draft carries the user's own schedule
     setDraftAvailable(false);
   };
 
@@ -613,6 +674,40 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
                     name="procedure"
                     error={errors.procedure?.message}
                   />
+                  <Field label="Teléfono" error={errors.phone?.message}>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={values.phone_country || '504'}
+                          onChange={(e) => setValue('phone_country', e.target.value, { shouldDirty: true })}
+                          aria-label="Código de país"
+                          className="flex-1"
+                        >
+                          {countries.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </Select>
+                        <div className="shrink-0 px-3 py-2 border border-gray-300 dark:border-gray-700 bg-transparent text-gray-700 dark:text-gray-200 font-medium text-sm flex items-center rounded-lg">
+                          +{values.phone_country || '504'}
+                        </div>
+                      </div>
+                      <TextInput
+                        placeholder={getPhonePlaceholder(values.phone_country || '504')}
+                        inputMode="tel"
+                        autoComplete="tel"
+                        invalid={!!errors.phone}
+                        {...register('phone')}
+                        onChange={(e) => {
+                          setValue('phone', formatPhoneNumber(e.target.value, values.phone_country || '504'), {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          });
+                        }}
+                      />
+                    </div>
+                  </Field>
                 </div>
 
                 <Field label="Título">
@@ -814,6 +909,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
                           <Select
                             value={String(minutes)}
                             onChange={(e) => {
+                              remindersTouchedRef.current = true;
                               const next = reminders.slice();
                               next[index] = Number(e.target.value);
                               setReminders(next);
@@ -828,7 +924,10 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
                           {reminders.length > 1 && (
                             <button
                               type="button"
-                              onClick={() => setReminders(reminders.filter((_, i) => i !== index))}
+                              onClick={() => {
+                                remindersTouchedRef.current = true;
+                                setReminders(reminders.filter((_, i) => i !== index));
+                              }}
                               className="text-rose-500 hover:text-rose-600"
                               aria-label="Quitar recordatorio"
                             >
@@ -839,7 +938,10 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
                       ))}
                       <button
                         type="button"
-                        onClick={() => setReminders([...reminders, 30])}
+                        onClick={() => {
+                          remindersTouchedRef.current = true;
+                          setReminders([...reminders, 30]);
+                        }}
                         className="text-xs text-teal-600 hover:text-teal-700 font-medium"
                       >
                         + Añadir recordatorio

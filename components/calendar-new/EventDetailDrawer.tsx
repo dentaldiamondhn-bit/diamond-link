@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { X, Trash2, Pencil, CopyPlus, Loader2, MapPin, UserRound, CalendarDays, Clock, Stethoscope, FileText, Bell, Mail, ArrowUpRight, type LucideIcon } from 'lucide-react';
+import { X, Trash2, Pencil, CopyPlus, Loader2, MapPin, UserRound, CalendarDays, Clock, Stethoscope, FileText, Bell, Mail, ArrowUpRight, Phone, MessageCircle, type LucideIcon } from 'lucide-react';
+import { formatPhoneDisplay, createWhatsAppUrl } from '@/utils/phoneUtils';
 import type { ClinicEvent } from '@/lib/types-calendar';
 import { formatClock12 } from '@/calendario/timezone';
 import {
@@ -125,6 +126,15 @@ export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDu
     }
   };
 
+  // WhatsApp deep link to the patient's chat (wa.me/<country><digits>), guarded
+  // so a phone that already carries its dialing code isn't prepended twice.
+  const waLink = (() => {
+    const digits = (event?.phone || '').replace(/\D/g, '');
+    if (!digits) return '#';
+    const country = event?.phone_country || '504';
+    return createWhatsAppUrl(digits.startsWith(country) ? digits : `${country}${digits}`);
+  })();
+
   return (
     <AnimatePresence>
       {event && (
@@ -204,8 +214,8 @@ export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDu
                 )}
               </Row>
 
-              {(event.procedure || event.dentist) && (
-                <div className="grid grid-cols-2 gap-4">
+              {(event.procedure || event.dentist || event.phone) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {event.procedure && (
                     <Row icon={Stethoscope} label="Procedimiento">
                       <span className="text-gray-800 dark:text-gray-100">{event.procedure}</span>
@@ -214,6 +224,20 @@ export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDu
                   {event.dentist && (
                     <Row icon={UserRound} label="Odontólogo">
                       <span className="text-gray-800 dark:text-gray-100">{event.dentist}</span>
+                    </Row>
+                  )}
+                  {event.phone && (
+                    <Row icon={Phone} label="Teléfono">
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Abrir chat de WhatsApp"
+                        className="inline-flex items-center gap-1.5 text-green-600 hover:text-green-700 hover:underline dark:text-green-500 dark:hover:text-green-400"
+                      >
+                        {formatPhoneDisplay(event.phone, event.phone_country || '504')}
+                        <MessageCircle size={14} />
+                      </a>
                     </Row>
                   )}
                 </div>

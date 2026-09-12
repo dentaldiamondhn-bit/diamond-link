@@ -92,6 +92,8 @@ export async function POST(req: Request) {
       patient_id,
       procedure,
       dentist,
+      phone,
+      phone_country,
     } = body;
 
     const supabase = createServerServiceClient();
@@ -146,6 +148,8 @@ export async function POST(req: Request) {
     baseInsert.patient_id = patient_id || null;
     baseInsert.procedure = procedure || '';
     baseInsert.dentist = dentist || '';
+    baseInsert.phone = phone || '';
+    baseInsert.phone_country = phone_country || '504';
 
     const { data, error: dbError } = await supabase
       .from('events')
