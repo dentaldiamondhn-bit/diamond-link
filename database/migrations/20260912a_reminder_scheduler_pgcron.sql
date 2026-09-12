@@ -58,7 +58,7 @@ BEGIN
   PERFORM cron.schedule(
     'calendario-reminders',
     '* * * * *',
-    $$SELECT public.calendario_dispatch_reminders_via_http();$$
+    $job$SELECT public.calendario_dispatch_reminders_via_http();$job$
   );
 END;
 $$;
