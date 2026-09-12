@@ -27,8 +27,8 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 export async function showBrowserNotification({
   title,
   body = '',
-  icon = '/Logo.svg',
-  badge = '/Logo.svg',
+  icon = '/icon-192.png',
+  badge = '/icon-192.png',
   tag,
   requireInteraction = false,
   silent = false,

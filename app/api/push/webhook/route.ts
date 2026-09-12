@@ -116,8 +116,8 @@ export async function POST(request: NextRequest) {
       sendPushToUser(userId, {
         title,
         body,
-        icon: senderAvatar || '/Logo.svg',
-        badge: '/Logo.svg',
+        icon: senderAvatar || '/icon-192.png',
+        badge: '/icon-192.png',
         tag,
         renotify: false,
         data,

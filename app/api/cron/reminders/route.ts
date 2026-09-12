@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { deliverCalendarToUser } from '@/services/calendarNotifications';
-import { clinicDateKey, formatClock12 } from '@/calendario/timezone';
+import { clinicDateKey, clinicWallClockTimestamp, formatClock12 } from '@/calendario/timezone';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,6 +13,8 @@ export const runtime = 'nodejs';
  * sources with the same outward behavior (OS tray push + in-app bell):
  *
  *   - `event_reminders` → owner + every invitee of the event.
+ *   - `events` starting now → owner + invitees ("La cita empieza ahora", once
+ *     per event, guarded by `start_notified_at`).
  *   - `reminders` (personal notes) → the note's owner, one-shot, then dismissed.
  *   - `tasks` (recur-until-completed) → the task owner; advances `remind_at` by
  *     `repeat_every_days` until the task is completed (completed tasks never fire).
@@ -106,7 +108,7 @@ export async function GET(req: NextRequest) {
   const dueAt = new Date(Date.now() + leanMinutes * 60_000).toISOString();
 
   const state = {
-    sources: { event_reminders: 0, reminders: 0, tasks: 0 },
+    sources: { event_reminders: 0, reminders: 0, tasks: 0, event_start: 0 },
     processed: 0,
     pushed: 0,
     bell: 0,
@@ -180,8 +182,8 @@ export async function GET(req: NextRequest) {
               {
                 title,
                 body,
-                icon: '/Logo.svg',
-                badge: '/Logo.svg',
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
                 tag: `calendar-${ev.id}`,
                 renotify: true,
                 data: metadata,
@@ -204,6 +206,103 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     errors.event_reminders = errMsg(err);
     console.error('[cron/reminders] event_reminders branch failed', errMsg(err));
+  }
+
+  // ------------------------------------------------------------------- 1b.
+  // Events starting NOW — a scheduled cita must also notify the moment it's
+  // supposed to begin, even when no lead-time reminder was configured. Delivered
+  // once per event (guarded by `events.start_notified_at`), owner + invitees.
+  try {
+    const nowForStart = new Date();
+    const todayKey = clinicDateKey(nowForStart);
+    const tomorrowKey = clinicDateKey(nowForStart, 1);
+    const { data: startRows, error: startErr } = await db
+      .from('events')
+      .select('id, user_id, title, patient_name, date, start_time, status')
+      .in('date', [todayKey, tomorrowKey])
+      .is('start_notified_at', null)
+      .order('start_time', { ascending: true })
+      .limit(MAX_REMINDERS);
+    if (startErr) throw startErr;
+
+    const nowMs = nowForStart.getTime();
+    const catchUpMs = 5 * 60_000;
+    const dueStart = ((startRows ?? []) as EventRow[])
+      .filter((e) => e.status !== 'cancelled' && e.status !== 'completed')
+      .filter((e) => {
+        if (!e.start_time) return false;
+        const startMs = clinicWallClockTimestamp(e.date, e.start_time).getTime();
+        // Strictly at (or just past) the start — never early — with a small
+        // catch-up window so a single lost tick still delivers.
+        return startMs <= nowMs && startMs >= nowMs - catchUpMs;
+      });
+
+    if (dueStart.length > 0) {
+      const startIds = dueStart.map((e) => e.id);
+      const { data: startInvitees } = await db
+        .from('event_invitees')
+        .select('event_id, user_id')
+        .in('event_id', startIds);
+      const startRecipients = new Map<number, Set<string>>();
+      for (const inv of (startInvitees || []) as Array<{ event_id: number; user_id: string }>) {
+        const set = startRecipients.get(inv.event_id) || new Set<string>();
+        set.add(inv.user_id);
+        startRecipients.set(inv.event_id, set);
+      }
+
+      for (const ev of dueStart) {
+        const recipients = new Set<string>([ev.user_id]);
+        for (const uid of startRecipients.get(ev.id) || []) recipients.add(uid);
+
+        const dateLabel = fmtDate(ev.date);
+        const who = ev.patient_name?.trim() || ev.title?.trim() || 'Cita';
+        const body = `${who} · ${dateLabel} · ${formatClock12(ev.start_time)}`;
+        const title = 'La cita empieza ahora';
+        const metadata: Record<string, unknown> = {
+          type: 'calendar',
+          source: 'event_start',
+          eventId: ev.id,
+          date: ev.date,
+          startTime: ev.start_time,
+          url: `/calendario?view=day&date=${encodeURIComponent(ev.date)}&eventId=${ev.id}`,
+        };
+
+        try {
+          for (const userId of recipients) {
+            const pushResult = await deliverCalendarToUser(
+              db,
+              userId,
+              {
+                title,
+                body,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                tag: `calendar-${ev.id}`,
+                renotify: true,
+                data: metadata,
+                actions: [{ action: 'open', title: 'Ver cita' }],
+              },
+              { type: 'calendar_reminder', title, message: body, metadata }
+            );
+            state.pushed += pushResult.sent;
+            state.bell += recipients.size;
+          }
+          await db
+            .from('events')
+            .update({ start_notified_at: new Date().toISOString() })
+            .eq('id', ev.id)
+            .is('start_notified_at', null);
+          state.processed++;
+          state.sources.event_start++;
+        } catch (err) {
+          state.failed++;
+          console.error('[cron/reminders] event start notification failed', ev.id, errMsg(err));
+        }
+      }
+    }
+  } catch (err) {
+    errors.event_start = errMsg(err);
+    console.error('[cron/reminders] event_start branch failed', errMsg(err));
   }
 
   // ------------------------------------------------------------------- 2.
@@ -234,8 +333,8 @@ export async function GET(req: NextRequest) {
           {
             title,
             body,
-            icon: '/Logo.svg',
-            badge: '/Logo.svg',
+            icon: '/icon-192.png',
+            badge: '/icon-192.png',
             tag: `reminder-${note.id}`,
             renotify: true,
             data: metadata,
@@ -289,8 +388,8 @@ export async function GET(req: NextRequest) {
           {
             title: who,
             body,
-            icon: '/Logo.svg',
-            badge: '/Logo.svg',
+            icon: '/icon-192.png',
+            badge: '/icon-192.png',
             tag: `task-${task.id}`,
             renotify: true,
             data: metadata,

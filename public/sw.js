@@ -1,4 +1,4 @@
-const CACHE_NAME = 'diamond-link-v10';
+const CACHE_NAME = 'diamond-link-v11';
 // Precached at install: the JS/CSS chunks the chat shell needs to boot offline.
 const SHELL_CACHE = 'diamond-link-shell-v1';
 // Only files whose URL carries a long content hash are immutable (safe to
@@ -126,6 +126,18 @@ const PUSH_DB_VERSION = 1;
 const PUSH_STORE = 'threads';
 const MAX_SNIPPETS = 3;
 
+// Desktop Chromium renders a notification card at its content height, so a long
+// multi-line body (or a huge SVG icon — hence the PNG below) makes the card
+// "way too tall". Cap the visible body to the last 2 lines with an ellipsis.
+function compactBody(lines) {
+  const long = (lines || []).join('\n');
+  const parts = long
+    .split('\n')
+    .filter((l) => l.trim())
+    .map((l) => (l.length > 90 ? l.slice(0, 89) + '…' : l));
+  return parts.slice(-2).join('\n') + (parts.length > 2 ? '\n…' : '');
+}
+
 function openPushDB() {
   return new Promise((resolve, reject) => {
     let request;
@@ -235,7 +247,7 @@ async function showThreadNotification(payload, data) {
   const messages = [...(prev.messages || []), { text: snippet }].slice(-MAX_SNIPPETS);
 
   const title = count > 1 ? `${chatTitle} (${count})` : chatTitle;
-  const body = messages.map((m) => m.text).join('\n');
+  const body = compactBody(messages.map((m) => m.text));
 
   await saveThread({
     threadId,
@@ -251,8 +263,8 @@ async function showThreadNotification(payload, data) {
     // Same-origin asset only. Chrome drops (and can reject) cross-origin
     // notification icons, so we never ship remote avatar URLs here; the sender
     // info still rides inside `data`.
-    icon: '/Logo.svg',
-    badge: '/Logo.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: threadId,
     renotify: true,
     data: {
@@ -278,8 +290,8 @@ async function showSimpleNotification(payload) {
   const title = payload.title || 'Diamond Link';
   const options = {
     body: payload.body || '',
-    icon: '/Logo.svg',
-    badge: '/Logo.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: payload.tag || undefined,
     data: payload.data || {},
     vibrate: [100, 50, 100],
@@ -308,14 +320,14 @@ async function showCalendarNotification(payload, data) {
   const messages = [...(prev.messages || []), { text: snippet }].slice(-MAX_SNIPPETS);
   const baseTitle = String(data.title || payload.title || 'Cita');
   const title = count > 1 ? `${baseTitle} (${count})` : baseTitle;
-  const body = messages.map((m) => m.text).join('\n');
+  const body = compactBody(messages.map((m) => m.text));
 
   await saveThread({ threadId, eventId, count, messages });
 
   await self.registration.showNotification(title, {
     body,
-    icon: '/Logo.svg',
-    badge: '/Logo.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: threadId,
     renotify: true,
     data: {
@@ -359,8 +371,8 @@ self.addEventListener('push', (event) => {
         try {
           await self.registration.showNotification('Diamond Link', {
             body: payload.body || '',
-            icon: '/Logo.svg',
-            badge: '/Logo.svg',
+            icon: '/icon-192.png',
+            badge: '/icon-192.png',
           });
         } catch {
           await self.registration.showNotification('Diamond Link').catch(() => {});

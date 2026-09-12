@@ -120,8 +120,8 @@ export async function sendTestNotification(
   return sendPushToUser(userId, {
     title,
     body,
-    icon: '/Logo.svg',
-    badge: '/Logo.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: `test-${userId}`,
     data: { type: 'test', url: '/chat' },
   });

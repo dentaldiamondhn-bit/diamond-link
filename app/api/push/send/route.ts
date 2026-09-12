@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
     const payload: PushNotificationPayload = {
       title: body?.title || 'Diamond Link',
       body: body?.body || '',
-      icon: body?.icon || '/Logo.svg',
-      badge: body?.badge || '/Logo.svg',
+      icon: body?.icon || '/icon-192.png',
+      badge: body?.badge || '/icon-192.png',
       ...(body?.tag ? { tag: body.tag } : {}),
       ...(body?.renotify ? { renotify: body.renotify } : {}),
       ...(body?.actions && Array.isArray(body.actions) ? { actions: body.actions } : {}),
