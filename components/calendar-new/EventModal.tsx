@@ -110,6 +110,7 @@ interface SearchResult {
   paciente_id: string;
   nombre_completo: string;
   telefono?: string;
+  codigopais?: string;
 }
 
 const avatarFor = (u: DraftInvitee) =>
@@ -399,11 +400,17 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
   }, [patientQuery, showPatientSearch]);
 
   const selectPatient = (p: SearchResult) => {
+    // Ported from patient-form: the patient's saved phone (and its country) fill
+    // the Teléfono field automatically; phoneOnOpen handles both the split
+    // storage (telefono + codigopais) and legacy combined "+504 …" values.
+    const pph = phoneOnOpen(p.telefono, p.codigopais);
     reset((prev) => ({
       ...prev,
       patient_id: p.paciente_id,
       patient_name: p.nombre_completo,
       title: prev.title || `Cita con ${p.nombre_completo}`,
+      phone: pph.number,
+      phone_country: pph.country,
     }));
     setShowPatientSearch(false);
   };

@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { X, Trash2, Pencil, CopyPlus, Loader2, MapPin, UserRound, CalendarDays, Clock, Stethoscope, FileText, Bell, Mail, ArrowUpRight, Phone, MessageCircle, type LucideIcon } from 'lucide-react';
+import { X, Trash2, Pencil, CopyPlus, Loader2, MapPin, UserRound, CalendarDays, Clock, Stethoscope, FileText, Bell, Mail, ArrowUpRight, Phone, LayoutGrid, FilePlus2, type LucideIcon } from 'lucide-react';
 import { formatPhoneDisplay, createWhatsAppUrl } from '@/utils/phoneUtils';
+import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import type { ClinicEvent } from '@/lib/types-calendar';
 import { formatClock12 } from '@/calendario/timezone';
 import {
@@ -214,6 +215,26 @@ export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDu
                 )}
               </Row>
 
+              {/* Historia clínica: existing patient → Menú Navegación; new patient
+                  (not picked from Pacientes *) → blank history form. */}
+              {event.patient_id ? (
+                <Link
+                  href={`/menu-navegacion?id=${encodeURIComponent(event.patient_id)}`}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950 px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900 transition-colors"
+                >
+                  <LayoutGrid size={16} />
+                  Menú
+                </Link>
+              ) : (
+                <Link
+                  href="/patient-form"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950 px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900 transition-colors"
+                >
+                  <FilePlus2 size={16} />
+                  Nueva Historia Clínica
+                </Link>
+              )}
+
               {(event.procedure || event.dentist || event.phone) && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {event.procedure && (
@@ -235,8 +256,8 @@ export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDu
                         title="Abrir chat de WhatsApp"
                         className="inline-flex items-center gap-1.5 text-green-600 hover:text-green-700 hover:underline dark:text-green-500 dark:hover:text-green-400"
                       >
+                        <AnimatedWhatsApp size={18} className="shrink-0" />
                         {formatPhoneDisplay(event.phone, event.phone_country || '504')}
-                        <MessageCircle size={14} />
                       </a>
                     </Row>
                   )}

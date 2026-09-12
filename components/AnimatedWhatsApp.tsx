@@ -6,9 +6,11 @@ import animatedWhatsAppData from '../animated-whatsapp.json';
 
 interface AnimatedWhatsAppProps {
   className?: string;
+  /** Pixel size; defaults to the animation's natural size when omitted. */
+  size?: number;
 }
 
-export default function AnimatedWhatsApp({ className = '' }: AnimatedWhatsAppProps) {
+export default function AnimatedWhatsApp({ className = '', size }: AnimatedWhatsAppProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,11 +76,11 @@ export default function AnimatedWhatsApp({ className = '' }: AnimatedWhatsAppPro
     };
   }, []);
 
-  return (
-    <div 
+return (
+    <div
       ref={containerRef}
-      className={`${className}`}
-      style={{ width: 'auto', height: 'auto' }}
+      className={className}
+      style={size ? { width: size, height: size } : { width: 'auto', height: 'auto' }}
     />
   );
 }
