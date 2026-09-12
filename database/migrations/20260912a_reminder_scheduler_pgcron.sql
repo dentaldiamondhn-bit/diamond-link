@@ -51,8 +51,7 @@ $$;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-    RAISE NOTICE 'pg_cron is not installed — the in-DB reminder scheduler is skipped. Enable it in the Supabase dashboard (Database → Extensions → pg_cron) and re-run this migration to schedule.';
-    RETURN;
+    RAISE EXCEPTION 'pg_cron is NOT installed. Enable it first: Supabase Dashboard → Database → Extensions → search "pg_cron" → Enable (a restart may be triggered). Then RE-RUN this migration. Verify with: SELECT extname FROM pg_extension WHERE extname = ''pg_cron'';';
   END IF;
   -- Upsert by job name so re-running this migration updates, never duplicates.
   PERFORM cron.schedule(
@@ -63,5 +62,6 @@ BEGIN
 END;
 $$;
 
--- Manual smoke test (due reminders dispatched immediately):
---   SELECT public.calendario_dispatch_reminders_via_http();
+-- Post-run verification (run in the SQL editor):
+--   SELECT jobid, jobname, schedule, command, active FROM cron.job;
+--   SELECT status, return_message FROM cron.job_run_details ORDER BY start_time DESC LIMIT 5;
