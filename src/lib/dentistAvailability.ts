@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { clerkIdentityOf, getClerkUserIdentities } from '@/lib/clerkUsers';
 
 /** One conflicting dentist booking (server-side availability payload). */
 export interface DentistConflict {
@@ -94,20 +95,11 @@ export async function findInviteeConflicts(
   if (rows.length === 0) return [];
 
   const userIds = [...new Set(rows.map((r) => r.user_id))];
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, first_name, last_name')
-    .in('id', userIds);
-  const nameMap = new Map(
-    (users || []).map((u) => [
-      u.id,
-      `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Invitado',
-    ])
-  );
+  const clerkUsers = await getClerkUserIdentities(userIds);
 
   return rows.map((r) => ({
     ...r,
-    invitee_name: nameMap.get(r.user_id) || 'Invitado',
+    invitee_name: clerkIdentityOf(clerkUsers, r.user_id).name || 'Invitado',
   }));
 }
 

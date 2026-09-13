@@ -20,6 +20,8 @@ import {
   MapPin,
   ArrowUpRight,
   User,
+  LayoutGrid,
+  FilePlus2,
 } from 'lucide-react';
 import { PatientService } from '../../../services/patientService';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
@@ -27,6 +29,9 @@ import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
 import { UserAvatar } from '../../../components/ui/UserComponents';
 import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import PatientsTableModal from '../../../components/PatientsTableModal';
+import { formatClock12 } from '@/calendario/timezone';
+import { formatPhoneDisplay, createWhatsAppUrl } from '@/utils/phoneUtils';
+import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 
 // Safe locale formatters: some mobile browsers (Android WebView / in-app
 // browsers) ship reduced ICU data and throw `RangeError: Incorrect locale
@@ -59,6 +64,37 @@ const safeLocaleNumber = (amount: number) => {
 // Currency formatting utility for HNL
 const formatHNL = (amount: number) => {
   return `L ${safeLocaleNumber(amount)}`;
+};
+
+// Event dates are stored as '<YYYY-MM-DD>' strings. Parsing them with
+// `new Date(dateStr)` treats them as UTC midnight, which renders the PREVIOUS
+// day in UTC-negative timezones (clinic is America/Tegucigalpa, UTC-6). Build
+// the Date from local components instead so the displayed day is exact.
+const formatEventDate = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return safeLocaleDate(d, { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  try {
+    return safeLocaleDate(new Date(dateStr), {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+// WhatsApp deep link to the patient's chat (wa.me/<country><digits>), guarded
+// against double-prefixing when the stored number already carries its code.
+const whatsAppLink = (phone?: string, country?: string): string => {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (!digits) return '#';
+  const code = country || '504';
+  return createWhatsAppUrl(digits.startsWith(code) ? digits : `${code}${digits}`);
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -696,9 +732,9 @@ export default function DashboardPage() {
                     {/* Date Row */}
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
                       <CalendarDays size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
-                      {event.date ? safeLocaleDate(new Date(event.date), { day: 'numeric', month: 'long', year: 'numeric' }) : SimpleTimezoneFix.formatDisplayDate(event.start_date)}
-                      {event.start_time && ` - ${event.start_time}`}
-                      {event.end_time && ` - ${event.end_time}`}
+                      {event.date ? formatEventDate(event.date) : SimpleTimezoneFix.formatDisplayDate(event.start_date)}
+                      {event.start_time && ` - ${formatClock12(event.start_time)}`}
+                      {event.end_time && ` - ${formatClock12(event.end_time)}`}
                     </div>
                     
                     {/* Patient Row */}
@@ -707,6 +743,42 @@ export default function DashboardPage() {
                         <User size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
                         {event.patient_name || event.patient?.nombre_completo}
                       </div>
+                    )}
+
+                    {/* Phone Row — WhatsApp chat link with animated icon */}
+                    {event.phone && (
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <a
+                          href={whatsAppLink(event.phone, event.phone_country)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Abrir chat de WhatsApp"
+                          className="inline-flex items-center gap-1.5 text-green-600 hover:text-green-700 hover:underline dark:text-green-500 dark:hover:text-green-400"
+                        >
+                          <AnimatedWhatsApp size={18} className="shrink-0" />
+                          {formatPhoneDisplay(event.phone, event.phone_country || '504')}
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Historia clínica: existing patient → Menú Navegación; new
+                        patient (not picked from Pacientes *) → blank history form. */}
+                    {event.patient_id ? (
+                      <Link
+                        href={`/menu-navegacion?id=${encodeURIComponent(event.patient_id)}`}
+                        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950 px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900 transition-colors"
+                      >
+                        <LayoutGrid size={16} />
+                        Menú
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/patient-form"
+                        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950 px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900 transition-colors"
+                      >
+                        <FilePlus2 size={16} />
+                        Nueva Historia Clínica
+                      </Link>
                     )}
                     
                     {/* Location */}

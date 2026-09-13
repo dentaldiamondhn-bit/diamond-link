@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
+import { clerkIdentityOf, getClerkUserIdentities } from '@/lib/clerkUsers';
 
 export const runtime = 'nodejs';
 
@@ -83,40 +84,32 @@ export async function GET(req: NextRequest) {
       for (const inv of inviteesByEvent.get(id) || []) userIdsToFetch.add(inv.user_id);
     }
 
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, email, profile_image_url')
-      .in('id', Array.from(userIdsToFetch));
-
-    if (usersError) throw usersError;
-
-    const userMap = new Map((usersData || []).map((u) => [u.id, u]));
-    const userRow = (id: string) => userMap.get(id);
+    const userMap = await getClerkUserIdentities(Array.from(userIdsToFetch));
 
     const result: ParticipantMap = {};
     for (const id of allowedEventIds) {
       const participants: Participant[] = [];
       const owner = eventMap.get(id)?.user_id;
       if (owner) {
-        const row = userRow(owner);
+        const ownerIdentity = clerkIdentityOf(userMap, owner);
         participants.push({
           id: owner,
           role: 'owner',
-          first_name: row?.first_name || 'Usuario',
-          last_name: row?.last_name || '',
-          email: row?.email || '',
-          profileImageUrl: row?.profile_image_url || null,
+          first_name: ownerIdentity.first_name,
+          last_name: ownerIdentity.last_name,
+          email: ownerIdentity.email,
+          profileImageUrl: ownerIdentity.profileImageUrl,
         });
       }
       for (const inv of inviteesByEvent.get(id) || []) {
-        const row = userRow(inv.user_id);
+        const inviteeIdentity = clerkIdentityOf(userMap, inv.user_id);
         participants.push({
           id: inv.user_id,
           role: inv.status === 'accepted' ? 'invitee_accepted' : 'invitee_pending',
-          first_name: row?.first_name || 'Usuario',
-          last_name: row?.last_name || '',
-          email: row?.email || '',
-          profileImageUrl: row?.profile_image_url || null,
+          first_name: inviteeIdentity.first_name,
+          last_name: inviteeIdentity.last_name,
+          email: inviteeIdentity.email,
+          profileImageUrl: inviteeIdentity.profileImageUrl,
         });
       }
       result[String(id)] = participants;

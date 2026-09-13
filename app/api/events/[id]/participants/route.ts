@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
 import { isEventMember } from '@/lib/calendarAccess';
+import { clerkIdentityOf, getClerkUserIdentities } from '@/lib/clerkUsers';
 
 export const runtime = 'nodejs';
 
@@ -48,37 +49,30 @@ export async function GET(
       }
     }
 
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, email, profile_image_url')
-      .in('id', Array.from(userIdsToFetch));
-
-    if (usersError) throw usersError;
-
-    const userMap = new Map((usersData || []).map((u) => [u.id, u]));
+    const userMap = await getClerkUserIdentities(Array.from(userIdsToFetch));
 
     if (eventData.user_id) {
-      const owner = userMap.get(eventData.user_id);
+      const owner = clerkIdentityOf(userMap, eventData.user_id);
       participants.push({
         id: eventData.user_id,
         role: 'owner',
-        first_name: owner?.first_name || 'Usuario',
-        last_name: owner?.last_name || '',
-        email: owner?.email || '',
-        profileImageUrl: owner?.profile_image_url || null,
+        first_name: owner.first_name,
+        last_name: owner.last_name,
+        email: owner.email,
+        profileImageUrl: owner.profileImageUrl,
       });
     }
 
     if (!inviteesError && invitees && invitees.length > 0) {
       for (const invitee of invitees) {
-        const userData = userMap.get(invitee.user_id);
+        const invited = clerkIdentityOf(userMap, invitee.user_id);
         participants.push({
           id: invitee.user_id,
           role: invitee.status === 'accepted' ? 'invitee_accepted' : 'invitee_pending',
-          first_name: userData?.first_name || 'Usuario',
-          last_name: userData?.last_name || '',
-          email: userData?.email || '',
-          profileImageUrl: userData?.profile_image_url || null,
+          first_name: invited.first_name,
+          last_name: invited.last_name,
+          email: invited.email,
+          profileImageUrl: invited.profileImageUrl,
         });
       }
     }
