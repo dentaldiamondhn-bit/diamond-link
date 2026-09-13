@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase';
 import { auth } from '@clerk/nextjs/server';
 
+/**
+ * Server-side cross-user bell write for trusted internal flows (chat message
+ * recipients, ticket assignees). Uses the service-role client because the
+ * `notifications` INSERT policy is owner-only (20260913b) — a plain browser
+ * client may only write rows for itself. The Clerk session gate still applies,
+ * so unauthenticated callers are rejected.
+ */
 export async function POST(request: NextRequest) {
   try {
-    // Server-side identity gate: every sender must hold a live Clerk session.
-    // (Phase 5 of the calendario plan will move this behind a service-role /
-    // signed webhook path with role-aware recipients.)
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const { userId: targetUserId, notification } = await request.json();
 
-    if (!targetUserId || !notification) {
+    if (typeof targetUserId !== 'string' || !targetUserId || !notification) {
       return NextResponse.json({ error: 'userId and notification are required' }, { status: 400 });
     }
 
