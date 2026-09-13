@@ -25,29 +25,44 @@ export async function notifyBell(
   db: SupabaseClient,
   userId: string,
   bell: BellPayload
-): Promise<void> {
-  if (!userId) return;
-  const { error } = await db.from('notifications').insert({
-    user_id: userId,
-    type: bell.type,
-    title: bell.title,
-    message: bell.message,
-    data: bell.metadata || {},
-    read: false,
-  });
+): Promise<string | null> {
+  if (!userId) return null;
+  const { data, error } = await db
+    .from('notifications')
+    .insert({
+      user_id: userId,
+      type: bell.type,
+      title: bell.title,
+      message: bell.message,
+      data: bell.metadata || {},
+      read: false,
+    })
+    .select('id')
+    .single();
   if (error) {
     console.error('[calendarNotifications] bell insert failed', error);
+    return null;
   }
+  return data?.id ?? null;
 }
 
-/** Push + bell for one user (tray and bell stay in lockstep). */
+/**
+ * Push + bell for one user (tray and bell stay in lockstep).
+ *
+ * The bell row is written FIRST so its id can ride inside the push payload's
+ * `data.bellId`: when the user swipes that tray notification away (Android
+ * `notificationclose`), the service worker can mark exactly that bell row read.
+ */
 export async function deliverCalendarToUser(
   db: SupabaseClient,
   userId: string,
   push: PushNotificationPayload,
   bell: BellPayload
 ): Promise<{ sent: number; failed: number; removed: number }> {
-  const pushResult = await sendPushToUser(userId, push);
-  await notifyBell(db, userId, bell);
+  const bellId = await notifyBell(db, userId, bell);
+  const pushResult = await sendPushToUser(userId, {
+    ...push,
+    data: { ...(push.data || {}), bellId: bellId || undefined },
+  });
   return pushResult;
 }

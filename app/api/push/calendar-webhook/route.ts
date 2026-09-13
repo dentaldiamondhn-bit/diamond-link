@@ -73,6 +73,15 @@ export async function POST(request: NextRequest) {
   if (table === 'events') {
     const id = Number(record.id);
     if (!Number.isFinite(id)) return NextResponse.json({ ok: true, skipped: true });
+
+    // A brand-new event is covered row-by-row by the `event_invitees` insert
+    // branch below ("Invitación a cita" per invitee). Notifying invitees here
+    // TOO would duplicate the same bell/push for every invitee of a new cita,
+    // so INSERTs are quiet. UPDATEs (moved/rescheduled/cancelled) still fan out.
+    if (payload.type !== 'UPDATE') {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
+
     if (record.status === 'completed') {
       // Completed slota are quiet — nothing actionable for invitees.
       return NextResponse.json({ ok: true, skipped: true });
@@ -155,6 +164,11 @@ export async function POST(request: NextRequest) {
   }
 
   // -------------------------------------------------- event_invitees branch
+  // INSERT is "you were invited". UPDATE/DELETE (invite changed or revoked)
+  // must NOT send a fresh "Invitación a cita".
+  if (payload.type !== 'INSERT') {
+    return NextResponse.json({ ok: true, skipped: true });
+  }
   const eventId = Number(record.event_id);
   const inviteeId = String(record.user_id || '');
   if (!Number.isFinite(eventId) || !inviteeId) {

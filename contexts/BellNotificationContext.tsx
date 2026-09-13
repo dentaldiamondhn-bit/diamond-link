@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/nextjs';
 
 export interface BellNotification {
@@ -27,19 +26,6 @@ interface BellNotificationContextType {
 
 const BellNotificationContext = createContext<BellNotificationContextType | undefined>(undefined);
 
-function mapRow(row: any): BellNotification {
-  return {
-    id: row.id,
-    type: row.type,
-    title: row.title,
-    message: row.message,
-    timestamp: row.created_at,
-    read: row.read,
-    metadata: row.data,
-    userId: row.user_id,
-  };
-}
-
 export function BellNotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<BellNotification[]>([]);
   const { user } = useUser();
@@ -59,8 +45,23 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
   }, [userId]);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    // Load once on mount (after login). setState only runs after the awaited
+    // fetch resolves — never synchronously in the effect body.
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/notifications', { credentials: 'include' });
+        if (res.ok && !cancelled) {
+          setNotifications(await res.json());
+        }
+      } catch (e) {
+        console.error('Error fetching notifications:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -68,37 +69,30 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
     }
   }, []);
 
+  // Realtime channel removed: the anon Supabase client cannot read owner-
+  // scoped rows (owner RLS requires Clerk JWT → auth.jwt()->>'sub'), so
+  // postgres_changes would silently stop firing.  Replace with:
+  //   • immediate re-fetch on tab refocus (visibilitychange)
+  //   • light polling every 30 s while the tab is visible
+  // All insert-side callers (push routes, cron) already call the service-role
+  // PATCH/POST, and the bell context re-fetches via the Clerk-gated GET, so
+  // the badge stays reasonably current without realtime.
   useEffect(() => {
     if (!userId) return;
 
-    const channel = supabase
-      .channel('notifications-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          fetchNotifications();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchNotifications();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
-          const row = payload.new;
-          if (row) {
-            const title = row.title || 'Nueva notificación';
-            const body = row.message || '';
-
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(title, { body, icon: '/favicon.ico' });
-            }
-          }
-        },
-      )
-      .subscribe();
+    // Light poll: only while the tab is visible.
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchNotifications();
+    }, 30_000);
 
     return () => {
-      supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearInterval(id);
     };
   }, [userId, fetchNotifications]);
 

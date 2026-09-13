@@ -382,6 +382,55 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// Mark an in-app bell row read (PATCH route is Clerk-gated via the session
+// cookie; same-origin SW fetches include cookies by default).
+async function markBellRead(bellId) {
+  if (!bellId) return;
+  try {
+    await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notificationId: bellId, action: 'markAsRead' }),
+    });
+  } catch {
+    // Best effort — a closed notification should never break anything.
+  }
+}
+
+// Acknowledge a chat thread (bump last_read_at + per-message reads).
+async function markChatConversationRead(conversationId) {
+  if (!conversationId) return;
+  try {
+    await fetch('/api/chat/mark-read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId }),
+    });
+  } catch {
+    // Best effort.
+  }
+}
+
+// Swipe/dismiss in the tray (Android) → acknowledge without opening the app.
+self.addEventListener('notificationclose', (event) => {
+  const data = event.notification.data || {};
+  const conversationId = data.conversationId || null;
+  const bellId = data.bellId || null;
+  const threadId = conversationId
+    ? 'chat-thread-' + conversationId
+    : data.type === 'calendar' && data.eventId
+      ? 'calendar-' + data.eventId
+      : null;
+
+  event.waitUntil(
+    (async () => {
+      if (bellId) await markBellRead(bellId);
+      if (threadId) await deleteThread(threadId);
+      if (conversationId) await markChatConversationRead(conversationId);
+    })()
+  );
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
@@ -389,6 +438,8 @@ self.addEventListener('notificationclick', (event) => {
   const data = notification.data || {};
   const action = event.action;
   const conversationId = data.conversationId || null;
+  const bellId = data.bellId || null;
+  const isMarkRead = action === 'marcar_leido' || action === 'mark_read' || action === 'mark_as_read';
   // `data.url` may point somewhere else (calendario, patient) for legacy
   // notifications; chat notifications always deep-link to the thread.
   const threadId = conversationId
@@ -405,11 +456,28 @@ self.addEventListener('notificationclick', (event) => {
       // Opening a thread clears its pending unread count (the client resets
       // the in-app badge by actually loading the conversation).
       if (threadId) await deleteThread(threadId);
+      if (bellId) await markBellRead(bellId);
 
       const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
       const sameOrigin = windowClients.filter((c) =>
         c.url.startsWith(self.location.origin)
       );
+
+      // "Marcar leído" NEVER opens/navigates the app — it just acknowledges.
+      // If a chat tab is already open, hand the action to it (it clears the
+      // in-app badge without navigating); otherwise mark read server-side and
+      // stay put.
+      if (isMarkRead) {
+        const chatWindow = sameOrigin.find((c) => c.url.includes('/chat'));
+        if (chatWindow) {
+          chatWindow.postMessage({ type: 'NOTIFICATION_CLICKED', data, action, threadId });
+          chatWindow.focus();
+        } else if (conversationId) {
+          await markChatConversationRead(conversationId);
+        }
+        return;
+      }
+
       // Prefer the chat window (it owns the NOTIFICATION_CLICKED listener for
       // reply/mark-read); fall back to any other app window.
       const target =
@@ -423,9 +491,7 @@ self.addEventListener('notificationclick', (event) => {
         return target.focus();
       }
 
-      // App not running at all: open the deep link. For 'mark read' with no
-      // window open this still opens the chat (which marks it read) — the
-      // least-surprising behaviour.
+      // App not running at all: open the deep link.
       return clients.openWindow(url);
     })()
   );
