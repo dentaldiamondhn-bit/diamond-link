@@ -179,6 +179,23 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
 
   const values = watch();
 
+  // Auto-fill Título from a free-text patient name (a new patient not found in
+  // the list), mirroring selectPatient. Auto-mode stays live while the title is
+  // empty or still equals the value we last generated (i.e. the user hasn't
+  // typed over it), so it tracks the full name as they type — a manually
+  // written title is never clobbered.
+  const lastAutoTitleRef = useRef('');
+  useEffect(() => {
+    if (!open) return;
+    const name = (values.patient_name ?? '').trim();
+    if (!name) return;
+    const currentTitle = (values.title ?? '').trim();
+    if (currentTitle !== '' && currentTitle !== lastAutoTitleRef.current) return;
+    const next = `Cita con ${name}`;
+    lastAutoTitleRef.current = next;
+    if (currentTitle !== next) setValue('title', next);
+  }, [open, values.patient_name, values.title, setValue]);
+
   // 12h AM/PM pickers (TimeInput) — emitted value is 24h HH:MM (schema-compatible)
   const startTimeField = useController({ control, name: 'start_time' });
   const endTimeField = useController({ control, name: 'end_time' });
@@ -718,7 +735,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
                 </div>
 
                 <Field label="Título">
-                  <TextInput placeholder="Cita con {paciente} (auto)" {...register('title')} />
+                  <TextInput {...register('title')} />
                 </Field>
 
                 <Field label="Descripción">
