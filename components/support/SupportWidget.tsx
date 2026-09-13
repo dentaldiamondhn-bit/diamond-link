@@ -25,7 +25,7 @@ interface Message {
  *    widget shows the session panel (agent URL, relay status, stop) and the
  *    agent's remote cursor/pings are drawn over the page.
  */
-export function SupportWidget() {
+export function SupportWidget({ variant = 'floating' }: { variant?: 'floating' | 'header' } = {}) {
   const {
     isSharing,
     sessionId,
@@ -45,6 +45,19 @@ export function SupportWidget() {
   const agentUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/tech-support/co-browse/${sessionId}`
     : '';
+
+  // Header variant trigger: matched to the other header icon buttons (search,
+  // dark mode, bell). The panel and session overlays stay floating overlays.
+  const headerTrigger = (
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors print:hidden"
+      title="Soporte remoto y asistente de IA"
+    >
+      <MessageCircle size={20} />
+    </button>
+  );
 
   // Auto-minimize when agent connects during an active session.
   // When the session starts, the full panel is visible so the user can copy
@@ -84,6 +97,7 @@ export function SupportWidget() {
             onMinimize={() => setMinimized(true)}
           />
         )}
+        {variant === 'header' && headerTrigger}
       </>
     );
   }
@@ -166,16 +180,20 @@ export function SupportWidget() {
         )}
       </AnimatePresence>
 
-      {!open && (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[9990] flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-xl transition-all hover:from-indigo-700 hover:to-violet-700 print:hidden"
-          title="Soporte remoto y asistente de IA"
-        >
-          <MessageCircle size={18} />
-          Soporte Remoto
-        </button>
+      {variant === 'header' ? (
+        headerTrigger
+      ) : (
+        !open && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="fixed bottom-6 right-6 z-[9990] flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-xl transition-all hover:from-indigo-700 hover:to-violet-700 print:hidden"
+            title="Soporte remoto y asistente de IA"
+          >
+            <MessageCircle size={18} />
+            Soporte Remoto
+          </button>
+        )
       )}
     </>
   );

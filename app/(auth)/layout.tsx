@@ -343,6 +343,9 @@ export default function AuthLayout({
                       <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                         {/* Header Actions - Left of User Info */}
                         <div className="hidden sm:flex items-center space-x-3">
+                          {/* Soporte Remoto */}
+                          {ready && <SupportWidget variant="header" />}
+
                           {/* Global Search */}
                           <GlobalSearch />
                           
@@ -355,6 +358,7 @@ export default function AuthLayout({
                         
                         {/* Mobile Actions */}
                         <div className="flex sm:hidden items-center space-x-2">
+                          {ready && <SupportWidget variant="header" />}
                           <GlobalSearch />
                           <DarkModeToggle />
                           <NotificationDropdown />
@@ -408,9 +412,6 @@ export default function AuthLayout({
                 {/* Tutorial Modal */}
                 {ready && <TutorialModal />}
               </div>
-
-              {/* Co-Browsing support widget */}
-              {ready && <SupportWidget />}
     <style>{`
       @media (orientation: portrait) {
         .portrait-sidebar-closed {
