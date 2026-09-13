@@ -15,13 +15,31 @@ export async function GET() {
     const start = clinicDateKey();
     const end = clinicDateKey(new Date(), 14);
 
-    const { data: events, error: eventsError } = await supabase
+    // Visible events = owned OR invited (mirrors the main /api/events read and
+    // the `events` RLS predicate, so a doctor's invite lands on the admin's
+    // "Próximos Eventos" too).
+    const { data: inviteeRows } = await supabase
+      .from('event_invitees')
+      .select('event_id')
+      .eq('user_id', userId);
+    const inviteeEventIds = (inviteeRows ?? [])
+      .map((r) => Number(r.event_id))
+      .filter((n) => Number.isFinite(n));
+
+    let query = supabase
       .from('events')
       .select('*')
-      .eq('user_id', userId)
       .gte('date', start)
       .lte('date', end)
-      .neq('status', 'cancelled')
+      .neq('status', 'cancelled');
+
+    if (inviteeEventIds.length > 0) {
+      query = query.or(`user_id.eq.${userId},id.in.(${inviteeEventIds.join(',')})`);
+    } else {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: events, error: eventsError } = await query
       .order('date', { ascending: true })
       .order('start_time', { ascending: true });
 
