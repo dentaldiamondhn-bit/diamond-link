@@ -3,7 +3,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Users,
@@ -266,6 +266,37 @@ export default function DashboardPage() {
     setProspectPatients([]);
   };
 
+  // Re-fetch the Próximos Eventos list + participants. Standalone so both the
+  // initial load and the realtime feed (below) can trigger it without re-running
+  // the whole dashboard stats pipeline.
+  const refreshUpcomingEvents = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const evRes = await fetch('/api/events/upcoming', {
+        headers: { 'x-user-id': user.id },
+      });
+      const userUpcomingEvents = evRes.ok ? await evRes.json() : [];
+      setUpcomingEvents(userUpcomingEvents);
+
+      const participantsData: Record<string, any[]> = {};
+      for (const event of userUpcomingEvents) {
+        if (event.id) {
+          const res = await fetch(`/api/events/${event.id}/participants`, {
+            headers: { 'x-user-id': event.user_id },
+          });
+          if (res.ok) {
+            participantsData[event.id] = await res.json();
+          } else {
+            participantsData[event.id] = [];
+          }
+        }
+      }
+      setEventParticipants(participantsData);
+    } catch (error) {
+      console.error('Error refreshing upcoming events:', error);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -275,29 +306,7 @@ export default function DashboardPage() {
         // Fetch role-specific data
         
         // Fetch upcoming events for logged-in user
-        if (user?.id) {
-          const evRes = await fetch('/api/events/upcoming', {
-            headers: { 'x-user-id': user.id },
-          });
-          const userUpcomingEvents = evRes.ok ? await evRes.json() : [];
-          setUpcomingEvents(userUpcomingEvents);
-          
-          // Fetch participants for each event using new participants API
-          const participantsData: Record<string, any[]> = {};
-          for (const event of userUpcomingEvents) {
-            if (event.id) {
-              const res = await fetch(`/api/events/${event.id}/participants`, {
-                headers: { 'x-user-id': event.user_id },
-              });
-              if (res.ok) {
-                participantsData[event.id] = await res.json();
-              } else {
-                participantsData[event.id] = [];
-              }
-            }
-          }
-          setEventParticipants(participantsData);
-        }
+        await refreshUpcomingEvents();
         
         if (userRole === 'doctor') {
           // Fetch doctor's patients and stats
@@ -397,7 +406,61 @@ export default function DashboardPage() {
     };
 
     fetchDashboardData();
-  }, [user?.fullName, userRole, user?.id]);
+  }, [user?.fullName, userRole, user?.id, refreshUpcomingEvents]);
+
+  // Realtime Próximos Eventos — same Clerk-gated SSE feed as the calendario
+  // (/api/events/realtime). Frames arrive only for the caller's own rows
+  // (owned + invited). A 1.5s debounce collapses bursts into a single refetch;
+  // EventSource is re-opened with capped exponential backoff on error.
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let es: EventSource | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+    let disposed = false;
+
+    const scheduleRefresh = () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        void refreshUpcomingEvents();
+      }, 1_500);
+    };
+
+    const connect = () => {
+      es = new EventSource('/api/events/realtime');
+      es.onopen = () => {
+        attempt = 0;
+      };
+      es.onmessage = (ev) => {
+        if (!ev.data) return;
+        try {
+          const payload = JSON.parse(ev.data);
+          // `{ connected: true }` is the subscribe handshake, not a change.
+          if (payload?.connected) return;
+          scheduleRefresh();
+        } catch {
+          // malformed frame — ignore
+        }
+      };
+      es.onerror = () => {
+        es?.close();
+        const delay = Math.min(1000 * 2 ** attempt, 30_000);
+        attempt += 1;
+        if (!disposed) retry = setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+    return () => {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+      if (retry) clearTimeout(retry);
+      es?.close();
+    };
+  }, [user?.id, refreshUpcomingEvents]);
 
   const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'Usuario';
   const roleLabel = ROLE_LABELS[userRole] || userRole;
