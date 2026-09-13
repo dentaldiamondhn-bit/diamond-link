@@ -1,4 +1,4 @@
-const CACHE_NAME = 'diamond-link-v11';
+const CACHE_NAME = 'diamond-link-v12';
 // Precached at install: the JS/CSS chunks the chat shell needs to boot offline.
 const SHELL_CACHE = 'diamond-link-shell-v1';
 // Only files whose URL carries a long content hash are immutable (safe to

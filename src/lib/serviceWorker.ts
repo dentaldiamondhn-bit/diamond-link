@@ -1,7 +1,9 @@
 export const registerServiceWorker = async () => {
   if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        updateViaCache: 'none',
+      });
       console.log('Service Worker registered');
       return registration;
     } catch (error) {
