@@ -12,6 +12,13 @@ export default function SignInPage() {
   const router = useRouter()
 
   const getRedirectUrl = () => {
+    // Deep-link return (e.g. push-notification tap while logged out): the
+    // middleware appends `redirect_url`; honour it over the role default so the
+    // user lands back on the intended page after signing in. Path-only guard
+    // prevents open-redirect via an external URL.
+    const params = new URLSearchParams(window.location.search);
+    const redirectTarget = params.get('redirect_url');
+    if (redirectTarget?.startsWith('/')) return redirectTarget;
     if (!userLoaded || !user) return '/dashboard'
     const role = (user.publicMetadata?.role as string) ?? ''
     if (role === 'tech_support') return '/tech-support/dashboard'

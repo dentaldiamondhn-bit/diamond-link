@@ -83,8 +83,16 @@ export default clerkMiddleware(async (auth, req) => {
       if (req.nextUrl.pathname === '/chat' || req.nextUrl.pathname.startsWith('/chat/')) {
         return NextResponse.next();
       }
-      const { redirectToSignIn } = await auth();
-      return redirectToSignIn();
+      // Never send unauthenticated users to the Clerk-hosted sign-in
+      // (vocal-cicada). Always route through the app's custom /sign-in page and
+      // carry the original path (deep link from a push-notification tap, etc.)
+      // so the user lands back where they were headed after signing in.
+      const signInUrl = new URL('/sign-in', req.url);
+      signInUrl.searchParams.set(
+        'redirect_url',
+        req.nextUrl.pathname + req.nextUrl.search
+      );
+      return NextResponse.redirect(signInUrl);
     }
 
     // Get user role from metadata - check multiple locations
