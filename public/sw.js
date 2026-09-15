@@ -65,11 +65,21 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() =>
-          caches.match(event.request).then(
-            (cached) =>
-              cached ||
-              caches.match('/').then((root) => root || caches.match('/dashboard')),
-          ),
+          caches
+            .match(event.request)
+            .then(
+              (cached) =>
+                cached ||
+                caches.match('/').then((root) => root || caches.match('/dashboard')),
+            )
+            .then(
+              (res) =>
+                res ||
+                new Response('Sin conexión. Vuelve a intentarlo cuando tengas internet.', {
+                  status: 503,
+                  headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                }),
+            ),
         ),
     );
     return;
@@ -99,7 +109,8 @@ self.addEventListener('fetch', (event) => {
   // Other same-origin assets (manifest, icons, etc.): stale-while-revalidate.
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
+      if (cached) return cached;
+      return fetch(event.request)
         .then((response) => {
           if (response.ok) {
             const copy = response.clone();
@@ -107,8 +118,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => cached);
-      return cached || network;
+        .catch(() => new Response('', { status: 503 }));
     }),
   );
 });

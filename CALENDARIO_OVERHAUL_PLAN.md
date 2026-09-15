@@ -1,6 +1,6 @@
 # Calendario Overhaul Plan (Diamond Link) — React-Big-Calendar (RBC) Edition
 
-> **Last updated:** 2026-09-13 · **Status:** Phases 0–5 complete (Phase 5 live QA passed 2026-09-13) · **Phase 9 ~40%** (RBC lazy + batched participants done) · **Phase 6 re-scoped 2026-09-13 → Android/PWA Standalone App (`diamond-calendar` sync) — plan cooked, 0% pending** · Phases 7–8 pending · Phase 10 ledger-only start
+> **Last updated:** 2026-09-14 · **Status:** Phases 0–5 complete (Phase 5 live QA passed 2026-09-13) · **Phase 9 ~40%** (RBC lazy + batched participants done) · **Phase 6 (Android/PWA Standalone App): port SHIPPED 2026-09-14 — `diamond-calendar` now mirrors the web calendar byte-for-byte; remaining = sw.js aggregation/deep-link + auth `redirect_url` parity, deploy, C30/C31 device QA** · Phases 7–8 pending · Phase 10 ledger-only start
 >
 > This plan keeps the point-for-point structure of `CHAT_OVERHAUL_PLAN.md` (same 11-phase
 > skeleton, quick/full/original matrices, analysis, comparison, effort, priority,
@@ -115,7 +115,7 @@
 | **3** | Slot Selection & Event Modal UX | ✅ | `████████████████████ 100%` | RBC slot closes create modal (un-pre-filled); event select pries open 883-line modal; no Zod/RHF; no drafts | **Implemented + committed (`764f97b`, 2026-09-08):** `onSelectSlot({start,end})` + pre-filled create modal; `onSelectEvent` → detail drawer (edit/delete); **Zod + RHF first adoption** — multi-step Details→Timing→Invitees&Reminders with per-step validation; dentist auto-populated from first doctor invitee (mock dropdown removed) + optional in schema; custom dentist/procedure free-text preserved; `calendar-draft:{date}` debounced autosave + one-tap restore (create-only, submit guarded to explicit button click, no Enter); repo `set/getEventInvitees`/`set/getEventReminders` + `dateToTimeStr`; patient link → `/patient-preview/[id]`; modal + drawer hardened (Escape-to-close, `role=dialog`/`aria-modal`, initial focus); **auth:** `/calendario` open to all authenticated roles (middleware routePermissions + `authorizeCalendar` accept any session; RLS owns scoping) — superuser 403 gone; **layout:** `RbcCalendar` wrapper pinned `height:600px` (RBC `.rbc-month-view{height:100%}` now resolves → month event tiles no longer collapse to headers-only); invitee picker loads in create mode too; both legacy callers intact; gate green (tsc 0 / ESLint 0 errors) | **QA C17–C21 + C25 passed in-browser (2026-09-09)**; a11y focus trap (`useFocusTrap`) deferred to Phase 8; visual mobile pass folded into Phase 4 QA |
 | **4** | Custom RBC Rendering & DnD | ✅ | `████████████████████ 100%` | Custom month cells + dots today; no week/day/agenda; no drag; monolithic `RbcCalendar` wrapper | **Implemented (2026-09-09) + perf/invitee tail (committed `c19de75`):** custom RBC `components` — event pill (dentist color dot, patient name, procedure badge), WhatsApp-style agenda rows with status chips, es toolbar (Hoy/‹/› + view switcher), es weekday/month headers (today highlight); `withDragAndDrop` (react-dnd + html5-backend peers installed) with `onEventDrop`/`onEventResize` → optimistic react-query move/resize (snapshot rollback) + **chair/cubicle overlap check** (`findDentistOverlap` — same-dentist collision blocks the move with a toast; cancelled events never block); month/all-day drops preserve existing times (date-only rebase); resize clamps to ≥ start +30 min and within the day; addon DnD CSS; gate green (tsc 0 / ESLint 0 errors, `next build` ✓). **Perf pass:** all mutations `onSettled → void invalidateAll()` (RQ v5 awaits `onSuccess` — modal/drawer close is snappy again), `keepPreviousData` on event range, cold-boot-only spinner, `dateToDateStr` → `clinicDateKey` (clinic-tz off-by-one on DayDetail fixed). **Invitee realtime for guests:** `20260909e` (event_invitees.updated_at) **applied + LEDGER ✓ (2026-09-09)** — owner move/resize now live-refreshes invitee B's calendar. **Browser QA PASSED + 4 follow-up fixes (committed `59b3b02`, deployed @ app.dentaldiamondhn.com ✓):** realtime debounce 10s → **1.5s** (invitee updates ~2s); **touch DnD** via `react-dnd-touch-backend` (coarse-pointer devices, 200ms long-press grace; desktop stays HTML5); **conflict check no longer skips** when the dragged event has no dentist — falls back to any-occupied-slot block + clearer es toast (`conflictMessage`); **`PROCEDURES` dropdown → Spanish** (Limpieza/Chequeo/Empaste/Endodoncia/Corona/Extracción/Blanqueamiento/Radiografía/Ortodoncia/Implante/Otro); ended-phase infra — `próximos esta semana` preview card (today→Sunday, Libre/Agendar, Cancelada chips), GoTrueClient singleton warning fixed, side cards es-HN (Recordatorios above Tareas, event reminders merged in). Gate green (tsc 0 / ESLint 0 errors) | **None — Phase 4 complete** |
 | **5** | Notifications & Push Pipeline | ✅ | `████████████████████ 100%` | Bell + `notifications` table + `event_reminders`; **webhook + SW cards + deep-link ✅ (migration applied 2026-09-10)**; invitee double-booking 409 ✅ live; cron reminder dispatcher + 5-min lean built | **✅ DELIVERED — user live QA passed 2026-09-13:** `/api/push/calendar-webhook` (shared secret, push+bell via `deliverCalendarToUser`); SW aggregated tray cards + `?eventId=` deep-link; participant-role recipients; `409 INVITEE_CONFLICT` + override; `/api/cron/reminders` (CRON_SECRET); GitHub Actions 5-min tick; notification RLS owner-scoping (`20260913b`+`20260913c` applied live) + bell mark-all/read/remove + SW mark-read sweeps (`30aa63a`, `a2a5312` deployed). |
-| **6** | Android/PWA Standalone App (`diamond-calendar` sync) | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Sibling repo `/home/dentaldiamondhn/diamond-calendar` = OLD calendar iteration (own git remote, Capacitor + FCM glue) — months behind the current `/calendario` masterpiece | **Re-scoped 2026-09-13 (plan cooked, not executed):** update the standalone to mirror the web calendar 1:1 — RBC views, Zod/RHF modal + drawer, invitees/reminders, realtime SSE, bell+push, Clerk custom `/sign-in`; keep native Capacitor/FCM Android glue; `npx cap sync android` → debug APK + PWA; on-device parity QA. See Phase 6 section |
+| **6** | Android/PWA Standalone App (`diamond-calendar` sync) | ◔ | `██████████████████░░░░ 80%` | **Port SHIPPED 2026-09-14 (4 commits, unpushed to `origin/main`):** `src/calendario/**` + `components/calendar-new/**` byte-identical (cmp-verified) to the monolith; events/tasks/reminders/cron/push/notifications APIs; bell/notification contexts + QueryProvider; UUID calendar layer deleted; Calendar.svg PWA branding. **Capacitor/FCM removed → PWA-only (no APK).** | Remaining: standalone sw.js parity (per-event aggregation + `?view=day&date=&eventId=` cold-boot deep-link + mark-read); Clerk `redirect_url` parity (middleware/layout/sign-in); push 4 commits + deploy; on-device C30/C31. See Phase 6 section |
 | **7** | Theming & i18n (es-HN) | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | `--fd-*` tokens chat-scoped; calendar hardcodes `teal-*`; mixed locales | `app/styles/rbc-theme.css` mapping `.rbc-*` to `--fd-*` (dark mode); typed es/en i18n (`CalendarTranslationKey`); `date-fns/locale/es` localizer + Monday `startOfWeek`; central es-HN `America/Tegucigalpa` formatter |
 | **8** | Accessibility & Keyboard Nav | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Loading/error states; no focus trap, `aria-live`, grid keyboard nav, reduced-motion | `useFocusTrap` on modal/drawer; `aria-live` for save/reschedule ("Cita cambiada a las 10:00"); RBC toolbar + event keyboard pass; skip-link; icon labels; reduced-motion; contrast bumps |
 | **9** | Performance & Dynamic Bundling | ◔ | `████████████░░░░░░░░ 40%` | RBC shell + `CalendarSkeleton` lazy via `next/dynamic` (Phase 1); participants batched + stale `max-age=7200` removed (Phase 2); `EventModal`/drawer still in route bundle; no bundle-analyzer report; react-window unused | `next/dynamic` RBC (`ssr:false`) + `CalendarSkeleton`; lazy modal/drawer chunks; `@next/bundle-analyzer` report; virtualize agenda; batched participants; First Load target before/after |
@@ -133,7 +133,7 @@ Aggregate: **Baseline functional; overhaul planned (~0%). Est. ≈ 24–26 perso
 | **3 – Slot Selection & Event Modal UX** | ✅ | `████████████████████ 100%` | `EventModal.tsx` (883 lines): patient search, invitee search (`/api/users`), `EVENT_COLORS` swatch, multi-reminder, delete; `TaskPanel` inline add/toggle/delete; no Zod/RHF | **Implemented + committed (`764f97b`, 2026-09-08):** RBC callbacks wired — **`onSelectSlot={({start,end})}` opens the create modal pre-filled** (month/agenda fall back to clinic defaults; week/work_week/day carry the slot times) and **`onSelectEvent={({resource})}` opens a new `EventDetailDrawer`** (invitees/reminders loaded, patient deep-link `/patient-preview/[id]`, Edit → same modal, Delete → confirm). `EventModal` rebuilt as modular **Zod + RHF** steps (*Details* patient search + procedure `PROCEDURES` → *Timing* pre-filled from slot → *Invitados & Recordatorios*), per-step `trigger` validation (C19 inline messages), `EVENT_COLORS` swatch, multi-reminders, delete-confirm. **Dentist:** mock static dropdown removed — value auto-populates from the first doctor invitee (`/api/users` filtered `role=doctor`) and is **optional** in the schema; custom dentist/procedure preserved via free-text escape + `VARCHAR` columns (C21). **Submit guard:** only an explicit button click triggers save (no Enter-key submit). **Drafts `calendar-draft:{date}`** debounced autosave + one-tap Restaurar/Descartar (C20, create-mode only). **Auth:** `/calendario` + all calendar APIs accept **any authenticated role** — `middleware.ts` `/calendario` removed from `routePermissions`, `authorizeCalendar()` gates on session only (RLS + route `.eq('user_id',…)` own the scoping; `tech_support` god-account 403 gone). **Layout:** `RbcCalendar` wrapper fixed `height:600px` (+ `Calendar style height:'100%'`) so RBC's `.rbc-month-view{height:100%}` flex resolves — the month event tiles that collapsed to headers-only in a content-sized parent are restored. `src/calendario/event/` (`eventSchema.ts`, `eventDraft.ts`, `fields.tsx`); repo gained `setEventInvitees`/`setEventReminders`/`getEventInvitees`/`getEventReminders` + `rbcAdapter.dateToTimeStr`. Legacy props kept — `Dashboard` + `DayDetail` workflows untouched. Gate green: `tsc --noEmit` 0, scoped ESLint 0 errors (23 pre-existing warnings), build verified in-session (`764f97b`). **QA (2026-09-09):** browser QA **C17–C21 + C25** passed; focus trap (`useFocusTrap`) deferred to Phase 8; visual mobile pass folded into Phase 4 QA. |
 | **4 – Custom RBC Rendering & DnD** | ✅ | `██████████████████████ 100%` | Month dots, per-day lists, string status/priority/type, `EVENT_COLORS` | Custom RBC `components`: event pill (procedure badge, patient name, **dentist color dot**, `EVENT_COLORS`), `agenda.event` WhatsApp-style rows with status chips (Confirmed/In Progress/Completed/Cancelled), `toolbar` (ours, i18n), `header` (Monday-first es); `withDragAndDrop`: `onEventDrop`/`onEventResize` → optimistic react-query mutation + server save + **chair/cubicle overlap check**; **Delivered (2026-09-09):** `src/calendario/calendarComponents.tsx` — event pill (dentist color dot, patient name, procedure badge on full-day cells), WhatsApp-style agenda rows + status chips (`STATUS_LABELS`), es toolbar (Hoy/‹/› + view switcher), es weekday/month headers (today highlight); `RbcCalendar.tsx` = `withDragAndDrop` + `DndProvider` (`react-dnd`/`react-dnd-html5-backend` installed, addon CSS, `selectable="ignoreEvents"`); shell `onEventDrop`/`onEventResize` → `src/calendario/calendarDnD.ts` (`dragTargetUpdates` month/all-day date-only rebase, resize clamp ≥ start +30 min & same-day, `findDentistOverlap` chair/cubicle check — same-dentist collision blocks with toast, cancelled never blocks); `updateEvent` mutation now optimistic w/ snapshot rollback. **QA PASSED (2026-09-10):** browser walkthrough C10–C12 + custom-rendering pass + mobile wrap verified in-browser & committed (`59b3b02`, deployed @ app.dentaldiamondhn.com ✓) — MOVE/RESIZE optimistic + clamped, dentist-overlap blocked (adjacency + cancelled-exemption allowed), realtime invitee refresh ~2s. Desktop DnD primary; touch via `react-dnd-touch-backend` (200 ms long-press grace); mobile precise edits via drawer (documented platform constraint). **invitee visibility:** `GET /api/events` now returns **owned OR invited** events (matches RLS + the `event_invitees` realtime binding) so invited calendars populate; non-owners are DnD-blocked with a toast (`No puedes mover una cita que no es tuya`); `PUT /api/events` best-effort-bumps `event_invitees.updated_at` (**migration `20260909e` — applied + LEDGER ✓ 2026-09-09**) so invited calendars live-refresh moves/resizes. Gate green: tsc 0 / ESLint 0 errors, `next build` ✓. |
 | **5 – Notifications & Push Pipeline** | ✅ | `████████████████████ 100%` | Bell + `notifications` table + `useNotificationListener` (→ `/calendario`); calendar never touched chat web-push; `CalendarNotificationCounter` dead UI | **✅ COMPLETE — user live QA passed 2026-09-13:** single `event_reminders` schedule; webhook `/api/push/calendar-webhook` (secret-gated, same VAPID/`push_subscriptions`/`public/sw.js` pipeline as chat); SW aggregated per-event tray cards (`tag:'calendar-<eventId>'`, renotify); `notificationclick` → `/calendario?view=day&date=&eventId=`; bell+push parity; role-aware recipients; reminder_time anchored to event start + cron dispatcher + 5-min lean; 409 invitee double-book ✅ live; personal `reminders` + recur `tasks` (20260911a) + TaskPanel inputs. **+2026-09-13:** RLS owner-scoping `20260913b`+`20260913c` applied live (anon probe: SELECT 0 rows, INSERT RLS-blocked); bell mark-as-read / mark-all / remove + SW `markBellRead` via `data.bellId` + `markChatConversationRead` + `notificationclose` sweep (`30aa63a`, `a2a5312` — deployed, verified on prod `/sw.js`); bell realtime channel replaced by tab-refocus + 30 s visible-only poll. |
-| **6 – Android/PWA Standalone App** | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | `diamond-calendar` (sibling repo) holds the OLD calendar iteration — Capacitor + FCM-native push + its own remote — nowhere near parity with the current web calendar (RBC, modal/drawer, realtime, RLS-scoped notifications, Clerk `/sign-in`) | **Plan cooked 2026-09-13, execution pending:** ① baseline drift diff `diamond-calendar` HEAD vs current web; ② port the shipping `src/calendario/**` (+ `app/api/events*`, `lib/calendarAuth`, timezone) as the single source of truth — no standalone-only features; ③ keep + unify Capacitor/FCM with the web-push pipeline (Honduras UTC-6); ④ Clerk on the standalone origin → custom `/sign-in` (never Clerk-hosted) + cold-boot notification deep-link; ⑤ PWA hosting + `cap sync android` → debug APK; ⑥ on-device parity pass (create/move/resize/invite/reminder/push/realtime/offline-shell). See Phase 6 section. |
+| **6 – Android/PWA Standalone App** | ◔ | `██████████████████░░░░ 80%` | `diamond-calendar` (sibling repo) **now mirrors the current web calendar — port SHIPPED 2026-09-14** (`7bac426` → `4fe3972`, 4 ahead of `origin/main`): RBC engine, modal/drawer, invitees/reminders, realtime SSE, RLS-scoped notifications, Clerk custom `/sign-in` all present byte-identical (`cmp`-verified); **Capacitor/FCM REMOVED → PWA-only** | Remaining: ① sw.js parity (per-event `calendar-<eventId>` aggregation + `?view=day&date=&eventId=` deep-link + mark-read sweeps); ② Clerk `redirect_url` parity (middleware/layout/sign-in) so cold-boot notification taps never hit Clerk-hosted sign-in and return to the event; ③ `git push` 4 commits → `origin/main` + deploy; ④ C30/C31 on-device parity pass. See Phase 6 section. |
 | **7 – Theming & i18n (es-HN)** | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | `--fd-*` tokens chat-scoped; calendar hardcodes `teal-*`/`gray-*` + `dark:`; locale mixing `en-US`/`es-HN`/`es-ES` | **`app/styles/rbc-theme.css`**: map `.rbc-calendar/.rbc-header/.rbc-time-content/.rbc-event/.rbc-today` to `--fd-*` tokens, full dark-mode; typed i18n layer (`src/calendario/i18n/…`, `CalendarTranslationKey`, es-first server default, reusing chat's `DocumentLang` for `<html lang>`); **`date-fns/locale/es`** localizer + Monday `startOfWeek(date,{weekStartsOn:1})`; central es-HN `America/Tegucigalpa` formatter (Android WebView-safe `safeLocaleDate` fallback); weekday/month labels es. |
 | **8 – Accessibility & Keyboard Nav** | ◻ | `░░░░░░░░░░░░░░░░░░░░ 0%` | Loading + error + "No autorizado" states; no `useFocusTrap`; no `aria-live` toasts; no keyboard nav; no reduced-motion handling | **`useFocusTrap`** on `EventModal`/detail drawer/menus; **`aria-live="polite"`** for save/send/reschedule ("Cita cambiada a las 10:00 AM") + toast/reminder announcements; ARIA labels on all icon-only buttons; RBC keyboard pass (toolbar buttons, event focus/Enter, `role="grid"` semantics where RBC exposes them); skip-link → `#calendario-content`; focus restore; `prefers-reduced-motion` guards on framer-motion + RBC transitions; AA contrast bumps on muted grays; `role="main"` landmark. |
 | **9 – Performance & Dynamic Bundling** | ◔ | `████████████░░░░░░░░ 40%` | RBC shell + `CalendarSkeleton` lazy via `next/dynamic` (Phase 1); participants batched + stale `7200` removed (Phase 2); `EventModal`/drawer still in route bundle; no `@next/bundle-analyzer` report; no `optimizePackageImports`; react-window unused | `next/dynamic` RBC: `const BigCalendar = dynamic(() => import('react-big-calendar').then(m => m.Calendar), { ssr:false, loading: () => <CalendarSkeleton/> })`; lazy `ssr:false` chunks for `EventModal`/drawer/invitee search/reminder editor; `@next/bundle-analyzer` report (RBC + date-fns locale gzip impact recorded); react-window agenda virtualization on long days; batched participant/patient queries (no N+1); First Load JS before/after; remove stale public caching. |
@@ -141,44 +141,68 @@ Aggregate: **Baseline functional; overhaul planned (~0%). Est. ≈ 24–26 perso
 
 ---
 
-### Phase 6 — Android/PWA Standalone App (re-scoped 2026-09-13 — plan cooked, NOT executed)
+### Phase 6 — Android/PWA Standalone App (re-scoped 2026-09-13 → **port SHIPPED 2026-09-14**)
 
 > **Why the re-scope:** the old "PWA & Offline" phase (precache `/calendario`, IndexedDB query
 > persister, offline create/reschedule queue inside the monolith's service worker) was
 > **scrapped as-is on 2026-09-13**. The installable surface is now a **dedicated standalone
 > app**, seeded by the old calendar iteration in the sibling repo
-> `/home/dentaldiamondhn/diamond-calendar` (own git remote; `diamond-calendar` also ships
+> `/home/dentaldiamondhn/diamond-calendar` (own git remote; `diamond-calendar` also shipped
 > Capacitor + FCM native push — a mobile story the web PWA can't fully match). The standalone
 > must be **updated to match the current `/calendario` masterpiece** — the exact opposite of the
 > old phase: the web app is the source of truth, the standalone catches up.
 
-**Objective:** ship an installable **Android/PWA** calendar app (Capacitor `npx cap sync android`
-→ debug APK **and** a PWA build) whose calendar is behaviorally identical to the deployed web
-calendar today.
+**Objective:** ship an installable **Android/PWA** calendar app (PWA build; Capacitor was removed)
+whose calendar is behaviorally identical to the deployed web calendar today.
 
-**Plan (execution NOT started):**
-1. **Baseline drift inventory** — diff `diamond-calendar` HEAD vs the current `diamond-link`
-   `/calendario`: RBC views (`MONTH/WEEK/WORK_WEEK/DAY/AGENDA` + URL sync), slot-create +
-   multi-step Zod/RHF modal + event detail drawer, invitees/reminders, dentist-overlap DnD
-   (touch + HTML5), realtime SSE `/api/events/realtime`, batched participants, bell + push +
-   notification RLS (mark-read/remove), Clerk custom `/sign-in` cycle, `--fd-*`/es-HN formatters.
-2. **Port-in as single source of truth** — copy the shipping `src/calendario/**` (+ required
-   `app/api/events*`, `lib/calendarAuth`, timezone) into the standalone repo; the monolith is
-   untouched. Parity only — no standalone-only features.
-3. **Android native glue** — keep Capacitor + `google-services.json` FCM; unify with the web-push
-   pipeline exactly as the monolith does (webhook → `push_subscriptions`), Honduras `UTC-6`
-   preserved.
-4. **Auth** — Clerk on the standalone origin; signed-out **always** → custom `/sign-in` (never the
-   Clerk-hosted page); cold-boot deep-link from a notification returns to the event.
-5. **Build/deploy** — standalone PWA via its own hosting + `cap sync android` → debug APK;
-   icons/splash/manifest sourced from the monolith's PWA set.
-6. **Acceptance** — device parity pass on the installed app: every web-calendar interaction
-   (create/move/resize/invite/reminder) + closed-app push + realtime refresh + offline shell +
-   deep-link cold boot.
+**Status — port DONE (2026-09-14), 4 commits on `diamond-calendar@main`, UNPUSHED:**
 
-**Effort:** ≈ 3 person-days (repo + native glue already exist; the port is mechanical).
-**Risk:** Medium (the standalone repo may carry dead old dependencies — expect `npm i` / a Next
-version bump before the port). **Gate:** `tsc --noEmit` + scoped ESLint + on-device parity pass.
+- `6fbf1d4` **(pre-port decision)** — **`remove: Android Capacitor notification system, keep
+  PWA/desktop notifications`**: Capacitor + FCM native push **scrubbed entirely** in favor of the
+  web VAPID push pipeline shared with the monolith. No `android/` dir, no `capacitor.config.*`, no
+  `npx cap sync android` → **APK is out of scope; the deliverable is the installable PWA.**
+- `7bac426` `feat(calendario): port overhauled RBC calendar from web app (Phase 6)` — the big port:
+  - `src/calendario/**` (RBC engine, `CalendarShell` + URL sync, repository, react-query hooks,
+    realtime SSE, DnD + overlap, event modal/drawer, panels) **byte-identical** (`cmp`-verified);
+  - `components/calendar-new/**` (EventModal Zod/RHF, detail drawer, ConflictOverrideDialog,
+    TaskPanel, ReminderPanel, Toast, AnimatedWhatsApp) + `PushStatusBadge`; `src/lib/calendarAuth`,
+    `dentistAvailability`, `clerkUsers`, push/vapid, supabase service clients;
+  - all calendar API routes (`app/api/events/**`, `tasks`, `reminders`, `cron/reminders` +
+    `.github/workflows/calendario-reminders.yml`, `push/*` incl. `calendar-webhook`,
+    `notifications`, `users`, `patients`) **byte-identical**;
+  - bell/notification/theme contexts + `QueryProvider`; **dead legacy UUID calendar layer removed**;
+  - tracked `1.env`/`1.local` service-role key pointed at the verified valid key.
+- `1f7b649` — tailwind scans `./src/**` + `app/globals.css` adopts the monolith's RBC dark-mode
+  theming (byte-identical) so the calendar renders the same.
+- `ea18f49` / `4fe3972` — Calendar.svg branding across app + sign-in + manifest + sw.js; icons
+  rasterized from Calendar.svg.
+
+**Remaining (the deltas vs the monolith, mirror them over):**
+1. **Standalone `public/sw.js` parity** — it still carries the simplified `diamond-link-v2`
+   handler: single generic card (`tag: data.type || 'general'`), and `notificationclick` on
+   `eventId` → `/calendario` **without** `?view=day&date=&eventId=` (detail drawer won't open on
+   cold boot), **no** per-event aggregation (`tag:'calendar-<eventId>'` + count + renotify), **no**
+   `markBellRead`/SW mark-read sweep, **no** `notificationclose` handling. Port the monolith's
+   `showCalendarNotification()` + click/close handlers.
+2. **Clerk deep-link parity (mirror monolith `69d9b95`)** — the standalone's middleware is the
+   plain `auth.protect()` (no `/sign-in?redirect_url=<path>`), `ClerkProvider` in `app/layout.tsx`
+   lacks `signInUrl`/`afterSignOutUrl`, and `app/sign-in/[[...sign-in]]/page.tsx` routes to
+   `/dashboard` by role (ignores `redirect_url`). Result: a cold-boot notification tap can land on
+   Clerk-hosted sign-in or lose the deep link. Copy the monolith's middleware/layout/sign-in
+   handling exactly.
+3. **Push + deploy** — `git push` the 4 commits to `origin/main` (standalone's own remote, main
+   branch is correct there); build (`NODE_OPTIONS=--max-old-space-size=4096`) + deploy the
+   standalone to its own hosting; confirm `/api/events/realtime` SSE, `calendar-webhook`,
+   cron workflow, and the `?eventId=` deep-link all work on the deployed origin.
+4. **On-device parity QA (C30/C31)** — install the PWA on the target Android platform, run
+   C30/C31: boot → offline shell + banner; create/move/resize/invite/reminder identical to web;
+   closed-app push; realtime refresh; deep-link cold boot. (Offline create/reschedule *queue* was
+   scrapped with the old PWA phase — C31 is offline-shell-only now.)
+
+**Effort:** port done (took the planned ~3 days). **Remaining ≈ 0.5–1 person-day** (sw.js +
+Clerk parity, push/deploy, QA). **Risk:** now **Low** — parity work is diff-copying from the
+monolith, same dependencies already installed (React 18, RBC, react-dnd, workbox). **Gate:**
+`tsc --noEmit` + scoped ESLint in the standalone + on-device C30/C31 pass.
 
 ---
 
@@ -219,8 +243,8 @@ CB = Chromebook (PWA) · iOS = Safari/Home-Screen PWA · MW = WebView.
 | C27 | Push | Invitee notifications aggregate per event (like chat per-thread) + `renotify` | MC, CB | One card per event |
 | C28 | Push | Body tap deep-links `/calendario?view=day&date=&eventId=` and selects event (no React #185) | CB, MC | Event/day opens |
 | C29 | Notifications | Bell + push parity: mark-read in one clears the other | DC | Counts consistent |
-| C30 | Standalone | Installed standalone app (Android/PWA) boots an offline shell with last-known calendar + banner | CB, MW | No white-screen; banner |
-| C31 | Standalone | Create/reschedule offline in the standalone app → amber pill + queued; flush in order on reconnect | CB, MW | Lands once, ordered |
+| C30 | Standalone | Installed PWA (Android) boots → offline shell with last-known calendar + banner | CB, MW | No white-screen; banner |
+| C31 | Standalone | Offline shell in installed PWA: last-known calendar browsable offline (offline create/reschedule queue scrapped with the Capacitor/offline phase) | CB, MW | Offline shell usable; queued-writes feature intentionally absent |
 | C32 | i18n | es/en flips labels, months, weekdays, RBC toolbar, dates; week starts Monday | DC | No `en-US` leaks |
 | C33 | Theming | Dark mode on month/week/day/agenda + modal: `--fd-*` tokens only (no hardcoded teal) | DC, MC | Consistent tokens |
 | C34 | A11y | Keyboard-only: Tab through modal, Esc close, focus trap + restore; RBC toolbar/events focusable | DC | No dead-ends |
@@ -318,7 +342,7 @@ react-query realtime on live tables, es-HN i18n + `--fd-*` RBC theme, a11y pass,
    drag/resize with overlap check.
 6. **Phase 7/8 – Theming/i18n/A11y** — es-first parity, tokens, keyboard/screen-reader.
 7. **Phase 9 – Performance** — `next/dynamic` RBC + bundle report.
-8. **Phase 6 – Android/PWA Standalone App** — additive and separate (never blocks web phases): update the old `diamond-calendar` iteration to mirror the current web calendar.
+8. **Phase 6 – Android/PWA Standalone App** — additive and separate (never blocks web phases): **port SHIPPED 2026-09-14** (`diamond-calendar` mirrors the current web calendar, Capacitor removed → PWA-only); remaining = sw.js + Clerk `redirect_url` parity, push/deploy, C30/C31 QA.
 9. **Phase 10 – QA/Rollout** — executed last, as with chat.
 
 ### Deliberate decisions / divergences (draft)
@@ -338,10 +362,11 @@ react-query realtime on live tables, es-HN i18n + `--fd-*` RBC theme, a11y pass,
   on coarse-pointer devices with a 200 ms grace so native scroll wins on swipe and long-press
   starts a drag. Tap → drawer remains the precise-edit path on mobile.
 - **Push via the existing chat web-push pipeline**, not a parallel one.
-- **Standalone app is a separate surface, not a monolith feature.** The old `diamond-calendar`
-  copy (sibling repo, Capacitor + FCM history) is the seed; it must be brought up to **mirror the
-  current web calendar exactly** — never fork new features into it. Capacitor/FCM native glue
-  lives only in the standalone; the monolith stays PWA-only.
+- **Standalone app is a separate surface, not a monolith feature.** `diamond-calendar` (sibling
+  repo) was brought up to **mirror the current web calendar exactly** — port shipped 2026-09-14
+  (byte-identical `src/calendario/**` + APIs). **Capacitor/FCM was removed** — the standalone is a
+  **PWA only** (web-push VAPID pipeline, no APK); the monolith stays PWA-only. Never fork new
+  features into the standalone.
 - **No Storybook** (same decision as chat — accepted).
 - **React 19 peer-dep pin:** if RBC emits React 19 peer warnings, add an
   `overrides`/`resolution` pin and validate DnD on the deployed build (C10–C12).
@@ -363,7 +388,7 @@ theming, a11y, perf). Auth stays Clerk.
 | **UI** | Month grid + day panel + tasks/reminders + rich modal (custom options) | Month-only; no week/day/agenda; no drag; monolith modal |
 | **Realtime** | Service exists (orphaned tables) | Not on live data; no REPLICA IDENTITY; publication drift |
 | **Notifications** | Bell + `notifications` table; deep-link listener | Unauthenticated `send-to-user`; no web-push; 3 reminder stores |
-| **Standalone (Android/PWA)** | Old `diamond-calendar` iteration exists (Capacitor + FCM) | Drifted months behind the web calendar; must be re-synced to parity |
+| **Standalone (Android/PWA)** | **Port SHIPPED 2026-09-14** — `diamond-calendar` mirrors the current web calendar (RBC, modal/drawer, realtime, push, Clerk `/sign-in`), PWA-only (Capacitor removed) | sw.js + Clerk `redirect_url` parity, push/deploy, on-device C30/C31 QA |
 | **Performance** | Route works | Monolith + future RBC must be lazy; N+1 participants |
 | **A11y** | Loading/error/unauthorized states | No focus trap, `aria-live`, keyboard nav, reduced-motion |
 | **i18n / Theme** | Dark mode via ThemeContext | No i18n layer; mixed locales; tokens chat-scoped |
@@ -388,7 +413,7 @@ theming, a11y, perf). Auth stays Clerk.
 | 3 – Slot Selection & Event Modal UX | 3 | Medium (modal split) |
 | 4 – Custom RBC Rendering & DnD | 3 | Medium (DnD + overlap) |
 | 5 – Notifications & Push Pipeline | 3 | Medium (webhook + SW calendar path) |
-| 6 – Android/PWA Standalone App (`diamond-calendar` sync) | 3 | Medium |
+| 6 – Android/PWA Standalone App (`diamond-calendar` sync) | 1 | Low (port done; sw.js + Clerk `/sign-in` parity remain) |
 | 7 – Theming & i18n (es-HN) | 2 | Low (RBC CSS overlay) |
 | 8 – Accessibility & Keyboard Nav | 2 | Low |
 | 9 – Performance & Dynamic Bundling | 2 | Low |
@@ -412,7 +437,7 @@ theming, a11y, perf). Auth stays Clerk.
 | **Patient linkage** | `patient_id`/`patient_name` | Event ↔ `/pacientes` + `/patient-form` | Deep links |
 | **Custom options** | Rich modal (procedures/dentists/colors) | Preserved via `components.*` + `resource` | Data layer unchanged |
 | **Notifications** | Bell + browser only | Bell + web-push + SW calendar cards | Closed-app delivery |
-| **Standalone app** | None | Installable Android/PWA mirroring the web calendar (RBC + push) | `diamond-calendar` sync (parity, not new features) |
+| **Standalone app** | Port SHIPPED 2026-09-14 (mirrors web calendar, PWA-only) | Installable Android/PWA mirroring the web calendar (RBC + push) | `diamond-calendar` sync (parity, not new features); sw.js + Clerk `/sign-in` parity pending |
 | **i18n / Theme** | Mixed locales; hardcoded colors | Typed es/en; `--fd-*` RBC theme | Es-first, Monday start |
 | **A11y** | Loading/error states | Focus traps, aria-live, keyboard pass | Chat Phase 8 parity |
 | **Security** | `x-user-id` header trust | Clerk-session identity + RLS | Close the hole |
@@ -486,6 +511,17 @@ Preceding UI passes also shipped in the same commit: "Próximos esta semana" pre
 - **Post-plan Phase-5-adjacent shipping (2026-09-11→13, committed on `master`; deployed locally via `vercel --prod`):** event phone autopopulate + WhatsApp link (`1286423`+`7d6c04b`); default smart reminder schedule + country-code phone (`1286423`); event-start notifications + compact icon (`28b6c6c` "Phase 5 100%"); reliable 1-min dispatch + pgcron robustness (`4ae3b49`, `2a5b272`, `bc932d6`); fired-reminder visibility (`1b3a03c`); SW cache v12 + `updateViaCache: none` (`02d3c63`); Clerk-based participant identities (`d3fe339`) + dashboard avatar fix (`b65804d`); Próximos Eventos owned-OR-invited (`f48b96a`); notification RLS owner-scoping (`20260913b` insert + `20260913c` select/update/delete — both applied live) + bell mark-read/re-popup/SW-swipe fixes (`30aa63a`, `a2a5312`).
 
 **Active**
+- **Phase 6 (Android/PWA Standalone App): port SHIPPED 2026-09-14 — remaining = sw.js + Clerk `/sign-in` parity, push/deploy, on-device QA.**
+  - **Port done (user, `diamond-calendar@main`, 4 unpushed commits `7bac426`→`4fe3972`):** `src/calendario/**` +
+    `components/calendar-new/**` + all calendar API routes byte-identical (`cmp`-verified) to the monolith;
+    UUID calendar layer deleted; `globals.css` dark-mode + tailwind `./src` scan; Calendar.svg PWA branding.
+  - **Capacitor/FCM removed (`6fbf1d4`) → PWA-only** (no APK; web VAPID push pipeline shared with the monolith).
+  - **Remaining deltas (mirror from the monolith):** ① standalone `public/sw.js` → per-event
+    `calendar-<eventId>` aggregation + count + renotify, `notificationclick` → `/calendario?view=day&date=&eventId=`
+    (opens detail drawer on cold boot), `markBellRead`/`notificationclose` sweeps; ② Clerk deep-link parity —
+    middleware `/sign-in?redirect_url=<path>`, `ClerkProvider signInUrl`/`afterSignOutUrl`, sign-in honors
+    `redirect_url` (mirror `69d9b95`); ③ `git push` 4 commits → `origin/main` + build + deploy the standalone;
+    ④ C30/C31 on-device. **See Phase 6 section + Next Move.**
 - **Phase 5 (Notifications & Push Pipeline): code complete + committed — remaining = deploy + QA.**
   - **5a calendar push — ✅ DELIVERED (`ecaa248`):** `/api/push/calendar-webhook` (shared
     `PUSH_WEBHOOK_SECRET` gate; events branch → invitees via `event_invitees`, skips owner +
@@ -569,10 +605,19 @@ Preceding UI passes also shipped in the same commit: "Próximos esta semana" pre
    task recur +2d / one-shot cleared / completed untouched) → **user Live QA:** schedule a personal
    ReminderPanel note + a recurring task with `remind_at` in the past → ≤5 min later both arrive (push + bell);
    complete the task → it stops firing.
-5. **Post-QA:** ~~mark Phase 5 + 5b rows → ✅ in the status table~~ ✅ (done 2026-09-13);
-   ~~scope Phase 6 (PWA/offline)~~ → **Phase 6 re-scoped to the Android/PWA Standalone App
-   (`diamond-calendar` sync) — plan cooked 2026-09-13, execution pending (user to kick off)**;
-   next actionable: Phase 10 (final QA matrix C01–C36 + rollback + changelog) or Phases 7–9 tail.
+5. **Phase 6 (Android/PWA Standalone App) — port SHIPPED 2026-09-14 (user ported `diamond-calendar`
+   to mirror the web calendar byte-for-byte; 4 commits `7bac426`…`4fe3972` on `diamond-calendar@main`,
+   UNPUSHED; Capacitor removed → PWA-only).** Remaining:
+   - **Standalone sw.js parity** — per-event `calendar-<eventId>` aggregation + count + renotify,
+     `notificationclick` → `/calendario?view=day&date=&eventId=` (opens drawer on cold boot),
+     `markBellRead`/SW mark-read + `notificationclose` sweeps (mirror monolith `public/sw.js`).
+   - **Clerk deep-link parity** — mirror monolith `69d9b95`: middleware `/sign-in?redirect_url=`,
+     `ClerkProvider signInUrl`/`afterSignOutUrl`, sign-in honors `redirect_url` (never Clerk-hosted).
+   - **Push + deploy** — `git push` 4 commits → `origin/main`; build + deploy standalone;
+     verify `/api/events/realtime`, `calendar-webhook`, cron workflow, `?eventId=` deep-link live.
+   - **QA** — C30/C31 on-device (offline shell + banner; parity interactions; closed-app push; cold-boot deep-link).
+6. **Next actionable in the monolith:** Phase 10 (final QA matrix C01–C36 + rollback + changelog)
+   or Phases 7–9 tail.
 
 ### Verification Gate
 ```bash

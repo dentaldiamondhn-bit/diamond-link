@@ -482,8 +482,8 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
             <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-teal-100 capitalize">{todayLabel}</p>
-                <h2 className="mt-1 text-2xl font-bold text-white sm:text-3xl">
+                <p className="text-sm font-medium text-teal-100 capitalize" suppressHydrationWarning>{todayLabel}</p>
+                <h2 className="mt-1 text-2xl font-bold text-white sm:text-3xl" suppressHydrationWarning>
                   ¡Bienvenido de nuevo, {firstName}!
                 </h2>
                 <p className="mt-2 text-teal-50">
