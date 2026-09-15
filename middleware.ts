@@ -4,6 +4,8 @@ import { NextResponse, NextRequest } from 'next/server';
 const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
+  '/privacy',
+  '/terms',
   '/api/(.*)',
   '/api/terminal/(.*)',
   '/api/tickets/(.*)',  // Add tickets API routes
