@@ -300,8 +300,8 @@ async function showSimpleNotification(payload) {
   const title = payload.title || 'Diamond Link';
   const options = {
     body: payload.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: payload.icon || '/icon-192.png',
+    badge: payload.badge || '/icon-192.png',
     tag: payload.tag || undefined,
     data: payload.data || {},
     vibrate: [100, 50, 100],
@@ -336,8 +336,8 @@ async function showCalendarNotification(payload, data) {
 
   await self.registration.showNotification(title, {
     body,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/calendar-192.png',
+    badge: '/calendar-192.png',
     tag: threadId,
     renotify: true,
     data: {

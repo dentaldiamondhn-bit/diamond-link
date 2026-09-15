@@ -182,8 +182,8 @@ export async function GET(req: NextRequest) {
               {
                 title,
                 body,
-                icon: '/icon-192.png',
-                badge: '/icon-192.png',
+                icon: '/calendar-192.png',
+                badge: '/calendar-192.png',
                 tag: `calendar-${ev.id}`,
                 renotify: true,
                 data: metadata,
@@ -275,8 +275,8 @@ export async function GET(req: NextRequest) {
               {
                 title,
                 body,
-                icon: '/icon-192.png',
-                badge: '/icon-192.png',
+                icon: '/calendar-192.png',
+                badge: '/calendar-192.png',
                 tag: `calendar-${ev.id}`,
                 renotify: true,
                 data: metadata,
@@ -333,8 +333,8 @@ export async function GET(req: NextRequest) {
           {
             title,
             body,
-            icon: '/icon-192.png',
-            badge: '/icon-192.png',
+            icon: '/calendar-192.png',
+            badge: '/calendar-192.png',
             tag: `reminder-${note.id}`,
             renotify: true,
             data: metadata,
@@ -388,8 +388,8 @@ export async function GET(req: NextRequest) {
           {
             title: who,
             body,
-            icon: '/icon-192.png',
-            badge: '/icon-192.png',
+            icon: '/calendar-192.png',
+            badge: '/calendar-192.png',
             tag: `task-${task.id}`,
             renotify: true,
             data: metadata,

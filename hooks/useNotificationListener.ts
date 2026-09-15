@@ -73,7 +73,8 @@ function showBrowserNotification(n: BellNotification) {
   }
 
   let onClickUrl = '/';
-  if (n.type === 'calendar_event' || n.type === 'calendar_reminder') {
+  const isCalendar = n.type === 'calendar_event' || n.type === 'calendar_reminder';
+  if (isCalendar) {
     onClickUrl = '/calendario';
   } else if (meta.patientId) {
     onClickUrl = `/menu-navegacion?id=${meta.patientId}`;
@@ -82,8 +83,8 @@ function showBrowserNotification(n: BellNotification) {
   showNotification({
     title: n.title,
     body,
-    icon: '/Logo.svg',
-    badge: '/Logo.svg',
+    icon: isCalendar ? '/calendar-192.png' : '/Logo.svg',
+    badge: isCalendar ? '/calendar-192.png' : '/Logo.svg',
     tag: n.type || 'general',
     requireInteraction: false,
     data: {

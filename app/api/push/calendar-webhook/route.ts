@@ -140,8 +140,8 @@ export async function POST(request: NextRequest) {
           {
             title,
             body,
-            icon: '/icon-192.png',
-            badge: '/icon-192.png',
+            icon: '/calendar-192.png',
+            badge: '/calendar-192.png',
             tag: `calendar-${id}`,
             renotify: true,
             data,
@@ -213,8 +213,8 @@ export async function POST(request: NextRequest) {
     {
       title: 'Invitación a cita',
       body: inviteBody,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/calendar-192.png',
+      badge: '/calendar-192.png',
       tag: `calendar-${eventId}`,
       renotify: true,
       data: inviteeData,
