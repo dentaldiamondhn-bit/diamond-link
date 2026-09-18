@@ -45,10 +45,15 @@ const PROD_TO_DEV: Record<string, string> = Object.fromEntries(
   Object.entries(DEV_TO_PROD).map(([dev, prod]) => [prod, dev])
 );
 
+/** Returns true if we should use the dev→prod ID mapping (localhost dev or Vercel preview). */
+function shouldUseDevMapping(): boolean {
+  return process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview';
+}
+
 /**
  * Fetch identities for the given Clerk user ids. Unknown ids are omitted from
  * the map; callers should fall back to {@link FALLBACK_IDENTITY}.
- * In development, production IDs are mapped to dev IDs before fetching from
+ * In development/preview, production IDs are mapped to dev IDs before fetching from
  * the dev Clerk instance, since the shared Supabase stores production IDs.
  */
 export async function getClerkUserIdentities(
@@ -64,8 +69,8 @@ export async function getClerkUserIdentities(
       secretKey: process.env.CLERK_SECRET_KEY,
     });
 
-    // In development, map production IDs to dev IDs before fetching
-    const isDev = process.env.NODE_ENV === 'development';
+    // In development/preview, map production IDs to dev IDs before fetching
+    const isDev = shouldUseDevMapping();
     const fetchIds = isDev ? ids.map(id => PROD_TO_DEV[id] || id) : ids;
     const idMapping = isDev 
       ? Object.fromEntries(ids.map((id, i) => [fetchIds[i], id]))
@@ -79,7 +84,7 @@ export async function getClerkUserIdentities(
     for (const user of data) {
       const firstName = user.firstName || '';
       const lastName = user.lastName || '';
-      // Map back to original ID (production in dev, same in prod)
+      // Map back to original ID (production in dev/preview, same in prod)
       const originalId = isDev ? (idMapping[user.id] || user.id) : user.id;
       result.set(originalId, {
         first_name: firstName,
