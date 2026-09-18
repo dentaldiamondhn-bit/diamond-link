@@ -1,4 +1,4 @@
--- Migration: Add new endodontic statuses to odontogram
+-- Migration: Add new endodontic statuses to odontogram pilot
 -- Date: 2025
 -- Description: Update endodontic statuses in odontogram pilot
 -- 1. Change 'endodoncia' to 'endodoncia_con_restauracion'
@@ -8,7 +8,7 @@
 -- we only need to update existing data and document the new valid statuses.
 
 -- Update existing 'endodoncia' records to 'endodoncia_con_restauracion'
-UPDATE odontograms
+UPDATE odontogram_pilots
 SET datos_odontograma = jsonb_set(
     datos_odontograma,
     '{dientes}',
@@ -40,7 +40,7 @@ SET datos_odontograma = jsonb_set(
 WHERE datos_odontograma ? 'dientes';
 
 -- Add comment documenting new valid endodontic statuses
-COMMENT ON COLUMN odontograms.datos_odontograma IS 'JSONB containing dientes with estado values. Valid endodontic statuses: endodoncia_con_restauracion, endodoncia_con_caries, endodoncia_con_corona, endodoncia_abierta, endodoncia_con_provisional';
+COMMENT ON COLUMN odontogram_pilots.datos_odontograma IS 'JSONB containing dientes with estado values. Valid endodontic statuses: endodoncia_con_restauracion, endodoncia_con_caries, endodoncia_con_corona, endodoncia_abierta, endodoncia_con_provisional';
 
 -- The new valid endodontic statuses are:
 -- endodoncia_con_restauracion (replaces 'endodoncia')
