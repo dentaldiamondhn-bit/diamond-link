@@ -256,7 +256,7 @@ function PresupuestosPageContent() {
     };
 
     const allTeeth = teethToCount;
-    const statusPriority: { [key: string]: number } = { 'cariado': 1, 'obturado': 2, 'resina': 3, 'amalgama': 4, 'fracturado': 5, 'endodoncia': 6, 'extraccionind': 7, 'corona': 8, 'implante': 9, 'protesis': 10, 'caries-restauracion': 11, 'sellante': 12, 'txpulpar': 13, 'ausente': 14, 'atricion': 15, 'erosion': 16, 'abfraccion': 17, 'abrasion': 18, 'erupcion': 19, 'apilado': 20, 'movilidad': 21, 'fistula': 22, 'odontopatia': 23, 'carilla': 24, 'carilla_resina': 25, 'carilla_defectuosa': 26, 'carilla_disilicato': 27, 'temporal': 28, 'raiz': 29, 'sano': 30 };
+    const statusPriority: { [key: string]: number } = { 'cariado': 1, 'obturado': 2, 'resina': 3, 'amalgama': 4, 'fracturado': 5, 'endodoncia_con_restauracion': 6, 'endodoncia_con_caries': 7, 'endodoncia_con_corona': 8, 'endodoncia_abierta': 9, 'endodoncia_con_provisional': 10, 'extraccionind': 11, 'corona': 12, 'implante': 13, 'protesis': 14, 'caries-restauracion': 15, 'sellante': 16, 'txpulpar': 16, 'ausente': 17, 'atricion': 18, 'erosion': 18, 'abfraccion': 19, 'abrasion': 19, 'erupcion': 20, 'apilado': 20, 'movilidad': 21, 'fistula': 22, 'odontopatia': 23, 'carilla': 24, 'carilla_resina': 25, 'carilla_defectuosa': 26, 'carilla_disilicato': 27, 'temporal': 28, 'raiz': 29, 'sano': 30 };
     allTeeth.forEach((toothNumber) => {
       const toothKey = toothNumber.toString();
       const diente = datos_odontograma.dientes[toothKey];

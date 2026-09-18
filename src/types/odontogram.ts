@@ -40,7 +40,7 @@ export interface OdontogramData {
 
 export interface DienteData {
   numero: string; // 11, 12, 13, etc.
-  estado: 'sano' | 'caries' | 'obturado' | 'extraccion' | 'ausente' | 'corona' | 'puente' | 'implante' | 'endodoncia' | 'fracturado' | 'sellante' | 'fistula';
+  estado: 'sano' | 'caries' | 'obturado' | 'extraccion' | 'ausente' | 'corona' | 'puente' | 'implante' | 'endodoncia_con_restauracion' | 'endodoncia_con_caries' | 'endodoncia_con_corona' | 'endodoncia_abierta' | 'endodoncia_con_provisional' | 'fracturado' | 'sellante' | 'fistula';
   caras: {
     oclusal?: CaraDiente;
     vestibular?: CaraDiente;
@@ -54,7 +54,7 @@ export interface DienteData {
 }
 
 export interface CaraDiente {
-  estado: 'sano' | 'caries' | 'obturado' | 'fracturado' | 'abrasion' | 'erosion' | 'hipoplasia' | 'mancha' | 'sellante' | 'fistula';
+  estado: 'sano' | 'caries' | 'obturado' | 'fracturado' | 'abrasion' | 'erosion' | 'hipoplasia' | 'mancha' | 'sellante' | 'fistula' | 'endodoncia_con_restauracion' | 'endodoncia_con_caries' | 'endodoncia_con_corona' | 'endodoncia_abierta' | 'endodoncia_con_provisional';
   tratamiento?: string;
   observaciones?: string;
 }

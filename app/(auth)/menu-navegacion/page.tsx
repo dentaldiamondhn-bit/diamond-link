@@ -494,7 +494,7 @@ function MenuNavegacionContent() {
     const allStates = Object.entries(status_counts)
       .filter(([_, count]: [string, number]) => count > 0)
       .sort(([stateA, countA]: [string, number], [stateB, countB]: [string, number]) => {
-        const sortOrder = ['sano', 'ausente', 'cariado', 'obturado', 'resina', 'amalgama', 'extraccionind', 'corona', 'protesis', 'implante', 'endodoncia', 'fracturado', 'sellante', 'txpulpar', 'atricion', 'erosion', 'abfraccion', 'abrasion', 'erupcion', 'apilado', 'movilidad', 'fistula', 'odontopatia', 'carilla', 'carilla_resina', 'carilla_defectuosa', 'carilla_disilicato', 'temporal', 'raiz', 'caries-restauracion'];
+        const sortOrder = ['sano', 'ausente', 'cariado', 'obturado', 'resina', 'amalgama', 'extraccionind', 'corona', 'protesis', 'implante', 'endodoncia_con_restauracion', 'endodoncia_con_caries', 'endodoncia_con_corona', 'endodoncia_abierta', 'endodoncia_con_provisional', 'fracturado', 'sellante', 'txpulpar', 'atricion', 'erosion', 'abfraccion', 'abrasion', 'erupcion', 'apilado', 'movilidad', 'fistula', 'odontopatia', 'carilla', 'carilla_resina', 'carilla_defectuosa', 'carilla_disilicato', 'temporal', 'raiz', 'caries-restauracion'];
         const aIndex = sortOrder.indexOf(stateA);
         const bIndex = sortOrder.indexOf(stateB);
         if (aIndex === -1 && bIndex === -1) return stateA.localeCompare(stateB);
@@ -516,7 +516,11 @@ function MenuNavegacionContent() {
         protesis: 'Prótesis',
         puente: 'Puente',
         implante: 'Implante',
-        endodoncia: 'Endodoncia',
+        endodoncia_con_restauracion: 'Endodoncia con Restauración',
+        endodoncia_con_caries: 'Endodoncia con Caries',
+        endodoncia_con_corona: 'Endodoncia con Corona',
+        endodoncia_abierta: 'Endodoncia Abierta',
+        endodoncia_con_provisional: 'Endodoncia con Provisional',
         fracturado: 'Fracturado',
         sellante: 'Sellante',
         txpulpar: 'Trat. pulpar',
