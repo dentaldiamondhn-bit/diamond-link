@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
-import { calendarAliasIds } from '@/lib/calendarDevBridge';
+import { calendarAliasIdsAsync } from '@/lib/calendarDevBridge';
 import { CLINIC_TIME_ZONE, clinicWallClockTimestamp } from '@/calendario/timezone';
 import {
   findDentistConflicts,
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     const supabase = createServerServiceClient();
     // Visible events = owned OR invited (matches the `events` RLS predicate and the
     // realtime `event_invitees` binding, so invitee calendars actually populate).
-    const aliasIds = calendarAliasIds(userId);
+    const aliasIds = await calendarAliasIdsAsync(userId);
     const { data: inviteeRows } = await supabase
       .from('event_invitees')
       .select('event_id')

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
-import { calendarAliasIds } from '@/lib/calendarDevBridge';
+import { calendarAliasIdsAsync } from '@/lib/calendarDevBridge';
 import { clinicDateKey } from '@/calendario/timezone';
 
 export const runtime = 'nodejs';
@@ -19,7 +19,7 @@ export async function GET() {
     // Visible events = owned OR invited (mirrors the main /api/events read and
     // the `events` RLS predicate, so a doctor's invite lands on the admin's
     // "Próximos Eventos" too).
-    const aliasIds = calendarAliasIds(userId);
+    const aliasIds = await calendarAliasIdsAsync(userId);
     const { data: inviteeRows } = await supabase
       .from('event_invitees')
       .select('event_id')
