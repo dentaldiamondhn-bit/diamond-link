@@ -22,9 +22,34 @@ const FALLBACK_IDENTITY: ClerkUserIdentity = {
   profileImageUrl: null,
 };
 
+// Dev-to-prod Clerk user ID mapping (matches calendarDevBridge.ts)
+const DEV_TO_PROD: Record<string, string> = {
+  'user_38EHmb7xvQKWn9usGZogkwp2Nvp': 'user_3JKYlRaGTEGpIq0MT3p1Y0YbdXo',
+  'user_37GsUyGI3pcCRZy17WPN8YpzgsO': 'user_3JKYlHsLkva168dVRnaWKxfU17d',
+  'user_3Aj2oVencykywPxk1UZgm30p2qH': 'user_3JKYmUCBYHJHsMAgS6FYAaFcuFB',
+  'user_3A1mYfR054eV3tqtellpfMKZ7f6': 'user_3JKYmMdhlcYQNVL87Mh7LqutHRg',
+  'user_38FdiLSXYuRroYpiar8WDQlvSMa': 'user_3JKYlZy95UFLtiHS4uL9qxENPeR',
+  'user_39XOhMYjrlQwlBRq1M3yDm9kfqT': 'user_3JKYmKEXDaGaoi0JVqpfUuXsXzD',
+  'user_390oMquSqyGWKkzP37tpC2pFzcG': 'user_3JKYmGtIxXItzbnGGCXDYFCYhc0',
+  'user_390FdATu8nOm6gcFYhScpPjSpbM': 'user_3JKYlxfEmDl0SlnumcG4eXzTWAC',
+  'user_390FCRHQOOM7LpibmONajxw5FjR': 'user_3JKYlt9HWNt2RHOGzP7htXd4uWn',
+  'user_38zjIdOjgaCOOzpNAZdP5dwW5PO': 'user_3JKYlpToyREziymA0vikvP65ILZ',
+  'user_38zjFZcXdDSMwCK1S3iMQcZnUu6': 'user_3JKYliXDFotxaL5EICZ3oJc0UrN',
+  'user_390oIB0eaA26HGNtKNnwCsD00kZ': 'user_3JKYtlzX6NuuI4djPz8qxCWUon2',
+  'user_390Fq3k0H9MIwZ7tLCYhjosELdw': 'user_3JKYthV1EvSXhvlagtgTgREXgz7',
+  'user_390FlsnHRVbguZF1640Z4Fc36VE': 'user_3JKYsRMZqgNvZ4DMH29DJamUFle',
+};
+
+// Reverse mapping: prod ID -> dev ID (for fetching from dev Clerk instance)
+const PROD_TO_DEV: Record<string, string> = Object.fromEntries(
+  Object.entries(DEV_TO_PROD).map(([dev, prod]) => [prod, dev])
+);
+
 /**
  * Fetch identities for the given Clerk user ids. Unknown ids are omitted from
  * the map; callers should fall back to {@link FALLBACK_IDENTITY}.
+ * In development, production IDs are mapped to dev IDs before fetching from
+ * the dev Clerk instance, since the shared Supabase stores production IDs.
  */
 export async function getClerkUserIdentities(
   userIds: string[]
@@ -39,15 +64,24 @@ export async function getClerkUserIdentities(
       secretKey: process.env.CLERK_SECRET_KEY,
     });
 
+    // In development, map production IDs to dev IDs before fetching
+    const isDev = process.env.NODE_ENV === 'development';
+    const fetchIds = isDev ? ids.map(id => PROD_TO_DEV[id] || id) : ids;
+    const idMapping = isDev 
+      ? Object.fromEntries(ids.map((id, i) => [fetchIds[i], id]))
+      : {};
+
     const { data } = await clerk.users.getUserList({
-      userId: ids,
-      limit: Math.max(ids.length, 100),
+      userId: fetchIds,
+      limit: Math.max(fetchIds.length, 100),
     });
 
     for (const user of data) {
       const firstName = user.firstName || '';
       const lastName = user.lastName || '';
-      result.set(user.id, {
+      // Map back to original ID (production in dev, same in prod)
+      const originalId = isDev ? (idMapping[user.id] || user.id) : user.id;
+      result.set(originalId, {
         first_name: firstName,
         last_name: lastName,
         name: `${firstName} ${lastName}`.trim(),

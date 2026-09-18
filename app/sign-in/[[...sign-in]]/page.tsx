@@ -129,7 +129,7 @@ export default function SignInPage() {
               </div>
 
               <SignIn
-                appearance={{
+appearance={{
                   elements: {
                     rootBox: 'w-full',
                     card: 'shadow-none bg-transparent w-full',
@@ -156,10 +156,6 @@ export default function SignInPage() {
                     alertText: 'text-gray-300',
                     alertError: 'text-red-400',
                     alertWarning: 'text-amber-400',
-                  },
-                  layout: {
-                    socialButtonsPlacement: 'top',
-                    showOptionalFields: true,
                   },
                 }}
                 routing="path"

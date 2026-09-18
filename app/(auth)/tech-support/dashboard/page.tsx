@@ -29,9 +29,9 @@ import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@clerk/nextjs';
 import AccessDenied from '@/components/AccessDenied';
-import { TicketService } from '@/services/ticketService';
 import { TicketStatus, TicketPriority } from '@/types/ticket';
 import { apiMonitor, ApiHealthStatus } from '@/services/apiMonitorService';
+import { calendarAliasIds } from '@/lib/calendarDevBridge';
 
 interface DashboardStat {
   title: string;
@@ -76,9 +76,15 @@ export default function TechSupportDashboard() {
     }
 
     try {
+      // Dev→Prod user ID mapping for filtering
+      const { user } = useUser();
+      const userAliasIds = calendarAliasIds(user?.id || '');
+      const prodUserId = userAliasIds.length > 1 ? userAliasIds[1] : userAliasIds[0];
+
       // Fetch real ticket data
-      const ticketsResult = await TicketService.getTickets({});
-      const tickets = ticketsResult.data || [];
+      const res = await fetch('/api/tickets', { credentials: 'include' });
+      const json = await res.json();
+      const tickets = json.tickets || [];
       
       // Calculate stats from real data
       const openTickets = tickets.filter(t => t.status === TicketStatus.OPEN || t.status === TicketStatus.IN_PROGRESS).length;

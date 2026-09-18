@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { STATUS_LABELS, PRIORITY_LABELS, STATUS_CHANGE_CONTENT, PRIORITY_CHANGE_CONTENT, ASSIGNMENT_CONTENT } from '@/lib/ticketLabels';
+import { getClerkUserIdentities } from '@/lib/clerkUsers';
 
 // Helper function to batch-fetch users for multiple tickets at once
 const enrichTicketsWithUsers = async (tickets: Ticket[]) => {
@@ -23,31 +24,51 @@ const enrichTicketsWithUsers = async (tickets: Ticket[]) => {
   if (userIds.size === 0) return tickets;
 
   const ids = [...userIds];
-  let userMap: Record<string, User> = {};
-  try {
-    const response = await fetch(`/api/users?ids=${ids.join(',')}`);
-    if (response.ok) {
-      const users = await response.json();
-      if (Array.isArray(users)) {
-        for (const u of users) userMap[u.id] = u;
-      } else if (users && typeof users === 'object') {
-        userMap = users;
-      }
-    }
-  } catch (error) {
-    console.error('Error batch-fetching users:', error);
-  }
+  const userMap = await getClerkUserIdentities(ids);
 
   for (const ticket of tickets) {
-    if (ticket.creator_id) ticket.creator = userMap[ticket.creator_id] || null;
+    if (ticket.creator_id) {
+      const identity = userMap.get(ticket.creator_id);
+      if (identity) {
+        ticket.creator = {
+          id: ticket.creator_id,
+          first_name: identity.first_name,
+          last_name: identity.last_name,
+          email: identity.email,
+          profileImageUrl: identity.profileImageUrl,
+        } as User;
+      }
+    }
     if (ticket.assignees) {
       for (const a of ticket.assignees) {
-        if (a.user_id) a.user = userMap[a.user_id] || null;
+        if (a.user_id) {
+          const identity = userMap.get(a.user_id);
+          if (identity) {
+            a.user = {
+              id: a.user_id,
+              first_name: identity.first_name,
+              last_name: identity.last_name,
+              email: identity.email,
+              profileImageUrl: identity.profileImageUrl,
+            } as User;
+          }
+        }
       }
     }
     if (ticket.activities) {
       for (const act of ticket.activities) {
-        if (act.user_id) act.user = userMap[act.user_id] || null;
+        if (act.user_id) {
+          const identity = userMap.get(act.user_id);
+          if (identity) {
+            act.user = {
+              id: act.user_id,
+              first_name: identity.first_name,
+              last_name: identity.last_name,
+              email: identity.email,
+              profileImageUrl: identity.profileImageUrl,
+            } as User;
+          }
+        }
       }
     }
   }
@@ -113,9 +134,10 @@ const enrichTicketWithUsers = async (ticket: Ticket) => {
 
 export class TicketService {
   // Get tickets with filters
-  static async getTickets(filters: TicketFilters = {}): Promise<{ data: Ticket[] | null; error: PostgrestError | null }> {
+  static async getTickets(filters: TicketFilters = {}, supabaseClient?: SupabaseClient): Promise<{ data: Ticket[] | null; error: PostgrestError | null }> {
     try {
-      let query = supabase
+      const db = supabaseClient || supabase;
+      let query = db
         .from('tickets')
         .select(`
           *,

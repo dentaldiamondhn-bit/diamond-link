@@ -777,35 +777,6 @@ export class CompletedTreatmentService {
   // Statistics and Analytics
   // ========================================
 
-  static async getCompletedTreatmentsByDoctor(doctorName: string): Promise<CompletedTreatment[]> {
-    try {
-      // Join with treatment items to get doctor information
-      const { data, error } = await supabase
-        .from('tratamientos_completados')
-        .select(`
-          *,
-          tratamientos_realizados (*),
-          paciente:patients (*),
-          paciente_beneficiario:patients (*),
-          vista_tratamientos_realizados_detalles!inner (
-            doctor_name
-          )
-        `)
-        .eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName)
-        .order('fecha_cita', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching treatments by doctor:', error);
-        throw error;
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Unexpected error fetching treatments by doctor:', error);
-      throw error;
-    }
-  }
-
   static async getDoctorRevenue(doctorName: string): Promise<number> {
     try {
       // Join with treatment items to get doctor information

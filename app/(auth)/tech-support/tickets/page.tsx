@@ -15,6 +15,7 @@ import DocumentDisplay from '@/components/DocumentDisplay';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { STATUS_LABELS, PRIORITY_LABELS, TYPE_LABELS, ACTIVITY_LABELS } from '@/lib/ticketLabels';
 import { supabase } from '@/lib/supabase';
+import { calendarAliasIds } from '@/lib/calendarDevBridge';
 
 export default function TicketsPage() {
   const { user } = useUser();
@@ -46,6 +47,11 @@ export default function TicketsPage() {
   // User role from metadata - normalize to uppercase enum to handle both formats
   const userRole = (user?.publicMetadata?.role as string || 'STAFF').replace('-', '_').toUpperCase() as UserRole;
   const normalizedUserRole = userRole;
+
+  // Dev→Prod user ID mapping for filtering (dev IDs in session, prod IDs in DB)
+  const userAliasIds = calendarAliasIds(user?.id || '');
+  const primaryUserId = userAliasIds[0];
+  const prodUserId = userAliasIds.length > 1 ? userAliasIds[1] : primaryUserId;
 
   useEffect(() => {
     loadTickets();
@@ -93,19 +99,21 @@ export default function TicketsPage() {
   const loadTickets = async () => {
     try {
       setLoading(true);
-      const result = await TicketService.getTickets({});
+      const res = await fetch('/api/tickets', { credentials: 'include' });
+      const json = await res.json();
+      const ticketsData = json.tickets || [];
 
-      if (result.data) {
-        let filteredData = result.data;
+      if (ticketsData.length > 0) {
+        let filteredData = ticketsData;
 
         if (userRole === UserRole.TECH_SUPPORT) {
-          filteredData = result.data;
+          filteredData = ticketsData;
         } else if (userRole === UserRole.ADMIN) {
-          filteredData = result.data.filter(ticket => ticket.creator_id === user?.id);
+          filteredData = ticketsData.filter(ticket => ticket.creator_id === prodUserId);
         } else {
-          filteredData = result.data.filter(ticket => {
-            const isCreator = ticket.creator_id === user?.id;
-            const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === user?.id);
+          filteredData = ticketsData.filter(ticket => {
+            const isCreator = ticket.creator_id === prodUserId;
+            const isAssignee = ticket.assignees && ticket.assignees.some(assignee => assignee.user_id === prodUserId);
             return isCreator || isAssignee;
           });
           filteredData = filteredData.filter(ticket => ticket.status !== TicketStatus.CLOSED);

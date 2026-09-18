@@ -3,17 +3,22 @@ import { auth } from '@clerk/nextjs/server';
 import { TicketService } from '@/services/ticketService';
 import { CreateTicketData, UpdateTicketData, TicketStatus, UserRole } from '@/types/ticket';
 import { createClient } from '@supabase/supabase-js';
+import { createServerServiceClient } from '@/lib/supabase/server';
 import { checkPermission, requirePermission, Permission } from '@/lib/rbac';
 
 
 // GET /api/tickets - Fetch tickets with filters
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const authResult = await auth();
+    const { userId } = authResult;
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Use service role client (bypasses RLS) since this route is already protected by Clerk auth via middleware
+    const supabaseWithAuth = createServerServiceClient();
 
     const { searchParams } = new URL(request.url);
     const filters = {
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
       search: searchParams.get('search') || undefined
     };
 
-    const result = await TicketService.getTickets(filters);
+    const result = await TicketService.getTickets(filters, supabaseWithAuth);
     
     if (result.error) {
       return NextResponse.json({ error: 'Failed to fetch tickets' }, { status: 500 });

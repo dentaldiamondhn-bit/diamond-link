@@ -320,8 +320,6 @@ export default function DashboardPage() {
           const prospectCount = await OdontogramPilotService.getProspectOrtoCount();
           setProspectOrtoCount(prospectCount);
 
-          // Fetch doctor's treatments (completed treatment records) for current month
-          const doctorTreatments = await CompletedTreatmentService.getCompletedTreatmentsByDoctor(doctorName);
           const completedCount = await CompletedTreatmentService.getCompletedTreatmentsCountByDoctor(doctorName);
           setTreatmentCount(completedCount);
 
