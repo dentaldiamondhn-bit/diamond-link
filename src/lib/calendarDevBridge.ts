@@ -43,39 +43,64 @@ export function calendarAliasIds(userId: string): string[] {
 
 /**
  * Dynamic fallback: if a dev user ID isn't in the hardcoded map, try to find
- * their production counterpart by matching email across Clerk instances.
- * This is a fallback for users not in the hardcoded map.
+ * their production counterpart by matching email via Supabase.
+ * This works in localhost without needing CLERK_PROD_SECRET_KEY.
  */
-let _emailCache: Map<string, string> | null = null;
-
-export async function resolveProdIdFromDev(devUserId: string): Promise<string | null> {
+async function resolveProdIdFromDevViaSupabase(devUserId: string): Promise<string | null> {
   if (!shouldUseDevMapping()) return null;
   if (DEV_TO_PROD[devUserId]) return DEV_TO_PROD[devUserId];
 
   try {
     const { createClerkClient } = await import('@clerk/backend');
+    const { createServerServiceClient } = await import('@/lib/supabase/server');
+
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
-    // Get the dev user's email
+    // 1. Get the dev user's email from dev Clerk instance
     const devUser = await clerk.users.getUser(devUserId);
     const email = devUser.emailAddresses?.[0]?.emailAddress;
     if (!email) return null;
 
-    // Search for a user with the same email in the production Clerk instance
-    // We need to use the production Clerk secret key for this
+    // 2. Try to find the prod ID by querying production Clerk if secret is available
     const prodClerkSecret = process.env.CLERK_PROD_SECRET_KEY || process.env.CLERK_SECRET_KEY;
-    const prodClerk = createClerkClient({ secretKey: prodClerkSecret });
+    if (prodClerkSecret && prodClerkSecret !== process.env.CLERK_SECRET_KEY) {
+      const { createClerkClient } = await import('@clerk/backend');
+      const prodClerk = createClerkClient({ secretKey: prodClerkSecret });
 
-    const { data: prodUsers } = await prodClerk.users.getUserList({
-      emailAddress: [email],
-      limit: 1,
-    });
+      const { data: prodUsers } = await prodClerk.users.getUserList({
+        emailAddress: [email],
+        limit: 1,
+      });
 
-    if (prodUsers.length > 0) {
-      const prodId = prodUsers[0].id;
-      // Cache the mapping
-      DEV_TO_PROD[devUserId] = prodId;
-      return prodId;
+      if (prodUsers.length > 0) {
+        const prodId = prodUsers[0].id;
+        DEV_TO_PROD[devUserId] = prodId;
+        return prodId;
+      }
+    }
+
+    // Fallback: Check if the dev user ID itself exists in Supabase
+    const { createServerServiceClient } = await import('@/lib/supabase/server');
+    const supabase = createServerServiceClient();
+
+    const { data: existingInvitees } = await supabase
+      .from('event_invitees')
+      .select('user_id')
+      .eq('user_id', devUserId)
+      .limit(1);
+
+    if (existingInvitees && existingInvitees.length > 0) {
+      return devUserId;
+    }
+
+    const { data: existingEvents } = await supabase
+      .from('events')
+      .select('user_id')
+      .eq('user_id', devUserId)
+      .limit(1);
+
+    if (existingEvents && existingEvents.length > 0) {
+      return devUserId;
     }
   } catch (err) {
     console.warn('[calendarDevBridge] Failed to resolve prod ID for dev user:', devUserId, err);
@@ -93,7 +118,15 @@ export async function calendarAliasIdsAsync(userId: string): Promise<string[]> {
   const prodId = DEV_TO_PROD[userId];
   if (prodId) return [...new Set([userId, prodId])];
 
-  // Try dynamic resolution
-  const resolved = await resolveProdIdFromDev(userId);
+  // Try dynamic resolution via Supabase/Clerk
+  const resolved = await resolveProdIdFromDevViaSupabase(userId);
   return resolved ? [...new Set([userId, resolved])] : [userId];
+}
+
+/** Sync version for non-async contexts (production, or when user is in hardcoded map) */
+export function calendarAliasIds(userId: string): string[] {
+  if (!userId) return [];
+  if (!shouldUseDevMapping()) return [userId];
+  const prodId = DEV_TO_PROD[userId];
+  return prodId ? [...new Set([userId, prodId])] : [userId];
 }
