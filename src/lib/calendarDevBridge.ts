@@ -54,7 +54,7 @@ async function resolveProdIdFromDevViaSupabase(devUserId: string): Promise<strin
     const { createServerServiceClient } = await import('@/lib/supabase/server');
 
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const supabase = createServerServiceClient();
+    const supabaseClient = createServerServiceClient();
 
     // 1. Get the dev user's email from dev Clerk instance
     const devUser = await clerk.users.getUser(devUserId);
@@ -62,10 +62,10 @@ async function resolveProdIdFromDevViaSupabase(devUserId: string): Promise<strin
     if (!email) return null;
 
     // 2. Try to find the prod ID by querying production Clerk if secret is available
-    const prodClerkSecret = process.env.CLERK_PROD_SECRET_KEY || process.env.CLERK_SECRET_KEY;
-    if (prodClerkSecret && prodClerkSecret !== process.env.CLERK_SECRET_KEY) {
+    const prodClerkSecret = process.env.CLERK_PROD_SECRET_KEY;
+    if (prodClerkSecret) {
       const { createClerkClient: createProdClerkClient } = await import('@clerk/backend');
-      const prodClerk = createProdClerkClient({ secretKey: prodClerkSecret });
+      const prodClerk = createClerkClient({ secretKey: prodClerkSecret });
 
       const { data: prodUsers } = await prodClerk.users.getUserList({
         emailAddress: [email],
@@ -80,6 +80,8 @@ async function resolveProdIdFromDevViaSupabase(devUserId: string): Promise<strin
     }
 
     // Fallback: Check if the dev user ID itself exists in Supabase
+    const supabase = createServerServiceClient();
+
     const { data: existingInvitees } = await supabase
       .from('event_invitees')
       .select('user_id')
