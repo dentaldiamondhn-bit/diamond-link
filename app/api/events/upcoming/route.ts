@@ -28,17 +28,20 @@ export async function GET() {
       .map((r) => Number(r.event_id))
       .filter((n) => Number.isFinite(n));
 
+    // Single PostgREST `or` group: `user_id in (owned) OR id in (invited)`.
+    // Chaining `.in()` + `.or()` here would AND the two branches instead, hiding
+    // invitee events (and every owned event once any invitee row exists).
+    const orParts = [`user_id.in.(${aliasIds.join(',')})`];
+    if (inviteeEventIds.length > 0) {
+      orParts.push(`id.in.(${inviteeEventIds.join(',')})`);
+    }
     let query = supabase
       .from('events')
       .select('*')
       .gte('date', start)
       .lte('date', end)
       .neq('status', 'cancelled')
-      .in('user_id', aliasIds);
-
-    if (inviteeEventIds.length > 0) {
-      query = query.or(`id.in.(${inviteeEventIds.join(',')})`);
-    }
+      .or(orParts.join(','));
 
     const { data: events, error: eventsError } = await query
       .order('date', { ascending: true })
