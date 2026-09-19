@@ -43,7 +43,7 @@ export function calendarAliasIds(userId: string): string[] {
 
 /**
  * Dynamic fallback: if a dev user ID isn't in the hardcoded map, try to find
- * their production counterpart by matching email via Supabase.
+ * their production counterpart by matching email via Supabase/Production Clerk.
  */
 async function resolveProdIdFromDevViaSupabase(devUserId: string): Promise<string | null> {
   if (!shouldUseDevMapping()) return null;
@@ -54,7 +54,7 @@ async function resolveProdIdFromDevViaSupabase(devUserId: string): Promise<strin
     const { createServerServiceClient } = await import('@/lib/supabase/server');
 
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const supabaseClient = createServerServiceClient();
+    const supabase = createServerServiceClient();
 
     // 1. Get the dev user's email from dev Clerk instance
     const devUser = await clerk.users.getUser(devUserId);
@@ -80,8 +80,6 @@ async function resolveProdIdFromDevViaSupabase(devUserId: string): Promise<strin
     }
 
     // Fallback: Check if the dev user ID itself exists in Supabase
-    const supabase = createServerServiceClient();
-
     const { data: existingInvitees } = await supabase
       .from('event_invitees')
       .select('user_id')
@@ -109,15 +107,66 @@ async function resolveProdIdFromDevViaSupabase(devUserId: string): Promise<strin
 
 /**
  * Get alias IDs with dynamic fallback for unmapped users.
+ * In production: also attempts to resolve ID if the raw userId doesn't exist in DB.
  */
 export async function calendarAliasIdsAsync(userId: string): Promise<string[]> {
   if (!userId) return [];
-  if (!shouldUseDevMapping()) return [userId];
 
+  // In production, also try to resolve if the raw ID doesn't exist in DB
   const prodId = DEV_TO_PROD[userId];
+
   if (prodId) return [...new Set([userId, prodId])];
 
-  // Try dynamic resolution via Supabase/Clerk
-  const resolved = await resolveProdIdFromDevViaSupabase(userId);
-  return resolved ? [...new Set([userId, resolved])] : [userId];
+  if (shouldUseDevMapping()) {
+    // Dev/preview: try dynamic resolution
+    const resolved = await resolveProdIdFromDevViaSupabase(userId);
+    return resolved ? [...new Set([userId, resolved])] : [userId];
+  }
+
+  // Production: start with raw userId, but verify it exists in DB
+  // If not, try to resolve via email (handles case where monolith uses different Clerk instance)
+  const { createServerServiceClient } = await import('@/lib/supabase/server');
+  const supabase = createServerServiceClient();
+
+  // Quick check: does this userId exist in the DB?
+  const [{ data: inviteeCheck }, { data: eventCheck }] = await Promise.all([
+    supabase.from('event_invitees').select('user_id').eq('user_id', userId).limit(1),
+    supabase.from('events').select('user_id').eq('user_id', userId).limit(1),
+  ]);
+
+  if ((inviteeCheck?.length ?? 0) > 0 || (eventCheck?.length ?? 0) > 0) {
+    return [userId]; // User ID exists in DB, use as-is
+  }
+
+  // UserId not found in DB - try to resolve via email (different Clerk instance)
+  let resolvedId: string | null = null;
+  try {
+    const { createClerkClient } = await import('@clerk/backend');
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+    const user = await clerk.users.getUser(userId);
+    const email = user.emailAddresses?.[0]?.emailAddress;
+
+    if (email) {
+      // Try to find matching user in production Clerk (same instance)
+      const prodClerkSecret = process.env.CLERK_PROD_SECRET_KEY || process.env.CLERK_SECRET_KEY;
+      if (prodClerkSecret) {
+        const { createClerkClient: createProdClerkClient } = await import('@clerk/backend');
+        const prodClerk = createClerkClient({ secretKey: prodClerkSecret });
+
+        const { data: prodUsers } = await prodClerk.users.getUserList({
+          emailAddress: [email],
+          limit: 1,
+        });
+
+        if (prodUsers.length > 0) {
+          const prodId = prodUsers[0].id;
+          return [...new Set([userId, prodId])];
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[calendarDevBridge] Production ID resolution failed:', userId, err);
+  }
+
+  return [userId];
 }
