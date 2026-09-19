@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerServiceClient } from '@/lib/supabase/server';
 import { authorizeCalendar } from '@/lib/calendarAuth';
 import { calendarAliasIdsAsync } from '@/lib/calendarDevBridge';
-import { clinicDateKey } from '@/calendario/timezone';
+import { clinicDateKey, clinicClockTime, normalizeTime } from '@/calendario/timezone';
 
 export const runtime = 'nodejs';
 
@@ -51,7 +51,17 @@ export async function GET() {
       return NextResponse.json({ error: eventsError.message }, { status: 400 });
     }
 
-    return NextResponse.json(events || []);
+    // Hide today's events that have already finished (clinic-local wall clock).
+    // e.g. at 11:00 a 9:00 event no longer shows in Próximos Eventos.
+    const todayKey = clinicDateKey();
+    const nowClock = clinicClockTime();
+    const visible = (events || []).filter((event) => {
+      const lastClock = normalizeTime(event.end_time || event.start_time);
+      const hadTime = Boolean(event.end_time || event.start_time);
+      return event.date !== todayKey || !hadTime || lastClock >= nowClock;
+    });
+
+    return NextResponse.json(visible || []);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

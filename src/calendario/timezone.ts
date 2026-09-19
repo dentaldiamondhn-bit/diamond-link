@@ -24,6 +24,21 @@ export function clinicDateKey(date: Date = new Date(), offsetDays = 0): string {
   return `${value('year')}-${value('month')}-${value('day')}`;
 }
 
+/** `HH:MM` for a given instant, in clinic-local time (wall clock). */
+export function clinicClockTime(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: CLINIC_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const value = (type: string) =>
+    parts.find((part) => part.type === type)?.value || '';
+  const hour = value('hour') === '24' ? '00' : value('hour');
+  return `${hour.padStart(2, '0')}:${value('minute').padStart(2, '0')}`;
+}
+
 /**
  * The true UTC instant whose *clinic-local* clock shows `date` + `time` (wall
  * clock). `America/Tegucigalpa` has no DST, so the offset is a constant
