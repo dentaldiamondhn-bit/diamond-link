@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { addMonths, addDays } from 'date-fns';
 import { Plus, Loader2 } from 'lucide-react';
 import type { View } from 'react-big-calendar';
 import type { ClinicEvent, Task } from '@/lib/types-calendar';
 import { eventsToRbc, dateToDateStr, dateToTimeStr } from '@/calendario/rbcAdapter';
 import { viewToRange } from '@/calendario/range';
+import { useSwipeNavigation } from '@/calendario/useSwipeNavigation';
 import {
   useCalendarEvents,
   useCalendarTasks,
@@ -59,6 +61,21 @@ interface Props {
   userId: string;
 }
 
+/** Period a "next/previous" swipe moves, per view (mirrors RBC's toolbar). */
+function swipeStep(view: View, date: Date, direction: 1 | -1): Date {
+  switch (view) {
+    case 'week':
+    case 'work_week':
+      return addDays(date, direction * 7);
+    case 'day':
+      return addDays(date, direction);
+    case 'month':
+    case 'agenda':
+    default:
+      return addMonths(date, direction);
+  }
+}
+
 export default function CalendarShell({ userId }: Props) {
   const { push } = useToast();
   const [view, setView] = useState<View>(initialView);
@@ -78,6 +95,23 @@ export default function CalendarShell({ userId }: Props) {
   // The fetch window is derived from view + date (deterministic URL restore),
   // and mirrored into ?from=&to= for deep links / debugging.
   const range = useMemo(() => viewToRange(view, date), [view, date]);
+
+  // Touch-only swipe navigation: left/right flicks flip month/week/day. The
+  // "just swiped" flag is consumed by the slot/event handlers below so RBC's
+  // touch selection side-effects (modal / drawer) never fire from a swipe.
+  const { onTouchStartCapture, onTouchMoveCapture, onTouchEndCapture, onTouchCancelCapture, justSwipedRef } =
+    useSwipeNavigation(
+      useCallback(
+        (direction: 1 | -1) => setDate((current) => swipeStep(view, current, direction)),
+        [view],
+      ),
+    );
+
+  const consumeSwipe = () => {
+    const swiped = justSwipedRef.current;
+    justSwipedRef.current = false;
+    return swiped;
+  };
 
   const eventsQuery = useCalendarEvents(range);
   const tasksQuery = useCalendarTasks();
@@ -236,6 +270,7 @@ export default function CalendarShell({ userId }: Props) {
    * to the clinic default window.
    */
   const handleSelectSlot = (slot: { start: Date; end: Date }) => {
+    if (consumeSwipe()) return;
     setSelectedDate(dateToDateStr(slot.start));
     const timeView = view === 'week' || view === 'work_week' || view === 'day';
     setModalPrefill({
@@ -250,6 +285,7 @@ export default function CalendarShell({ userId }: Props) {
 
   /** Phase 3 C18 — selecting an event opens the detail drawer (Edit/Delete inside). */
   const handleSelectEvent = (rbcEvent: RbcEvent) => {
+    if (consumeSwipe()) return;
     setSelectedDate(dateToDateStr(rbcEvent.start));
     setDrawerEvent(rbcEvent.resource);
   };
@@ -385,15 +421,21 @@ if (eventsQuery.isPending && !eventsQuery.data) {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {queryError ? (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
           No se pudieron cargar algunos datos del calendario. Reintentando…
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
-        <div>
+      <div className="grid w-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6">
+        <div
+          className="min-w-0"
+          onTouchStartCapture={onTouchStartCapture}
+          onTouchMoveCapture={onTouchMoveCapture}
+          onTouchEndCapture={onTouchEndCapture}
+          onTouchCancelCapture={onTouchCancelCapture}
+        >
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-500 hidden sm:block">
               {events.length} {events.length === 1 ? 'cita' : 'citas'}
@@ -430,7 +472,7 @@ if (eventsQuery.isPending && !eventsQuery.data) {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           <div className="hidden lg:block">
             <DayDetail
               dateStr={selectedDate}
