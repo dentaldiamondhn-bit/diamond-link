@@ -68,7 +68,7 @@ export interface EventReminder {
 export const PROCEDURES = [
   'Limpieza',
   'Chequeo',
-  'Empaste',
+  'Restauraciones',
   'Endodoncia',
   'Corona',
   'Extracción',
@@ -76,10 +76,11 @@ export const PROCEDURES = [
   'Radiografía',
   'Ortodoncia',
   'Implante',
-  'Otro',
+  'Promo 3 tapones',
+  'Limpieza + 3 tapones',
 ];
 
-export const DENTISTS = ['Dr. Smith', 'Dr. Lee', 'Dr. Patel', 'Dr. Garcia', 'Dr. Nguyen'];
+export const NO_PROCEDURE_COLOR = '#6b7280';
 
 export const EVENT_COLORS = [
   { name: 'teal', value: '#0d9488' },
@@ -89,3 +90,19 @@ export const EVENT_COLORS = [
   { name: 'amber', value: '#d97706' },
   { name: 'emerald', value: '#059669' },
 ];
+
+/** Auto-tint per Procedimiento — the event's pill adopts the procedure's color. */
+export const PROCEDURE_COLORS: Record<string, string> = {
+  Limpieza: '#0d9488',
+  Chequeo: '#2563eb',
+  Restauraciones: '#059669',
+  Endodoncia: '#7c3aed',
+  Corona: '#e11d48',
+  Extracción: '#d97706',
+  Blanqueamiento: '#0ea5e9',
+  Radiografía: '#2563eb',
+  Ortodoncia: '#7c3aed',
+  Implante: '#0d9488',
+  'Promo 3 tapones': '#d97706',
+  'Limpieza + 3 tapones': '#059669',
+};
