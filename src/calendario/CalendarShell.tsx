@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { addMonths, addDays } from 'date-fns';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import type { View } from 'react-big-calendar';
 import type { ClinicEvent, Task } from '@/lib/types-calendar';
 import { eventsToRbc, dateToDateStr, dateToTimeStr } from '@/calendario/rbcAdapter';
@@ -88,6 +88,12 @@ export default function CalendarShell({ userId }: Props) {
   /** Duplicate flow (request #3) — modal hydrates a NEW event copied from this one. */
   const [duplicateOf, setDuplicateOf] = useState<ClinicEvent | null>(null);
 
+  // Collapsible right sidebar (details/reminders/tasks). Starts collapsed on
+  // every screen size — the toolbar toggle opens it. Below lg the panels stay
+  // visible stacked under the calendar (mobile); collapsing only ever hides
+  // the sidebar on wide screens so the grid can use the full width.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // Server-side dentist conflict (409 DENTIST_CONFLICT) — offer a force-save.
   const [conflictOverride, setConflictOverride] = useState<{ message: string; retry: () => Promise<void> } | null>(null);
   const [conflictBusy, setConflictBusy] = useState(false);
@@ -164,6 +170,37 @@ export default function CalendarShell({ userId }: Props) {
     if (!drawerEvent) return null;
     return events.find((e) => e.id === drawerEvent.id) ?? drawerEvent;
   }, [drawerEvent, events]);
+
+  // Chronological order (date, then start time) of every loaded event — the
+  // sequence the event-detail drawer's prev/next nav steps through.
+  const sortedEvents = useMemo(
+    () =>
+      [...events].sort(
+        (a, b) =>
+          (a.date || '').localeCompare(b.date || '') ||
+          (a.start_time || '00:00').localeCompare(b.start_time || '00:00')
+      ),
+    [events],
+  );
+
+  /** Move the detail drawer to the previous/next event (wraps at both ends). */
+  const moveDrawerEvent = useCallback(
+    (dir: 1 | -1) => {
+      if (!liveDrawerEvent || sortedEvents.length === 0) return;
+      const idx = sortedEvents.findIndex((e) => e.id === liveDrawerEvent.id);
+      const nextIdx = idx === -1 ? 0 : (idx + dir + sortedEvents.length) % sortedEvents.length;
+      const next = sortedEvents[nextIdx];
+      setDrawerEvent(next);
+      setSelectedDate(next.date);
+    },
+    [liveDrawerEvent, sortedEvents],
+  );
+
+  const drawerPosition = useMemo(() => {
+    if (!liveDrawerEvent || sortedEvents.length === 0) return { position: 0, total: 0 };
+    const idx = sortedEvents.findIndex((e) => e.id === liveDrawerEvent.id);
+    return { position: idx === -1 ? 0 : idx + 1, total: sortedEvents.length };
+  }, [liveDrawerEvent, sortedEvents]);
 
   const invalidateForModal = () => {
     eventsQuery.refetch();
@@ -428,7 +465,13 @@ if (eventsQuery.isPending && !eventsQuery.data) {
         </div>
       ) : null}
 
-      <div className="grid w-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6">
+      <div
+        className={`grid w-full gap-6 ${
+          sidebarOpen
+            ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px]'
+            : 'grid-cols-1'
+        }`}
+      >
         <div
           className="min-w-0"
           onTouchStartCapture={onTouchStartCapture}
@@ -440,12 +483,22 @@ if (eventsQuery.isPending && !eventsQuery.data) {
             <p className="text-sm text-gray-500 hidden sm:block">
               {events.length} {events.length === 1 ? 'cita' : 'citas'}
             </p>
-            <button
-              onClick={openNewEvent}
-              className="flex items-center gap-1.5 bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-teal-700 transition shadow-sm"
-            >
-              <Plus size={16} /> <span className="hidden sm:inline">Nueva cita</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openNewEvent}
+                className="flex items-center gap-1.5 bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-teal-700 transition shadow-sm"
+              >
+                <Plus size={16} /> <span className="hidden sm:inline">Nueva cita</span>
+              </button>
+              <button
+                onClick={() => setSidebarOpen((open) => !open)}
+                className="hidden lg:inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                title={sidebarOpen ? 'Ocultar panel lateral' : 'Mostrar panel lateral'}
+                aria-label={sidebarOpen ? 'Ocultar panel lateral' : 'Mostrar panel lateral'}
+              >
+                {sidebarOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              </button>
+            </div>
           </div>
 
           <RbcCalendar
@@ -472,7 +525,18 @@ if (eventsQuery.isPending && !eventsQuery.data) {
           </div>
         </div>
 
-        <div className="space-y-4 min-w-0">
+        <div className={`space-y-4 min-w-0 ${sidebarOpen ? '' : 'lg:hidden'}`}>
+          <div className="hidden lg:flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Panel</p>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
+              title="Cerrar panel"
+              aria-label="Cerrar panel"
+            >
+              <X size={18} />
+            </button>
+          </div>
           <div className="hidden lg:block">
             <DayDetail
               dateStr={selectedDate}
@@ -519,6 +583,10 @@ if (eventsQuery.isPending && !eventsQuery.data) {
         onClose={() => setDrawerEvent(null)}
         onEdit={openEditEvent}
         onDuplicate={openDuplicateEvent}
+        onPrev={() => moveDrawerEvent(-1)}
+        onNext={() => moveDrawerEvent(1)}
+        position={drawerPosition.position}
+        total={drawerPosition.total}
         onDeleted={() => {
           setDrawerEvent(null);
           invalidateForModal();

@@ -108,7 +108,7 @@ export default function AuthLayout({
 
   return providers(
     <>
-    <div className="flex h-screen bg-gray-100 relative print:block print:h-auto print:overflow-visible">
+    <div className="flex h-screen w-full min-w-0 bg-gray-100 relative overflow-x-clip print:block print:h-auto print:overflow-visible">
       {/* Mobile Menu Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -139,7 +139,7 @@ export default function AuthLayout({
         <UnifiedSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       </div>
                   {/* Main Content */}
-                  <div className="flex-1 xl:ml-0 min-h-0 overflow-auto flex flex-col print:overflow-visible print:h-auto">
+                  <div className="flex-1 xl:ml-0 min-h-0 overflow-auto flex flex-col w-full min-w-0 print:overflow-visible print:h-auto">
                     {/* Header with User Info */}
                     <header className={`transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'} bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 py-3 print:hidden`}>
                     <div className="flex items-center justify-between">
@@ -402,7 +402,7 @@ export default function AuthLayout({
                   </header>
                   
                    {/* Page Content */}
-                   <div className="flex-1 min-h-0 overflow-auto print:overflow-visible print:h-auto">
+                   <div className="flex-1 min-h-0 overflow-auto w-full min-w-0 print:overflow-visible print:h-auto">
                      <ErrorBoundary>
                        {children}
                      </ErrorBoundary>
