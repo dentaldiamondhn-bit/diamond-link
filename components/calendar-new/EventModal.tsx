@@ -20,7 +20,7 @@ import {
 import { useForm, useController, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { ClinicEvent } from '@/lib/types-calendar';
-import { EVENT_COLORS, PROCEDURE_COLORS, PROCEDURES } from '@/lib/types-calendar';
+import { EVENT_COLORS, NO_PROCEDURE_COLOR, PROCEDURE_COLORS, PROCEDURES } from '@/lib/types-calendar';
 import {
   eventFormSchema,
   defaultEventForm,
