@@ -30,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados />, roles: ['admin', 'doctor', 'staff'] },
   { href: '/inventario', label: 'Inventario', icon: 'fas fa-warehouse', roles: ['admin'] },
   { href: '/patient-follow-up', label: 'Seguimiento', icon: 'fas fa-clipboard-check', roles: ['admin', 'doctor'] },
+  { href: '/contactos', label: 'Contactos', icon: 'fas fa-address-book', roles: ['admin', 'doctor', 'staff'] },
   { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar', roles: ['admin', 'doctor', 'staff'] },
   { href: '/reports', label: 'Reportes', icon: <AnimatedReport />, roles: ['admin', 'doctor'] },
   { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt', roles: ['admin', 'doctor', 'staff'] },
