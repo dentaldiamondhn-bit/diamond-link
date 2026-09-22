@@ -7,7 +7,9 @@ import {
   Check,
   Delete,
   Download,
+  ExternalLink,
   Eye,
+  FileText,
   Mail,
   Merge,
   Pencil,
@@ -16,12 +18,11 @@ import {
   Star,
   StarOff,
   Trash2,
-  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ContactSort, ContactSortKey, LocalContact, LocalLabel } from '@/lib/contacts/db';
 import { formatDate, fullName, primaryEmail, primaryPhone } from '@/lib/contacts/db';
-import { whitelistPhoneForWhatsApp } from '@/lib/contacts/vcard';
+import { ContactQuickActions } from './ContactQuickActions';
 import { ContactAvatar } from './ContactAvatar';
 
 const COLUMNS: { key: ContactSortKey; label: string; className?: string; hiddenMobile?: boolean }[] = [
@@ -44,6 +45,7 @@ interface ContactTableProps {
   onToggleSelect: (id: string) => void;
   onOpen: (c: LocalContact) => void;
   onQuickEdit: (c: LocalContact) => void;
+  onOpenEhr: (c: LocalContact) => void;
   onDelete: (c: LocalContact) => void;
   onRestore: (c: LocalContact) => void;
   onToggleFavorite: (c: LocalContact) => void;
@@ -101,6 +103,7 @@ export function ContactTable({
   onToggleSelect,
   onOpen,
   onQuickEdit,
+  onOpenEhr,
   onDelete,
   onRestore,
   onToggleFavorite,
@@ -204,6 +207,9 @@ export function ContactTable({
               {COLUMNS.map((col) => (
                 <SortableHeader key={col.key} column={col} sort={sort} onToggle={onToggleSort} />
               ))}
+              <th className="pb-3 hidden md:table-cell">
+                <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Expediente</span>
+              </th>
               <th className="pb-3 w-24"></th>
             </tr>
           </thead>
@@ -262,23 +268,8 @@ export function ContactTable({
                       <div className="flex items-center gap-1.5">
                         <Phone size={13} className="text-zinc-400 shrink-0" />
                         <span className="text-sm text-zinc-600 dark:text-zinc-300">{phone.phone_number}</span>
-                        <span className="hidden group-hover:inline-flex items-center gap-1 ml-1">
-                          <a
-                            href={`tel:${phone.phone_number}`}
-                            className="p-1 rounded hover:bg-emerald-100 text-emerald-600 dark:hover:bg-emerald-500/10 dark:text-emerald-400"
-                            title="Llamar"
-                          >
-                            <Phone size={13} />
-                          </a>
-                          <a
-                            href={`https://wa.me/${whitelistPhoneForWhatsApp(phone.phone_number)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1 rounded hover:bg-emerald-100 text-emerald-600 dark:hover:bg-emerald-500/10 dark:text-emerald-400"
-                            title="Enviar WhatsApp"
-                          >
-                            <MessageCircle size={13} />
-                          </a>
+                        <span className="hidden group-hover:inline-flex items-center ml-0.5">
+                          <ContactQuickActions phone={phone.phone_number} patientName={name} size="sm" />
                         </span>
                       </div>
                     ) : (
@@ -321,6 +312,21 @@ export function ContactTable({
                       <span className="text-zinc-300 dark:text-zinc-600">—</span>
                     )}
                   </td>
+                  <td className="py-3 pr-4 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                    {contact.patient_id ? (
+                      <button
+                        onClick={() => onOpenEhr(contact)}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
+                        title="Expediente EHR vinculado"
+                      >
+                        <FileText size={12} /> Vinculado
+                      </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                        <FileText size={12} /> Sin expediente
+                      </span>
+                    )}
+                  </td>
                   <td className="py-3 pr-4 hidden sm:table-cell">
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">{formatDate(contact.updated_at)}</span>
                   </td>
@@ -359,6 +365,15 @@ export function ContactTable({
                           >
                             <Pencil size={15} />
                           </button>
+                          {contact.patient_id && (
+                            <button
+                              onClick={() => onOpenEhr(contact)}
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-500/10"
+                              title="Abrir Expediente EHR"
+                            >
+                              <ExternalLink size={15} />
+                            </button>
+                          )}
                           <button
                             onClick={() => onDelete(contact)}
                             className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-zinc-100 dark:hover:bg-zinc-800"

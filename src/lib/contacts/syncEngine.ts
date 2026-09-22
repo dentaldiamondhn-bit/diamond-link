@@ -8,6 +8,7 @@ import {
   type LocalContactEmail,
   type LocalContactPhone,
   type LocalLabel,
+  type MedicalHistory,
   type PhoneType,
   type EmailType,
 } from './db'
@@ -42,6 +43,7 @@ interface RemoteContactRow {
   emergency_contact?: string | null
   insurance_provider?: string | null
   policy_number?: string | null
+  blood_type?: string | null
   is_favorite?: boolean
   is_archived?: boolean
   version?: number
@@ -50,6 +52,16 @@ interface RemoteContactRow {
   deleted_at?: string | null
   contact_phones?: RemotePhoneRow[] | null
   contact_emails?: RemoteEmailRow[] | null
+}
+
+interface RemoteHistoryRow {
+  contact_id: string
+  allergies?: string[] | null
+  chronic_conditions?: string[] | null
+  current_medications?: string[] | null
+  odontogram_notes?: string | null
+  last_dental_visit?: string | null
+  updated_at?: string | null
 }
 
 interface RemoteLabelRow {
@@ -82,6 +94,7 @@ function toLocalContact(row: RemoteContactRow, userId: string): LocalContact {
     emergency_contact: row.emergency_contact ?? null,
     insurance_provider: row.insurance_provider ?? null,
     policy_number: row.policy_number ?? null,
+    blood_type: row.blood_type ?? null,
     is_favorite: !!row.is_favorite,
     is_archived: !!row.is_archived,
     version: row.version ?? 1,
@@ -210,7 +223,51 @@ export async function pushLocalChanges(userId: string): Promise<number> {
   }
 
   const labelsPushed = await pushLabels(userId)
-  return pushed + labelsPushed
+  const historyPushed = await pushMedicalHistories()
+  return pushed + labelsPushed + historyPushed
+}
+
+// ---------------------------------------------------------------------------
+// MEDICAL HISTORY sync (1:1 summary per contact)
+// ---------------------------------------------------------------------------
+
+async function pushMedicalHistories(): Promise<number> {
+  const unsynced = await db.medicalHistories.where('synced').equals(0).toArray()
+  let pushed = 0
+  for (const h of unsynced) {
+    try {
+      await supabase.from('patient_medical_history').upsert(
+        {
+          contact_id: h.contactId,
+          allergies: h.allergies,
+          chronic_conditions: h.chronicConditions,
+          current_medications: h.currentMedications,
+          odontogram_notes: h.odontogramNotes ?? null,
+          last_dental_visit: h.lastDentalVisit ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'contact_id' },
+      )
+      await db.medicalHistories.update(h.contactId, { synced: 1, updatedAt: new Date().toISOString() })
+      pushed += 1
+    } catch (err) {
+      console.error(`[sync] push de historial clínico fallida (${h.contactId}):`, err)
+    }
+  }
+  return pushed
+}
+
+function toLocalMedicalHistory(row: RemoteHistoryRow): MedicalHistory {
+  return {
+    contactId: row.contact_id,
+    allergies: row.allergies ?? [],
+    chronicConditions: row.chronic_conditions ?? [],
+    currentMedications: row.current_medications ?? [],
+    odontogramNotes: row.odontogram_notes ?? undefined,
+    lastDentalVisit: row.last_dental_visit ?? undefined,
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+    synced: 1,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +291,8 @@ export async function pullRemoteContacts(userId: string): Promise<number> {
   const labelRows = (Array.isArray(labelsRes.data) ? labelsRes.data : []) as RemoteLabelRow[]
   const junctionRows = (Array.isArray(junctionsRes.data) ? junctionsRes.data : []) as RemoteJunctionRow[]
   const remoteIds = new Set(rows.map((r) => r.id))
+
+  await reconcileMedicalHistories(userId, rows)
 
   // Reconcile labels
   const junctionByContact = new Map<string, string[]>()
@@ -288,6 +347,44 @@ export async function pullRemoteContacts(userId: string): Promise<number> {
   return reconciled
 }
 
+async function reconcileMedicalHistories(userId: string, rows: RemoteContactRow[]): Promise<void> {
+  const contactIds = rows.map((r) => r.id)
+  let histories: RemoteHistoryRow[] = []
+  if (contactIds.length > 0) {
+    const chunkSize = 900
+    for (let i = 0; i < contactIds.length; i += chunkSize) {
+      const chunk = contactIds.slice(i, i + chunkSize)
+      const { data, error } = await supabase
+        .from('patient_medical_history')
+        .select('contact_id, allergies, chronic_conditions, current_medications, odontogram_notes, last_dental_visit, updated_at')
+        .in('contact_id', chunk)
+      if (error) throw new Error(error.message)
+      histories = histories.concat(Array.isArray(data) ? (data as RemoteHistoryRow[]) : [])
+    }
+  }
+
+  const remoteContactIds = new Set(contactIds)
+  const remoteHistories = new Set(histories.map((h) => h.contact_id))
+
+  // Local unsynced history that is newer wins and gets pushed on next sync.
+  for (const row of histories) {
+    const existing = await db.medicalHistories.get(row.contact_id)
+    const remoteTs = new Date(row.updated_at ?? 0).getTime()
+    const localTs = existing ? new Date(existing.updatedAt ?? 0).getTime() : 0
+    if (existing && existing.synced === 0 && localTs > remoteTs) continue
+    await db.medicalHistories.put(toLocalMedicalHistory(row))
+  }
+
+  // Drop local histories whose contact is gone or whose server row was deleted.
+  const localHistories = await db.medicalHistories.toArray()
+  for (const local of localHistories) {
+    const stillLinked = remoteContactIds.has(local.contactId)
+    if (local.synced === 1 && (!stillLinked || !remoteHistories.has(local.contactId))) {
+      await db.medicalHistories.delete(local.contactId)
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // REALTIME subscription (Supabase websockets -> local)
 // ---------------------------------------------------------------------------
@@ -319,6 +416,7 @@ export function subscribeToRealtimeSync(
     )
     .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_phones' }, handleChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_emails' }, handleChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'patient_medical_history' }, handleChange)
     .subscribe()
 
   return {
@@ -401,6 +499,7 @@ export interface NewContactInput {
   emergency_contact?: string
   insurance_provider?: string
   policy_number?: string
+  blood_type?: string
   is_favorite?: boolean
   is_archived?: boolean
   label_ids?: string[]
@@ -425,6 +524,7 @@ export async function createLocalContact(userId: string, input: NewContactInput)
     emergency_contact: input.emergency_contact ?? null,
     insurance_provider: input.insurance_provider ?? null,
     policy_number: input.policy_number ?? null,
+    blood_type: input.blood_type ?? null,
     is_favorite: !!input.is_favorite,
     is_archived: !!input.is_archived,
     version: 1,
@@ -465,6 +565,7 @@ export interface UpdateContactPatch {
   emergency_contact?: string | null
   insurance_provider?: string | null
   policy_number?: string | null
+  blood_type?: string | null
   is_favorite?: boolean
   is_archived?: boolean
   label_ids?: string[]
@@ -529,10 +630,47 @@ export async function permanentlyDeleteLocalContact(id: string): Promise<void> {
   const existing = await db.contacts.get(id)
   if (!existing) return
   await db.contacts.delete(id)
+  await db.medicalHistories.delete(id)
   try {
     await supabase.from('contacts').delete().eq('id', id)
   } catch (err) {
     console.error(`[sync] borrado definitivo fallida para ${id}:`, err)
+  }
+}
+
+export interface MedicalHistoryPatch {
+  allergies?: string[]
+  chronicConditions?: string[]
+  currentMedications?: string[]
+  odontogramNotes?: string | null
+  lastDentalVisit?: string | null
+}
+
+export async function updateMedicalHistory(contactId: string, patch: MedicalHistoryPatch): Promise<void> {
+  const existing = await db.medicalHistories.get(contactId)
+  const next: MedicalHistory = {
+    contactId,
+    allergies: patch.allergies ?? existing?.allergies ?? [],
+    chronicConditions: patch.chronicConditions ?? existing?.chronicConditions ?? [],
+    currentMedications: patch.currentMedications ?? existing?.currentMedications ?? [],
+    odontogramNotes: patch.odontogramNotes ?? existing?.odontogramNotes ?? undefined,
+    lastDentalVisit: patch.lastDentalVisit ?? existing?.lastDentalVisit ?? undefined,
+    updatedAt: new Date().toISOString(),
+    synced: 0,
+  }
+  await db.medicalHistories.put(next)
+  const contact = await db.contacts.get(contactId)
+  if (contact) void pushLocalChanges(contact.user_id)
+}
+
+export async function removeMedicalHistory(contactId: string): Promise<void> {
+  const existing = await db.medicalHistories.get(contactId)
+  if (!existing) return
+  await db.medicalHistories.delete(contactId)
+  try {
+    await supabase.from('patient_medical_history').delete().eq('contact_id', contactId)
+  } catch (err) {
+    console.error(`[sync] borrado de historial clínico fallida para ${contactId}:`, err)
   }
 }
 

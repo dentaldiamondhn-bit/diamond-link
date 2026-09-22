@@ -133,6 +133,47 @@ export function whitelistPhoneForWhatsApp(phone: string): string {
   return phone.replace(/[^\d]/g, '')
 }
 
+const CLINIC_GREETING = 'Clínica Dental Diamond'
+
+export function whatsappDeepLink(phone: string, patientName?: string): string {
+  const text = patientName ? `Hola ${patientName}, le saludamos de ${CLINIC_GREETING}.` : undefined
+  const base = `https://wa.me/${whitelistPhoneForWhatsApp(phone)}`
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base
+}
+
+export function smsDeepLink(phone: string, body?: string): string {
+  const cleaned = phone.replace(/[^\d+]/g, '')
+  return body ? `sms:${cleaned}?body=${encodeURIComponent(body)}` : `sms:${cleaned}`
+}
+
+/** Shares via the native Web Share API; falls back to copying to the clipboard. */
+export async function sharePatientContact(
+  name: string,
+  phone: string,
+  email?: string | null,
+): Promise<'shared' | 'copied' | 'unsupported'> {
+  const waLink = `https://wa.me/${whitelistPhoneForWhatsApp(phone)}`
+  const lines = [`Paciente: ${name}`, `Teléfono: ${phone}`]
+  if (email) lines.push(`Correo: ${email}`)
+  const text = lines.join('\n')
+
+  if (typeof navigator === 'undefined') return 'unsupported'
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: `Contacto: ${name}`, text, url: waLink })
+      return 'shared'
+    } catch {
+      return 'unsupported'
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(`${name} - ${phone}`)
+    return 'copied'
+  } catch {
+    return 'unsupported'
+  }
+}
+
 export function openPrintView(c: LocalContact): void {
   const win = window.open('', '_blank', 'width=640,height=800')
   if (!win) return

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useUser } from '@clerk/nextjs';
 import { Search, Plus, Stethoscope } from 'lucide-react';
@@ -10,7 +11,14 @@ import type {
   ContactSortKey,
   LocalContact,
 } from '@/lib/contacts/db';
-import { db, getLabels, queryContacts, sortContacts } from '@/lib/contacts/db';
+import {
+  db,
+  getLabels,
+  getMedicalHistory,
+  getRecentMedicalHistoryCount,
+  queryContacts,
+  sortContacts,
+} from '@/lib/contacts/db';
 import {
   createLocalLabel,
   initContactsSync,
@@ -25,6 +33,7 @@ import { ContactSidebar } from '@/components/contacts/ContactSidebar';
 import { ContactTable } from '@/components/contacts/ContactTable';
 import { ContactDetailSheet } from '@/components/contacts/ContactDetailSheet';
 import { ContactEditorModal } from '@/components/contacts/ContactEditorModal';
+import { MedicalHistoryModal } from '@/components/contacts/MedicalHistoryModal';
 import { ImportExportModal } from '@/components/contacts/ImportExportModal';
 import { Button } from '@/components/ui/button';
 
@@ -48,12 +57,14 @@ const ONLINE_SSR_SNAPSHOT = true;
 
 export default function ContactosPage() {
   const { user } = useUser();
+  const router = useRouter();
   const [filter, setFilter] = useState<ContactFilter>('all');
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<ContactSort>({ key: 'name', dir: 'asc' });
   const [sheetContact, setSheetContact] = useState<LocalContact | null>(null);
   const [editor, setEditor] = useState<EditorState>({ open: false, editing: null });
+  const [medicalEditor, setMedicalEditor] = useState<LocalContact | null>(null);
   const [importExportOpen, setImportExportOpen] = useState(false);
   const isOnline = useSyncExternalStore(subscribeOnline, getOnlineSnapshot, () => ONLINE_SSR_SNAPSHOT);
   const syncRef = useRef<{ syncNow: () => Promise<number> } | null>(null);
@@ -64,6 +75,11 @@ export default function ContactosPage() {
   const contacts = useLiveQuery(() => queryContacts(filter, search), [filter, search]);
   const pendingCount = useLiveQuery(() => db.contacts.where('synced').equals(0).count(), []);
   const labels = useLiveQuery(() => (userId ? getLabels(userId) : Promise.resolve([])), [userId]);
+  const recentHistoryCount = useLiveQuery(() => getRecentMedicalHistoryCount(), []);
+  const medical = useLiveQuery(
+    () => (sheetContact ? getMedicalHistory(sheetContact.id) : Promise.resolve(undefined)),
+    [sheetContact?.id],
+  );
 
   const activeBase = useLiveQuery(
     () => db.contacts.where('deleted').equals(0).toArray(),
@@ -87,6 +103,7 @@ export default function ContactosPage() {
         (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
       if (e.key === 'Escape') {
         setSheetContact(null);
+        setMedicalEditor(null);
         setEditor((s) => (s.open ? { ...s, open: false } : s));
         return;
       }
@@ -109,9 +126,10 @@ export default function ContactosPage() {
       all: activeBase?.filter((c) => !c.is_archived).length ?? 0,
       favorites: activeBase?.filter((c) => !c.is_archived && c.is_favorite).length ?? 0,
       archived: activeBase?.filter((c) => c.is_archived).length ?? 0,
+      recentHistory: recentHistoryCount ?? 0,
       trash: trashCount ?? 0,
     }),
-    [activeBase, trashCount],
+    [activeBase, trashCount, recentHistoryCount],
   );
 
 const labelList = useMemo(() => labels ?? [], [labels]);
@@ -229,9 +247,21 @@ const labelList = useMemo(() => labels ?? [], [labels]);
     setSheetContact((prev) => (prev && prev.id === c.id ? { ...prev, is_favorite: !prev.is_favorite } : prev));
   };
 
-  const handleAddLabel = async (name: string) => {
+  const handleAddLabel = async (name: string, color?: string) => {
     if (!userId) return;
-    await createLocalLabel(userId, name);
+    await createLocalLabel(userId, name, color);
+  };
+
+  const handleToggleLabel = async (c: LocalContact, labelId: string) => {
+    const next = c.label_ids.includes(labelId)
+      ? c.label_ids.filter((id) => id !== labelId)
+      : [...c.label_ids, labelId];
+    await updateLocalContact(c.id, { label_ids: next });
+    setSheetContact((prev) => (prev && prev.id === c.id ? { ...prev, label_ids: next } : prev));
+  };
+
+  const openEhr = (c: LocalContact) => {
+    if (c.patient_id) router.push(`/patient-preview/${c.patient_id}`);
   };
 
   const handleResync = () => void syncRef.current?.syncNow();
@@ -292,6 +322,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
               onToggleSelect={toggleSelect}
               onOpen={setSheetContact}
               onQuickEdit={() => undefined}
+              onOpenEhr={() => undefined}
               onDelete={() => undefined}
               onRestore={() => undefined}
               onToggleFavorite={() => undefined}
@@ -307,6 +338,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
           <EmptyState
             isTrash={isTrash}
             isLabel={typeof filter === 'object'}
+            isHistory={filter === 'recentHistory'}
             onCreate={() => openEditor(null)}
             searchTerm={search}
           />
@@ -324,6 +356,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
               onToggleSelect={toggleSelect}
               onOpen={setSheetContact}
               onQuickEdit={(c) => openEditor(c)}
+              onOpenEhr={openEhr}
               onDelete={handleDelete}
               onRestore={handleRestore}
               onToggleFavorite={handleToggleFavorite}
@@ -341,11 +374,15 @@ const labelList = useMemo(() => labels ?? [], [labels]);
       <ContactDetailSheet
         contact={sheetContact}
         labels={labelList}
+        medical={medical}
         onClose={() => setSheetContact(null)}
         onEdit={openEditor}
         onToggleFavorite={handleToggleFavorite}
         onDelete={handleDelete}
         onRestore={handleRestore}
+        onToggleLabel={handleToggleLabel}
+        onAddLabel={handleAddLabel}
+        onEditMedical={setMedicalEditor}
       />
 
       <ContactEditorModal
@@ -356,6 +393,16 @@ const labelList = useMemo(() => labels ?? [], [labels]);
         labels={labelList}
         onClose={closeEditor}
       />
+
+      {medicalEditor && (
+        <MedicalHistoryModal
+          key={`${medicalEditor.id}-${medicalEditor !== null}`}
+          open={medicalEditor !== null}
+          contact={medicalEditor}
+          medical={medical}
+          onClose={() => setMedicalEditor(null)}
+        />
+      )}
 
       <ImportExportModal
         open={importExportOpen}
@@ -370,11 +417,13 @@ const labelList = useMemo(() => labels ?? [], [labels]);
 function EmptyState({
   isTrash,
   isLabel,
+  isHistory,
   onCreate,
   searchTerm,
 }: {
   isTrash: boolean;
   isLabel: boolean;
+  isHistory: boolean;
   onCreate: () => void;
   searchTerm: string;
 }) {
@@ -382,16 +431,20 @@ function EmptyState({
     ? 'Sin resultados'
     : isTrash
       ? 'La papelera está vacía'
-      : isLabel
-        ? 'Sin contactos con esta etiqueta'
-        : 'Aún no tienes contactos';
+      : isHistory
+        ? 'Sin historiales recientes'
+        : isLabel
+          ? 'Sin contactos con esta etiqueta'
+          : 'Aún no tienes contactos';
   const subtitle = searchTerm
     ? `No se encontraron coincidencias para “${searchTerm}”.`
     : isTrash
       ? 'Los contactos eliminados aparecerán aquí por un tiempo.'
-      : isLabel
-        ? 'Agrega pacientes a esta etiqueta desde el editor de contacto.'
-        : 'Crea tu primer contacto para sincronizarlo entre todos los dispositivos de la clínica.';
+      : isHistory
+        ? 'Los contactos con antecedentes médicos actualizados en los últimos 60 días aparecerán aquí.'
+        : isLabel
+          ? 'Agrega pacientes a esta etiqueta desde el editor de contacto.'
+          : 'Crea tu primer contacto para sincronizarlo entre todos los dispositivos de la clínica.';
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center p-8">

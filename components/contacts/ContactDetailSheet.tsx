@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   X,
@@ -17,17 +18,28 @@ import {
   Siren,
   Shield,
   FileBadge,
-  Lock,
   Stethoscope,
+  Activity,
   FolderHeart,
+  AlertTriangle,
+  HeartPulse,
+  Pill,
+  ExternalLink,
+  Copy,
+  Check,
+  Plus,
+  Droplets,
+  FileText,
+  Share2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { LocalContact, LocalLabel } from '@/lib/contacts/db';
-import { fullName } from '@/lib/contacts/db';
-import { openPrintView } from '@/lib/contacts/vcard';
+import type { LocalContact, LocalLabel, MedicalHistory } from '@/lib/contacts/db';
+import { LABEL_COLORS, formatDate, fullName, primaryPhone } from '@/lib/contacts/db';
+import { openPrintView, sharePatientContact } from '@/lib/contacts/vcard';
 import { ContactAvatar } from './ContactAvatar';
+import { ContactQuickActions } from './ContactQuickActions';
 
-type SheetTab = 'info' | 'medical' | 'ehr';
+type SheetTab = 'info' | 'medical' | 'labels';
 
 interface InfoRowProps {
   icon: React.ReactNode;
@@ -54,13 +66,11 @@ function InfoRow({ icon, label, value, placeholder = 'Sin datos' }: InfoRowProps
 
 function TabButton({
   active = false,
-  disabled,
   icon,
   label,
   onClick,
 }: {
   active?: boolean;
-  disabled?: boolean;
   icon: React.ReactNode;
   label: string;
   onClick?: () => void;
@@ -68,44 +78,76 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
       className={cn(
         'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
         active
           ? 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10'
-          : disabled
-            ? 'text-zinc-300 dark:text-zinc-600 cursor-not-allowed'
-            : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800',
+          : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800',
       )}
-      title={disabled ? 'Disponible próximamente' : undefined}
     >
       {icon}
       {label}
-      {disabled && <Lock size={12} />}
     </button>
   );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500 font-semibold mb-2">
+      {children}
+    </h3>
+  );
+}
+
+function TagPill({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium text-white"
+      style={{ backgroundColor: color }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function EmptyHint({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-zinc-300 dark:text-zinc-600 italic">{children}</p>;
 }
 
 interface ContactDetailSheetProps {
   contact: LocalContact | null;
   labels: LocalLabel[];
+  medical?: MedicalHistory;
   onClose: () => void;
   onEdit: (c: LocalContact) => void;
   onToggleFavorite: (c: LocalContact) => void;
   onDelete: (c: LocalContact) => void;
   onRestore: (c: LocalContact) => void;
+  onToggleLabel: (c: LocalContact, labelId: string) => void;
+  onAddLabel: (name: string, color?: string) => void;
+  onEditMedical: (c: LocalContact) => void;
 }
 
 export function ContactDetailSheet({
   contact,
   labels,
+  medical,
   onClose,
   onEdit,
   onToggleFavorite,
   onDelete,
   onRestore,
+  onToggleLabel,
+  onAddLabel,
+  onEditMedical,
 }: ContactDetailSheetProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<SheetTab>('info');
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState<'idle' | 'shared' | 'copied'>('idle');
+  const [addingLabel, setAddingLabel] = useState(false);
+  const [labelName, setLabelName] = useState('');
+  const [labelColor, setLabelColor] = useState(LABEL_COLORS[0]);
 
   const open = !!contact;
   if (!contact) return null;
@@ -113,6 +155,38 @@ export function ContactDetailSheet({
   const name = fullName(contact);
   const label = (id: string) => labels.find((l) => l.id === id);
   const isTrash = contact.deleted === 1;
+  const mainPhone = primaryPhone(contact);
+
+  const openEhr = () => {
+    if (contact.patient_id) router.push(`/patient-preview/${contact.patient_id}`);
+  };
+
+  const copyPatientId = async () => {
+    if (!contact.patient_id) return;
+    try {
+      await navigator.clipboard.writeText(contact.patient_id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  const handleShare = async () => {
+    if (!mainPhone) return;
+    const result = await sharePatientContact(name || 'Contacto', mainPhone.phone_number, contact.emails[0]?.email);
+    setShared(result === 'shared' ? 'shared' : result === 'copied' ? 'copied' : 'idle');
+    setTimeout(() => setShared('idle'), 1800);
+  };
+
+  const submitLabel = () => {
+    const trimmed = labelName.trim();
+    if (trimmed) {
+      onAddLabel(trimmed, labelColor);
+      setLabelName('');
+      setAddingLabel(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -225,58 +299,313 @@ export function ContactDetailSheet({
             {/* Tabs */}
             <div className="shrink-0 flex items-center gap-1 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
               <TabButton active={tab === 'info'} icon={<User size={15} />} label="Información" onClick={() => setTab('info')} />
-              <TabButton disabled icon={<FolderHeart size={15} />} label="Historial Médico" />
-              <TabButton disabled icon={<Stethoscope size={15} />} label="Expediente EHR" />
+              <TabButton active={tab === 'medical'} icon={<FolderHeart size={15} />} label="Historial Médico" onClick={() => setTab('medical')} />
+              <TabButton active={tab === 'labels'} icon={<Activity size={15} />} label="Etiquetas" onClick={() => setTab('labels')} />
             </div>
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto px-6 py-4">
-              {contact.phones.length > 0 && (
-                <section className="mb-5">
-                  <h3 className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500 font-semibold mb-1">
-                    Teléfonos
-                  </h3>
-                  {contact.phones.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2 py-1.5 text-sm text-zinc-800 dark:text-zinc-200">
-                      <Phone size={14} className="text-zinc-400 shrink-0" />
-                      <span className="font-medium">{p.phone_number}</span>
-                      <span className="text-xs text-zinc-400 uppercase">{p.type}</span>
-                    </div>
-                  ))}
-                </section>
-              )}
-              {contact.emails.length > 0 && (
-                <section className="mb-5">
-                  <h3 className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500 font-semibold mb-1">
-                    Correos
-                  </h3>
-                  {contact.emails.map((e) => (
-                    <div key={e.id} className="flex items-center gap-2 py-1.5 text-sm text-zinc-800 dark:text-zinc-200">
-                      <Mail size={14} className="text-zinc-400 shrink-0" />
-                      <span>{e.email}</span>
-                    </div>
-                  ))}
-                </section>
+              {tab === 'info' && (
+                <>
+                  {/* Clinical deep-link banner */}
+                  {!isTrash && (
+                    <section className="mb-5 rounded-xl border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/10 p-4">
+                      <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                        <FileText size={16} />
+                        <p className="text-sm font-semibold">
+                          {contact.patient_id ? 'Expediente EHR vinculado' : 'Sin expediente clínico'}
+                        </p>
+                      </div>
+                      {contact.patient_id ? (
+                        <>
+                          <p className="mt-1.5 text-xs text-blue-600 dark:text-blue-300/80 break-all">
+                            ID de paciente: {contact.patient_id}
+                          </p>
+                          <div className="mt-3 flex items-center gap-2">
+                            <button
+                              onClick={openEhr}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-2 transition-colors"
+                            >
+                              <ExternalLink size={14} /> Abrir Expediente EHR Completo
+                            </button>
+                            <button
+                              onClick={copyPatientId}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs font-medium px-2.5 py-2 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                              title="Copiar ID de paciente"
+                            >
+                              {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                              {copied ? 'Copiado' : 'Copiar ID'}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-blue-600/80 dark:text-blue-300/60">
+                          Vincula este contacto a una ficha de paciente para abrir su expediente completo desde aquí.
+                        </p>
+                      )}
+                    </section>
+                  )}
+
+                  {!isTrash && mainPhone && (
+                    <section className="mb-5">
+                      <div className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 px-4 py-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500 font-medium">
+                            Acciones rápidas
+                          </p>
+                          <p className="mt-0.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                            {mainPhone.phone_number}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <ContactQuickActions phone={mainPhone.phone_number} patientName={name} />
+                          <button
+                            onClick={handleShare}
+                            className="p-2 rounded-full text-blue-500 hover:bg-blue-500/10 transition-colors"
+                            title="Compartir contacto"
+                            aria-label="Compartir contacto"
+                          >
+                            <Share2 size={16} className={shared !== 'idle' ? 'text-emerald-500' : ''} />
+                          </button>
+                          {shared !== 'idle' && (
+                            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                              {shared === 'shared' ? 'Compartido' : 'Copiado'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {contact.phones.length > 0 && (
+                    <section className="mb-5">
+                      <SectionTitle>Teléfonos</SectionTitle>
+                      {contact.phones.map((p) => (
+                        <div key={p.id} className="flex items-center gap-2 py-1.5 text-sm text-zinc-800 dark:text-zinc-200">
+                          <Phone size={14} className="text-zinc-400 shrink-0" />
+                          <span className="font-medium">{p.phone_number}</span>
+                          <span className="text-xs text-zinc-400 uppercase">{p.type}</span>
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                  {contact.emails.length > 0 && (
+                    <section className="mb-5">
+                      <SectionTitle>Correos</SectionTitle>
+                      {contact.emails.map((e) => (
+                        <div key={e.id} className="flex items-center gap-2 py-1.5 text-sm text-zinc-800 dark:text-zinc-200">
+                          <Mail size={14} className="text-zinc-400 shrink-0" />
+                          <span>{e.email}</span>
+                        </div>
+                      ))}
+                    </section>
+                  )}
+
+                  <section className="mb-5">
+                    <SectionTitle>Información personal</SectionTitle>
+                    <InfoRow icon={<MapPin size={15} />} label="Dirección" value={contact.address} />
+                    <InfoRow icon={<CalendarDays size={15} />} label="Fecha de nacimiento" value={contact.dob ? formatDate(contact.dob) : null} />
+                    <InfoRow icon={<User size={15} />} label="Género" value={contact.gender} />
+                    <InfoRow icon={<Stethoscope size={15} />} label="Notas" value={contact.notes} />
+                  </section>
+
+                  <section className="mb-2">
+                    <SectionTitle>Información clínica</SectionTitle>
+                    <InfoRow icon={<Siren size={15} />} label="Contacto de emergencia" value={contact.emergency_contact} />
+                    <InfoRow icon={<Shield size={15} />} label="Aseguradora" value={contact.insurance_provider} />
+                    <InfoRow icon={<FileBadge size={15} />} label="N° de póliza" value={contact.policy_number} />
+                    <InfoRow icon={<Droplets size={15} />} label="Tipo de sangre" value={contact.blood_type} />
+                  </section>
+                </>
               )}
 
-              <section className="mb-5">
-                <h3 className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500 font-semibold mb-1">
-                  Información personal
-                </h3>
-                <InfoRow icon={<MapPin size={15} />} label="Dirección" value={contact.address} />
-                <InfoRow icon={<CalendarDays size={15} />} label="Fecha de nacimiento" value={contact.dob} />
-                <InfoRow icon={<User size={15} />} label="Género" value={contact.gender} />
-                <InfoRow icon={<Stethoscope size={15} />} label="Notas" value={contact.notes} />
-              </section>
+              {tab === 'medical' && (
+                <>
+                  {medical && medical.allergies.length > 0 ? (
+                    <section className="mb-5 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-3">
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400 mb-2">
+                        <AlertTriangle size={13} /> Alergias
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {medical.allergies.map((a) => (
+                          <TagPill key={a} color="#EF4444">
+                            {a}
+                          </TagPill>
+                        ))}
+                      </div>
+                    </section>
+                  ) : (
+                    <section className="mb-5">
+                      <SectionTitle>Alergias</SectionTitle>
+                      <EmptyHint>Sin alergias registradas</EmptyHint>
+                    </section>
+                  )}
 
-              <section className="mb-2">
-                <h3 className="text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500 font-semibold mb-1">
-                  Información clínica
-                </h3>
-                <InfoRow icon={<Siren size={15} />} label="Contacto de emergencia" value={contact.emergency_contact} placeholder="Disponible próximamente" />
-                <InfoRow icon={<Shield size={15} />} label="Aseguradora" value={contact.insurance_provider} placeholder="Disponible próximamente" />
-                <InfoRow icon={<FileBadge size={15} />} label="N° de póliza" value={contact.policy_number} placeholder="Disponible próximamente" />
-              </section>
+                  <section className="mb-5">
+                    <SectionTitle>Condiciones crónicas</SectionTitle>
+                    {medical && medical.chronicConditions.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {medical.chronicConditions.map((c) => (
+                          <TagPill key={c} color="#8B5CF6">
+                            {c}
+                          </TagPill>
+                        ))}
+                      </div>
+                    ) : (
+                      <EmptyHint>Sin condiciones registradas</EmptyHint>
+                    )}
+                  </section>
+
+                  <section className="mb-5">
+                    <SectionTitle>Medicamentos actuales</SectionTitle>
+                    {medical && medical.currentMedications.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {medical.currentMedications.map((m) => (
+                          <li key={m} className="flex items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+                            <Pill size={14} className="text-zinc-400 shrink-0" /> {m}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <EmptyHint>Ninguno registrado</EmptyHint>
+                    )}
+                  </section>
+
+                  <section className="mb-5">
+                    <SectionTitle>Última consulta odontológica</SectionTitle>
+                    {medical?.lastDentalVisit ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                        <CalendarDays size={12} /> {formatDate(medical.lastDentalVisit)}
+                      </span>
+                    ) : (
+                      <EmptyHint>Sin consultas registradas</EmptyHint>
+                    )}
+                  </section>
+
+                  <section className="mb-5">
+                    <SectionTitle>Notas de odontograma</SectionTitle>
+                    {medical?.odontogramNotes ? (
+                      <p className="text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap">{medical.odontogramNotes}</p>
+                    ) : (
+                      <EmptyHint>Sin notas</EmptyHint>
+                    )}
+                  </section>
+
+                  <section className="mb-5">
+                    <SectionTitle>Tipo de sangre</SectionTitle>
+                    {contact.blood_type ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        <Droplets size={12} /> {contact.blood_type}
+                      </span>
+                    ) : (
+                      <EmptyHint>Sin registro</EmptyHint>
+                    )}
+                  </section>
+
+                  {!isTrash && (
+                    <button
+                      onClick={() => onEditMedical(contact)}
+                      className="mt-1 flex items-center gap-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-200 transition-colors"
+                    >
+                      <Pencil size={15} /> Editar Antecedentes
+                    </button>
+                  )}
+                </>
+              )}
+
+              {tab === 'labels' && (
+                <>
+                  <SectionTitle>Etiquetas y categorías</SectionTitle>
+                  <div className="space-y-1">
+                    {labels.length === 0 && <EmptyHint>Sin etiquetas.</EmptyHint>}
+                    {labels.map((l) => {
+                      const active = contact.label_ids.includes(l.id);
+                      return (
+                        <button
+                          key={l.id}
+                          onClick={() => !isTrash && onToggleLabel(contact, l.id)}
+                          className={cn(
+                            'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+                            active
+                              ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
+                              : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'flex h-4 w-4 items-center justify-center rounded border transition-colors',
+                              active ? 'border-blue-600 bg-blue-600' : 'border-zinc-300 dark:border-zinc-600',
+                            )}
+                          >
+                            {active && <Check size={12} className="text-white" />}
+                          </span>
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: l.color }} />
+                          <span className="truncate">{l.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {!isTrash && (
+                    <div className="mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                      {addingLabel ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              autoFocus
+                              value={labelName}
+                              onChange={(e) => setLabelName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') submitLabel();
+                                if (e.key === 'Escape') {
+                                  setAddingLabel(false);
+                                  setLabelName('');
+                                }
+                              }}
+                              placeholder="Nombre de la etiqueta..."
+                              className="flex h-9 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button onClick={submitLabel} className="text-emerald-500" title="Guardar">
+                              <Check size={18} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setAddingLabel(false);
+                                setLabelName('');
+                              }}
+                              className="text-zinc-400"
+                              title="Cancelar"
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {LABEL_COLORS.map((c) => (
+                              <button
+                                key={c}
+                                onClick={() => setLabelColor(c)}
+                                className={cn(
+                                  'h-5 w-5 rounded-full transition-transform',
+                                  labelColor === c && 'ring-2 ring-offset-1 ring-zinc-400 dark:ring-zinc-500 scale-110',
+                                )}
+                                style={{ backgroundColor: c }}
+                                title={c}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setAddingLabel(true)}
+                          className="flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          <Plus size={15} /> Crear etiqueta
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </motion.aside>
         </>

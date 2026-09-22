@@ -38,6 +38,7 @@ interface DraftContact {
   emergency_contact: string;
   insurance_provider: string;
   policy_number: string;
+  blood_type: string;
   is_favorite: boolean;
   is_archived: boolean;
   label_ids: string[];
@@ -58,6 +59,7 @@ function emptyDraft(): DraftContact {
     emergency_contact: '',
     insurance_provider: '',
     policy_number: '',
+    blood_type: '',
     is_favorite: false,
     is_archived: false,
     label_ids: [],
@@ -79,6 +81,7 @@ function draftFromContact(c: LocalContact): DraftContact {
     emergency_contact: c.emergency_contact ?? '',
     insurance_provider: c.insurance_provider ?? '',
     policy_number: c.policy_number ?? '',
+    blood_type: c.blood_type ?? '',
     is_favorite: c.is_favorite,
     is_archived: c.is_archived,
     label_ids: [...c.label_ids],
@@ -142,6 +145,7 @@ export function ContactEditorModal({ open, editing, userId, labels, onClose }: C
       emergency_contact: draft.emergency_contact || null,
       insurance_provider: draft.insurance_provider || null,
       policy_number: draft.policy_number || null,
+      blood_type: draft.blood_type || null,
       is_favorite: draft.is_favorite,
       is_archived: draft.is_archived,
       label_ids: draft.label_ids,
@@ -294,6 +298,20 @@ export function ContactEditorModal({ open, editing, userId, labels, onClose }: C
               <div className="grid grid-cols-2 gap-3">
                 <Input placeholder="Aseguradora" value={draft.insurance_provider} onChange={(e) => set('insurance_provider', e.target.value)} />
                 <Input placeholder="N° de póliza" value={draft.policy_number} onChange={(e) => set('policy_number', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Tipo de sangre</label>
+                <Select value={draft.blood_type} onChange={(e) => set('blood_type', e.target.value)}>
+                  <option value="">—</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </Select>
               </div>
             </div>
           </div>

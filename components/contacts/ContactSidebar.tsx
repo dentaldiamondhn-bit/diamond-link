@@ -14,6 +14,7 @@ import {
   RotateCw,
   Check,
   X,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ContactFilter, LocalLabel } from '@/lib/contacts/db';
@@ -21,7 +22,7 @@ import type { ContactFilter, LocalLabel } from '@/lib/contacts/db';
 interface ContactSidebarProps {
   labels: LocalLabel[];
   activeFilter: ContactFilter;
-  counts: { all: number; favorites: number; archived: number; trash: number };
+  counts: { all: number; favorites: number; archived: number; recentHistory: number; trash: number };
   pendingCount: number;
   isOnline: boolean;
   onCreate: () => void;
@@ -100,6 +101,12 @@ export function ContactSidebar({
             <Trash2 size={14} /> Papelera
           </span>
           <span className="text-xs text-zinc-400">{counts.trash}</span>
+        </button>
+        <button className={navCls(isActive('recentHistory'))} onClick={() => onSelect('recentHistory')}>
+          <span className="flex items-center gap-2">
+            <Activity size={14} className="text-emerald-500" /> Historiales Recientes
+          </span>
+          <span className="text-xs text-zinc-400">{counts.recentHistory}</span>
         </button>
 
         <div className="pt-5 pb-1.5">

@@ -3,8 +3,8 @@ import Dexie, { type Table } from 'dexie'
 export type PhoneType = 'mobile' | 'work' | 'home' | 'whatsapp' | 'fax' | 'other'
 export type EmailType = 'work' | 'personal' | 'other'
 
-export type ContactView = 'all' | 'favorites' | 'archived' | 'trash'
-/** 'all' | 'favorites' | 'archived' | 'trash' | { labelId } */
+export type ContactView = 'all' | 'favorites' | 'archived' | 'trash' | 'recentHistory'
+/** 'all' | 'favorites' | 'archived' | 'trash' | 'recentHistory' | { labelId } */
 export type ContactFilter = ContactView | { labelId: string }
 export type ContactSortKey = 'name' | 'phone' | 'email' | 'labels' | 'updated'
 export type SortDirection = 'asc' | 'desc'
@@ -44,6 +44,7 @@ export interface LocalContact {
   emergency_contact?: string | null
   insurance_provider?: string | null
   policy_number?: string | null
+  blood_type?: string | null
   is_favorite: boolean
   is_archived: boolean
   version?: number
@@ -67,15 +68,37 @@ export interface LocalLabel {
   synced: 0 | 1
 }
 
+/** 1:1 clinical summary stored per contact (allergies, conditions, medications). */
+export interface MedicalHistory {
+  contactId: string
+  allergies: string[]
+  chronicConditions: string[]
+  currentMedications: string[]
+  odontogramNotes?: string
+  lastDentalVisit?: string
+  updatedAt: string
+  /** 0 = pending upload, 1 = in sync with Supabase */
+  synced: 0 | 1
+}
+
+/** Window (days) used by the "Historiales Recientes" filter. */
+export const RECENT_HISTORY_DAYS = 60
+
 class ContactsDatabase extends Dexie {
   contacts!: Table<LocalContact, string>
   labels!: Table<LocalLabel, string>
+  medicalHistories!: Table<MedicalHistory, string>
 
   constructor() {
     super('ClinicContactsDB')
     this.version(1).stores({
       contacts: 'id, user_id, first_name, last_name, synced, deleted, updated_at',
       labels: 'id, user_id, name',
+    })
+    this.version(2).stores({
+      contacts: 'id, user_id, first_name, last_name, synced, deleted, updated_at',
+      labels: 'id, user_id, name',
+      medicalHistories: 'contactId, updatedAt, synced',
     })
   }
 }
@@ -148,6 +171,15 @@ export async function getLabels(userId: string): Promise<LocalLabel[]> {
   return list.sort((a, b) => a.name.localeCompare(b.name))
 }
 
+export async function getMedicalHistory(contactId: string): Promise<MedicalHistory | undefined> {
+  return await db.medicalHistories.get(contactId)
+}
+
+export async function getRecentMedicalHistoryCount(): Promise<number> {
+  const start = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  return db.medicalHistories.where('updatedAt').above(start).count()
+}
+
 export async function queryContacts(filter: ContactFilter, search?: string): Promise<LocalContact[]> {
   const isTrash = filter === 'trash'
   let base = await db.contacts
@@ -157,12 +189,17 @@ export async function queryContacts(filter: ContactFilter, search?: string): Pro
 
   if (filter === 'archived') {
     base = base.filter((c) => c.is_archived)
-  } else if (filter === 'all' || filter === 'favorites' || typeof filter === 'object') {
+  } else if (filter !== 'trash') {
     base = base.filter((c) => !c.is_archived)
   }
 
   if (filter === 'favorites') {
     base = base.filter((c) => c.is_favorite)
+  } else if (filter === 'recentHistory') {
+    const start = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    const histories = await db.medicalHistories.where('updatedAt').above(start).toArray()
+    const ids = new Set(histories.map((h) => h.contactId))
+    base = base.filter((c) => ids.has(c.id))
   } else if (typeof filter === 'object') {
     const labelId = filter.labelId
     base = base.filter((c) => c.label_ids.includes(labelId))
