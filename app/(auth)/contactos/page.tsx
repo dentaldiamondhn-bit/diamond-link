@@ -34,6 +34,7 @@ import { ContactTable } from '@/components/contacts/ContactTable';
 import { ContactDetailSheet } from '@/components/contacts/ContactDetailSheet';
 import { ContactEditorModal } from '@/components/contacts/ContactEditorModal';
 import { MedicalHistoryModal } from '@/components/contacts/MedicalHistoryModal';
+import { DeleteContactModal } from '@/components/contacts/DeleteContactModal';
 import { ImportExportModal } from '@/components/contacts/ImportExportModal';
 import { Button } from '@/components/ui/button';
 
@@ -66,6 +67,7 @@ export default function ContactosPage() {
   const [editor, setEditor] = useState<EditorState>({ open: false, editing: null });
   const [medicalEditor, setMedicalEditor] = useState<LocalContact | null>(null);
   const [importExportOpen, setImportExportOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<LocalContact[] | null>(null);
   const isOnline = useSyncExternalStore(subscribeOnline, getOnlineSnapshot, () => ONLINE_SSR_SNAPSHOT);
   const syncRef = useRef<{ syncNow: () => Promise<number> } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -211,9 +213,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
   };
 
   const trashSelected = async () => {
-    for (const c of selectedContacts) await softDeleteLocalContact(c.id);
-    setSelection(new Set());
-    setSheetContact((prev) => (prev && prunedSelection.has(prev.id) ? null : prev));
+    setPendingDelete([...selectedContacts]);
   };
 
   const restoreSelected = async () => {
@@ -222,24 +222,31 @@ const labelList = useMemo(() => labels ?? [], [labels]);
   };
 
   const purgeSelected = async () => {
-    for (const c of selectedContacts) await permanentlyDeleteLocalContact(c.id);
-    setSelection(new Set());
-    setSheetContact(null);
+    setPendingDelete([...selectedContacts]);
   };
 
   // ---- Single-contact actions ----------------------------------------------
   const openEditor = (c: LocalContact | null) => setEditor({ open: true, editing: c });
   const closeEditor = () => setEditor({ open: false, editing: null });
 
-  const handleDelete = async (c: LocalContact) => {
-    if (c.deleted === 1) await permanentlyDeleteLocalContact(c.id);
-    else await softDeleteLocalContact(c.id);
-    setSheetContact((prev) => (prev?.id === c.id ? null : prev));
-  };
+  const handleDelete = (c: LocalContact) => setPendingDelete([c]);
 
   const handleRestore = async (c: LocalContact) => {
     await restoreLocalContact(c.id);
     setSheetContact(null);
+  };
+
+  const confirmPendingDelete = async () => {
+    const targets = pendingDelete ?? [];
+    if (targets.length === 0) return;
+    const permanent = targets[0].deleted === 1;
+    for (const c of targets) {
+      if (permanent) await permanentlyDeleteLocalContact(c.id);
+      else await softDeleteLocalContact(c.id);
+    }
+    setPendingDelete(null);
+    setSelection(new Set());
+    setSheetContact((prev) => (prev && targets.some((t) => t.id === prev.id) ? null : prev));
   };
 
   const handleToggleFavorite = async (c: LocalContact) => {
@@ -401,6 +408,14 @@ const labelList = useMemo(() => labels ?? [], [labels]);
           contact={medicalEditor}
           medical={medical}
           onClose={() => setMedicalEditor(null)}
+        />
+      )}
+
+      {pendingDelete && pendingDelete.length > 0 && (
+        <DeleteContactModal
+          contacts={pendingDelete}
+          onConfirm={confirmPendingDelete}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
 
