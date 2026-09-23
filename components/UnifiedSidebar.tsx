@@ -254,7 +254,7 @@ export default function UnifiedSidebar({
   };
 
   const getSidebarClasses = () => {
-    const base = 'text-white flex flex-col h-screen overflow-y-auto transition-all duration-300 ease-in-out group/sidebar';
+    const base = 'text-white flex flex-col h-screen overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out group/sidebar';
     if (hasCustomGradient) return base;
     return `${base} ${theme.background}`;
   };
@@ -269,7 +269,9 @@ export default function UnifiedSidebar({
 
   const navItemClasses = (isActive: boolean) => {
     const base = `flex items-center rounded-lg transition-all duration-200 ${
-      collapsed ? 'justify-center py-2.5 mx-2' : 'px-4 py-3'
+      collapsed
+        ? 'justify-center w-10 h-10 mx-auto group-hover/sidebar:justify-start group-hover/sidebar:gap-3 group-hover/sidebar:w-full group-hover/sidebar:px-4 group-hover/sidebar:py-2.5'
+        : 'justify-start gap-3 w-full px-4 py-2.5'
     }`;
     if (isActive) return `${base} ${theme.activeBg} text-white shadow-lg`;
     return `${base} ${theme.textClass} ${theme.hoverBg} hover:text-white`;
@@ -277,7 +279,7 @@ export default function UnifiedSidebar({
 
   const navLabelClasses = () =>
     cn(
-      'font-medium whitespace-nowrap transition-opacity duration-200',
+      'text-sm font-medium whitespace-nowrap',
       collapsed ? 'hidden group-hover/sidebar:inline' : 'inline',
     );
 
@@ -285,14 +287,12 @@ export default function UnifiedSidebar({
     <div className={`${getSidebarClasses()} ${getSidebarWidth()}`} style={getSidebarStyle()}>
       {/* Logo Section */}
       <div className={cn('p-4', collapsed && 'pt-5')} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
-        <div className={cn('flex items-center', collapsed ? 'justify-center' : 'space-x-3')}>
-          <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10" />
-          {!collapsed && (
-            <div>
-              <h1 className="text-xl font-bold text-white">Diamond Link</h1>
-              <p className={`text-xs ${theme.subTextClass}`}>{theme.subtitle}</p>
-            </div>
-          )}
+        <div className={cn('flex items-center gap-3', collapsed ? 'justify-center' : 'space-x-3')}>
+          <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10 flex-shrink-0" />
+          <div className={cn('flex-col min-w-0', collapsed ? 'hidden group-hover/sidebar:flex' : 'flex')}>
+            <h1 className="text-xl font-bold text-white leading-tight whitespace-nowrap">Diamond Link</h1>
+            <p className={`text-xs whitespace-nowrap ${theme.subTextClass}`}>{theme.subtitle}</p>
+          </div>
         </div>
 
         {/* Collapse / expand toggle */}
@@ -328,9 +328,9 @@ export default function UnifiedSidebar({
             className={navItemClasses(pathname === item.href || pathname.startsWith(item.href + '/'))}
           >
             {typeof item.icon === 'string' ? (
-              <i className={`${item.icon} ${collapsed ? 'w-5' : 'w-5 mr-3'}`}></i>
+              <i className={`${item.icon} w-5 h-5 flex-shrink-0`}></i>
             ) : (
-              <div className={`flex items-center justify-center ${collapsed ? 'w-5' : 'w-5 mr-3'}`}>{item.icon}</div>
+              <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">{item.icon}</div>
             )}
             <span className={navLabelClasses()}>{item.label}</span>
           </Link>
@@ -338,42 +338,10 @@ export default function UnifiedSidebar({
       </nav>
 
       {/* User Section */}
-      {collapsed ? (
-        <div className="p-4 flex justify-center" style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }}>
-          <HydratedUserButton
-            showOnlineDot
-            appearance={{
-              elements: {
-                avatarBox: 'w-8 h-8',
-                userButton: `${theme.buttonHover} rounded-lg transition-colors`,
-              },
-            }}
-          />
-        </div>
-      ) : (
-        <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }}>
-          <div className="flex items-center space-x-3 px-4 py-3">
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-1">
-                <p className="text-sm font-medium text-white">
-                  {user?.firstName || 'Usuario'} {user?.lastName || ''}
-                </p>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${theme.badgeClass}`}
-                  style={{ borderColor: 'rgba(255,255,255,0.6)' }}
-                >
-                  <i className={`fas ${getRoleBadgeIcon(userRole)} mr-1`}></i>
-                  {theme.roleText}
-                </span>
-              </div>
-              <p className={`text-xs ${theme.subTextClass}`}>
-                {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
-              </p>
-              <div className="mt-2">
-                <TutorialButton variant="menu" />
-              </div>
-            </div>
-            <div className="relative">
+      <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }}>
+        <div className={cn('flex items-center min-w-0', collapsed ? 'justify-center' : 'justify-between gap-2')}>
+          <div className={cn('flex items-center min-w-0', collapsed ? 'justify-center' : 'gap-3')}>
+            <div className="relative flex-shrink-0">
               <HydratedUserButton
                 showOnlineDot
                 appearance={{
@@ -384,9 +352,34 @@ export default function UnifiedSidebar({
                 }}
               />
             </div>
+            <div
+              className={cn(
+                'flex flex-col min-w-0 truncate transition-all duration-200',
+                collapsed ? 'hidden group-hover/sidebar:flex' : 'flex',
+              )}
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-sm font-medium text-white truncate">
+                  {user?.firstName || 'Usuario'} {user?.lastName || ''}
+                </span>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${theme.badgeClass}`}
+                  style={{ borderColor: 'rgba(255,255,255,0.6)' }}
+                >
+                  <i className={`fas ${getRoleBadgeIcon(userRole)} mr-1`}></i>
+                  {theme.roleText}
+                </span>
+              </div>
+              <span className={`text-xs truncate ${theme.subTextClass}`}>
+                {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
+              </span>
+              <div className="mt-2">
+                <TutorialButton variant="menu" />
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
