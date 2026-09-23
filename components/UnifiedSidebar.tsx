@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import HydratedUserButton from './HydratedUserButton';
-import { TutorialButton } from './TutorialButton';
+import { useTutorial } from '../contexts/TutorialContext';
 import AnimatedUser from './AnimatedUser';
 import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 import AnimatedUsers from './AnimatedUsers';
@@ -14,7 +14,7 @@ import AnimatedReport from './AnimatedReport';
 import { DarkModeToggle } from './DarkModeToggle';
 import { getAvailableDoctorsSync, Doctor } from '../config/doctors';
 import { cn } from '@/lib/utils';
-import { ChevronRight, PanelLeft } from 'lucide-react';
+import { ChevronRight, GraduationCap } from 'lucide-react';
 
 interface NavItem {
   href: string;
@@ -179,16 +179,6 @@ function getRoleTheme(role: string | null, specialty: string | null) {
   }
 }
 
-function getRoleBadgeIcon(role: string | null) {
-  switch (role) {
-    case 'admin': return 'fa-crown';
-    case 'doctor': return 'fa-user-md';
-    case 'staff': return 'fa-user';
-    case 'tech_support': return 'fa-tools';
-    default: return 'fa-user';
-  }
-}
-
 interface UnifiedSidebarProps {
   sidebarOpen?: boolean;
   setSidebarOpen?: (open: boolean) => void;
@@ -207,6 +197,7 @@ export default function UnifiedSidebar({
   const pathname = usePathname();
   const { user } = useUser();
   const { userRole } = useRoleBasedAccess();
+  const { startTutorial } = useTutorial();
 
   useEffect(() => {
     if (userRole === 'doctor') {
@@ -245,6 +236,11 @@ export default function UnifiedSidebar({
 
   const specialty = getDoctorSpecialty();
   const theme = getRoleTheme(userRole, specialty);
+  const footerRoleLabel =
+    userRole === 'doctor' ? 'Doctor' :
+    userRole === 'admin' ? 'Admin' :
+    userRole === 'tech_support' ? 'Support' :
+    userRole === 'staff' ? 'Staff' : 'Staff';
 
   const hasCustomGradient = (theme as any).background?.includes?.('gradient') || false;
 
@@ -285,36 +281,42 @@ export default function UnifiedSidebar({
 
   return (
     <div className={`${getSidebarClasses()} ${getSidebarWidth()}`} style={getSidebarStyle()}>
-      {/* Logo Section */}
-      <div className={cn('p-4', collapsed && 'pt-5')} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
-        <div className={cn('flex items-center gap-3', collapsed ? 'justify-center' : 'space-x-3')}>
-          <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10 flex-shrink-0" />
-          <div className={cn('flex-col min-w-0', collapsed ? 'hidden group-hover/sidebar:flex' : 'flex')}>
-            <h1 className="text-xl font-bold text-white leading-tight whitespace-nowrap">Diamond Link</h1>
-            <p className={`text-xs whitespace-nowrap ${theme.subTextClass}`}>{theme.subtitle}</p>
+      {/* HEADER BLOCK - Translucent White Divider Line */}
+      <div className="relative flex items-center justify-between px-4 py-4 border-b !border-white/20 w-full min-h-[64px]">
+        <div className="flex items-center gap-3 overflow-hidden">
+          {/* Logo */}
+          <img src="/Logo.svg" alt="Diamond Link" className="w-8 h-8 flex-shrink-0" />
+
+          {/* Brand Text (Hidden when collapsed) */}
+          <div
+            className={cn(
+              'flex flex-col truncate transition-opacity duration-200',
+              collapsed ? 'hidden group-hover/sidebar:flex' : 'flex',
+            )}
+          >
+            <span className="font-bold text-white text-base leading-tight truncate">Diamond Link</span>
+            <span className="text-xs text-white/80 truncate">{theme.subtitle}</span>
           </div>
         </div>
 
-        {/* Collapse / expand toggle */}
+        {/* Collapse Toggle Button - ABSOLUTE RIGHT POSITIONED */}
         {onToggleCollapsed && (
-          <div className={cn(collapsed ? 'flex justify-center mt-3' : 'mt-3')}>
-            <button
-              onClick={onToggleCollapsed}
-              title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-              aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+          <button
+            onClick={onToggleCollapsed}
+            className={cn(
+              'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors',
+              collapsed && 'hidden group-hover/sidebar:block',
+            )}
+            title={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+            aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+          >
+            <ChevronRight
               className={cn(
-                'inline-flex items-center gap-2 rounded-lg text-white/70 hover:text-white transition-colors',
-                collapsed ? 'p-1.5' : 'px-3 py-1.5 text-xs hover:bg-white/10',
+                'w-4 h-4 transition-transform duration-200',
+                collapsed ? 'rotate-0' : '-rotate-180',
               )}
-            >
-              {collapsed ? <ChevronRight size={18} /> : (
-                <>
-                  <PanelLeft size={14} />
-                  <span>Colapsar</span>
-                </>
-              )}
-            </button>
-          </div>
+            />
+          </button>
         )}
       </div>
 
@@ -337,47 +339,63 @@ export default function UnifiedSidebar({
         ))}
       </nav>
 
-      {/* User Section */}
-      <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }}>
-        <div className={cn('flex items-center min-w-0', collapsed ? 'justify-center' : 'justify-between gap-2')}>
-          <div className={cn('flex items-center min-w-0', collapsed ? 'justify-center' : 'gap-3')}>
-            <div className="relative flex-shrink-0">
-              <HydratedUserButton
-                showOnlineDot
-                appearance={{
-                  elements: {
-                    avatarBox: 'w-8 h-8',
-                    userButton: `${theme.buttonHover} rounded-lg transition-colors`,
-                  },
-                }}
-              />
-            </div>
-            <div
-              className={cn(
-                'flex flex-col min-w-0 truncate transition-all duration-200',
-                collapsed ? 'hidden group-hover/sidebar:flex' : 'flex',
-              )}
-            >
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-sm font-medium text-white truncate">
-                  {user?.firstName || 'Usuario'} {user?.lastName || ''}
-                </span>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${theme.badgeClass}`}
-                  style={{ borderColor: 'rgba(255,255,255,0.6)' }}
-                >
-                  <i className={`fas ${getRoleBadgeIcon(userRole)} mr-1`}></i>
-                  {theme.roleText}
-                </span>
-              </div>
-              <span className={`text-xs truncate ${theme.subTextClass}`}>
-                {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
-              </span>
-              <div className="mt-2">
-                <TutorialButton variant="menu" />
-              </div>
-            </div>
+      {/* FOOTER BLOCK - Single Top White Divider, Unclipped Avatar & Status Dot */}
+      <div className="mt-auto border-t !border-white/20 p-3 w-full bg-white/5 flex flex-col gap-2.5">
+        {/* User Profile Container */}
+        <div className="flex items-center gap-3 w-full overflow-visible">
+
+          {/* Avatar (overflow-visible to prevent status dot cutoff) */}
+          <div className="relative flex-shrink-0 overflow-visible">
+            <HydratedUserButton
+              appearance={{
+                elements: {
+                  avatarBox: 'w-9 h-9 rounded-full border !border-white/30',
+                  userButton: `${theme.buttonHover} rounded-full overflow-visible`,
+                },
+              }}
+            />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 !border-purple-600 z-10" />
           </div>
+
+          {/* Right Column: Name + Badge (Top) / Email (Bottom) */}
+          <div
+            className={cn(
+              'flex flex-col min-w-0 flex-1 overflow-hidden transition-opacity duration-200 justify-center',
+              collapsed ? 'hidden group-hover/sidebar:flex' : 'flex',
+            )}
+          >
+            {/* Name + White-Bordered Badge */}
+            <div className="flex items-center gap-2 w-full">
+              <span className="text-xs font-bold text-white truncate max-w-[110px]">
+                {user?.firstName || 'Usuario'} {user?.lastName || ''}
+              </span>
+              <span className="bg-white/20 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full border !border-white/40 flex-shrink-0">
+                {footerRoleLabel}
+              </span>
+            </div>
+
+            {/* Email */}
+            <span className="text-[10px] text-white/80 truncate w-full mt-0.5">
+              {user?.emailAddresses?.[0]?.emailAddress || ''}
+            </span>
+          </div>
+
+        </div>
+
+        {/* Ver Tutorial Button - NO DIVIDER LINE ABOVE IT */}
+        <div
+          className={cn(
+            'w-full',
+            collapsed ? 'hidden group-hover/sidebar:block' : 'block',
+          )}
+        >
+          <button
+            onClick={startTutorial}
+            className="flex items-center gap-2 text-xs text-white/90 hover:text-white w-full px-2 py-1.5 rounded hover:bg-white/10 transition-colors"
+          >
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>Ver Tutorial</span>
+          </button>
         </div>
       </div>
     </div>
