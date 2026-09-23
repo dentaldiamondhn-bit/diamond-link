@@ -171,13 +171,16 @@ async function pushLabels(userId: string): Promise<number> {
   let pushed = 0
   for (const label of unsynced) {
     try {
-      const { error } = await supabase.from('contact_labels').insert({
+      await supabase.from('contact_labels').insert({
         id: label.id,
         user_id: userId,
         name: label.name,
         color: label.color,
-      })
-      if (error && error.code === '23505') {
+      }).throwOnError()
+      await db.labels.update(label.id, { synced: 1 })
+      pushed += 1
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') {
         // Duplicate name (or id) — adopt the existing server row so local
         // references keep pointing at a valid label and sync converges.
         const { data: byId } = await supabase
@@ -200,10 +203,6 @@ async function pushLabels(userId: string): Promise<number> {
         }
         continue
       }
-      if (error) throw error
-      await db.labels.update(label.id, { synced: 1 })
-      pushed += 1
-    } catch (err) {
       console.error(`[sync] push de etiqueta fallida (${label.name}):`, err)
     }
   }
@@ -211,11 +210,12 @@ async function pushLabels(userId: string): Promise<number> {
 }
 
 async function pushContactJunctions(contactId: string, labelIds: string[]): Promise<void> {
-  await supabase.from('contact_label_junction').delete().eq('contact_id', contactId)
+  await supabase.from('contact_label_junction').delete().eq('contact_id', contactId).throwOnError()
   if (labelIds.length > 0) {
-    await supabase.from('contact_label_junction').insert(
-      labelIds.map((label_id) => ({ contact_id: contactId, label_id })),
-    )
+    await supabase
+      .from('contact_label_junction')
+      .insert(labelIds.map((label_id) => ({ contact_id: contactId, label_id })))
+      .throwOnError()
   }
 }
 
@@ -231,37 +231,50 @@ async function runPushLocalChanges(userId: string): Promise<number> {
           .from('contacts')
           .update({ deleted_at: now, updated_at: now, version: (contact.version ?? 1) + 1 })
           .eq('id', contact.id)
+          .throwOnError()
       } else {
         const { id, phones, emails, label_ids, ...rest } = contact
         const { synced: _synced, deleted: _deleted, deleted_at: _deletedAt, ...payload } = rest
-        await supabase.from('contacts').upsert(
-          {
+        await supabase
+          .from('contacts')
+          .upsert(
+            {
+              id,
+              user_id: userId,
+              ...payload,
+              deleted_at: null,
+              updated_at: now,
+              version: (contact.version ?? 1) + 1,
+            },
+            { onConflict: 'id' },
+          )
+          .throwOnError()
+
+        await Promise.all([
+          replaceRemoteRows(
+            'contact_phones',
             id,
-            user_id: userId,
-            ...payload,
-            deleted_at: null,
-            updated_at: now,
-            version: (contact.version ?? 1) + 1,
-          },
-          { onConflict: 'id' },
-        )
-
-        await syncContactChildren('contact_phones', id, phones.map((p) => ({
-          id: p.id,
-          contact_id: id,
-          type: p.type,
-          phone_number: p.phone_number,
-          is_primary: !!p.is_primary,
-        })))
-        await syncContactChildren('contact_emails', id, emails.map((e) => ({
-          id: e.id,
-          contact_id: id,
-          type: e.type,
-          email: e.email,
-          is_primary: !!e.is_primary,
-        })))
-
-        await pushContactJunctions(id, label_ids)
+            phones.map((p) => ({
+              id: p.id,
+              contact_id: id,
+              type: p.type,
+              phone_number: p.phone_number,
+              is_primary: !!p.is_primary,
+            })),
+          ),
+          replaceRemoteRows(
+            'contact_emails',
+            id,
+            emails.map((e) => ({
+              id: e.id,
+              contact_id: id,
+              type: e.type,
+              email: e.email,
+              is_primary: !!e.is_primary,
+            })),
+          ),
+          pushContactJunctions(id, label_ids),
+        ])
       }
 
       await db.contacts.update(contact.id, {
@@ -280,27 +293,16 @@ async function runPushLocalChanges(userId: string): Promise<number> {
   return pushed + labelsPushed + historyPushed
 }
 
-// Idempotent child sync: upsert by PK, then prune any server rows for this
-// contact that no longer exist locally. Safe to re-run under the sync lock.
-async function syncContactChildren(
+// Child rows are fully replaced per contact. Safe under the single-flight
+// lock; any failure throws and leaves the contact unsynced for retry.
+async function replaceRemoteRows(
   table: 'contact_phones' | 'contact_emails',
   contactId: string,
-  rows: Record<string, unknown>[],
+  rows: Array<Record<string, unknown>>,
 ): Promise<void> {
-  if (rows.length === 0) {
-    await supabase.from(table).delete().eq('contact_id', contactId)
-    return
-  }
-  await supabase.from(table).upsert(rows as never[], { onConflict: 'id' })
-  const { data: serverRows } = await supabase
-    .from(table)
-    .select('id')
-    .eq('contact_id', contactId)
-  if (!Array.isArray(serverRows)) return
-  const localIds = new Set(rows.map((r) => r.id as string))
-  const strays = serverRows.map((r) => (r as { id: string }).id).filter((id) => !localIds.has(id))
-  if (strays.length > 0) {
-    await supabase.from(table).delete().in('id', strays)
+  await supabase.from(table).delete().eq('contact_id', contactId).throwOnError()
+  if (rows.length > 0) {
+    await supabase.from(table).insert(rows as never[]).throwOnError()
   }
 }
 
@@ -328,7 +330,7 @@ async function pushMedicalHistories(): Promise<number> {
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'contact_id' },
-      )
+      ).throwOnError()
       await db.medicalHistories.update(h.contactId, { synced: 1, updatedAt: new Date().toISOString() })
       pushed += 1
     } catch (err) {
@@ -499,8 +501,6 @@ export function subscribeToRealtimeSync(
       { event: '*', schema: 'public', table: 'contacts', filter: `user_id=eq.${userId}` },
       handleChange,
     )
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_phones' }, handleChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_emails' }, handleChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'patient_medical_history' }, handleChange)
     .subscribe()
 
@@ -718,19 +718,9 @@ export function permanentlyDeleteLocalContact(id: string): Promise<void> {
 async function runPermanentDelete(id: string): Promise<void> {
   const existing = await db.contacts.get(id)
   if (!existing) return
-
-  const results = await Promise.all([
-    supabase.from('patient_medical_history').delete().eq('contact_id', id),
-    supabase.from('contact_label_junction').delete().eq('contact_id', id),
-    supabase.from('contact_phones').delete().eq('contact_id', id),
-    supabase.from('contact_emails').delete().eq('contact_id', id),
-  ])
-  const failure = results.find((r) => r.error)
-  if (failure) throw new Error(`No se pudo limpiar la nube: ${failure.error?.message}`)
-
-  const { error } = await supabase.from('contacts').delete().eq('id', id)
-  if (error) throw new Error(`No se pudo eliminar el contacto en la nube: ${error.message}`)
-
+  // Child rows (phones, emails, junctions) and the 1:1 medical history clean
+  // up via ON DELETE CASCADE, so one server call is enough.
+  await supabase.from('contacts').delete().eq('id', id).throwOnError()
   await db.medicalHistories.delete(id)
   await db.contacts.delete(id)
 }
@@ -764,11 +754,7 @@ export async function removeMedicalHistory(contactId: string): Promise<void> {
   const existing = await db.medicalHistories.get(contactId)
   if (!existing) return
   await db.medicalHistories.delete(contactId)
-  try {
-    await supabase.from('patient_medical_history').delete().eq('contact_id', contactId)
-  } catch (err) {
-    console.error(`[sync] borrado de historial clínico fallida para ${contactId}:`, err)
-  }
+  await supabase.from('patient_medical_history').delete().eq('contact_id', contactId).throwOnError()
 }
 
 export async function createLocalLabel(userId: string, name: string, color?: string): Promise<LocalLabel> {
