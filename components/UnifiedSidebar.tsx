@@ -12,7 +12,9 @@ import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
 import AnimatedUsers from './AnimatedUsers';
 import AnimatedReport from './AnimatedReport';
 import { DarkModeToggle } from './DarkModeToggle';
-import { getDoctorById, getAvailableDoctorsSync, Doctor } from '../config/doctors';
+import { getAvailableDoctorsSync, Doctor } from '../config/doctors';
+import { cn } from '@/lib/utils';
+import { ChevronRight, PanelLeft } from 'lucide-react';
 
 interface NavItem {
   href: string;
@@ -190,9 +192,17 @@ function getRoleBadgeIcon(role: string | null) {
 interface UnifiedSidebarProps {
   sidebarOpen?: boolean;
   setSidebarOpen?: (open: boolean) => void;
+  /** When true the sidebar renders as an icon-only rail (expands on hover). */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
-export default function UnifiedSidebar({ sidebarOpen, setSidebarOpen }: UnifiedSidebarProps) {
+export default function UnifiedSidebar({
+  sidebarOpen,
+  setSidebarOpen,
+  collapsed = false,
+  onToggleCollapsed,
+}: UnifiedSidebarProps) {
   const [supabaseDoctors, setSupabaseDoctors] = useState<Doctor[]>([]);
   const pathname = usePathname();
   const { user } = useUser();
@@ -244,10 +254,12 @@ export default function UnifiedSidebar({ sidebarOpen, setSidebarOpen }: UnifiedS
   };
 
   const getSidebarClasses = () => {
-    const base = 'w-64 text-white flex flex-col h-screen overflow-y-auto';
+    const base = 'text-white flex flex-col h-screen overflow-y-auto transition-all duration-300 ease-in-out group/sidebar';
     if (hasCustomGradient) return base;
     return `${base} ${theme.background}`;
   };
+
+  const getSidebarWidth = () => (collapsed ? 'w-16 hover:w-64' : 'w-64');
 
   const handleLinkClick = () => {
     if (sidebarOpen && setSidebarOpen) setSidebarOpen(false);
@@ -256,22 +268,54 @@ export default function UnifiedSidebar({ sidebarOpen, setSidebarOpen }: UnifiedS
   const visibleItems = NAV_ITEMS.filter(item => item.roles.includes(userRole || ''));
 
   const navItemClasses = (isActive: boolean) => {
-    const base = 'flex items-center px-4 py-3 rounded-lg transition-all duration-200';
+    const base = `flex items-center rounded-lg transition-all duration-200 ${
+      collapsed ? 'justify-center py-2.5 mx-2' : 'px-4 py-3'
+    }`;
     if (isActive) return `${base} ${theme.activeBg} text-white shadow-lg`;
     return `${base} ${theme.textClass} ${theme.hoverBg} hover:text-white`;
   };
 
+  const navLabelClasses = () =>
+    cn(
+      'font-medium whitespace-nowrap transition-opacity duration-200',
+      collapsed ? 'hidden group-hover/sidebar:inline' : 'inline',
+    );
+
   return (
-    <div className={getSidebarClasses()} style={getSidebarStyle()}>
+    <div className={`${getSidebarClasses()} ${getSidebarWidth()}`} style={getSidebarStyle()}>
       {/* Logo Section */}
-      <div className="p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
-        <div className="flex items-center space-x-3">
+      <div className={cn('p-4', collapsed && 'pt-5')} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
+        <div className={cn('flex items-center', collapsed ? 'justify-center' : 'space-x-3')}>
           <img src="/Logo.svg" alt="Diamond Link" className="w-10 h-10" />
-          <div>
-            <h1 className="text-xl font-bold text-white">Diamond Link</h1>
-            <p className={`text-xs ${theme.subTextClass}`}>{theme.subtitle}</p>
-          </div>
+          {!collapsed && (
+            <div>
+              <h1 className="text-xl font-bold text-white">Diamond Link</h1>
+              <p className={`text-xs ${theme.subTextClass}`}>{theme.subtitle}</p>
+            </div>
+          )}
         </div>
+
+        {/* Collapse / expand toggle */}
+        {onToggleCollapsed && (
+          <div className={cn(collapsed ? 'flex justify-center mt-3' : 'mt-3')}>
+            <button
+              onClick={onToggleCollapsed}
+              title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+              aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-lg text-white/70 hover:text-white transition-colors',
+                collapsed ? 'p-1.5' : 'px-3 py-1.5 text-xs hover:bg-white/10',
+              )}
+            >
+              {collapsed ? <ChevronRight size={18} /> : (
+                <>
+                  <PanelLeft size={14} />
+                  <span>Colapsar</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
@@ -284,51 +328,65 @@ export default function UnifiedSidebar({ sidebarOpen, setSidebarOpen }: UnifiedS
             className={navItemClasses(pathname === item.href || pathname.startsWith(item.href + '/'))}
           >
             {typeof item.icon === 'string' ? (
-              <i className={`${item.icon} w-5 mr-3`}></i>
+              <i className={`${item.icon} ${collapsed ? 'w-5' : 'w-5 mr-3'}`}></i>
             ) : (
-              <div className="w-5 mr-3">{item.icon}</div>
+              <div className={`flex items-center justify-center ${collapsed ? 'w-5' : 'w-5 mr-3'}`}>{item.icon}</div>
             )}
-            <span className="font-medium">{item.label}</span>
+            <span className={navLabelClasses()}>{item.label}</span>
           </Link>
         ))}
       </nav>
 
       {/* User Section */}
-      <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }}>
-        <div className="flex items-center space-x-3 px-4 py-3">
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-1">
-              <p className="text-sm font-medium text-white">
-                {user?.firstName || 'Usuario'} {user?.lastName || ''}
+      {collapsed ? (
+        <div className="p-4 flex justify-center" style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }}>
+          <HydratedUserButton
+            showOnlineDot
+            appearance={{
+              elements: {
+                avatarBox: 'w-8 h-8',
+                userButton: `${theme.buttonHover} rounded-lg transition-colors`,
+              },
+            }}
+          />
+        </div>
+      ) : (
+        <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.4)' }}>
+          <div className="flex items-center space-x-3 px-4 py-3">
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-1">
+                <p className="text-sm font-medium text-white">
+                  {user?.firstName || 'Usuario'} {user?.lastName || ''}
+                </p>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${theme.badgeClass}`}
+                  style={{ borderColor: 'rgba(255,255,255,0.6)' }}
+                >
+                  <i className={`fas ${getRoleBadgeIcon(userRole)} mr-1`}></i>
+                  {theme.roleText}
+                </span>
+              </div>
+              <p className={`text-xs ${theme.subTextClass}`}>
+                {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
               </p>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${theme.badgeClass}`}
-                style={{ borderColor: 'rgba(255,255,255,0.6)' }}
-              >
-                <i className={`fas ${getRoleBadgeIcon(userRole)} mr-1`}></i>
-                {theme.roleText}
-              </span>
+              <div className="mt-2">
+                <TutorialButton variant="menu" />
+              </div>
             </div>
-            <p className={`text-xs ${theme.subTextClass}`}>
-              {user?.emailAddresses?.[0]?.emailAddress || 'usuario@ejemplo.com'}
-            </p>
-            <div className="mt-2">
-              <TutorialButton variant="menu" />
+            <div className="relative">
+              <HydratedUserButton
+                showOnlineDot
+                appearance={{
+                  elements: {
+                    avatarBox: 'w-8 h-8',
+                    userButton: `${theme.buttonHover} rounded-lg transition-colors`,
+                  },
+                }}
+              />
             </div>
-          </div>
-          <div className="relative">
-            <HydratedUserButton
-              showOnlineDot
-              appearance={{
-                elements: {
-                  avatarBox: 'w-8 h-8',
-                  userButton: `${theme.buttonHover} rounded-lg transition-colors`,
-                },
-              }}
-            />
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

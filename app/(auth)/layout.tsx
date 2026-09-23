@@ -35,6 +35,15 @@ export default function AuthLayout({
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
+  const isContactsPage = pathname.startsWith('/contactos') || pathname.includes('/contacts');
+
+  // Auto-collapse the primary sidebar to an icon rail on the Contacts page
+  // (Supabase style). Manual toggles persist until navigating into/out of it.
+  const [primaryCollapsed, setPrimaryCollapsed] = React.useState(isContactsPage);
+  React.useEffect(() => {
+    setPrimaryCollapsed(isContactsPage);
+  }, [isContactsPage]);
+
   const ready = userLoaded && !!user;
   const isAIChatPage = pathname === '/tech-support/ai-chat';
 
@@ -132,14 +141,22 @@ export default function AuthLayout({
       <div className={`
         transition-all duration-300 ${ready ? 'opacity-100' : 'opacity-0'}
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        xl:translate-x-0 fixed xl:relative xl:flex-shrink-0
-        z-50 xl:z-auto
+        xl:translate-x-0 fixed
+        ${primaryCollapsed
+          ? 'xl:absolute xl:left-0 xl:top-0 xl:h-full xl:z-40'
+          : 'xl:relative xl:flex-shrink-0 xl:z-auto'}
+        z-50
         print:hidden
       `}>
-        <UnifiedSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <UnifiedSidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          collapsed={primaryCollapsed}
+          onToggleCollapsed={() => setPrimaryCollapsed((v) => !v)}
+        />
       </div>
                   {/* Main Content */}
-                  <div className="flex-1 xl:ml-0 min-h-0 overflow-auto flex flex-col w-full min-w-0 print:overflow-visible print:h-auto">
+                  <div className={`flex-1 xl:ml-0 min-h-0 overflow-auto flex flex-col w-full min-w-0 transition-all duration-300 ${primaryCollapsed ? 'xl:pl-16' : ''} print:overflow-visible print:h-auto`}>
                     {/* Header with User Info */}
                     <header className={`transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'} bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 py-3 print:hidden`}>
                     <div className="flex items-center justify-between">
