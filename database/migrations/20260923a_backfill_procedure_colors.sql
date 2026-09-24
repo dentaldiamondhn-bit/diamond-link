@@ -10,18 +10,15 @@
 --   SELECT procedure, color, count(*)
 --   FROM events GROUP BY procedure, color ORDER BY procedure;
 
-UPDATE events
-SET color = new_color
-FROM (
-  SELECT * FROM (VALUES
-    ('Ortodoncia',            '#ec4899'),  -- was #7c3aed (clashed with Endodoncia)
-    ('Radiografía',           '#64748b'),  -- was #2563eb (clashed with Chequeo)
-    ('Implante',              '#f97316'),  -- was #0d9488 (clashed with Limpieza)
-    ('Promo 3 tapones',       '#ca8a04'),  -- was #d97706 (clashed with Extracción)
-    ('Limpieza + 3 tapones',  '#06b6d4'),  -- was #059669 (clashed with Restauraciones)
-    ('Blanqueamiento',        '#0ea5e9')   -- was #059669 (clashed with Restauraciones)
-  ) AS map(procedure, new_color)
-  WHERE events.procedure = map.procedure
-) AS m
-WHERE m.procedure = events.procedure
-  AND events.color IS DISTINCT FROM m.new_color;
+UPDATE events AS e
+SET color = m.new_color
+FROM (VALUES
+  ('Ortodoncia',            '#ec4899'),  -- was #7c3aed (clashed with Endodoncia)
+  ('Radiografía',           '#64748b'),  -- was #2563eb (clashed with Chequeo)
+  ('Implante',              '#f97316'),  -- was #0d9488 (clashed with Limpieza)
+  ('Promo 3 tapones',       '#ca8a04'),  -- was #d97706 (clashed with Extracción)
+  ('Limpieza + 3 tapones',  '#06b6d4'),  -- was #059669 (clashed with Restauraciones)
+  ('Blanqueamiento',        '#0ea5e9')   -- was #059669 (clashed with Restauraciones)
+) AS m(procedure, new_color)
+WHERE e.procedure = m.procedure
+  AND e.color IS DISTINCT FROM m.new_color;
