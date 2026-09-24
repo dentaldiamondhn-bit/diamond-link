@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse, NextRequest } from 'next/server';
+import { isAuthorized, propfindResponse, unauthorized } from '@/lib/contacts/dav-auth';
 
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -50,6 +51,14 @@ function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
 }
 
 export default clerkMiddleware(async (auth, req) => {
+  // CardDAV PROPFIND: Next.js routes only the standard verbs, so answer the
+  // handshake here before the public-route short-circuit below.
+  if (req.method === 'PROPFIND' && req.nextUrl.pathname === '/api/dav/contacts') {
+    const authResult = await isAuthorized(req);
+    if (!authResult.ok) return unauthorized();
+    return propfindResponse();
+  }
+
   // IMMEDIATE BYPASS for system-logs API
   if (req.nextUrl.pathname.startsWith('/api/tickets/system-logs')) {
     const response = NextResponse.next();

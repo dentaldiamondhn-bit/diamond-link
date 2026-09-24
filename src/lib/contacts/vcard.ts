@@ -11,17 +11,71 @@ export interface ParsedContact {
   emails: { type: string; email: string; is_primary?: boolean }[]
 }
 
+/**
+ * Escapes a text fragment for a vCard 3.0 property value (RFC 2426 §3.3).
+ * Backslash, semicolon, comma and line feeds must be escaped so parsers
+ * (iOS AddressBook, Android Contacts Provider, DAVx5) do not mis-split
+ * structured values or truncate names.
+ */
+export function escapeVCardText(value: string | null | undefined): string {
+  return (value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n')
+}
+
+/**
+ * Inverse of escapeVCardText: decodes a vCard 3.0 property value back to the
+ * raw text (RFC 2426 §3.3). Applied on import so names such as "Pérez, Jr."
+ * round-trip without the escaping artifacts.
+ */
+export function unescapeVCardText(value: string): string {
+  return value
+    .replace(/\\,/g, ',')
+    .replace(/\\;/g, ';')
+    .replace(/\\\\/g, '\\')
+    .replace(/\\n/g, '\n')
+}
+
+/**
+ * Normalizes a phone number to international E.164 form (RFC 3966 style), e.g.
+ * "8855-5983" -> "+50488555983". Local numbers (<= 8 digits) get the default
+ * country code prepended; "00" international prefixes are converted to "+";
+ * an explicit "+" or an already-international-length number is left intact.
+ * Defaults to Honduras (+504) because that is the clinic's home country.
+ */
+export function formatToE164(phone: string | null | undefined, defaultCountryCode = '+504'): string {
+  const cleaned = (phone ?? '').trim()
+  if (!cleaned) return ''
+  if (cleaned.startsWith('+')) return '+' + cleaned.slice(1).replace(/[^\d]/g, '')
+  if (cleaned.startsWith('00')) return '+' + cleaned.slice(2).replace(/[^\d]/g, '')
+  const digits = cleaned.replace(/[^\d]/g, '')
+  if (!digits) return ''
+  const cc = defaultCountryCode.replace(/[^\d]/g, '')
+  // Very short local numbers (6-8 digits) are unambiguous local dialing in HN.
+  if (digits.length <= 8) return `+${cc}${digits}`
+  if (digits.startsWith(cc)) return `+${digits}`
+  // Long number without a country code: treat as a full international E.164.
+  return `+${digits}`
+}
+
 export function contactToVCard(c: LocalContact): string {
-  const lines: string[] = ['BEGIN:VCARD', 'VERSION:3.0']
-  lines.push(`FN:${fullName(c)}`)
-  lines.push(`N:${c.last_name ?? ''};${c.first_name ?? ''};;;`)
-  for (const p of c.phones) lines.push(`TEL;TYPE=${p.type.toUpperCase()}:${p.phone_number}`)
-  for (const e of c.emails) lines.push(`EMAIL;TYPE=${e.type.toUpperCase()}:${e.email}`)
-  if (c.company) lines.push(`ORG:${c.company}`)
-  if (c.job_title) lines.push(`TITLE:${c.job_title}`)
-  if (c.address) lines.push(`ADR:;;${c.address.replaceAll('\n', ' ')}`)
-  if (c.dob) lines.push(`BDAY:${c.dob}`)
-  if (c.notes) lines.push(`NOTE:${c.notes.replaceAll('\n', ' ')}`)
+  const lines: string[] = ['BEGIN:VCARD', 'VERSION:3.0', `UID:${c.id}`]
+  lines.push(`FN:${escapeVCardText(fullName(c))}`)
+  lines.push(`N:${escapeVCardText(c.last_name ?? '')};${escapeVCardText(c.first_name ?? '')};;;`)
+  for (const p of c.phones) {
+    const e164 = formatToE164(p.phone_number)
+    const typed = `TEL;TYPE=${p.type.toUpperCase()},VOICE;VALUE=uri:tel:${e164}`
+    lines.push(e164 ? typed : `TEL;TYPE=${p.type.toUpperCase()}:${escapeVCardText(p.phone_number)}`)
+    if (e164) lines.push(`X-SOCIALPROFILE;TYPE=whatsapp:https://wa.me/${e164.replace('+', '')}`)
+  }
+  for (const e of c.emails) lines.push(`EMAIL;TYPE=${e.type.toUpperCase()}:${escapeVCardText(e.email)}`)
+  if (c.company) lines.push(`ORG:${escapeVCardText(c.company)}`)
+  if (c.job_title) lines.push(`TITLE:${escapeVCardText(c.job_title)}`)
+  if (c.address) lines.push(`ADR:;;${escapeVCardText(c.address.replace(/\r?\n/g, ' '))}`)
+  if (c.dob) lines.push(`BDAY:${escapeVCardText(c.dob)}`)
+  if (c.notes) lines.push(`NOTE:${escapeVCardText(c.notes.replace(/\r?\n/g, ' '))}`)
   lines.push('END:VCARD')
   return lines.join('\r\n')
 }
@@ -83,7 +137,7 @@ function parseCard(lines: string[]): ParsedContact {
     if (line.startsWith('FN')) {
       const v = cleanField(line)
       if (v) {
-        const parts = v.trim().split(/\s+/)
+        const parts = unescapeVCardText(v.trim()).split(/\s+/)
         result.first_name = parts[0]
         result.last_name = parts.slice(1).join(' ')
       }
@@ -91,27 +145,31 @@ function parseCard(lines: string[]): ParsedContact {
       const v = cleanField(line)
       if (v) {
         const [last, first] = v.split(';')
-        if (!result.first_name) result.first_name = first?.trim() || undefined
-        if (!result.last_name) result.last_name = last?.trim() || undefined
+        if (!result.first_name) result.first_name = unescapeVCardText(first?.trim() || '') || undefined
+        if (!result.last_name) result.last_name = unescapeVCardText(last?.trim() || '') || undefined
       }
     } else if (lower.startsWith('tel')) {
-      const v = cleanField(line)
-      if (v) {
-        const type = line.match(/TYPE=([^:;\s]+)/i)?.[1]?.toLowerCase()
-        result.phones.push({ type: type ?? 'mobile', phone_number: v })
+      const valueUri = line.match(/VALUE=uri:tel:(\S+)/i)?.[1]
+      const raw = valueUri ?? cleanField(line)
+      if (raw) {
+        const type = line.match(/TYPE=([^:;\s]+)/i)?.[1]?.split(',')[0]?.toLowerCase()
+        result.phones.push({
+          type: type ?? 'mobile',
+          phone_number: valueUri ? `+${raw.replace(/[^\d]/g, '')}` : raw,
+        })
       }
     } else if (lower.startsWith('email')) {
       const v = cleanField(line)
       if (v) {
-        const type = line.match(/TYPE=([^:;\s]+)/i)?.[1]?.toLowerCase()
-        result.emails.push({ type: type ?? 'work', email: v })
+        const type = line.match(/TYPE=([^:;\s]+)/i)?.[1]?.split(',')[0]?.toLowerCase()
+        result.emails.push({ type: type ?? 'work', email: unescapeVCardText(v) })
       }
     } else if (lower.startsWith('org')) {
-      result.company = cleanField(line)
+      result.company = unescapeVCardText(cleanField(line))
     } else if (lower.startsWith('title')) {
-      result.job_title = cleanField(line)
+      result.job_title = unescapeVCardText(cleanField(line))
     } else if (lower.startsWith('note')) {
-      result.notes = cleanField(line)
+      result.notes = unescapeVCardText(cleanField(line))
     }
   }
   return result
@@ -136,8 +194,13 @@ export function whitelistPhoneForWhatsApp(phone: string): string {
 const CLINIC_GREETING = 'Clínica Dental Diamond'
 
 export function whatsappDeepLink(phone: string, patientName?: string): string {
+  const e164 = formatToE164(phone)
   const text = patientName ? `Hola ${patientName}, le saludamos de ${CLINIC_GREETING}.` : undefined
-  const base = `https://wa.me/${whitelistPhoneForWhatsApp(phone)}`
+  if (!e164) {
+    const base = `https://wa.me/${whitelistPhoneForWhatsApp(phone)}`
+    return text ? `${base}?text=${encodeURIComponent(text)}` : base
+  }
+  const base = `https://wa.me/${e164.replace('+', '')}`
   return text ? `${base}?text=${encodeURIComponent(text)}` : base
 }
 
@@ -152,7 +215,7 @@ export async function sharePatientContact(
   phone: string,
   email?: string | null,
 ): Promise<'shared' | 'copied' | 'unsupported'> {
-  const waLink = `https://wa.me/${whitelistPhoneForWhatsApp(phone)}`
+  const waLink = `https://wa.me/${formatToE164(phone).replace('+', '') || whitelistPhoneForWhatsApp(phone)}`
   const lines = [`Paciente: ${name}`, `Teléfono: ${phone}`]
   if (email) lines.push(`Correo: ${email}`)
   const text = lines.join('\n')
