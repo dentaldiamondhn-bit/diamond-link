@@ -109,11 +109,7 @@ function toLocalContact(row: RemoteContactRow, userId: string): LocalContact {
     avatar_url: row.avatar_url ?? null,
     address: row.address ?? null,
     dob: row.dob ?? null,
-    gender: row.gender ?? null,
     emergency_contact: row.emergency_contact ?? null,
-    insurance_provider: row.insurance_provider ?? null,
-    policy_number: row.policy_number ?? null,
-    blood_type: row.blood_type ?? null,
     is_favorite: !!row.is_favorite,
     is_archived: !!row.is_archived,
     version: row.version ?? 1,
@@ -171,12 +167,28 @@ async function pushLabels(userId: string): Promise<number> {
   let pushed = 0
   for (const label of unsynced) {
     try {
-      await supabase.from('contact_labels').insert({
-        id: label.id,
-        user_id: userId,
-        name: label.name,
-        color: label.color,
-      }).throwOnError()
+      // UPDATE-first: a label that already exists remotely (rename/color edit
+      // while synced=1, or a re-created row) must keep its id stable — the
+      // ORG/TITLE/ADR CardDAV junction keys off it. INSERT only when free.
+      const { data: existing } = await supabase
+        .from('contact_labels')
+        .select('id')
+        .eq('id', label.id)
+        .maybeSingle()
+      if (existing) {
+        await supabase
+          .from('contact_labels')
+          .update({ name: label.name, color: label.color })
+          .eq('id', label.id)
+          .throwOnError()
+      } else {
+        await supabase.from('contact_labels').insert({
+          id: label.id,
+          user_id: userId,
+          name: label.name,
+          color: label.color,
+        }).throwOnError()
+      }
       await db.labels.update(label.id, { synced: 1 })
       pushed += 1
     } catch (err) {
@@ -580,11 +592,7 @@ export interface NewContactInput {
   notes?: string
   address?: string
   dob?: string
-  gender?: string
   emergency_contact?: string
-  insurance_provider?: string
-  policy_number?: string
-  blood_type?: string
   is_favorite?: boolean
   is_archived?: boolean
   label_ids?: string[]
@@ -605,11 +613,7 @@ export async function createLocalContact(userId: string, input: NewContactInput)
     notes: input.notes ?? null,
     address: input.address ?? null,
     dob: input.dob ?? null,
-    gender: input.gender ?? null,
     emergency_contact: input.emergency_contact ?? null,
-    insurance_provider: input.insurance_provider ?? null,
-    policy_number: input.policy_number ?? null,
-    blood_type: input.blood_type ?? null,
     is_favorite: !!input.is_favorite,
     is_archived: !!input.is_archived,
     version: 1,
@@ -769,6 +773,39 @@ export async function createLocalLabel(userId: string, name: string, color?: str
   await db.labels.add(label)
   void pushLocalChanges(userId)
   return label
+}
+
+export interface LocalLabelPatch {
+  name?: string
+  color?: string
+}
+
+/** Rename / recolor a label locally; the sync push (UPDATE-first) propagates it. */
+export async function updateLocalLabel(userId: string, id: string, patch: LocalLabelPatch): Promise<void> {
+  const existing = await db.labels.get(id)
+  if (!existing) return
+  const next: Partial<LocalLabel> = {
+    ...patch,
+    synced: 0,
+  }
+  await db.labels.update(id, next)
+  void pushLocalChanges(userId)
+}
+
+/** Soft-remove a label locally; junctions cascade on the server via DELETE-first sync. */
+export async function deleteLocalLabel(userId: string, id: string): Promise<void> {
+  await db.labels.delete(id)
+  await db.contacts.where('user_id').equals(userId).each(async (c) => {
+    if (c.label_ids.includes(id)) {
+      await db.contacts.update(c.id, {
+        label_ids: c.label_ids.filter((lid) => lid !== id),
+        version: (c.version ?? 1) + 1,
+        updated_at: new Date().toISOString(),
+        synced: 0,
+      })
+    }
+  })
+  void pushLocalChanges(userId)
 }
 
 export async function countPendingSync(): Promise<number> {

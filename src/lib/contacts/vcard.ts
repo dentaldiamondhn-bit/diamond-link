@@ -60,6 +60,41 @@ export function formatToE164(phone: string | null | undefined, defaultCountryCod
   return `+${digits}`
 }
 
+const VCARD_MAX_LINE = 75
+
+/**
+ * Folds a single vCard logical line so no line exceeds 75 octets, per RFC 2426
+ * §2 (lines are folded after a CRLF with a single leading space which parsers
+ * transparently unfold). Careful not to split a surrogate pair mid-character.
+ */
+function foldLine(line: string): string {
+  if (line.length <= VCARD_MAX_LINE) return line
+  const chunks: string[] = []
+  let rest = line
+  while (rest.length > VCARD_MAX_LINE) {
+    let cut = VCARD_MAX_LINE
+    const code = rest.charCodeAt(cut - 1)
+    if (code >= 0xd800 && code <= 0xdbff) cut -= 1
+    chunks.push(rest.slice(0, cut))
+    rest = ' ' + rest.slice(cut)
+  }
+  chunks.push(rest)
+  return chunks.join('\r\n')
+}
+
+/**
+ * Folds every logical line of a multi-line vCard body (already separated by
+ * CRLF) to the RFC 2426 75-octet limit. Older iOS/macOS address book parsers
+ * may trim or skip unfold-hostile long fields, so NOTE/ADR/ORG with long
+ * values get wrapped instead.
+ */
+export function foldVCardLines(body: string): string {
+  return body
+    .split('\r\n')
+    .map(foldLine)
+    .join('\r\n')
+}
+
 export function contactToVCard(c: LocalContact): string {
   const lines: string[] = ['BEGIN:VCARD', 'VERSION:3.0', `UID:${c.id}`]
   lines.push(`FN:${escapeVCardText(fullName(c))}`)
@@ -77,7 +112,7 @@ export function contactToVCard(c: LocalContact): string {
   if (c.dob) lines.push(`BDAY:${escapeVCardText(c.dob)}`)
   if (c.notes) lines.push(`NOTE:${escapeVCardText(c.notes.replace(/\r?\n/g, ' '))}`)
   lines.push('END:VCARD')
-  return lines.join('\r\n')
+  return foldVCardLines(lines.join('\r\n'))
 }
 
 export function downloadTextFile(name: string, content: string, mime = 'text/vcard'): void {
@@ -177,8 +212,13 @@ function parseCard(lines: string[]): ParsedContact {
 
 export function parseVcfText(text: string): ParsedContact[] {
   const cards: ParsedContact[] = []
-  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const blocks = normalized.split('BEGIN:VCARD')
+  // Unfold RFC 2426 continuations (CRLF + space/tab) back into single lines
+  // before splitting logical lines, so imported folded vCards parse correctly.
+  const unfolded = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\n[ \t]/g, '')
+  const blocks = unfolded.split('BEGIN:VCARD')
   for (const block of blocks) {
     if (!block.includes('END:VCARD')) continue
     const lines = block.split('\n').filter((l) => l.trim())
@@ -247,10 +287,7 @@ export function openPrintView(c: LocalContact): void {
     [
       ['Dirección', c.address ?? ''],
       ['Fecha de nacimiento', c.dob ?? ''],
-      ['Género', c.gender ?? ''],
       ['Contacto de emergencia', c.emergency_contact ?? ''],
-      ['Aseguradora', c.insurance_provider ?? ''],
-      ['N° de póliza', c.policy_number ?? ''],
     ] as Array<[string, string]>
   ).filter(([, v]) => v)
 

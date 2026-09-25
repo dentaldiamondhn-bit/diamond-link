@@ -405,16 +405,8 @@ export function ContactDetailSheet({
                     <SectionTitle>Información personal</SectionTitle>
                     <InfoRow icon={<MapPin size={15} />} label="Dirección" value={contact.address} />
                     <InfoRow icon={<CalendarDays size={15} />} label="Fecha de nacimiento" value={contact.dob ? formatDate(contact.dob) : null} />
-                    <InfoRow icon={<User size={15} />} label="Género" value={contact.gender} />
+                    <InfoRow icon={<User size={15} />} label="Contacto de emergencia" value={contact.emergency_contact} />
                     <InfoRow icon={<Stethoscope size={15} />} label="Notas" value={contact.notes} />
-                  </section>
-
-                  <section className="mb-2">
-                    <SectionTitle>Información clínica</SectionTitle>
-                    <InfoRow icon={<Siren size={15} />} label="Contacto de emergencia" value={contact.emergency_contact} />
-                    <InfoRow icon={<Shield size={15} />} label="Aseguradora" value={contact.insurance_provider} />
-                    <InfoRow icon={<FileBadge size={15} />} label="N° de póliza" value={contact.policy_number} />
-                    <InfoRow icon={<Droplets size={15} />} label="Tipo de sangre" value={contact.blood_type} />
                   </section>
                 </>
               )}
@@ -493,13 +485,7 @@ export function ContactDetailSheet({
 
                   <section className="mb-5">
                     <SectionTitle>Tipo de sangre</SectionTitle>
-                    {contact.blood_type ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        <Droplets size={12} /> {contact.blood_type}
-                      </span>
-                    ) : (
-                      <EmptyHint>Sin registro</EmptyHint>
-                    )}
+                    <EmptyHint>Sin registro</EmptyHint>
                   </section>
 
                   {!isTrash && (

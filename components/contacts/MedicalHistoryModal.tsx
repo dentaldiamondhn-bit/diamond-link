@@ -16,8 +16,6 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
-const BLOOD_TYPES = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-
 interface MedicalHistoryModalProps {
   open: boolean;
   contact: LocalContact;
@@ -31,7 +29,6 @@ export function MedicalHistoryModal({ open, contact, medical, onClose }: Medical
   const [currentMedications, setCurrentMedications] = useState(medical?.currentMedications.join(', ') ?? '');
   const [odontogramNotes, setOdontogramNotes] = useState(medical?.odontogramNotes ?? '');
   const [lastDentalVisit, setLastDentalVisit] = useState(medical?.lastDentalVisit ? medical.lastDentalVisit.slice(0, 10) : '');
-  const [bloodType, setBloodType] = useState(contact.blood_type ?? '');
   const [saving, setSaving] = useState(false);
 
   if (!open) return null;
@@ -44,11 +41,7 @@ export function MedicalHistoryModal({ open, contact, medical, onClose }: Medical
         chronicConditions: splitList(chronicConditions),
         currentMedications: splitList(currentMedications),
         odontogramNotes: odontogramNotes.trim() || null,
-        lastDentalVisit: lastDentalVisit ? `${lastDentalVisit}T00:00:00Z` : null,
       });
-      if (bloodType !== (contact.blood_type ?? '')) {
-        await updateLocalContact(contact.id, { blood_type: bloodType || null });
-      }
       onClose();
     } finally {
       setSaving(false);
@@ -115,20 +108,6 @@ export function MedicalHistoryModal({ open, contact, medical, onClose }: Medical
                 Última consulta odontológica
               </label>
               <Input type="date" value={lastDentalVisit} onChange={(e) => setLastDentalVisit(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Tipo de sangre</label>
-              <select
-                value={bloodType}
-                onChange={(e) => setBloodType(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {BLOOD_TYPES.map((b) => (
-                  <option key={b} value={b}>
-                    {b || '—'}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 

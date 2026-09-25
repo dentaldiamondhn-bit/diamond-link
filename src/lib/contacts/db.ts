@@ -40,11 +40,7 @@ export interface LocalContact {
   avatar_url?: string | null
   address?: string | null
   dob?: string | null
-  gender?: string | null
   emergency_contact?: string | null
-  insurance_provider?: string | null
-  policy_number?: string | null
-  blood_type?: string | null
   is_favorite: boolean
   is_archived: boolean
   version?: number
