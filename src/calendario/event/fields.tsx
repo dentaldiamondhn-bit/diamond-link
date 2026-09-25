@@ -66,79 +66,96 @@ export const Select = forwardRef<
 ));
 Select.displayName = 'Select';
 
-const CLOCK_HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const CLOCK_MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+const CLINIC_OPEN_MIN = 7 * 60; // 07:00
+const CLINIC_CLOSE_MIN = 19 * 60; // 19:00
+const SLOT_STEP_MIN = 15; // 15-min blocks — typical dental cadence
+
+/** `17:45` → `17:45 p. m.` — es-HN 12h display with a 2-digit padded hour. */
+function slotLabel(h24: number, mm: string): string {
+  const h = h24 % 12 === 0 ? 12 : h24 % 12;
+  const suffix = h24 >= 12 ? 'p. m.' : 'a. m.';
+  return `${String(h).padStart(2, '0')}:${mm} ${suffix}`;
+}
 
 /**
- * 12-hour hh:mm AM/PM picker (hour + minute selects, tap-to-toggle period).
- * Emits 24h `HH:MM` so the form schema and DB keep 24h values.
+ * Preset clinic time slots (`07:00` → `19:00`, 15-min cadence). Each option
+ * carries the `HH:mm` value expected by the form schema + DB with an es-HN
+ * `HH:mm a. m./p. m.` label — a single dropdown replaces the old
+ * Hour/Minute/Period triple picker, cutting the interaction from 3 clicks to 1.
  */
-export function TimeInput({
+export const TIME_SLOTS: Array<{ value: string; label: string }> = (() => {
+  const slots: Array<{ value: string; label: string }> = [];
+  for (let mins = CLINIC_OPEN_MIN; mins <= CLINIC_CLOSE_MIN; mins += SLOT_STEP_MIN) {
+    const h24 = Math.floor(mins / 60);
+    const mm = String(mins % 60).padStart(2, '0');
+    slots.push({ value: `${String(h24).padStart(2, '0')}:${mm}`, label: slotLabel(h24, mm) });
+  }
+  return slots;
+})();
+
+/**
+ * Single-dropdown time slot picker (clinic cadence). Emits 24h `HH:MM` so the
+ * form schema and DB keep 24h values.
+ *
+ * When `minTime` is given (used for `Fin`), earlier slots are filtered out so
+ * the end time can never precede the start — but the current value is always
+ * kept as an option, so an off-grid/out-of-range stored time never renders as
+ * a blank dropdown.
+ */
+export function TimeSlotSelect({
   value,
   onChange,
   invalid,
+  minTime,
   id,
   'aria-label': ariaLabel,
 }: {
   value?: string;
   onChange: (v: string) => void;
   invalid?: boolean;
+  /** Only offer slots at-or-after this `HH:mm` (end-time filter). */
+  minTime?: string;
   id?: string;
   'aria-label'?: string;
 }) {
-  const [h = '09', m = '00'] = (value || '09:00').split(':');
-  const h24 = Math.min(23, Math.max(0, Number(h) || 0));
-  const minute = /^\d{2}$/.test(m) && Number(m) <= 59 ? m : '00';
-  const hour12 = ((h24 + 11) % 12) + 1;
-  const period = h24 >= 12 ? 'PM' : 'AM';
-
-  const commit = (hh12: number, mm: string, p: 'AM' | 'PM') =>
-    onChange(`${String((hh12 % 12) + (p === 'PM' ? 12 : 0)).padStart(2, '0')}:${mm}`);
+  const normalized = normalizeSlot(value);
+  const filtered = minTime
+    ? TIME_SLOTS.filter((s) => s.value >= minTime)
+    : TIME_SLOTS;
+  const hasCurrent = filtered.some((s) => s.value === normalized);
+  const current = hasCurrent
+    ? []
+    : (() => {
+        const h24 = Number(normalized.slice(0, 2));
+        const mm = normalized.slice(3, 5);
+        return [{ value: normalized, label: slotLabel(h24, mm) }];
+      })();
+  const options = [...filtered, ...current].sort((a, b) => a.value.localeCompare(b.value));
 
   return (
-    <div
+    <select
       id={id}
-      role="group"
       aria-label={ariaLabel}
-      className={`flex ${inputCls(invalid)} p-0 overflow-hidden text-sm`}
+      value={normalized}
+      onChange={(e) => onChange(e.target.value)}
+      className={inputCls(invalid)}
     >
-      <select
-        aria-label="Hora"
-        value={hour12}
-        onChange={(e) => commit(Number(e.target.value), minute, period)}
-        onBlur={() => commit(hour12, minute, period)}
-        className="flex-1 min-w-0 bg-transparent border-none outline-none cursor-pointer px-2 py-2 text-gray-800 dark:text-gray-100"
-      >
-        {CLOCK_HOURS.map((x) => (
-          <option key={x} value={x}>
-            {String(x).padStart(2, '0')}
-          </option>
-        ))}
-      </select>
-      <span className="py-2 text-gray-400 select-none" aria-hidden>
-        :
-      </span>
-      <select
-        aria-label="Minuto"
-        value={minute}
-        onChange={(e) => commit(hour12, e.target.value, period)}
-        onBlur={() => commit(hour12, minute, period)}
-        className="flex-1 min-w-0 bg-transparent border-none outline-none cursor-pointer px-2 py-2 text-gray-800 dark:text-gray-100"
-      >
-        {CLOCK_MINUTES.map((x) => (
-          <option key={x} value={x}>
-            {x}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        onClick={() => commit(hour12, minute, period === 'AM' ? 'PM' : 'AM')}
-        className="shrink-0 px-2.5 py-2 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/40 border-l border-gray-200 dark:border-gray-700 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition cursor-pointer"
-        aria-label="Cambiar a. m./p. m."
-      >
-        {period}
-      </button>
-    </div>
+      {options.map((s) => (
+        <option key={s.value} value={s.value}>
+          {s.label}
+        </option>
+      ))}
+    </select>
   );
+}
+
+/** Coerce `HH:mm`/`HH:mm:ss` to a valid `HH:mm`; falls back to 07:00. */
+function normalizeSlot(time?: string | null): string {
+  const [h, m] = (time ?? '').split(':');
+  const hh = Number(h);
+  const mm = (m || '').slice(0, 2);
+  if (/^\d{1,2}$/.test(String(h)) && hh >= 0 && hh <= 23 && /^\d{2}$/.test(mm) && Number(mm) <= 59) {
+    return `${String(hh).padStart(2, '0')}:${mm}`;
+  }
+  return '07:00';
 }

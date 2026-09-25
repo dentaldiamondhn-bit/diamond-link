@@ -81,3 +81,13 @@ export function addHourToTime(time?: string | null, hours = 1): string {
   const h24 = (Number(t.slice(0, 2)) + hours) % 24;
   return `${String(h24).padStart(2, '0')}:${t.slice(3, 5)}`;
 }
+
+/** `17:45` + 45 → `18:30` (`HH:MM`). Mirrors {@link addHourToTime} but at minute granularity for quick-duration chips. */
+export function addMinutesToTime(time?: string | null, minutes = 0): string {
+  const t = normalizeTime(time);
+  const total = Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) + minutes;
+  const clamped = ((total % 1440) + 1440) % 1440; // wrap past midnight, guard negatives
+  const h24 = Math.floor(clamped / 60);
+  const mm = clamped % 60;
+  return `${String(h24).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
