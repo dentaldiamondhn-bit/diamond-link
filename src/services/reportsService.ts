@@ -7,6 +7,7 @@ interface TreatmentCompletadoRow {
   fecha_cita: string;
   total_final: number;
   monto_pagado: number;
+  moneda?: string;
   paciente_id: string;
   patients?: { doctor: string }[];
   vista_tratamientos_realizados_detalles?: TreatmentDetailRow[];
@@ -24,12 +25,14 @@ interface TreatmentDetailRow {
 interface TratamientoRealizadoRow {
   paciente_id: string;
   precio_final: number;
-  creado_en: string;
+  created_en?: string;
+  creado_en?: string;
   doctor_id: string;
   doctor_name: string;
   nombre_tratamiento: string;
   cantidad: number;
   notas: string;
+  moneda?: string;
 }
 
 interface DoctorRow {
@@ -58,6 +61,9 @@ interface PaymentRow {
   tratamiento_completado_id: string;
   moneda_original?: string;
   moneda?: string;
+  monto_convertido?: number;
+  moneda_conversion?: string;
+  tasa_conversion?: number;
 }
 
 interface PresupuestoRow {
@@ -200,6 +206,35 @@ export interface PaymentStatusSummary {
 }
 
 export class ReportsService {
+  /** Fallback USD → HNL exchange rate used when no stored rate is available. */
+  private static readonly USD_TO_HNL_RATE = 26.83;
+
+  /** Convert an amount from its source currency to HNL for reporting. */
+  private static toHNL(amount: number, currency?: string, rate?: number): number {
+    const amt = Number(amount) || 0;
+    const cur = (currency || 'HNL').toUpperCase();
+    if (amt === 0 || cur === 'HNL') return amt;
+    if (cur === 'USD') {
+      const r = rate && rate > 0 ? rate : this.USD_TO_HNL_RATE;
+      return amt * r;
+    }
+    return amt;
+  }
+
+  /** Resolve the HNL value of a payment using stored conversion data when available. */
+  private static paymentToHNL(
+    montoPago: number,
+    moneda?: string,
+    montoConvertido?: number,
+    monedaConversion?: string,
+    tasaConversion?: number
+  ): number {
+    const converted = Number(montoConvertido) || 0;
+    const target = (monedaConversion || '').toUpperCase();
+    if (converted > 0 && target === 'HNL') return converted;
+    return this.toHNL(montoPago, moneda, Number(tasaConversion) || undefined);
+  }
+
   /** Resolve doctor display name from email or user ID. Returns null if not found. */
   private static async resolveDoctorName(doctorEmail?: string, doctorUserId?: string): Promise<string | null> {
     if (!doctorEmail && !doctorUserId) return null;
@@ -223,6 +258,7 @@ export class ReportsService {
         .select(`
           fecha_cita, 
           total_final, 
+          moneda,
           paciente_id,
           patients!inner(doctor),
           vista_tratamientos_realizados_detalles!inner(doctor_name)
@@ -262,7 +298,7 @@ export class ReportsService {
         
         acc[date].patients.add(treatment.paciente_id);
         acc[date].treatments += 1;
-        acc[date].revenue += treatment.total_final || 0;
+        acc[date].revenue += this.toHNL(treatment.total_final, treatment.moneda);
         acc[date].doctors.add(doctorName);
         
         return acc;
@@ -662,6 +698,7 @@ export class ReportsService {
         .from('tratamientos_completados')
         .select(`
           total_final, 
+          moneda,
           fecha_cita, 
           patients!inner(doctor),
           vista_tratamientos_realizados_detalles!inner(doctor_name)
@@ -678,7 +715,7 @@ export class ReportsService {
 
       const { data, error } = await query;
       
-      const totalRevenue = data?.reduce((sum, item) => sum + (item.total_final || 0), 0) || 0;
+      const totalRevenue = data?.reduce((sum, item) => sum + this.toHNL(item.total_final || 0, item.moneda), 0) || 0;
       const totalTreatments = data?.length || 0;
 
       return {
@@ -714,7 +751,7 @@ export class ReportsService {
 
       const { data: treatments, error: treatmentsError } = await supabase
         .from('tratamientos_completados')
-        .select('paciente_id, total_final, monto_pagado, fecha_cita');
+        .select('paciente_id, total_final, moneda, monto_pagado, fecha_cita');
 
       if (treatmentsError) throw treatmentsError;
 
@@ -728,7 +765,7 @@ export class ReportsService {
         const patientTreatments = treatments?.filter((t: { paciente_id: string; total_final: number; monto_pagado: number; fecha_cita: string }) => t.paciente_id === patient.paciente_id) || [];
         const patientPresupuestos = presupuestos?.filter((p: PresupuestoRow) => p.patient_id === patient.paciente_id) || [];
 
-        const totalSpent = patientTreatments.reduce((sum: number, t: { total_final: number }) => sum + (t.total_final || 0), 0);
+        const totalSpent = patientTreatments.reduce((sum: number, t: { total_final: number; moneda?: string }) => sum + this.toHNL(t.total_final || 0, t.moneda), 0);
         const totalPaid = patientTreatments.reduce((sum: number, t: { monto_pagado: number }) => sum + (t.monto_pagado || 0), 0);
         const outstandingBalance = totalSpent - totalPaid;
 
