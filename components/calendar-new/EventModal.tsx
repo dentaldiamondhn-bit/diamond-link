@@ -86,6 +86,13 @@ function phoneOnOpen(phone?: string, storedCountry?: string): { country: string;
 export interface ModalPrefill {
   start: string;
   end: string;
+  /** Contact-shortcut prefill (contact detail sheet → "Crear cita"). */
+  patient?: {
+    name: string;
+    id?: string;
+    phone?: string;
+    phone_country?: string;
+  };
 }
 
 interface Props {
@@ -310,6 +317,15 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     if (prefill) {
       base.start_time = prefill.start || base.start_time;
       base.end_time = prefill.end || base.end_time;
+      if (prefill.patient) {
+        base.patient_name = prefill.patient.name;
+        if (prefill.patient.id) base.patient_id = prefill.patient.id;
+        if (prefill.patient.phone) {
+          const pph = phoneOnOpen(prefill.patient.phone, prefill.patient.phone_country);
+          base.phone = pph.number;
+          base.phone_country = pph.country;
+        }
+      }
       autoEndRef.current = false; // respect the exact slot the user drew
     } else {
       // Default window: Fin = Inicio + 1 h (request #1).

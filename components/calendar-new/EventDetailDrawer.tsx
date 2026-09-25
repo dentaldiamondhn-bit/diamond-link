@@ -151,6 +151,7 @@ export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDu
       {event && (
         <>
           <motion.div
+            key="drawer-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -158,6 +159,7 @@ export default function EventDetailDrawer({ event, userId, onClose, onEdit, onDu
             onClick={onClose}
           />
           <motion.aside
+            key="drawer-panel"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}

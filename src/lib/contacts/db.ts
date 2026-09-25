@@ -72,6 +72,7 @@ export interface MedicalHistory {
   currentMedications: string[]
   odontogramNotes?: string
   lastDentalVisit?: string
+  bloodType?: string
   updatedAt: string
   /** 0 = pending upload, 1 = in sync with Supabase */
   synced: 0 | 1

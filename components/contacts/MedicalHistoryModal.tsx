@@ -3,18 +3,18 @@
 import { useState } from 'react';
 import { X, HeartPulse } from 'lucide-react';
 import type { LocalContact, MedicalHistory } from '@/lib/contacts/db';
-import { updateLocalContact, updateMedicalHistory } from '@/lib/contacts/syncEngine';
+import { updateMedicalHistory } from '@/lib/contacts/syncEngine';
+import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/button';
 
 function splitList(value: string): string[] {
-  return value
-    .split(/[,\n]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return meaningfulMedicalTags(value.split(/[,\n]/).map((s) => s.trim()));
 }
+
+const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 interface MedicalHistoryModalProps {
   open: boolean;
@@ -28,7 +28,8 @@ export function MedicalHistoryModal({ open, contact, medical, onClose }: Medical
   const [chronicConditions, setChronicConditions] = useState(medical?.chronicConditions.join(', ') ?? '');
   const [currentMedications, setCurrentMedications] = useState(medical?.currentMedications.join(', ') ?? '');
   const [odontogramNotes, setOdontogramNotes] = useState(medical?.odontogramNotes ?? '');
-  const [lastDentalVisit, setLastDentalVisit] = useState(medical?.lastDentalVisit ? medical.lastDentalVisit.slice(0, 10) : '');
+  const [lastDentalVisit, setLastDentalVisit] = useState(medical?.lastDentalVisit ?? '');
+  const [bloodType, setBloodType] = useState(medical?.bloodType ?? '');
   const [saving, setSaving] = useState(false);
 
   if (!open) return null;
@@ -41,6 +42,8 @@ export function MedicalHistoryModal({ open, contact, medical, onClose }: Medical
         chronicConditions: splitList(chronicConditions),
         currentMedications: splitList(currentMedications),
         odontogramNotes: odontogramNotes.trim() || null,
+        lastDentalVisit: lastDentalVisit.trim() || null,
+        bloodType: bloodType || null,
       });
       onClose();
     } finally {
@@ -107,7 +110,29 @@ export function MedicalHistoryModal({ open, contact, medical, onClose }: Medical
               <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                 Última consulta odontológica
               </label>
-              <Input type="date" value={lastDentalVisit} onChange={(e) => setLastDentalVisit(e.target.value)} />
+              <Input
+                type="text"
+                value={lastDentalVisit}
+                onChange={(e) => setLastDentalVisit(e.target.value)}
+                placeholder="Ej: hace 6 meses"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                Tipo de sangre
+              </label>
+              <select
+                value={bloodType}
+                onChange={(e) => setBloodType(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Sin registrar</option>
+                {BLOOD_TYPES.map((bt) => (
+                  <option key={bt} value={bt}>
+                    {bt}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

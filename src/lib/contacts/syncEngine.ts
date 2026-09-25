@@ -75,11 +75,13 @@ interface RemoteContactRow {
 
 interface RemoteHistoryRow {
   contact_id: string
+  user_id?: string | null
   allergies?: string[] | null
   chronic_conditions?: string[] | null
   current_medications?: string[] | null
   odontogram_notes?: string | null
   last_dental_visit?: string | null
+  blood_type?: string | null
   updated_at?: string | null
 }
 
@@ -331,14 +333,17 @@ async function pushMedicalHistories(): Promise<number> {
   let pushed = 0
   for (const h of unsynced) {
     try {
+      const owner = await db.contacts.get(h.contactId)
       await supabase.from('patient_medical_history').upsert(
         {
           contact_id: h.contactId,
+          user_id: owner?.user_id ?? null,
           allergies: h.allergies,
           chronic_conditions: h.chronicConditions,
           current_medications: h.currentMedications,
           odontogram_notes: h.odontogramNotes ?? null,
           last_dental_visit: h.lastDentalVisit ?? null,
+          blood_type: h.bloodType ?? null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'contact_id' },
@@ -360,6 +365,7 @@ function toLocalMedicalHistory(row: RemoteHistoryRow): MedicalHistory {
     currentMedications: row.current_medications ?? [],
     odontogramNotes: row.odontogram_notes ?? undefined,
     lastDentalVisit: row.last_dental_visit ?? undefined,
+    bloodType: row.blood_type ?? undefined,
     updatedAt: row.updated_at ?? new Date().toISOString(),
     synced: 1,
   }
@@ -426,8 +432,10 @@ async function runPullRemoteContacts(userId: string): Promise<number> {
     const remoteTs = new Date(row.updated_at ?? 0).getTime()
     const localTs = existing ? new Date(existing.updated_at ?? 0).getTime() : 0
 
-    // Local unsynced edit that is newer wins and will be pushed on next sync.
-    if (existing && existing.synced === 0 && localTs > remoteTs) continue
+    // Local unsynced edit that is newer (or ties) wins and is pushed later.
+    // `>=` (not `>`) prevents a millisecond-equality collision from silently
+    // dropping a pending local edit; the next push re-stamps updated_at.
+    if (existing && existing.synced === 0 && localTs >= remoteTs) continue
 
     const local = toLocalContact(row, userId)
     local.label_ids = junctionByContact.get(row.id) ?? []
@@ -468,9 +476,11 @@ async function reconcileMedicalHistories(userId: string, rows: RemoteContactRow[
   // Local unsynced history that is newer wins and gets pushed on next sync.
   for (const row of histories) {
     const existing = await db.medicalHistories.get(row.contact_id)
+    // Local unsynced history that is newer (or ties) wins and gets pushed on
+    // next sync — same `>=` tie-break as the contacts pull.
     const remoteTs = new Date(row.updated_at ?? 0).getTime()
     const localTs = existing ? new Date(existing.updatedAt ?? 0).getTime() : 0
-    if (existing && existing.synced === 0 && localTs > remoteTs) continue
+    if (existing && existing.synced === 0 && localTs >= remoteTs) continue
     await db.medicalHistories.put(toLocalMedicalHistory(row))
   }
 
@@ -513,7 +523,14 @@ export function subscribeToRealtimeSync(
       { event: '*', schema: 'public', table: 'contacts', filter: `user_id=eq.${userId}` },
       handleChange,
     )
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'patient_medical_history' }, handleChange)
+    // Medical history events are filtered at the socket level via the
+    // denormalized user_id column (see migration 20260926000000) so other
+    // clinics' history updates never reach this client's connection.
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'patient_medical_history', filter: `user_id=eq.${userId}` },
+      handleChange,
+    )
     .subscribe()
 
   return {
@@ -645,6 +662,7 @@ export async function createLocalContact(userId: string, input: NewContactInput)
 export interface UpdateContactPatch {
   first_name?: string | null
   last_name?: string | null
+  patient_id?: string | null
   company?: string | null
   job_title?: string | null
   notes?: string | null
@@ -735,6 +753,7 @@ export interface MedicalHistoryPatch {
   currentMedications?: string[]
   odontogramNotes?: string | null
   lastDentalVisit?: string | null
+  bloodType?: string | null
 }
 
 export async function updateMedicalHistory(contactId: string, patch: MedicalHistoryPatch): Promise<void> {
@@ -746,6 +765,7 @@ export async function updateMedicalHistory(contactId: string, patch: MedicalHist
     currentMedications: patch.currentMedications ?? existing?.currentMedications ?? [],
     odontogramNotes: patch.odontogramNotes ?? existing?.odontogramNotes ?? undefined,
     lastDentalVisit: patch.lastDentalVisit ?? existing?.lastDentalVisit ?? undefined,
+    bloodType: patch.bloodType ?? existing?.bloodType ?? undefined,
     updatedAt: new Date().toISOString(),
     synced: 0,
   }

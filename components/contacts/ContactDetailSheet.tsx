@@ -31,11 +31,16 @@ import {
   Droplets,
   FileText,
   Share2,
+  CalendarPlus,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LocalContact, LocalLabel, MedicalHistory } from '@/lib/contacts/db';
 import { LABEL_COLORS, formatDate, fullName, primaryPhone } from '@/lib/contacts/db';
 import { openPrintView, sharePatientContact } from '@/lib/contacts/vcard';
+import { dateToDateStr } from '@/calendario/rbcAdapter';
+import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
+import { PatientLinkModal } from './PatientLinkModal';
 import { ContactAvatar } from './ContactAvatar';
 import { ContactQuickActions } from './ContactQuickActions';
 
@@ -148,6 +153,7 @@ export function ContactDetailSheet({
   const [addingLabel, setAddingLabel] = useState(false);
   const [labelName, setLabelName] = useState('');
   const [labelColor, setLabelColor] = useState(LABEL_COLORS[0]);
+  const [linkerOpen, setLinkerOpen] = useState(false);
 
   const open = !!contact;
   if (!contact) return null;
@@ -156,6 +162,21 @@ export function ContactDetailSheet({
   const label = (id: string) => labels.find((l) => l.id === id);
   const isTrash = contact.deleted === 1;
   const mainPhone = primaryPhone(contact);
+  const effectiveAllergies = meaningfulMedicalTags(medical?.allergies ?? []);
+  const effectiveConditions = meaningfulMedicalTags(medical?.chronicConditions ?? []);
+  const effectiveMedications = meaningfulMedicalTags(medical?.currentMedications ?? []);
+
+  const createAppointment = () => {
+    const params = new URLSearchParams();
+    params.set('view', 'day');
+    params.set('date', dateToDateStr(new Date()));
+    params.set('new', '1');
+    const trimmedName = name?.trim();
+    if (trimmedName) params.set('contact_name', trimmedName);
+    if (mainPhone?.phone_number) params.set('phone', mainPhone.phone_number);
+    if (contact.patient_id) params.set('patient_id', contact.patient_id);
+    router.push(`/calendario?${params.toString()}`);
+  };
 
   const openEhr = () => {
     if (contact.patient_id) router.push(`/patient-preview/${contact.patient_id}`);
@@ -193,6 +214,7 @@ export function ContactDetailSheet({
       {open && (
         <>
           <motion.div
+            key="sheet-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -200,6 +222,7 @@ export function ContactDetailSheet({
             onClick={onClose}
           />
           <motion.aside
+            key="sheet-panel"
             initial={{ x: 480 }}
             animate={{ x: 0 }}
             exit={{ x: 480 }}
@@ -307,6 +330,18 @@ export function ContactDetailSheet({
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {tab === 'info' && (
                 <>
+                  {/* Calendar shortcut */}
+                  {!isTrash && (
+                    <section className="mb-5">
+                      <button
+                        onClick={createAppointment}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200 dark:border-teal-500/30 bg-teal-50 dark:bg-teal-500/10 px-4 py-3 text-sm font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-500/20 transition-colors"
+                      >
+                        <CalendarPlus size={16} /> Crear cita en el calendario
+                      </button>
+                    </section>
+                  )}
+
                   {/* Clinical deep-link banner */}
                   {!isTrash && (
                     <section className="mb-5 rounded-xl border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/10 p-4">
@@ -339,9 +374,17 @@ export function ContactDetailSheet({
                           </div>
                         </>
                       ) : (
-                        <p className="mt-1.5 text-xs text-blue-600/80 dark:text-blue-300/60">
-                          Vincula este contacto a una ficha de paciente para abrir su expediente completo desde aquí.
-                        </p>
+                        <>
+                          <p className="mt-1.5 text-xs text-blue-600/80 dark:text-blue-300/60">
+                            Vincula este contacto a una ficha de paciente para abrir su expediente completo desde aquí.
+                          </p>
+                          <button
+                            onClick={() => setLinkerOpen(true)}
+                            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-blue-300 dark:border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs font-medium px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                          >
+                            <Link2 size={14} /> Vincular a ficha de paciente
+                          </button>
+                        </>
                       )}
                     </section>
                   )}
@@ -413,14 +456,14 @@ export function ContactDetailSheet({
 
               {tab === 'medical' && (
                 <>
-                  {medical && medical.allergies.length > 0 ? (
+                  {effectiveAllergies.length > 0 ? (
                     <section className="mb-5 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-3">
                       <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400 mb-2">
                         <AlertTriangle size={13} /> Alergias
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {medical.allergies.map((a) => (
-                          <TagPill key={a} color="#EF4444">
+                        {effectiveAllergies.map((a, i) => (
+                          <TagPill key={`${a}-${i}`} color="#EF4444">
                             {a}
                           </TagPill>
                         ))}
@@ -435,10 +478,10 @@ export function ContactDetailSheet({
 
                   <section className="mb-5">
                     <SectionTitle>Condiciones crónicas</SectionTitle>
-                    {medical && medical.chronicConditions.length > 0 ? (
+                    {effectiveConditions.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
-                        {medical.chronicConditions.map((c) => (
-                          <TagPill key={c} color="#8B5CF6">
+                        {effectiveConditions.map((c, i) => (
+                          <TagPill key={`${c}-${i}`} color="#8B5CF6">
                             {c}
                           </TagPill>
                         ))}
@@ -450,10 +493,10 @@ export function ContactDetailSheet({
 
                   <section className="mb-5">
                     <SectionTitle>Medicamentos actuales</SectionTitle>
-                    {medical && medical.currentMedications.length > 0 ? (
+                    {effectiveMedications.length > 0 ? (
                       <ul className="space-y-1.5">
-                        {medical.currentMedications.map((m) => (
-                          <li key={m} className="flex items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+                        {effectiveMedications.map((m, i) => (
+                          <li key={`${m}-${i}`} className="flex items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
                             <Pill size={14} className="text-zinc-400 shrink-0" /> {m}
                           </li>
                         ))}
@@ -467,7 +510,7 @@ export function ContactDetailSheet({
                     <SectionTitle>Última consulta odontológica</SectionTitle>
                     {medical?.lastDentalVisit ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400">
-                        <CalendarDays size={12} /> {formatDate(medical.lastDentalVisit)}
+                        <CalendarDays size={12} /> {medical.lastDentalVisit}
                       </span>
                     ) : (
                       <EmptyHint>Sin consultas registradas</EmptyHint>
@@ -485,7 +528,13 @@ export function ContactDetailSheet({
 
                   <section className="mb-5">
                     <SectionTitle>Tipo de sangre</SectionTitle>
-                    <EmptyHint>Sin registro</EmptyHint>
+                    {medical?.bloodType ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 dark:bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400">
+                        <Droplets size={12} /> {medical.bloodType}
+                      </span>
+                    ) : (
+                      <EmptyHint>Sin registro</EmptyHint>
+                    )}
                   </section>
 
                   {!isTrash && (
@@ -595,6 +644,9 @@ export function ContactDetailSheet({
             </div>
           </motion.aside>
         </>
+      )}
+      {!isTrash && contact && (
+        <PatientLinkModal key="sheet-linker" open={linkerOpen} contact={contact} onClose={() => setLinkerOpen(false)} />
       )}
     </AnimatePresence>
   );

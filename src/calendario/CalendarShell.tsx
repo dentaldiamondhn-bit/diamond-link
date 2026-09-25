@@ -156,6 +156,37 @@ export default function CalendarShell({ userId }: Props) {
     params.delete('eventId');
     window.history.replaceState(null, '', `?${params.toString()}`);
   }, [events]);
+
+  /**
+   * Contact shortcut (contact detail sheet → "Crear cita"): `?new=1` auto-opens
+   * the new-event modal pre-filled with the contact's name/phone/EHR id, then
+   * drops the params so a later refetch never re-opens it.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isNew = params.get('new');
+    if (isNew !== '1' && isNew !== 'true') return;
+    setSelectedDate(dateToDateStr(date));
+    const name = params.get('contact_name');
+    setModalPrefill(name
+      ? {
+          start: '09:00',
+          end: '09:30',
+          patient: {
+            name,
+            id: params.get('patient_id') || undefined,
+            phone: params.get('phone') || undefined,
+          },
+        }
+      : { start: '09:00', end: '09:30' });
+    setEditingEvent(null);
+    setDuplicateOf(null);
+    setDrawerEvent(null);
+    setModalOpen(true);
+    for (const k of ['new', 'contact_name', 'phone', 'patient_id']) params.delete(k);
+    window.history.replaceState(null, '', `?${params.toString()}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const tasks = tasksQuery.data ?? [];
   const reminders = remindersQuery.data ?? [];
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
