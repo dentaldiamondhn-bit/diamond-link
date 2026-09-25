@@ -221,18 +221,28 @@ export class ReportsService {
     return amt;
   }
 
-  /** Resolve the HNL value of a payment using stored conversion data when available. */
+  /**
+   * Convert a payment's amount to HNL.
+   * Prefers computing from (monto_pago, moneda, tasa_conversion) rather than trusting
+   * the stored monto_convertido, which may be recorded unconverted (e.g. 200 USD stored
+   * as 200 with moneda_conversion=HNL instead of 5,366).
+   */
   private static paymentToHNL(
     montoPago: number,
     moneda?: string,
-    montoConvertido?: number,
+    _montoConvertido?: number,
     monedaConversion?: string,
     tasaConversion?: number
   ): number {
-    const converted = Number(montoConvertido) || 0;
-    const target = (monedaConversion || '').toUpperCase();
-    if (converted > 0 && target === 'HNL') return converted;
-    return this.toHNL(montoPago, moneda, Number(tasaConversion) || undefined);
+    const monto = Number(montoPago) || 0;
+    const original = (moneda || 'HNL').toUpperCase();
+    const target = (monedaConversion || '').toUpperCase() || 'HNL';
+    if (original === target) return monto;
+    if (original === 'USD' && target === 'HNL') {
+      const tasa = Number(tasaConversion) || 0;
+      return tasa > 0 ? monto * tasa : monto * this.USD_TO_HNL_RATE;
+    }
+    return this.toHNL(monto, original, Number(tasaConversion) || undefined);
   }
 
   /** Resolve doctor display name from email or user ID. Returns null if not found. */
@@ -905,7 +915,7 @@ export class ReportsService {
       if (treatmentIds && treatmentIds.length > 0) {
         payments = await this.batchInQuery<PaymentRow>(
           'payments',
-          'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda',
+          'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_conversion, tasa_conversion',
           'tratamiento_completado_id',
           treatmentIds,
           (q) => q.gte('fecha_pago', queryStartDate).lte('fecha_pago', queryEndDate)
@@ -914,7 +924,7 @@ export class ReportsService {
       } else {
         const { data, error } = await supabase
           .from('payments')
-          .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda')
+          .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_original, moneda_conversion, tasa_conversion')
           .gte('fecha_pago', queryStartDate)
           .lte('fecha_pago', queryEndDate)
           .order('fecha_pago', { ascending: false });
@@ -973,7 +983,7 @@ export class ReportsService {
         const pacienteId = tc?.paciente_id;
         const tratamiento = treatmentItemsMap.get(p.tratamiento_completado_id) || 'Tratamiento';
         const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
-        const amount = Number(p.monto_pago) || 0;
+        const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
         
         let deductionPercent = 0;
         if (metodoPago === 'tarjeta_credito' || metodoPago === 'tarjeta_debito') {
@@ -1027,7 +1037,7 @@ export class ReportsService {
       if (treatmentIds && treatmentIds.length > 0) {
         payments = await this.batchInQuery<PaymentRow>(
           'payments',
-          'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda',
+          'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda, monto_convertido, moneda_conversion, tasa_conversion',
           'tratamiento_completado_id',
           treatmentIds
         );
@@ -1035,7 +1045,7 @@ export class ReportsService {
       } else {
         const { data, error } = await supabase
           .from('payments')
-          .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda')
+          .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda, monto_convertido, moneda_conversion, tasa_conversion')
           .order('fecha_pago', { ascending: false });
         if (error) throw error;
         payments = (data || []) as PaymentRow[];
@@ -1092,7 +1102,7 @@ export class ReportsService {
         const pacienteId = tc?.paciente_id;
         const tratamiento = treatmentItemsMap.get(p.tratamiento_completado_id) || 'Tratamiento';
         const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
-        const amount = Number(p.monto_pago) || 0;
+        const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
         
         let deductionPercent = 0;
         if (metodoPago === 'tarjeta_credito' || metodoPago === 'tarjeta_debito') {
