@@ -8,7 +8,7 @@ import {
   optionsResponse,
   unauthorized,
 } from '@/lib/contacts/dav-auth';
-import { escapeVCardText, formatToE164 } from '@/lib/contacts/vcard';
+import { escapeVCardText, foldVCardLines, formatToE164 } from '@/lib/contacts/vcard';
 
 // Lightweight CardDAV endpoint for device address books (iOS / DAVx5 / similar).
 //
@@ -69,7 +69,7 @@ function toVCard(c: DavContactRow): string {
     if (e.email) lines.push(`EMAIL;TYPE=WORK:${escapeVCardText(e.email)}`);
   }
   lines.push('END:VCARD');
-  return lines.join('\r\n');
+  return foldVCardLines(lines.join('\r\n'));
 }
 
 export function OPTIONS(request: NextRequest): Promise<NextResponse> | NextResponse {

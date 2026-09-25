@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse, NextRequest } from 'next/server';
-import { isAuthorized, propfindResponse, unauthorized } from '@/lib/contacts/dav-auth';
+import { isAuthorized, optionsResponse, propfindResponse, unauthorized } from '@/lib/contacts/dav-auth';
 
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -15,6 +15,11 @@ const isPublicRoute = createRouteMatcher([
   '/tech-support/(.*)',
   '/capacitor-demo',
 ]);
+
+// RFC 6764 discovery endpoints; redirect clients (DAVx5, iOS) straight to the
+// address book resource. Handled here because .well-known paths contain a dot
+// and are excluded by the main matcher, and PROPFIND can't be a Next route export.
+const DAV_DISCOVERY_PATHS = new Set(['/.well-known/carddav', '/.well-known/caldav']);
 
 function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
@@ -51,12 +56,24 @@ function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
 }
 
 export default clerkMiddleware(async (auth, req) => {
+  // RFC 6764 well-known discovery: .well-known/carddav and .well-known/caldav
+  // must resolve straight to the address book resource. 301 is valid for
+  // CardDAV clients following the redirect (DAVx5, iOS Contacts).
+  if (req.method === 'PROPFIND' && DAV_DISCOVERY_PATHS.has(req.nextUrl.pathname)) {
+    return NextResponse.redirect(new URL('/api/dav/contacts', req.url), 301);
+  }
+
   // CardDAV PROPFIND: Next.js routes only the standard verbs, so answer the
   // handshake here before the public-route short-circuit below.
   if (req.method === 'PROPFIND' && req.nextUrl.pathname === '/api/dav/contacts') {
     const authResult = await isAuthorized(req);
     if (!authResult.ok) return unauthorized();
     return propfindResponse();
+  }
+
+  // OPTIONS on discovery endpoints: advertise DAV support without a redirect.
+  if (req.method === 'OPTIONS' && DAV_DISCOVERY_PATHS.has(req.nextUrl.pathname)) {
+    return optionsResponse();
   }
 
   // IMMEDIATE BYPASS for system-logs API
@@ -100,5 +117,6 @@ export const config = {
   matcher: [
     '/((?!_next|.*\\..*).*)',
     '/(api|trpc)(.*)',
+    '/.well-known/(.*)',
   ],
 };
