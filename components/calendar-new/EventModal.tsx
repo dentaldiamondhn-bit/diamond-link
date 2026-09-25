@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   X,
@@ -34,7 +34,8 @@ import {
   type EventStatus,
   type EventPriority,
 } from '@/calendario/event/eventSchema';
-import { Field, TextInput, TextArea, Select, TimeSlotSelect } from '@/calendario/event/fields';
+import { Field, TextInput, TextArea, Select } from '@/calendario/event/fields';
+import { TimeClockPicker } from '@/calendario/event/TimeClockPicker';
 import {
   saveEventDraft,
   loadEventDraft,
@@ -45,7 +46,7 @@ import { CalendarRepository, isDentistConflictError, type EventInput } from '@/c
 import { useCalendarMutations } from '@/calendario/hooks/useCalendarData';
 import { useToast } from '@/components/calendar-new/Toast';
 import ConflictOverrideDialog from '@/components/calendar-new/ConflictOverrideDialog';
-import { formatClock12, normalizeTime, addHourToTime, addMinutesToTime, clinicWallClockTimestamp } from '@/calendario/timezone';
+import { formatClock12, normalizeTime, addHourToTime, addMinutesToTime, clinicClockTime, clinicWallClockTimestamp } from '@/calendario/timezone';
 import { countries } from '@/utils/phoneUtils';
 import { formatPhoneNumber, getPhonePlaceholder } from '@/utils/formatUtils';
 
@@ -229,9 +230,27 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     if (currentTitle !== next) setValue('title', next);
   }, [open, values.patient_name, values.title, setValue]);
 
-  // 15-min slot pickers (TimeSlotSelect) — emitted value is 24h HH:MM (schema-compatible)
+  // Material radial clock pickers — emitted value is 24h HH:MM (schema-compatible)
   const startTimeField = useController({ control, name: 'start_time' });
   const endTimeField = useController({ control, name: 'end_time' });
+
+  // Duración rápida chips — read Inicio, apply the offset to Fin, and force a
+  // committed re-render. If Inicio is empty, seed it with the current clinic
+  // time before applying the offset (request: chips must visibly update Fin).
+  const applyQuickDuration = useCallback(
+    (minutes: number) => {
+      autoEndRef.current = false;
+      const start = values.start_time || clinicClockTime();
+      if (!values.start_time) {
+        setValue('start_time', start, { shouldDirty: true, shouldValidate: false });
+      }
+      setValue('end_time', addMinutesToTime(start, minutes), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    },
+    [values.start_time, setValue]
+  );
 
   // a11y — Escape closes the dialog (C18: never while delete-confirm is up)
   useEffect(() => {
@@ -336,8 +355,8 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
       }
       autoEndRef.current = false; // respect the exact slot the user drew
     } else {
-      // Default window: Fin = Inicio + 1 h (request #1).
-      base.end_time = addHourToTime(base.start_time, 1);
+      // Default window: Fin = Inicio + 30 min (request).
+      base.end_time = addMinutesToTime(base.start_time, 30);
       autoEndRef.current = true;
     }
     sessionStartRef.current = base.start_time;
@@ -362,7 +381,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
   }, [open, editingEvent, dateStr, prefill, duplicateOf]);
 
   // Smart end-time sync (request): while auto-mode is armed, end follows start
-  // by +1h. Once the user takes over the end field, only an ordering violation
+  // by +30m. Once the user takes over the end field, only an ordering violation
   // (end unset or prior to start) pushes it forward. `sessionStartRef` re-baselines
   // on every open so a reopened modal never inherits stale times.
   useEffect(() => {
@@ -371,7 +390,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
     sessionStartRef.current = values.start_time;
     const endInvalid = !values.end_time || values.end_time <= values.start_time;
     if (autoEndRef.current || endInvalid) {
-      const next = addHourToTime(values.start_time, 1);
+      const next = addMinutesToTime(values.start_time, 30);
       if (next !== values.end_time) {
         setValue('end_time', next, { shouldValidate: false });
       }
@@ -799,10 +818,15 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Field label="Fecha *" error={errors.date?.message}>
-                    <TextInput type="date" invalid={!!errors.date} {...register('date')} />
+                    <TextInput
+                      type="date"
+                      invalid={!!errors.date}
+                      className="dark:[color-scheme:dark]"
+                      {...register('date')}
+                    />
                   </Field>
                   <Field label="Inicio *" error={errors.start_time?.message}>
-                    <TimeSlotSelect
+                    <TimeClockPicker
                       aria-label="Hora de inicio"
                       invalid={!!errors.start_time}
                       value={startTimeField.field.value}
@@ -810,7 +834,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
                     />
                   </Field>
                   <Field label="Fin *" error={errors.end_time?.message}>
-                    <TimeSlotSelect
+                    <TimeClockPicker
                       aria-label="Hora de fin"
                       invalid={!!errors.end_time}
                       value={endTimeField.field.value}
@@ -829,10 +853,7 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
                     <button
                       key={label}
                       type="button"
-                      onClick={() => {
-                        autoEndRef.current = false;
-                        endTimeField.field.onChange(addMinutesToTime(values.start_time, minutes));
-                      }}
+                      onClick={() => applyQuickDuration(minutes)}
                       className="px-2.5 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-teal-50 hover:border-teal-300 hover:text-teal-700 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-teal-900/30 dark:hover:border-teal-700 dark:hover:text-teal-200 transition"
                     >
                       {label}
