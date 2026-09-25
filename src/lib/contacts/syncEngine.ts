@@ -793,7 +793,11 @@ export async function updateLocalLabel(userId: string, id: string, patch: LocalL
 }
 
 /** Soft-remove a label locally; junctions cascade on the server via DELETE-first sync. */
-export async function deleteLocalLabel(userId: string, id: string): Promise<void> {
+export function deleteLocalLabel(userId: string, id: string): Promise<void> {
+  return withSyncLock(() => runDeleteLocalLabel(userId, id))
+}
+
+async function runDeleteLocalLabel(userId: string, id: string): Promise<void> {
   await db.labels.delete(id)
   await db.contacts.where('user_id').equals(userId).each(async (c) => {
     if (c.label_ids.includes(id)) {
@@ -805,6 +809,14 @@ export async function deleteLocalLabel(userId: string, id: string): Promise<void
       })
     }
   })
+  try {
+    // Delete the label row directly so a later pull does NOT resurrect it
+    // (the reconcile step re-puts every server-side label). Junction rows
+    // cascade via contact_label_junction ON DELETE CASCADE.
+    await supabase.from('contact_labels').delete().eq('id', id).throwOnError()
+  } catch (err) {
+    console.warn(`[sync] no se pudo eliminar la etiqueta ${id} en la nube (se reintentará en la próxima escritura):`, err)
+  }
   void pushLocalChanges(userId)
 }
 

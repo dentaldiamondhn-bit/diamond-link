@@ -22,20 +22,14 @@ import {
 import { cn } from '@/lib/utils';
 import type { ContactSort, ContactSortKey, LocalContact, LocalLabel } from '@/lib/contacts/db';
 import { formatDate, fullName, primaryEmail, primaryPhone } from '@/lib/contacts/db';
+import { COLUMNS, SORTABLE_COLUMN_KEYS, type ContactColumn } from './columns';
 import { ContactQuickActions } from './ContactQuickActions';
 import { ContactAvatar } from './ContactAvatar';
-
-const COLUMNS: { key: ContactSortKey; label: string; className?: string; hiddenMobile?: boolean }[] = [
-  { key: 'name', label: 'Nombre' },
-  { key: 'phone', label: 'Teléfono', hiddenMobile: true },
-  { key: 'email', label: 'Correo', hiddenMobile: true },
-  { key: 'labels', label: 'Etiquetas', hiddenMobile: true },
-  { key: 'updated', label: 'Actualizado', hiddenMobile: true },
-];
 
 interface ContactTableProps {
   contacts: LocalContact[];
   selection: Set<string>;
+  columnVisibility: Set<string>;
   sort: ContactSort;
   isTrash: boolean;
   loading: boolean;
@@ -62,7 +56,7 @@ function SortableHeader({
   sort,
   onToggle,
 }: {
-  column: (typeof COLUMNS)[number];
+  column: ContactColumn;
   sort: ContactSort;
   onToggle: (key: ContactSortKey) => void;
 }) {
@@ -70,7 +64,7 @@ function SortableHeader({
   return (
     <th className={cn('pb-3', column.hiddenMobile && 'hidden sm:table-cell', column.className)}>
       <button
-        onClick={() => onToggle(column.key)}
+        onClick={() => onToggle(column.key as ContactSortKey)}
         className={cn(
           'inline-flex items-center gap-1 text-sm font-medium hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors',
           active ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400',
@@ -94,6 +88,7 @@ function SortableHeader({
 export function ContactTable({
   contacts,
   selection,
+  columnVisibility,
   sort,
   isTrash,
   loading,
@@ -116,6 +111,13 @@ export function ContactTable({
 }: ContactTableProps) {
   const allSelected = contacts.length > 0 && contacts.every((c) => selection.has(c.id));
   const selectionCount = selection.size;
+  const phoneVisible = columnVisibility.has('phone');
+  const emailVisible = columnVisibility.has('email');
+  const labelsVisible = columnVisibility.has('labels');
+  const expedienteVisible = columnVisibility.has('expediente');
+  const updatedVisible = columnVisibility.has('updated');
+  const cellCls = (visible: boolean) => cn('py-3 pr-4', visible ? 'hidden sm:table-cell' : 'hidden');
+  const expedienteCellCls = (visible: boolean) => cn('py-3 pr-4', visible ? 'hidden md:table-cell' : 'hidden');
 
   if (loading) {
     return (
@@ -204,12 +206,18 @@ export function ContactTable({
                   aria-label="Seleccionar todos"
                 />
               </th>
-              {COLUMNS.map((col) => (
-                <SortableHeader key={col.key} column={col} sort={sort} onToggle={onToggleSort} />
-              ))}
-              <th className="pb-3 hidden md:table-cell">
-                <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Expediente</span>
-              </th>
+              {COLUMNS.filter((col) => columnVisibility.has(col.key)).map((col) =>
+                SORTABLE_COLUMN_KEYS.has(col.key) ? (
+                  <SortableHeader key={col.key} column={col} sort={sort} onToggle={onToggleSort} />
+                ) : (
+                  <th
+                    key={col.key}
+                    className={cn('pb-3', col.hiddenMobile && 'hidden md:table-cell', col.className)}
+                  >
+                    <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{col.label}</span>
+                  </th>
+                ),
+              )}
               <th className="pb-3 w-24"></th>
             </tr>
           </thead>
@@ -263,7 +271,7 @@ export function ContactTable({
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 pr-4 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                  <td className={cellCls(phoneVisible)} onClick={(e) => e.stopPropagation()}>
                     {phone ? (
                       <div className="flex items-center gap-1.5">
                         <Phone size={13} className="text-zinc-400 shrink-0" />
@@ -276,7 +284,7 @@ export function ContactTable({
                       <span className="text-zinc-300 dark:text-zinc-600">—</span>
                     )}
                   </td>
-                  <td className="py-3 pr-4 hidden sm:table-cell">
+                  <td className={cellCls(emailVisible)}>
                     {email ? (
                       <span className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
                         <Mail size={13} className="text-zinc-400 shrink-0" />
@@ -286,7 +294,7 @@ export function ContactTable({
                       <span className="text-zinc-300 dark:text-zinc-600">—</span>
                     )}
                   </td>
-                  <td className="py-3 pr-4 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                  <td className={cellCls(labelsVisible)} onClick={(e) => e.stopPropagation()}>
                     {contact.label_ids.length > 0 ? (
                       <div className="flex items-center gap-1 flex-wrap">
                         {contact.label_ids.slice(0, 2).map((id) => {
@@ -312,7 +320,7 @@ export function ContactTable({
                       <span className="text-zinc-300 dark:text-zinc-600">—</span>
                     )}
                   </td>
-                  <td className="py-3 pr-4 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                  <td className={expedienteCellCls(expedienteVisible)} onClick={(e) => e.stopPropagation()}>
                     {contact.patient_id ? (
                       <button
                         onClick={() => onOpenEhr(contact)}
@@ -327,7 +335,7 @@ export function ContactTable({
                       </span>
                     )}
                   </td>
-                  <td className="py-3 pr-4 hidden sm:table-cell">
+                  <td className={cn('py-3 pr-4', updatedVisible ? 'hidden sm:table-cell' : 'hidden')}>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">{formatDate(contact.updated_at)}</span>
                   </td>
                   <td className="py-3 pr-4 text-right" onClick={(e) => e.stopPropagation()}>

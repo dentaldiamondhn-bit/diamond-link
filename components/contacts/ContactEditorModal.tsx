@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Plus, Star, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { EmailType, LocalContact, LocalLabel, PhoneType } from '@/lib/contacts/db';
+import type { LocalContact, LocalLabel, PhoneType } from '@/lib/contacts/db';
 import { fullName, newLocalId } from '@/lib/contacts/db';
 import { createLocalContact, updateLocalContact } from '@/lib/contacts/syncEngine';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@/components/ui/Modal';
@@ -19,44 +19,28 @@ interface DraftPhone {
   phone_number: string;
   is_primary: boolean;
 }
-interface DraftEmail {
-  id: string;
-  type: EmailType;
-  email: string;
-  is_primary: boolean;
-}
 
 interface DraftContact {
   first_name: string;
   last_name: string;
-  company: string;
-  job_title: string;
   notes: string;
-  address: string;
-  dob: string;
   emergency_contact: string;
   is_favorite: boolean;
   is_archived: boolean;
   label_ids: string[];
   phones: DraftPhone[];
-  emails: DraftEmail[];
 }
 
 function emptyDraft(): DraftContact {
   return {
     first_name: '',
     last_name: '',
-    company: '',
-    job_title: '',
     notes: '',
-    address: '',
-    dob: '',
     emergency_contact: '',
     is_favorite: false,
     is_archived: false,
     label_ids: [],
     phones: [],
-    emails: [],
   };
 }
 
@@ -64,17 +48,12 @@ function draftFromContact(c: LocalContact): DraftContact {
   return {
     first_name: c.first_name ?? '',
     last_name: c.last_name ?? '',
-    company: c.company ?? '',
-    job_title: c.job_title ?? '',
     notes: c.notes ?? '',
-    address: c.address ?? '',
-    dob: c.dob ?? '',
     emergency_contact: c.emergency_contact ?? '',
     is_favorite: c.is_favorite,
     is_archived: c.is_archived,
     label_ids: [...c.label_ids],
     phones: c.phones.map((p) => ({ id: p.id, type: p.type, phone_number: p.phone_number, is_primary: p.is_primary ?? false })),
-    emails: c.emails.map((e) => ({ id: e.id, type: e.type, email: e.email, is_primary: e.is_primary ?? false })),
   };
 }
 
@@ -103,17 +82,20 @@ export function ContactEditorModal({ open, editing, userId, labels, onClose }: C
     }));
 
   const addPhone = () =>
-    set('phones', [...draft.phones, { id: newLocalId(), type: 'mobile', phone_number: '', is_primary: draft.phones.length === 0 }]);
-  const addEmail = () =>
-    set('emails', [...draft.emails, { id: newLocalId(), type: 'work', email: '', is_primary: draft.emails.length === 0 }]);
+    set('phones', [
+      ...draft.phones,
+      {
+        id: newLocalId(),
+        type: 'mobile',
+        phone_number: draft.phones.length === 0 ? '+504 ' : '',
+        is_primary: draft.phones.length === 0,
+      },
+    ]);
 
   const updatePhone = (id: string, patch: Partial<DraftPhone>) =>
     set('phones', draft.phones.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-  const updateEmail = (id: string, patch: Partial<DraftEmail>) =>
-    set('emails', draft.emails.map((e) => (e.id === id ? { ...e, ...patch } : e)));
 
   const removePhone = (id: string) => set('phones', draft.phones.filter((p) => p.id !== id));
-  const removeEmail = (id: string) => set('emails', draft.emails.filter((e) => e.id !== id));
 
   const sectionTitle = (label: string) => (
     <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{label}</p>
@@ -121,25 +103,22 @@ export function ContactEditorModal({ open, editing, userId, labels, onClose }: C
 
   const save = async () => {
     if (!userId) return;
+    const phones = draft.phones.filter((p) => p.phone_number.trim());
+    if (phones.length > 0 && !phones.some((p) => p.is_primary)) phones[0].is_primary = true;
     const payload = {
       first_name: draft.first_name || null,
       last_name: draft.last_name || null,
-      company: draft.company || null,
-      job_title: draft.job_title || null,
       notes: draft.notes || null,
-      address: draft.address || null,
-      dob: draft.dob || null,
       emergency_contact: draft.emergency_contact || null,
       is_favorite: draft.is_favorite,
       is_archived: draft.is_archived,
       label_ids: draft.label_ids,
-      phones: draft.phones.map((p) => ({ id: p.id, type: p.type, phone_number: p.phone_number, is_primary: p.is_primary })),
-      emails: draft.emails.map((e) => ({ id: e.id, type: e.type, email: e.email, is_primary: e.is_primary })),
+      phones: phones.map((p) => ({ id: p.id, type: p.type, phone_number: p.phone_number, is_primary: p.is_primary })),
     };
     if (editing) {
       await updateLocalContact(editing.id, payload);
     } else {
-      await createLocalContact(userId, payload);
+      await createLocalContact(userId, { ...payload, emails: [] });
     }
     onClose();
   };
@@ -160,19 +139,6 @@ export function ContactEditorModal({ open, editing, userId, labels, onClose }: C
             <div className="grid grid-cols-2 gap-3 flex-1">
               <Input placeholder="Nombre" value={draft.first_name} onChange={(e) => set('first_name', e.target.value)} />
               <Input placeholder="Apellido" value={draft.last_name} onChange={(e) => set('last_name', e.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Input placeholder="Empresa" value={draft.company} onChange={(e) => set('company', e.target.value)} />
-            <Input placeholder="Cargo" value={draft.job_title} onChange={(e) => set('job_title', e.target.value)} />
-          </div>
-          <Input placeholder="Dirección" value={draft.address} onChange={(e) => set('address', e.target.value)} />
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-zinc-500 dark:text-zinc-400 mb-1">Fecha de nacimiento</label>
-              <Input type="date" value={draft.dob} onChange={(e) => set('dob', e.target.value)} />
             </div>
           </div>
 
@@ -205,36 +171,6 @@ export function ContactEditorModal({ open, editing, userId, labels, onClose }: C
                 </div>
               ))}
               {draft.phones.length === 0 && <p className="text-sm text-slate-400">Sin números de teléfono.</p>}
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              {sectionTitle('Correos electrónicos')}
-              <Button type="button" size="sm" variant="outline" onClick={addEmail}>
-                <Plus size={14} className="mr-1" /> Agregar
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {draft.emails.map((e) => (
-                <div key={e.id} className="flex items-center gap-2">
-                  <Select value={e.type} onChange={(ev) => updateEmail(e.id, { type: ev.target.value as EmailType })} className="w-32 shrink-0">
-                    <option value="work">Trabajo</option>
-                    <option value="personal">Personal</option>
-                    <option value="other">Otro</option>
-                  </Select>
-                  <Input
-                    placeholder="correo@ejemplo.com"
-                    type="email"
-                    value={e.email}
-                    onChange={(ev) => updateEmail(e.id, { email: ev.target.value })}
-                  />
-                  <button type="button" onClick={() => removeEmail(e.id)} className="text-slate-400 hover:text-rose-500 shrink-0">
-                    <X size={16} />
-                  </button>
-                </div>
-              ))}
-              {draft.emails.length === 0 && <p className="text-sm text-slate-400">Sin correos electrónicos.</p>}
             </div>
           </div>
 

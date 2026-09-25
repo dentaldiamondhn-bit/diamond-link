@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Plus,
@@ -15,19 +15,25 @@ import {
   Check,
   X,
   Activity,
+  MoreVertical,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ContactFilter, LocalLabel } from '@/lib/contacts/db';
+import { LabelEditModal } from './LabelEditModal';
 
 interface ContactSidebarProps {
   labels: LocalLabel[];
   activeFilter: ContactFilter;
   counts: { all: number; favorites: number; archived: number; recentHistory: number; trash: number };
+  labelCounts: Map<string, number>;
   pendingCount: number;
   isOnline: boolean;
   onCreate: () => void;
   onSelect: (filter: ContactFilter) => void;
   onAddLabel: (name: string) => void;
+  onRenameLabel: (id: string, name: string, color: string) => void | Promise<void>;
+  onDeleteLabel: (id: string) => void | Promise<void>;
   onImportExport: () => void;
   onResync: () => void;
 }
@@ -45,19 +51,40 @@ export function ContactSidebar({
   labels,
   activeFilter,
   counts,
+  labelCounts,
   pendingCount,
   isOnline,
   onCreate,
   onSelect,
   onAddLabel,
+  onRenameLabel,
+  onDeleteLabel,
   onImportExport,
   onResync,
 }: ContactSidebarProps) {
   const [addingLabel, setAddingLabel] = useState(false);
   const [labelName, setLabelName] = useState('');
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [confirmDeleteFor, setConfirmDeleteFor] = useState<LocalLabel | null>(null);
+  const [editFor, setEditFor] = useState<LocalLabel | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
 
   const isActive = (f: ContactFilter) =>
     f === activeFilter || (typeof f === 'object' && typeof activeFilter === 'object' && f.labelId === activeFilter.labelId);
+
+  // Close open label menus only when clicking OUTSIDE the labels nav, so clicks
+  // inside the popover (edit/delete) are not swallowed by the outside handler.
+  useEffect(() => {
+    if (!menuFor && !confirmDeleteFor) return;
+    const onClick = (e: MouseEvent) => {
+      if (!navRef.current || !navRef.current.contains(e.target as Node)) {
+        setMenuFor(null);
+        setConfirmDeleteFor(null);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [menuFor, confirmDeleteFor]);
 
   const submitLabel = () => {
     const name = labelName.trim();
@@ -65,6 +92,17 @@ export function ContactSidebar({
       onAddLabel(name);
       setLabelName('');
       setAddingLabel(false);
+    }
+  };
+
+  const doDeleteLabel = async (label: LocalLabel) => {
+    try {
+      await onDeleteLabel(label.id);
+    } catch (err) {
+      console.error('[labels] no se pudo eliminar la etiqueta:', err);
+    } finally {
+      setConfirmDeleteFor(null);
+      setMenuFor(null);
     }
   };
 
@@ -79,7 +117,7 @@ export function ContactSidebar({
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 space-y-0.5">
+      <nav ref={navRef} className="flex-1 overflow-y-auto px-3 space-y-0.5">
         <button className={navCls(isActive('all'))} onClick={() => onSelect('all')}>
           <span className="flex items-center gap-2">Contactos</span>
           <span className="text-xs text-zinc-400">{counts.all}</span>
@@ -159,16 +197,78 @@ export function ContactSidebar({
             <p className="px-3 py-1.5 text-xs text-zinc-400 dark:text-zinc-500">Sin etiquetas aún</p>
           )}
           {labels.map((label) => (
-            <button
-              key={label.id}
-              className={navCls(isActive({ labelId: label.id }))}
-              onClick={() => onSelect({ labelId: label.id })}
-            >
-              <span className="flex items-center gap-2 truncate">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
-                <span className="truncate">{label.name}</span>
-              </span>
-            </button>
+            <div key={label.id} className="group relative">
+              <div className="flex items-center">
+                <button
+                  className={cn(navCls(isActive({ labelId: label.id })), 'flex-1 min-w-0')}
+                  onClick={() => onSelect({ labelId: label.id })}
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
+                    <span className="truncate">{label.name}</span>
+                  </span>
+                  <span className="text-xs text-zinc-400 font-mono ml-auto pl-1">
+                    {labelCounts.get(label.id) ?? 0}
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setMenuFor(menuFor === label.id ? null : label.id);
+                    if (confirmDeleteFor) setConfirmDeleteFor(null);
+                  }}
+                  className="shrink-0 p-1.5 ml-1 rounded-md text-zinc-400 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-opacity"
+                  title={`Opciones de ${label.name}`}
+                  aria-label={`Opciones de ${label.name}`}
+                >
+                  <MoreVertical size={14} />
+                </button>
+              </div>
+
+              {(menuFor === label.id || confirmDeleteFor?.id === label.id) && (
+                <div className="absolute right-2 top-full mt-0.5 z-40 w-48 rounded-md bg-white dark:bg-zinc-800 shadow-lg ring-1 ring-black/5 ring-opacity-5 dark:ring-zinc-700 py-1">
+                  {confirmDeleteFor?.id === label.id ? (
+                    <div className="px-3 py-1.5 space-y-2">
+                      <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                        ¿Eliminar la etiqueta <span className="font-medium text-zinc-900 dark:text-zinc-100">{label.name}</span>?
+                        Los contactos no se eliminarán.
+                      </p>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setConfirmDeleteFor(null)}
+                          className="px-2 py-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => void doDeleteLabel(label)}
+                          className="inline-flex items-center gap-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium px-2.5 py-1"
+                        >
+                          <Trash2 size={12} /> Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditFor(label);
+                          setMenuFor(null);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/50"
+                      >
+                        <Pencil size={14} /> Editar nombre y color
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteFor(label)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                      >
+                        <Trash2 size={14} /> Eliminar etiqueta
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
 
@@ -218,6 +318,8 @@ export function ContactSidebar({
           </button>
         )}
       </div>
+
+      <LabelEditModal key={editFor?.id ?? 'none'} label={editFor} onSave={onRenameLabel} onClose={() => setEditFor(null)} />
     </aside>
   );
 }

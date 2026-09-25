@@ -21,22 +21,27 @@ import {
 } from '@/lib/contacts/db';
 import {
   createLocalLabel,
+  deleteLocalLabel,
   initContactsSync,
   permanentlyDeleteLocalContact,
   restoreLocalContact,
   softDeleteLocalContact,
   toggleFavoriteLocal,
   updateLocalContact,
+  updateLocalLabel,
 } from '@/lib/contacts/syncEngine';
 import { exportContacts } from '@/lib/contacts/vcard';
 import { ContactSidebar } from '@/components/contacts/ContactSidebar';
+import { COLUMNS } from '@/components/contacts/columns';
 import { ContactTable } from '@/components/contacts/ContactTable';
+import { ColumnVisibilityDropdown } from '@/components/contacts/ColumnVisibilityDropdown';
 import { ContactDetailSheet } from '@/components/contacts/ContactDetailSheet';
 import { ContactEditorModal } from '@/components/contacts/ContactEditorModal';
 import { MedicalHistoryModal } from '@/components/contacts/MedicalHistoryModal';
 import { DeleteContactModal } from '@/components/contacts/DeleteContactModal';
 import { ImportExportModal } from '@/components/contacts/ImportExportModal';
 import { Button } from '@/components/ui/button';
+import { UserPreferencesService } from '@/services/userPreferencesService';
 
 type EditorState = { open: boolean; editing: LocalContact | null };
 
@@ -56,12 +61,16 @@ function getOnlineSnapshot(): boolean {
 
 const ONLINE_SSR_SNAPSHOT = true;
 
+const ALL_COLUMN_KEYS = COLUMNS.map((c) => c.key);
+
 export default function ContactosPage() {
   const { user } = useUser();
   const router = useRouter();
   const [filter, setFilter] = useState<ContactFilter>('all');
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState<Set<string>>(new Set());
+  const [columnVisibility, setColumnVisibility] = useState<Set<string>>(new Set(ALL_COLUMN_KEYS));
+  const columnPrefsLoaded = useRef(false);
   const [sort, setSort] = useState<ContactSort>({ key: 'name', dir: 'asc' });
   const [sheetContact, setSheetContact] = useState<LocalContact | null>(null);
   const [editor, setEditor] = useState<EditorState>({ open: false, editing: null });
@@ -95,6 +104,34 @@ export default function ContactosPage() {
     syncRef.current = sync;
     return () => sync.unsubscribe();
   }, [userId]);
+
+  // Column visibility loads from Supabase user_preferences (page_preferences.contactos).
+  useEffect(() => {
+    if (!userId || columnPrefsLoaded.current) return;
+    (async () => {
+      const prefs = await UserPreferencesService.getPagePreferences(userId, 'contactos');
+      const raw = prefs?.columnVisibility;
+      const stored = Array.isArray(raw) ? raw.filter((k) => ALL_COLUMN_KEYS.includes(k)) : null;
+      const next = stored !== null ? new Set<string>(stored) : new Set<string>(ALL_COLUMN_KEYS);
+      setColumnVisibility(next);
+      columnPrefsLoaded.current = true;
+    })();
+  }, [userId]);
+
+  // Persist on change (fire-and-forget, same path as other pages).
+  useEffect(() => {
+    if (!userId || !columnPrefsLoaded.current) return;
+    const ordered = COLUMNS.map((c) => c.key).filter((k) => columnVisibility.has(k));
+    UserPreferencesService.updatePagePreferences(userId, 'contactos', { columnVisibility: ordered }).catch(() => {});
+  }, [columnVisibility, userId]);
+
+  const toggleColumn = (key: string) =>
+    setColumnVisibility((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // Keyboard shortcuts: "/" => search, "c" => create, Escape => close overlays
   useEffect(() => {
@@ -133,6 +170,16 @@ export default function ContactosPage() {
     }),
     [activeBase, trashCount, recentHistoryCount],
   );
+
+  // Number of non-archived contacts linked to each label (mirrors the label filter).
+  const labelCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of activeBase ?? []) {
+      if (c.is_archived) continue;
+      for (const id of c.label_ids) map.set(id, (map.get(id) ?? 0) + 1);
+    }
+    return map;
+  }, [activeBase]);
 
 const labelList = useMemo(() => labels ?? [], [labels]);
   const labelMap = useMemo(() => new Map(labelList.map((l) => [l.id, l])), [labelList]);
@@ -259,6 +306,21 @@ const labelList = useMemo(() => labels ?? [], [labels]);
     await createLocalLabel(userId, name, color);
   };
 
+  const handleRenameLabel = async (id: string, name: string, color: string) => {
+    if (!userId) return;
+    await updateLocalLabel(userId, id, { name, color });
+  };
+
+  const handleDeleteLabel = async (labelId: string) => {
+    if (!userId) return;
+    await deleteLocalLabel(userId, labelId);
+    if (typeof filter === 'object' && filter.labelId === labelId) {
+      setFilter('all');
+      setSelection(new Set());
+      setSheetContact(null);
+    }
+  };
+
   const handleToggleLabel = async (c: LocalContact, labelId: string) => {
     const next = c.label_ids.includes(labelId)
       ? c.label_ids.filter((id) => id !== labelId)
@@ -281,11 +343,14 @@ const labelList = useMemo(() => labels ?? [], [labels]);
         labels={labelList}
         activeFilter={filter}
         counts={counts}
+        labelCounts={labelCounts}
         pendingCount={pendingCount ?? 0}
         isOnline={isOnline}
         onCreate={() => openEditor(null)}
         onSelect={selectFilter}
         onAddLabel={handleAddLabel}
+        onRenameLabel={handleRenameLabel}
+        onDeleteLabel={handleDeleteLabel}
         onImportExport={() => setImportExportOpen(true)}
         onResync={handleResync}
       />
@@ -307,6 +372,13 @@ const labelList = useMemo(() => labels ?? [], [labels]);
           <Button onClick={() => openEditor(null)} variant="default" className="md:hidden rounded-full p-3 h-auto w-auto">
             <Plus size={18} />
           </Button>
+          <div className="hidden md:block">
+            <ColumnVisibilityDropdown
+              columns={COLUMNS}
+              visible={columnVisibility}
+              onToggle={toggleColumn}
+            />
+          </div>
           <div className="hidden md:flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500">
             <kbd className="rounded border border-zinc-300 dark:border-zinc-700 px-1.5 py-0.5">/</kbd> buscar
             <span className="mx-1">·</span>
@@ -320,6 +392,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
             <ContactTable
               contacts={[]}
               selection={prunedSelection}
+              columnVisibility={columnVisibility}
               sort={sort}
               isTrash={isTrash}
               loading
@@ -354,6 +427,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
             <ContactTable
               contacts={sorted}
               selection={prunedSelection}
+              columnVisibility={columnVisibility}
               sort={sort}
               isTrash={isTrash}
               loading={false}
