@@ -14,7 +14,7 @@ import { UserAvatar } from '@/components/ui/UserComponents';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { STATUS_LABELS, PRIORITY_LABELS, TYPE_LABELS, ACTIVITY_LABELS } from '@/lib/ticketLabels';
-import { supabase } from '@/lib/supabase';
+import { useTicketRealtime } from '@/hooks/useTicketRealtime';
 import { calendarAliasIds } from '@/lib/calendarDevBridge';
 
 export default function TicketsPage() {
@@ -72,33 +72,12 @@ export default function TicketsPage() {
   }, [viewMode, user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel('tech-support-tickets-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tickets' },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setTickets(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Ticket : t));
-          } else if (payload.eventType === 'INSERT') {
-            setTickets(prev => [...prev, payload.new as Ticket]);
-          } else if (payload.eventType === 'DELETE') {
-            setTickets(prev => prev.filter(t => t.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id]);
-
-  useEffect(() => {
     applyFilters();
   }, [tickets, filters, activeTab]);
 
-  const loadTickets = async () => {
+  const loadTickets = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await fetch('/api/tickets', { credentials: 'include' });
       const json = await res.json();
       const ticketsData = json.tickets || [];
@@ -128,9 +107,30 @@ export default function TicketsPage() {
     } catch (error) {
       console.error('Error loading tickets:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Live ticket updates (status/priority/assignee changes on `tickets`, plus
+  // comments and status-change entries on `ticket_activities`). The refresh is
+  // silent: flipping `loading` would replace the whole page with a spinner.
+  useTicketRealtime({
+    userId: user?.id,
+    tickets,
+    setTickets,
+    refresh: () => loadTickets(true),
+  });
+
+  // `selectedTicket` is a snapshot taken when a card is clicked, so realtime
+  // updates never reached an open detail modal. Re-point it at the fresh row
+  // whenever the list changes. The identity guard makes this converge:
+  // re-pointing at the same row is a no-op, so the second run (triggered by the
+  // setState below) stops immediately.
+  useEffect(() => {
+    if (!selectedTicket) return;
+    const fresh = tickets.find(t => t.id === selectedTicket.id);
+    if (fresh && fresh !== selectedTicket) setSelectedTicket(fresh);
+  }, [tickets, selectedTicket]);
 
   const applyFilters = () => {
     let filtered = [...tickets];

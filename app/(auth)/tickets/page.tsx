@@ -5,7 +5,7 @@ import { useUser } from '@clerk/nextjs';
 import { TicketService } from '@/services/ticketService';
 import { Ticket, TicketStatus, TicketType, TicketPriority, UserRole, CreateTicketData, CreateTicketAttachmentData, ActivityType } from '@/types/ticket';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { useTicketRealtime } from '@/hooks/useTicketRealtime';
 import { calendarAliasIds } from '@/lib/calendarDevBridge';
 import { 
   Plus, 
@@ -95,68 +95,13 @@ export default function TicketsPage() {
     UserPreferencesService.updatePagePreferences(user.id, 'tickets', { viewMode }).catch(() => {});
   }, [viewMode, user?.id]);
 
-  // Real-time subscription for ticket updates
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel('tickets-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tickets' },
-        (payload) => {
-          console.log('Real-time ticket update:', payload);
-          
-          // Handle different types of changes
-          if (payload.eventType === 'UPDATE') {
-            // Update ticket in local state if it exists
-            setTickets(prevTickets => 
-              prevTickets.map(ticket => 
-                ticket.id === payload.new.id 
-                  ? { ...ticket, ...payload.new }
-                  : ticket
-              )
-            );
-            
-            // Show notification for status changes
-            if (payload.new.status !== payload.old.status) {
-              // You could add a toast notification here
-              console.log(`Ticket ${payload.new.ticket_number} status changed from ${payload.old.status} to ${payload.new.status}`);
-            }
-          } else if (payload.eventType === 'INSERT') {
-            // Add new ticket to local state
-            setTickets(prevTickets => [...prevTickets, payload.new as Ticket]);
-            console.log(`New ticket created: ${payload.new.ticket_number}`);
-          } else if (payload.eventType === 'DELETE') {
-            // Remove ticket from local state
-            setTickets(prevTickets => 
-              prevTickets.filter(ticket => ticket.id !== payload.old.id)
-            );
-            console.log(`Ticket deleted: ${payload.old.ticket_number}`);
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Real-time subscription established for tickets');
-        } else if (status === 'CLOSED') {
-          console.log('Real-time subscription closed for tickets');
-        }
-      });
-
-    // Cleanup subscription on unmount
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
-
   useEffect(() => {
     applyFilters();
   }, [tickets, filters]);
 
-  const loadTickets = async () => {
+  const loadTickets = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await fetch('/api/tickets', { credentials: 'include' });
       const json = await res.json();
       const ticketsData = json.tickets || [];
@@ -186,9 +131,31 @@ export default function TicketsPage() {
     } catch (error) {
       console.error('Error loading tickets:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Live ticket updates (status/priority/assignee changes on `tickets`, plus
+  // comments and status-change entries on `ticket_activities`). The refresh is
+  // silent: flipping `loading` would replace the whole page with a spinner.
+  useTicketRealtime({
+    userId: user?.id,
+    tickets,
+    setTickets,
+    refresh: () => loadTickets(true),
+  });
+
+  // `selectedTicket` is a snapshot taken when a card is clicked, so realtime
+  // updates to the list never reached an open detail modal — the timeline and
+  // the status selector kept showing the values from click time. Re-point it at
+  // the fresh row whenever the list changes. The identity guard makes this
+  // converge: re-pointing at the same row is a no-op, so the second run
+  // (triggered by the setState below) stops immediately.
+  useEffect(() => {
+    if (!selectedTicket) return;
+    const fresh = tickets.find(t => t.id === selectedTicket.id);
+    if (fresh && fresh !== selectedTicket) setSelectedTicket(fresh);
+  }, [tickets, selectedTicket]);
 
   const applyFilters = () => {
     let filtered = [...tickets];

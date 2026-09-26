@@ -14,6 +14,23 @@ Single source of truth for applied + verified live migrations. Each row: migrati
 | `20260910a_calendario_push_webhook.sql` | **✓ applied (2026-09-10, user via Dashboard SQL editor)** | pg_net triggers on `events` (INSERT/UPDATE) + `event_invitees` (INSERT) → POST `/api/push/calendar-webhook`, signed with the shared `PUSH_WEBHOOK_SECRET` from `.env.local` (same value the chat trigger uses). Fires only on scheduling-relevant changes (`IS NOT DISTINCT FROM` cosmetic guard). |
 | `20260911a_tasks_reminder_schedule.sql` | **✓ applied (2026-09-11, user via Dashboard SQL editor)** | Adds `tasks.remind_at` (next occurrence) + `tasks.repeat_every_days` (recur-until-completed interval) + partial index. **Smoke-tested live** (cron `sources.tasks`): recurrent advanced +2d, one-shot cleared, completed untouched, 2 bell rows → cleaned up. |
 
+## Ticketing — realtime
+
+| File | Applied | Verification |
+| --- | --- | --- |
+| `supabase/migrations/20260927000000_enable_tickets_realtime.sql` | **✓ applied (2026-09-25, user via Dashboard SQL editor)** | **✓ verified live** — `pg_publication_tables` → 4/4 ticket tables in `supabase_realtime`; `pg_class.relreplident` → `f` on all four; 5 filter indexes created. Pre-apply baseline proved the bug: an isolated per-table channel probe got `Unable to subscribe to changes with given parameters ... [table: tickets]` for all four ticket tables while 13/13 non-ticket tables (incl. `tasks`, `events`, `chat_messages`, `notifications`, `contacts`) subscribed fine; E2E control confirmed harness validity (an INSERT on published `tasks` was delivered). Post-apply probe re-confirms `tasks` delivery still works. |
+
+Root cause: none of the four ticket tables had ever been added to the `supabase_realtime` publication, so both tickets pages' `postgres_changes` channel was rejected outright. Two traps worth keeping in mind:
+
+1. **One unpublishable binding tears down the whole channel.** A channel carrying both `tickets` and `ticket_activities` received zero events for *both* — hence "no realtime at all" rather than "comments missing". Never put a not-yet-published table on a shared channel with one that matters.
+2. **Payload asymmetry.** Status/priority/assignee changes are UPDATEs on `tickets`; comments *and* status-change entries are INSERTs on `ticket_activities` (`TicketService.updateTicket` writes the activity row alongside the ticket UPDATE). Both tables need a client binding or one class of change stays dead.
+
+`payload.old` is PK-only on these tables even with `REPLICA IDENTITY FULL` (same Supabase limitation noted for the calendar five above), so "did the status change?" is answered against the previously-held row, not `payload.old.status`. Handled centrally in `hooks/useTicketRealtime.ts`, which both tickets pages now share.
+
+**RLS deliberately left untouched by this migration.** `tickets` / `ticket_activities` are readable in full by the public anon key (verified live: anon and service_role return identical counts — 27 tickets / 106 activities), because the policies in `20250308000004_enhance_tech_support_access.sql` gate on `auth.uid()`, which is NULL for this Clerk-only browser session, so no policy matches. Closing that would break all ticket writes, because `TicketService` performs every write (`createTicket`, `updateTicket`, `addComment`, `addAttachment`, `deleteAttachment`) through the anon client. Locking it down must follow moving those writes behind a service-role API route. Publishing does not widen the exposure — the same rows are already reachable through PostgREST with the anon key in the client bundle.
+
+**Operator note:** like `20260908c`, this needs a project restart (`POST /v1/projects/{ref}/restart`) for hosted Realtime to pick up the new publication members. Applied 2026-09-25.
+
 ### Realtime/identity verification output (20260908c) — used to confirm, after apply
 
 Ran in the Supabase Dashboard SQL editor (2026-09-08):
