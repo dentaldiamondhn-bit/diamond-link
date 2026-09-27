@@ -2,12 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom loading state to prevent white screen during refresh */
-html {
-  background-color: #1f2937; /* charcoal gray */
-}
-
-body {
+/* Viewport lock — geometry only, deliberately.
+   The app background has to own the *whole* canvas on every runtime (Crostini
+   Linux container, Android WebAPK/standalone PWA, windowed or full-screen
+   desktop): any strip the document doesn't paint shows up as a margin down the
+   left, right and bottom edges, and `min-height` alone still lets a short shell
+   expose it. Pinning height, width and the box edges on the root nodes leaves
+   nowhere for that gap to appear.
+   The colour is NOT changed — this stylesheet is app-wide (patients, chat,
+   odontogram, dashboards) and the charcoal is shared with `--fd-surf` in
+   color-system.css, so restyling the root here would restyle every route. The
+   calendar's own surface colour is set in CalendarShell. */
+html,
+body,
+#__next,
+#next {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   background-color: #1f2937; /* charcoal gray */
 }
 
@@ -444,9 +457,12 @@ body {
   color: hsl(var(--muted-foreground));
 }
 
-/* Ensure smooth scrolling on mobile devices */
+/* Ensure smooth scrolling on mobile devices. Height stays locked to the
+   viewport (see the root lock at the top of this file) — reverting to
+   `height: auto` here is what let the container shrink and re-expose the
+   body background as a bottom margin. */
 html, body {
-  height: auto;
+  height: 100%;
   min-height: 100vh;
   overflow-x: hidden;
   overflow-y: auto;
@@ -456,7 +472,7 @@ html, body {
 /* Fix iOS Safari scrolling issues */
 @supports (-webkit-touch-callout: none) {
   html, body {
-    height: auto;
+    height: 100%;
     min-height: 100vh;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
