@@ -513,9 +513,9 @@ if (eventsQuery.isPending && !eventsQuery.data) {
     // light mode is unaffected.
     <div
       className={cn(
-        'flex w-full flex-col overflow-x-hidden overflow-y-hidden dark:bg-slate-950 dark:text-slate-200',
+        'flex w-full flex-col overflow-x-hidden overflow-y-auto dark:bg-slate-950 dark:text-slate-200',
         'h-full min-h-screen p-2 sm:p-4 md:p-6',
-        'md:h-[calc(100vh-5rem)] md:min-h-0'
+        'md:h-[calc(100vh-5rem)]'
       )}
     >
       {queryError ? (
@@ -530,14 +530,14 @@ if (eventsQuery.isPending && !eventsQuery.data) {
           the month grid to ~40px rows. At `lg` the grid becomes 2 columns and
           the row track is irrelevant (`lg:grid-rows-1`). */}
       <div
-        className={`grid min-h-0 w-full flex-1 grid-rows-[minmax(0,1fr)_auto] gap-6 lg:grid-rows-1 ${
+        className={`grid min-h-[600px] w-full flex-1 grid-rows-[minmax(600px,1fr)_auto] gap-6 lg:grid-rows-1 ${
           sidebarOpen
             ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px]'
             : 'grid-cols-1'
         }`}
       >
         <div
-          className="flex min-h-0 min-w-0 flex-col"
+          className="flex min-h-[600px] min-w-0 flex-col"
           onTouchStartCapture={onTouchStartCapture}
           onTouchMoveCapture={onTouchMoveCapture}
           onTouchEndCapture={onTouchEndCapture}
