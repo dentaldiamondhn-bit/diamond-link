@@ -233,10 +233,7 @@ export default function Dashboard({ userId }: Props) {
               <button onClick={goToday} className="text-sm font-medium text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-lg transition">
                 Hoy
               </button>
-              <button
-                onClick={openNewEvent}
-                className="flex items-center gap-1.5 rounded-xl border border-teal-500/60 bg-teal-500/20 px-4 py-2 text-sm font-medium text-teal-700 shadow-lg backdrop-blur-md transition-all hover:bg-teal-500/30 dark:text-teal-300"
-              >
+              <button onClick={openNewEvent} className="flex items-center gap-1.5 bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-teal-700 transition shadow-sm">
                 <Plus size={16} /> <span className="hidden sm:inline">Nueva cita</span>
               </button>
             </div>
