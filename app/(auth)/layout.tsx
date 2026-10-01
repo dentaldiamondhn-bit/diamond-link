@@ -117,7 +117,7 @@ export default function AuthLayout({
 
   return providers(
     <>
-    <div className="flex h-screen w-full min-w-0 bg-gray-100 relative overflow-x-clip print:block print:h-auto print:overflow-visible">
+    <div className="ambient flex h-screen w-full min-w-0 bg-white/40 relative overflow-x-clip dark:bg-slate-950/40 print:block print:h-auto print:overflow-visible">
       {/* Mobile Menu Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -132,7 +132,7 @@ export default function AuthLayout({
       {/* Mobile Overlay */}
       {ready && sidebarOpen && (
         <div
-          className="xl:hidden fixed inset-0 bg-black bg-opacity-50 z-40 portrait-overlay print:hidden"
+          className="xl:hidden fixed inset-0 bg-slate-950/45 backdrop-blur-sm z-40 portrait-overlay print:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -158,7 +158,7 @@ export default function AuthLayout({
                   {/* Main Content */}
                   <div className={`flex-1 xl:ml-0 min-h-0 overflow-auto flex flex-col w-full min-w-0 transition-all duration-300 ${primaryCollapsed ? 'xl:pl-16' : ''} print:overflow-visible print:h-auto`}>
                     {/* Header with User Info */}
-                    <header className={`transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'} bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 py-3 print:hidden`}>
+                    <header className={`transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'} glass-tint border-b border-white/40 dark:border-white/5 px-3 sm:px-4 py-3 print:hidden`}>
                     <div className="flex items-center justify-between">
                       {/* Left side - Page Title */}
                       <div className="flex items-center">
