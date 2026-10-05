@@ -100,9 +100,17 @@ export default function ContactosPage() {
     [sheetContact?.id],
   );
 
+  // Scoped by user_id on purpose: IndexedDB survives sign-out, so an unscoped
+  // read makes the "Contactos" counter show the previous account's contacts to
+  // an account that has none of its own.
   const activeBase = useLiveQuery(
-    () => db.contacts.where('deleted').equals(0).toArray(),
-    [],
+    async () =>
+      userId
+        ? (await db.contacts.where('user_id').equals(userId).toArray()).filter(
+            (c) => (c.deleted ?? 0) === 0,
+          )
+        : [],
+    [userId],
   );
   const trashCount = useLiveQuery(
     async () =>

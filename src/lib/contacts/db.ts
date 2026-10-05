@@ -1,19 +1,3 @@
-/**
- * Every local read MUST be scoped by user_id.
- */
-export async function getContactIdsForUser(userId: string): Promise<string[]> {
-  const rows = await db.contacts.where('user_id').equals(userId).toArray()
-  return rows.map((c) => c.id)
-}
-
-/** `patient_medical_history` is keyed by contactId only, so scope it via contacts. */
-async function getRecentHistoryContactIds(userId: string): Promise<Set<string>> {
-  const start = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
-  const histories = await db.medicalHistories.where('updatedAt').above(start).toArray()
-  const recent = new Set(histories.map((h) => h.contactId))
-  const owned = new Set(await getContactIdsForUser(userId))
-  return new Set([...recent].filter((id) => owned.has(id)))
-}
 import Dexie, { type Table } from 'dexie'
 
 export type PhoneType = 'mobile' | 'work' | 'home' | 'whatsapp' | 'fax' | 'other'
@@ -211,8 +195,6 @@ export async function queryContacts(
   if (filter === 'favorites') {
     base = base.filter((c) => c.is_favorite)
   } else if (filter === 'recentHistory') {
-    const start = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
-    const histories = await db.medicalHistories.where('updatedAt').above(start).toArray()
     const ids = await getRecentHistoryContactIds(userId)
     base = base.filter((c) => ids.has(c.id))
   } else if (typeof filter === 'object') {
@@ -258,6 +240,32 @@ export function sortContacts(list: LocalContact[], sort: ContactSort): LocalCont
     return String(av).localeCompare(String(bv), 'es') * dir
   })
 }
+
+/**
+ * Every local read MUST be scoped by user_id.
+ *
+ * IndexedDB is per-ORIGIN, not per-account: the address book that account A
+ * synced stays on the device after A signs out, so an unscoped read hands the
+ * next account signed in everyone else's contacts. `user_id` is indexed on
+ * contacts and labels, so scoping is an index lookup plus an in-memory
+ * `deleted` filter.
+ */
+export async function getContactIdsForUser(userId: string): Promise<string[]> {
+  if (!userId) return []
+  const rows = await db.contacts.where('user_id').equals(userId).toArray()
+  return rows.map((c) => c.id)
+}
+
+/** `patient_medical_history` is keyed by contactId only, so scope it via contacts. */
+async function getRecentHistoryContactIds(userId: string): Promise<Set<string>> {
+  if (!userId) return new Set()
+  const start = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const histories = await db.medicalHistories.where('updatedAt').above(start).toArray()
+  const recent = new Set(histories.map((h) => h.contactId))
+  const owned = new Set(await getContactIdsForUser(userId))
+  return new Set([...recent].filter((id) => owned.has(id)))
+}
+
 export async function getRecentMedicalHistoryCount(userId: string): Promise<number> {
   if (!userId) return 0
   return (await getRecentHistoryContactIds(userId)).size
