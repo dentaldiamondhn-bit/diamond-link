@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import {
   db,
+  getContactIdsForUser,
   newLocalId,
   LABEL_COLORS,
   type LocalContact,
@@ -233,7 +234,7 @@ async function pushContactJunctions(contactId: string, labelIds: string[]): Prom
 }
 
 async function runPushLocalChanges(userId: string): Promise<number> {
-  const unsynced = await db.contacts.where('synced').equals(0).toArray()
+  const unsynced = (await db.contacts.where('user_id').equals(userId).toArray()).filter((c) => c.synced === 0)
   let pushed = 0
 
   for (const contact of unsynced) {
@@ -302,7 +303,7 @@ async function runPushLocalChanges(userId: string): Promise<number> {
   }
 
   const labelsPushed = await pushLabels(userId)
-  const historyPushed = await pushMedicalHistories()
+  const historyPushed = await pushMedicalHistories(userId)
   return pushed + labelsPushed + historyPushed
 }
 
@@ -327,8 +328,10 @@ export function pushLocalChanges(userId: string): Promise<number> {
 // MEDICAL HISTORY sync (1:1 summary per contact)
 // ---------------------------------------------------------------------------
 
-async function pushMedicalHistories(): Promise<number> {
-  const unsynced = await db.medicalHistories.where('synced').equals(0).toArray()
+async function pushMedicalHistories(userId: string): Promise<number> {
+  const owned = new Set(await getContactIdsForUser(userId))
+  const all = await db.medicalHistories.where('synced').equals(0).toArray()
+  const unsynced = all.filter((h) => owned.has(h.contactId))
   let pushed = 0
   for (const h of unsynced) {
     try {
@@ -852,6 +855,56 @@ async function runDeleteLocalLabel(userId: string, id: string): Promise<void> {
   void pushLocalChanges(userId)
 }
 
-export async function countPendingSync(): Promise<number> {
-  return db.contacts.where('synced').equals(0).count()
+export async function countPendingSync(userId: string): Promise<number> {
+  if (!userId) return 0
+  const rows = await db.contacts.where('user_id').equals(userId).toArray()
+  return rows.filter((c) => c.synced === 0).length
+}
+
+/**
+ * Local cross-account purge is opt-in and OFF by default.
+ *
+ * Deleting another account's rows from this device is irreversible, and until
+ * the Supabase backup is restored it can destroy the only surviving copy of a
+ * clinic's contacts. So there is deliberately NO `NODE_ENV === 'production'`
+ * shortcut here: a production build must arm this explicitly via
+ * `NEXT_PUBLIC_ENABLE_PURGE=1`.
+ */
+const PURGE_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_PURGE === '1' || process.env.ENABLE_PURGE === '1'
+
+export async function purgeOtherUsersData(activeUserId: string): Promise<number> {
+  if (!activeUserId) return 0
+  if (!PURGE_ENABLED) {
+    console.warn(
+      '[sync] purgeOtherUsersData: deshabilitado (activa con NEXT_PUBLIC_ENABLE_PURGE=1 en producción/preview mientras se recupera el backup de Supabase)',
+    )
+    return 0
+  }
+
+  const foreignContacts = (await db.contacts.toArray()).filter(
+    (c) => c.user_id !== activeUserId,
+  )
+  if (foreignContacts.length === 0) {
+    const owned = new Set(await getContactIdsForUser(activeUserId))
+    const orphanHistories = (await db.medicalHistories.toArray()).filter(
+      (h) => !owned.has(h.contactId),
+    )
+    if (orphanHistories.length) await db.medicalHistories.bulkDelete(orphanHistories.map((h) => h.contactId))
+    return 0
+  }
+
+  await db.transaction('rw', db.contacts, db.labels, db.medicalHistories, async () => {
+    for (const c of foreignContacts) {
+      await db.medicalHistories.delete(c.id)
+    }
+    await db.contacts.bulkDelete(foreignContacts.map((c) => c.id))
+    const foreignLabels = (await db.labels.toArray()).filter((l) => l.user_id !== activeUserId)
+    if (foreignLabels.length) await db.labels.bulkDelete(foreignLabels.map((l) => l.id))
+  })
+
+  console.info(
+    `[sync] purga local: ${foreignContacts.length} contacto(s) de otra(s) cuenta(s) eliminados de este dispositivo`,
+  )
+  return foreignContacts.length
 }

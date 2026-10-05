@@ -1,3 +1,19 @@
+/**
+ * Every local read MUST be scoped by user_id.
+ */
+export async function getContactIdsForUser(userId: string): Promise<string[]> {
+  const rows = await db.contacts.where('user_id').equals(userId).toArray()
+  return rows.map((c) => c.id)
+}
+
+/** `patient_medical_history` is keyed by contactId only, so scope it via contacts. */
+async function getRecentHistoryContactIds(userId: string): Promise<Set<string>> {
+  const start = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const histories = await db.medicalHistories.where('updatedAt').above(start).toArray()
+  const recent = new Set(histories.map((h) => h.contactId))
+  const owned = new Set(await getContactIdsForUser(userId))
+  return new Set([...recent].filter((id) => owned.has(id)))
+}
 import Dexie, { type Table } from 'dexie'
 
 export type PhoneType = 'mobile' | 'work' | 'home' | 'whatsapp' | 'fax' | 'other'
@@ -170,17 +186,21 @@ export async function getMedicalHistory(contactId: string): Promise<MedicalHisto
   return await db.medicalHistories.get(contactId)
 }
 
-export async function getRecentMedicalHistoryCount(): Promise<number> {
-  const start = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
-  return db.medicalHistories.where('updatedAt').above(start).count()
-}
 
-export async function queryContacts(filter: ContactFilter, search?: string): Promise<LocalContact[]> {
+
+export async function queryContacts(
+  userId: string,
+  filter: ContactFilter,
+  search?: string,
+): Promise<LocalContact[]> {
+  if (!userId) return []
   const isTrash = filter === 'trash'
-  let base = await db.contacts
-    .where('deleted')
-    .equals(isTrash ? 1 : 0)
-    .toArray()
+  let base = (
+    await db.contacts
+      .where('user_id')
+      .equals(userId)
+      .toArray()
+  ).filter((c) => (c.deleted ?? 0) === (isTrash ? 1 : 0))
 
   if (filter === 'archived') {
     base = base.filter((c) => c.is_archived)
@@ -193,7 +213,7 @@ export async function queryContacts(filter: ContactFilter, search?: string): Pro
   } else if (filter === 'recentHistory') {
     const start = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
     const histories = await db.medicalHistories.where('updatedAt').above(start).toArray()
-    const ids = new Set(histories.map((h) => h.contactId))
+    const ids = await getRecentHistoryContactIds(userId)
     base = base.filter((c) => ids.has(c.id))
   } else if (typeof filter === 'object') {
     const labelId = filter.labelId
@@ -237,4 +257,8 @@ export function sortContacts(list: LocalContact[], sort: ContactSort): LocalCont
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
     return String(av).localeCompare(String(bv), 'es') * dir
   })
+}
+export async function getRecentMedicalHistoryCount(userId: string): Promise<number> {
+  if (!userId) return 0
+  return (await getRecentHistoryContactIds(userId)).size
 }

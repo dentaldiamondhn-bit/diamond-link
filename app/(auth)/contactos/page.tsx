@@ -28,6 +28,8 @@ import {
   softDeleteLocalContact,
   toggleFavoriteLocal,
   updateLocalContact,
+  countPendingSync,
+  purgeOtherUsersData,
   updateLocalLabel,
 } from '@/lib/contacts/syncEngine';
 import { exportContacts } from '@/lib/contacts/vcard';
@@ -83,10 +85,16 @@ export default function ContactosPage() {
 
   const userId = user?.id;
 
-  const contacts = useLiveQuery(() => queryContacts(filter, search), [filter, search]);
-  const pendingCount = useLiveQuery(() => db.contacts.where('synced').equals(0).count(), []);
+  const contacts = useLiveQuery(
+    () => (userId ? queryContacts(userId, filter, search) : Promise.resolve([])),
+    [userId, filter, search],
+  );
+  const pendingCount = useLiveQuery(() => countPendingSync(userId ?? ''), [userId]);
   const labels = useLiveQuery(() => (userId ? getLabels(userId) : Promise.resolve([])), [userId]);
-  const recentHistoryCount = useLiveQuery(() => getRecentMedicalHistoryCount(), []);
+  const recentHistoryCount = useLiveQuery(
+    () => getRecentMedicalHistoryCount(userId ?? ''),
+    [userId],
+  );
   const medical = useLiveQuery(
     () => (sheetContact ? getMedicalHistory(sheetContact.id) : Promise.resolve(undefined)),
     [sheetContact?.id],
@@ -96,13 +104,26 @@ export default function ContactosPage() {
     () => db.contacts.where('deleted').equals(0).toArray(),
     [],
   );
-  const trashCount = useLiveQuery(() => db.contacts.where('deleted').equals(1).count(), []);
+  const trashCount = useLiveQuery(
+    async () =>
+      userId ? (await db.contacts.where('user_id').equals(userId).toArray()).filter((c) => c.deleted === 1).length : 0,
+    [userId],
+  );
 
   useEffect(() => {
     if (!userId) return;
-    const sync = initContactsSync(userId);
-    syncRef.current = sync;
-    return () => sync.unsubscribe();
+    let cancelled = false;
+    let detach: (() => void) | undefined;
+    void purgeOtherUsersData(userId).finally(() => {
+      if (cancelled) return;
+      const sync = initContactsSync(userId);
+      syncRef.current = sync;
+      detach = sync.unsubscribe;
+    });
+    return () => {
+      cancelled = true;
+      detach?.();
+    };
   }, [userId]);
 
   // Column visibility loads from Supabase user_preferences (page_preferences.contactos).

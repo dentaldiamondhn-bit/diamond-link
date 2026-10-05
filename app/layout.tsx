@@ -6,6 +6,7 @@ import './globals.css'
 import './color-system.css'
 import BannerAlert from '@/components/BannerAlert'
 import AdminOverrideTimer from '@/components/AdminOverrideTimer'
+import SupabaseTokenBridge from '@/components/SupabaseTokenBridge'
 import { AdminOverrideProvider } from '@/contexts/AdminOverrideContext'
 import { QueryProvider } from '@/contexts/QueryProvider'
 import { DocumentLang } from '@/chat/i18n/DocumentLang'
@@ -142,6 +143,7 @@ export default function RootLayout({
           />
         </head>
         <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
+          <SupabaseTokenBridge />
           <AdminOverrideProvider>
             <DocumentLang />
             <BannerAlert />
