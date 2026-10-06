@@ -9,6 +9,7 @@ import AdminOverrideTimer from '@/components/AdminOverrideTimer'
 import { AdminOverrideProvider } from '@/contexts/AdminOverrideContext'
 import { QueryProvider } from '@/contexts/QueryProvider'
 import { DocumentLang } from '@/chat/i18n/DocumentLang'
+import ContactsSupabaseBridge from '@/components/ContactsSupabaseBridge'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -144,6 +145,7 @@ export default function RootLayout({
         <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
           <AdminOverrideProvider>
             <DocumentLang />
+            <ContactsSupabaseBridge />
             <BannerAlert />
             <QueryProvider>
               {children}
