@@ -9,7 +9,8 @@ import {
 
 export interface Payment {
   id: string;
-  tratamiento_completado_id: string;
+  tratamiento_completado_id: string | null;
+  paciente_id?: string;
   monto_pago: number;
   moneda: Currency;
   monto_original?: number;
@@ -175,6 +176,87 @@ export class PaymentService {
       };
     } catch (error) {
       console.error('Unexpected error adding payment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Register a standalone "Pago Adelantado" for a patient — the money is recorded
+   * as a cash payment on the receipt date (it counts as income now, cash-basis)
+   * and the FULL amount is stored as a patient credit (saldo positivo) available
+   * to be applied against a future treatment.
+   *
+   * No completed treatment is required: the payment is stored with
+   * tratamiento_completado_id = NULL and paciente_id set, and the credit is
+   * created here (the DB overpayment trigger only creates credits for
+   * treatment-linked overpayments).
+   */
+  static async addAdvancePayment(
+    input: {
+      paciente_id: string;
+      monto_pago: number;
+      moneda: Currency;
+      metodo_pago: string;
+      notas_pago?: string;
+    }
+  ): Promise<{ payment: Payment; credit: PatientCredit }> {
+    try {
+      if (!input.paciente_id) {
+        throw new Error('Se requiere el paciente para registrar el pago adelantado');
+      }
+      const monto = Number(input.monto_pago) || 0;
+      if (monto <= 0) {
+        throw new Error('El monto del pago adelantado debe ser mayor que cero');
+      }
+
+      const now = new Date().toISOString();
+      const notas = input.notas_pago || 'Pago adelantado (sin tratamiento asociado)';
+
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .insert([{
+          tratamiento_completado_id: null,
+          paciente_id: input.paciente_id,
+          monto_pago: monto,
+          moneda: input.moneda,
+          metodo_pago: input.metodo_pago,
+          notas_pago: notas,
+          fecha_pago: now,
+          creado_por: 'system',
+          creado_en: now,
+          actualizado_en: now
+        }])
+        .select()
+        .single();
+
+      if (paymentError) {
+        console.error('Error adding advance payment:', paymentError);
+        throw paymentError;
+      }
+
+      const { data: credit, error: creditError } = await supabase
+        .from('patient_credits')
+        .insert([{
+          paciente_id: input.paciente_id,
+          monto,
+          moneda: input.moneda,
+          estado: 'disponible',
+          origen_pago_id: payment.id,
+          notas,
+          creado_en: now,
+          actualizado_en: now
+        }])
+        .select()
+        .single();
+
+      if (creditError) {
+        console.error('Error creating advance credit:', creditError);
+        throw creditError;
+      }
+
+      return { payment, credit };
+    } catch (error) {
+      console.error('Unexpected error adding advance payment:', error);
       throw error;
     }
   }

@@ -59,10 +59,12 @@ interface PatientRow {
 }
 
 interface PaymentRow {
+  id?: string;
   fecha_pago: string;
   monto_pago: number;
   metodo_pago: string;
-  tratamiento_completado_id: string;
+  tratamiento_completado_id: string | null;
+  paciente_id?: string;
   moneda_original?: string;
   moneda?: string;
   monto_convertido?: number;
@@ -291,7 +293,7 @@ export class ReportsService {
     if (!treatmentIds || treatmentIds.length === 0) {
       const { data, error } = await supabase
         .from('payments')
-        .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_conversion, tasa_conversion')
+        .select('id, paciente_id, fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_conversion, tasa_conversion')
         .gte('fecha_pago', startDate)
         .lte('fecha_pago', endDate)
         .order('fecha_pago', { ascending: false });
@@ -327,6 +329,7 @@ export class ReportsService {
 
   /**
    * Cash actually received (HNL) per patient — excludes saldo_positivo / advance-concept entries.
+   * Includes standalone "Pago Adelantado" payments (tratamiento_completado_id NULL) via payments.paciente_id.
    */
   static async getCashPaidByPatient(patientIds: string[]): Promise<Record<string, number>> {
     try {
@@ -338,21 +341,33 @@ export class ReportsService {
         .in('paciente_id', patientIds);
 
       const treatmentIds = treatments?.map((t: { id: string }) => t.id) || [];
-      if (treatmentIds.length === 0) return {};
-
-      const payments = await this.batchInQuery<PaymentRow>(
-        'payments',
-        'tratamiento_completado_id, monto_pago, moneda, metodo_pago, monto_convertido, moneda_conversion, tasa_conversion',
-        'tratamiento_completado_id',
-        treatmentIds
-      );
+      const patientByTreatment = new Map<string, string>((treatments || []).map((t: { id: string; paciente_id: string }) => [t.id, t.paciente_id]));
 
       const byPatient: Record<string, number> = {};
-      const patientByTreatment = new Map<string, string>((treatments || []).map((t: { id: string; paciente_id: string }) => [t.id, t.paciente_id]));
+      let payments: PaymentRow[] = [];
+
+      if (treatmentIds.length > 0) {
+        payments = await this.batchInQuery<PaymentRow>(
+          'payments',
+          'id, paciente_id, tratamiento_completado_id, monto_pago, moneda, metodo_pago, monto_convertido, moneda_conversion, tasa_conversion',
+          'tratamiento_completado_id',
+          treatmentIds
+        );
+      }
+
+      const { data: advancePayments, error: advanceError } = await supabase
+        .from('payments')
+        .select('id, paciente_id, tratamiento_completado_id, monto_pago, moneda, metodo_pago, monto_convertido, moneda_conversion, tasa_conversion')
+        .in('paciente_id', patientIds)
+        .is('tratamiento_completado_id', null);
+
+      if (advanceError) throw advanceError;
+
+      if (advancePayments) payments = payments.concat(advancePayments as PaymentRow[]);
 
       for (const p of payments) {
         if (!isCashLedgerEntry(p)) continue;
-        const pacienteId = patientByTreatment.get(p.tratamiento_completado_id);
+        const pacienteId = p.tratamiento_completado_id ? patientByTreatment.get(p.tratamiento_completado_id) : p.paciente_id;
         if (!pacienteId) continue;
         const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
         byPatient[pacienteId] = (byPatient[pacienteId] || 0) + amount;
@@ -417,7 +432,9 @@ export class ReportsService {
           };
         }
 
-        const pacienteId = treatmentsMap.get(payment.tratamiento_completado_id);
+        const pacienteId = payment.tratamiento_completado_id
+          ? treatmentsMap.get(payment.tratamiento_completado_id)
+          : payment.paciente_id;
         if (pacienteId) acc[date].patients.add(pacienteId);
         acc[date].treatments += 1;
         acc[date].revenue += this.paymentToHNL(payment.monto_pago, payment.moneda, payment.monto_convertido, payment.moneda_conversion, payment.tasa_conversion);
@@ -870,20 +887,26 @@ export class ReportsService {
       // so patient "Pagado"/"Cobrado" figures never count credit applications as income.
       const { data: allPayments, error: paymentsError } = await supabase
         .from('payments')
-        .select('tratamiento_completado_id, monto_pago, moneda, metodo_pago, monto_convertido, moneda_conversion, tasa_conversion');
+        .select('id, paciente_id, tratamiento_completado_id, monto_pago, moneda, metodo_pago, monto_convertido, moneda_conversion, tasa_conversion');
 
       if (paymentsError) throw paymentsError;
 
       const cashByTreatment = new Map<string, number>();
+      const cashByPatient = new Map<string, number>();
       for (const p of (allPayments || []) as PaymentRow[]) {
         if (!isCashLedgerEntry(p)) continue;
-        const treatmentId = p.tratamiento_completado_id;
-        if (!treatmentId) continue;
-        cashByTreatment.set(
-          treatmentId,
-          (cashByTreatment.get(treatmentId) || 0) +
-            this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion)
-        );
+        const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
+        if (p.tratamiento_completado_id) {
+          cashByTreatment.set(
+            p.tratamiento_completado_id,
+            (cashByTreatment.get(p.tratamiento_completado_id) || 0) + amount
+          );
+        } else if (p.paciente_id) {
+          cashByPatient.set(
+            p.paciente_id,
+            (cashByPatient.get(p.paciente_id) || 0) + amount
+          );
+        }
       }
 
       const patientAnalytics = patients?.map((patient: PatientRow) => {
@@ -891,7 +914,8 @@ export class ReportsService {
         const patientPresupuestos = presupuestos?.filter((p: PresupuestoRow) => p.patient_id === patient.paciente_id) || [];
 
         const totalSpent = patientTreatments.reduce((sum: number, t: { total_final: number; moneda?: string }) => sum + this.toHNL(t.total_final || 0, t.moneda), 0);
-        const totalPaid = patientTreatments.reduce((sum: number, t: { id: string }) => sum + (cashByTreatment.get(t.id) || 0), 0);
+        const totalPaid = patientTreatments.reduce((sum: number, t: { id: string }) => sum + (cashByTreatment.get(t.id) || 0), 0)
+          + (cashByPatient.get(patient.paciente_id) || 0);
         const outstandingBalance = totalSpent - totalPaid;
 
         const pendingBudgets = patientPresupuestos.filter((p: PresupuestoRow) => p.status === 'pending');
@@ -1039,7 +1063,7 @@ export class ReportsService {
       } else {
         const { data, error } = await supabase
           .from('payments')
-          .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_original, moneda_conversion, tasa_conversion')
+          .select('id, paciente_id, fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_original, moneda_conversion, tasa_conversion')
           .gte('fecha_pago', queryStartDate)
           .lte('fecha_pago', queryEndDate)
           .order('fecha_pago', { ascending: false });
@@ -1068,7 +1092,10 @@ export class ReportsService {
         }
       }
 
-      const patientIds = Array.from(treatmentsMap.values()).map((t) => t.paciente_id).filter(Boolean);
+      const patientIds = [
+        ...Array.from(treatmentsMap.values()).map((t) => t.paciente_id).filter(Boolean),
+        ...payments.filter((p: PaymentRow) => !p.tratamiento_completado_id && p.paciente_id).map((p: PaymentRow) => p.paciente_id as string)
+      ];
       
       const patientsMap = new Map<string, string>();
       if (patientIds.length > 0) {
@@ -1099,9 +1126,9 @@ export class ReportsService {
       }
 
       return payments.map((p: PaymentRow) => {
-        const tc = treatmentsMap.get(p.tratamiento_completado_id);
-        const pacienteId = tc?.paciente_id;
-        const tratamiento = treatmentItemsMap.get(p.tratamiento_completado_id) || 'Tratamiento';
+        const tc = p.tratamiento_completado_id ? treatmentsMap.get(p.tratamiento_completado_id) : undefined;
+        const pacienteId = tc?.paciente_id || p.paciente_id;
+        const tratamiento = tc ? (treatmentItemsMap.get(tc.id) || 'Tratamiento') : 'Pago Adelantado';
         const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
         const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
         
@@ -1166,7 +1193,7 @@ export class ReportsService {
       } else {
         const { data, error } = await supabase
           .from('payments')
-          .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda, monto_convertido, moneda_conversion, tasa_conversion')
+          .select('id, paciente_id, fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda, monto_convertido, moneda_conversion, tasa_conversion')
           .order('fecha_pago', { ascending: false });
         if (error) throw error;
         payments = (data || []) as PaymentRow[];
@@ -1193,7 +1220,10 @@ export class ReportsService {
         }
       }
 
-      const patientIds = Array.from(treatmentsMap.values()).map((t) => t.paciente_id).filter(Boolean);
+      const patientIds = [
+        ...Array.from(treatmentsMap.values()).map((t) => t.paciente_id).filter(Boolean),
+        ...payments.filter((p: PaymentRow) => !p.tratamiento_completado_id && p.paciente_id).map((p: PaymentRow) => p.paciente_id as string)
+      ];
       
       const patientsMap = new Map<string, string>();
       if (patientIds.length > 0) {
@@ -1224,9 +1254,9 @@ export class ReportsService {
       }
 
       return payments.map((p: PaymentRow) => {
-        const tc = treatmentsMap.get(p.tratamiento_completado_id);
-        const pacienteId = tc?.paciente_id;
-        const tratamiento = treatmentItemsMap.get(p.tratamiento_completado_id) || 'Tratamiento';
+        const tc = p.tratamiento_completado_id ? treatmentsMap.get(p.tratamiento_completado_id) : undefined;
+        const pacienteId = tc?.paciente_id || p.paciente_id;
+        const tratamiento = tc ? (treatmentItemsMap.get(tc.id) || 'Tratamiento') : 'Pago Adelantado';
         const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
         const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
         
