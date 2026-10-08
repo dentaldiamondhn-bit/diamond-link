@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const payment = await PaymentService.addPayment(body);
-    return NextResponse.json(payment);
+    const result = await PaymentService.addPayment(body);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error in POST /api/payments:', error);
     return NextResponse.json(

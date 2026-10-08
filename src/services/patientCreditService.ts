@@ -198,6 +198,35 @@ export class PatientCreditService {
   }
 
   /**
+   * Fetch the patient credit created by the overpayment trigger
+   * (`handle_overpayment_credit`) for a given cash payment insert. Returns null
+   * when no credit was created (e.g. no overpayment) or the lookup failed.
+   */
+  static async getCreditByPaymentId(origenPagoId: string): Promise<PatientCredit | null> {
+    try {
+      if (!origenPagoId) return null;
+
+      const { data, error } = await supabase
+        .from('patient_credits')
+        .select('*')
+        .eq('origen_pago_id', origenPagoId)
+        .order('creado_en', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching patient credit by origin payment:', error);
+        return null;
+      }
+
+      return (data as PatientCredit) || null;
+    } catch (error) {
+      console.error('Unexpected error fetching patient credit by origin payment:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get all credits (for admin view)
    */
   static async getAllCredits(pacienteId: string): Promise<PatientCredit[]> {

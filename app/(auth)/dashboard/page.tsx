@@ -170,6 +170,7 @@ export default function DashboardPage() {
   const [treatmentCount, setTreatmentCount] = useState<number>(0);
   const [individualTreatmentCount, setIndividualTreatmentCount] = useState<number>(0);
   const [doctorRevenue, setDoctorRevenue] = useState<number>(0);
+  const [todayIncome, setTodayIncome] = useState<number>(0);
   const [averageRevenue, setAverageRevenue] = useState<number>(0);
   const [patientStats, setPatientStats] = useState<any>({ newPatients: 0, returningPatients: 0 });
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
@@ -214,22 +215,24 @@ export default function DashboardPage() {
 
       const { data: allTreatments } = await supabase
         .from('tratamientos_completados')
-        .select('paciente_id, monto_pagado')
+        .select('paciente_id')
         .in('paciente_id', patientIds);
 
-      const perPatient: Record<string, { count: number; total: number }> = {};
+      const perPatient: Record<string, { count: number }> = {};
       if (allTreatments) {
         for (const t of allTreatments) {
-          if (!perPatient[t.paciente_id]) perPatient[t.paciente_id] = { count: 0, total: 0 };
+          if (!perPatient[t.paciente_id]) perPatient[t.paciente_id] = { count: 0 };
           perPatient[t.paciente_id].count++;
-          perPatient[t.paciente_id].total += t.monto_pagado || 0;
         }
       }
 
+      const { ReportsService } = await import('../../../services/reportsService');
+      const cashByPatient = await ReportsService.getCashPaidByPatient(patientIds);
+
       const patientsWithDetails = patients.map((patient: any) => {
         const pid = patient.paciente_id || patient.id;
-        const agg = perPatient[pid] || { count: 0, total: 0 };
-        return { ...patient, completedTreatmentsCount: agg.count, totalPaid: agg.total };
+        const agg = perPatient[pid] || { count: 0 };
+        return { ...patient, completedTreatmentsCount: agg.count, totalPaid: cashByPatient[pid] || 0 };
       });
 
       setDoctorPatients(patientsWithDetails);
@@ -380,6 +383,17 @@ export default function DashboardPage() {
           const followUpJson = await followUpRes.json();
           setFollowUpCount(followUpJson.data?.length || 0);
 
+          // Today's cash actually received (excludes saldo_positivo credit-usage)
+          const today = new Date();
+          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const tomorrowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+          const { ReportsService } = await import('../../../services/reportsService');
+          const receivedToday = await ReportsService.getCashReceivedInRange(
+            todayStart.toISOString(),
+            tomorrowStart.toISOString()
+          );
+          setTodayIncome(receivedToday);
+
         } else {
           // For staff and others, fetch all patients
           const patients = await PatientService.getPatients();
@@ -396,6 +410,7 @@ export default function DashboardPage() {
         setTreatmentCount(0);
         setDoctorRevenue(0);
         setAverageRevenue(0);
+        setTodayIncome(0);
         setPatientStats({ newPatients: 0, returningPatients: 0 });
         setUpcomingEvents([]);
       } finally {
@@ -577,8 +592,8 @@ export default function DashboardPage() {
                 <StatTile
                   icon={<DollarSign size={20} />}
                   title="Ingresos Hoy"
-                  value="12"
-                  subtitle="Nuevos ingresos"
+                  value={formatHNL(todayIncome)}
+                  subtitle="Efectivo recibido hoy"
                   accent="teal"
                   loading={loading}
                 />

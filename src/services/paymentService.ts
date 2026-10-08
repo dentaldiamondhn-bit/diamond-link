@@ -1,7 +1,11 @@
 import { supabase } from '../lib/supabase';
 import { Currency } from '../utils/currencyUtils';
 import { currencyConversionService, ConversionResult } from './currencyConversionService';
-import { PatientCreditService, PatientCreditSummary } from './patientCreditService';
+import { PatientCreditService, PatientCreditSummary, PatientCredit } from './patientCreditService';
+import {
+  PaymentProcessingMode,
+  processPaymentWithAdvance
+} from './paymentAdvance';
 
 export interface Payment {
   id: string;
@@ -29,6 +33,19 @@ export interface PaymentSummary {
   moneda_principal?: Currency;
   total_tratamiento?: number;
   credito_disponible?: PatientCreditSummary;
+}
+
+export interface AdvancePaymentInfo {
+  monto: number;
+  moneda: Currency;
+  credito: PatientCredit;
+}
+
+export interface AddPaymentResult {
+  payment: Payment | null;
+  advance: AdvancePaymentInfo | null;
+  cashEntryCreated: boolean;
+  mode: PaymentProcessingMode;
 }
 
 export class PaymentService {
@@ -69,49 +86,93 @@ export class PaymentService {
     }
   }
 
-  // Add a new payment with automatic currency conversion
+  // Add a new payment with automatic currency conversion.
+  // The full amount received is recorded as a cash entry on the receipt date;
+  // any overpayment is captured automatically as a patient credit by the DB
+  // trigger `handle_overpayment_credit` and surfaced in the result for the UI.
   static async addPayment(
     payment: Omit<Payment, 'id' | 'creado_en' | 'actualizado_en' | 'monto_original' | 'moneda_original' | 'monto_convertido' | 'moneda_conversion' | 'tasa_conversion'>,
     treatmentCurrency?: Currency
-  ): Promise<Payment> {
+  ): Promise<AddPaymentResult> {
     try {
-      const paymentData: Record<string, any> = {
-        ...payment,
-        monto_original: payment.monto_pago,
-        moneda_original: payment.moneda,
-        creado_en: new Date().toISOString(),
-        actualizado_en: new Date().toISOString()
+      const processed = await processPaymentWithAdvance<Payment, PatientCredit>(
+        {
+          getTreatment: async (tratamientoCompletadoId: string) => {
+            const { data, error } = await supabase
+              .from('tratamientos_completados')
+              .select('id, total_final, moneda, paciente_id')
+              .eq('id', tratamientoCompletadoId)
+              .maybeSingle();
+
+            if (error) {
+              console.error('Error fetching treatment for payment:', error);
+              return null;
+            }
+            if (!data) return null;
+
+            return {
+              id: data.id,
+              total_final: Number(data.total_final) || 0,
+              moneda: data.moneda,
+              paciente_id: data.paciente_id
+            };
+          },
+          getExistingPayments: async (tratamientoCompletadoId: string) => {
+            const { data, error } = await supabase
+              .from('payments')
+              .select('monto_pago, monto_convertido')
+              .eq('tratamiento_completado_id', tratamientoCompletadoId);
+
+            if (error) {
+              console.error('Error fetching existing payments for split:', error);
+              return null;
+            }
+            return data || [];
+          },
+          insertPayment: async (row: Record<string, any>) => {
+            const { data, error } = await supabase
+              .from('payments')
+              .insert([row])
+              .select()
+              .single();
+
+            if (error) {
+              console.error('Error adding payment:', error);
+              throw error;
+            }
+            return data as Payment;
+          },
+          fetchAdvanceCredit: async (input) =>
+            PatientCreditService.getCreditByPaymentId(input.origen_pago_id),
+          convertAmount: async (amount: number, from: string, to: string) => {
+            try {
+              const conversion: ConversionResult = await currencyConversionService.convertAmount(amount, from, to);
+              return {
+                convertedAmount: conversion.convertedAmount,
+                exchangeRate: conversion.exchangeRate
+              };
+            } catch (conversionError) {
+              console.warn('Currency conversion failed:', conversionError);
+              return null;
+            }
+          }
+        },
+        payment as any,
+        treatmentCurrency
+      );
+
+      return {
+        payment: processed.payment,
+        advance: processed.advance
+          ? {
+              monto: processed.advance.monto,
+              moneda: processed.advance.moneda as Currency,
+              credito: processed.advance.credit
+            }
+          : null,
+        cashEntryCreated: Boolean(processed.payment),
+        mode: processed.mode
       };
-
-      // If currencies differ, convert the amount before storing
-      if (treatmentCurrency && payment.moneda !== treatmentCurrency) {
-        try {
-          const conversion = await currencyConversionService.convertAmount(
-            payment.monto_pago,
-            payment.moneda,
-            treatmentCurrency
-          );
-
-          paymentData.monto_convertido = conversion.convertedAmount;
-          paymentData.moneda_conversion = treatmentCurrency;
-          paymentData.tasa_conversion = conversion.exchangeRate;
-        } catch (conversionError) {
-          console.warn('Currency conversion failed:', conversionError);
-        }
-      }
-
-      const { data, error } = await supabase
-        .from('payments')
-        .insert([paymentData])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error adding payment:', error);
-        throw error;
-      }
-
-      return data;
     } catch (error) {
       console.error('Unexpected error adding payment:', error);
       throw error;
@@ -146,17 +207,40 @@ export class PaymentService {
   // Delete a payment
   static async deletePayment(id: string): Promise<void> {
     try {
-      // First try to select the payment to make sure it exists
-      const { error: selectError } = await supabase
+      // First confirm the payment exists
+      const { data: existing, error: selectError } = await supabase
         .from('payments')
         .select('id')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (selectError) {
-        console.error('Payment not found:', selectError);
+        console.error('Error checking payment:', selectError);
+        throw selectError;
+      }
+
+      if (!existing) {
         throw new Error('Payment not found');
       }
+
+      // Clean up associated patient credits BEFORE deleting the payment row.
+      // The payments->patient_credits FK uses ON DELETE SET NULL, so once the
+      // payment is gone the credit's origen/usado reference is nulled and the
+      // DB cleanup trigger can no longer match it, leaving orphaned credits.
+      //  - Credits generated by this overpayment are cancelled.
+      //  - Credits consumed by this saldo-positivo application are released
+      //    back to "disponible" (the overpayment still belongs to the patient).
+      await supabase
+        .from('patient_credits')
+        .update({ estado: 'cancelado', actualizado_en: new Date().toISOString() })
+        .eq('origen_pago_id', id)
+        .eq('estado', 'disponible');
+
+      await supabase
+        .from('patient_credits')
+        .update({ estado: 'disponible', usado_en_pago_id: null, actualizado_en: new Date().toISOString() })
+        .eq('usado_en_pago_id', id)
+        .eq('estado', 'usado');
 
       // Now delete it
       const { error } = await supabase
@@ -170,13 +254,17 @@ export class PaymentService {
       }
 
       // Verify deletion by trying to select again
-      const { error: checkError } = await supabase
+      const { data: check, error: checkError } = await supabase
         .from('payments')
         .select('id')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
-      if (!checkError) {
+      if (checkError) {
+        console.error('Error verifying payment deletion:', checkError);
+      }
+
+      if (check) {
         throw new Error('Payment deletion failed - payment still exists');
       }
     } catch (error) {

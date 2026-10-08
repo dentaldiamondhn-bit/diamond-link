@@ -264,6 +264,11 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Money actually received (excludes saldo_positivo credit-usage rows). Those
+  // rows are kept in `financialTransactions` to render as grayed references but
+  // are never added into any income/expense total.
+  const cashFinancialTransactions = (financialTransactions || []).filter((t: any) => !t.esSaldoPositivo);
+
   const [currentStartDate, setCurrentStartDate] = useState('');
   const [currentEndDate, setCurrentEndDate] = useState('');
 
@@ -296,6 +301,8 @@ export default function ReportsPage() {
     const spanishMonths = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
     transactions.forEach((t: any) => {
+      if (t.esSaldoPositivo) return;
+
       const transactionDate = new Date(t.fecha);
       
       const month = transactionDate.toISOString().slice(0, 7);
@@ -475,7 +482,7 @@ export default function ReportsPage() {
           const filteredTransactions = allTransactions.filter((t: any) => {
             const tDate = new Date(t.fecha);
             const year = tDate.getFullYear();
-            return year === selectedYear;
+            return year === selectedYear && !t.esSaldoPositivo;
           });
           const monthlyData = aggregateMonthlyIncome(filteredTransactions);
           setMonthlyIncome(monthlyData);
@@ -512,7 +519,7 @@ export default function ReportsPage() {
   };
 
   const getExportData = (): FinancialExportPayload => {
-    const daily: DailyFinancialData[] = financialTransactions.map((t: any) => ({
+    const daily: DailyFinancialData[] = cashFinancialTransactions.map((t: any) => ({
       date: t.fecha ? new Date(t.fecha).toISOString().slice(0, 10) : '',
       patientName: t.paciente || 'N/A',
       procedure: t.tratamiento || 'General',
@@ -680,7 +687,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
                 title="Ingresos Totales"
-                value={formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + (typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0), 0))}
+                value={formatCurrency(cashFinancialTransactions.reduce((sum: number, t: any) => sum + (typeof t.totalPagado === 'number' ? t.totalPagado : Number(t.totalPagado) || 0), 0))}
                 subtitle="Basado en datos reales"
                 icon={FiDollarSign}
                 gradient="from-teal-500 to-cyan-500"
@@ -706,8 +713,8 @@ export default function ReportsPage() {
               />
               <MetricCard
                 title="Total Neto"
-                value={formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + t.totalNeto, 0))}
-                subtitle={`Resta: ${formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + (t.totalPagado - t.totalNeto), 0))}`}
+                value={formatCurrency(cashFinancialTransactions.reduce((sum: number, t: any) => sum + t.totalNeto, 0))}
+                subtitle={`Resta: ${formatCurrency(cashFinancialTransactions.reduce((sum: number, t: any) => sum + (t.totalPagado - t.totalNeto), 0))}`}
                 icon={FiDollarSign}
                 gradient="from-indigo-500 to-purple-500"
                 delay={3}
@@ -1509,9 +1516,14 @@ export default function ReportsPage() {
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
                                         transition={{ delay: index * 0.02 }}
-                                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                        className={`transition-colors ${transaction.esSaldoPositivo ? 'opacity-50 bg-gray-50 dark:bg-gray-700/40' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
                                       >
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                          {transaction.esSaldoPositivo && (
+                                            <span className="mr-2 px-2 py-0.5 rounded-full text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
+                                              Saldo Positivo aplicado
+                                            </span>
+                                          )}
                                           {transaction.fecha ? new Date(transaction.fecha).toLocaleDateString('es-HN') : 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1524,6 +1536,7 @@ export default function ReportsPage() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-600 dark:text-teal-400">
                                           {formatCurrency(typeof transaction.totalPagado === 'number' ? transaction.totalPagado : Number(transaction.totalPagado) || 0)}
+                                          {transaction.esSaldoPositivo && <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">(referencia)</span>}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                           <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
@@ -1567,15 +1580,15 @@ export default function ReportsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                           <MetricCard
                             title="Ingresos Totales"
-                            value={formatCurrency(financialTransactions.reduce((sum: number, t: any) => sum + t.totalPagado, 0))}
-                            subtitle="Este período"
+                            value={formatCurrency(cashFinancialTransactions.reduce((sum: number, t: any) => sum + t.totalPagado, 0))}
+                            subtitle="Este período (efectivo recibido)"
                             icon={FiDollarSign}
                             gradient="from-teal-500 to-cyan-500"
                             delay={0}
                           />
                           <MetricCard
                             title="Transacciones"
-                            value={String(financialTransactions.length)}
+                            value={String(cashFinancialTransactions.length)}
                             subtitle="Total de pagos"
                             icon={FiCheckCircle}
                             gradient="from-green-500 to-emerald-500"
@@ -1583,7 +1596,7 @@ export default function ReportsPage() {
                           />
                           <MetricCard
                             title="Promedio por Pago"
-                            value={formatCurrency(financialTransactions.length > 0 ? financialTransactions.reduce((sum: number, t: any) => sum + t.totalPagado, 0) / financialTransactions.length : 0)}
+                            value={formatCurrency(cashFinancialTransactions.length > 0 ? cashFinancialTransactions.reduce((sum: number, t: any) => sum + t.totalPagado, 0) / cashFinancialTransactions.length : 0)}
                             subtitle="Por transacción"
                             icon={FiTrendingUp}
                             gradient="from-blue-500 to-cyan-500"
@@ -1591,7 +1604,7 @@ export default function ReportsPage() {
                           />
                           <MetricCard
                             title="Pacientes Únicos"
-                            value={String(new Set(financialTransactions.map((t: any) => t.paciente)).size)}
+                            value={String(new Set(cashFinancialTransactions.map((t: any) => t.paciente)).size)}
                             subtitle="Con pagos en período"
                             icon={FiUsers}
                             gradient="from-purple-500 to-pink-500"

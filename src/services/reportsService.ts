@@ -1,4 +1,8 @@
 import { supabase } from '../lib/supabase';
+import {
+  isAdvanceConceptEntry,
+  isCashLedgerEntry
+} from './paymentAdvance';
 
 // --- Supabase row shapes ---
 
@@ -64,6 +68,7 @@ interface PaymentRow {
   monto_convertido?: number;
   moneda_conversion?: string;
   tasa_conversion?: number;
+  esSaldoPositivo?: boolean;
 }
 
 interface PresupuestoRow {
@@ -195,6 +200,7 @@ export interface FinancialTransaction {
   moneda: string;
   metodoPago: string;
   tratamiento: string;
+  esSaldoPositivo?: boolean;
 }
 
 export interface PaymentStatusSummary {
@@ -260,61 +266,166 @@ export class ReportsService {
     return doctorName;
   }
 
+  /**
+   * Fetch cash payments (excludes saldo_positivo / advance-concept entries)
+   * within a date range, optionally restricted to one doctor's treatments.
+   */
+  private static async getCashPaymentsInRange(
+    startDate: string,
+    endDate: string,
+    doctorEmail?: string,
+    doctorUserId?: string
+  ): Promise<PaymentRow[]> {
+    let treatmentIds: string[] | null = null;
+    if (doctorEmail || doctorUserId) {
+      const doctorName = await this.resolveDoctorName(doctorEmail, doctorUserId);
+      if (doctorName) {
+        const { data: treatments } = await supabase
+          .from('tratamientos_completados')
+          .select('id, patients!inner(doctor)')
+          .eq('patients.doctor', doctorName);
+        treatmentIds = treatments?.map((t: { id: string }) => t.id) || null;
+      }
+    }
+
+    if (!treatmentIds || treatmentIds.length === 0) {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_conversion, tasa_conversion')
+        .gte('fecha_pago', startDate)
+        .lte('fecha_pago', endDate)
+        .order('fecha_pago', { ascending: false });
+      if (error) throw error;
+      return ((data || []) as PaymentRow[]).filter(isCashLedgerEntry);
+    }
+
+    const payments = await this.batchInQuery<PaymentRow>(
+      'payments',
+      'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_conversion, tasa_conversion',
+      'tratamiento_completado_id',
+      treatmentIds,
+      (q) => q.gte('fecha_pago', startDate).lte('fecha_pago', endDate)
+    );
+    payments.sort((a, b) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime());
+
+    return payments.filter(isCashLedgerEntry);
+  }
+
+  /** Cash actually received (HNL) within a date range — used by income figures. */
+  static async getCashReceivedInRange(startDate: string, endDate: string): Promise<number> {
+    try {
+      const payments = await this.getCashPaymentsInRange(startDate, endDate);
+      return payments.reduce(
+        (sum, p) => sum + this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion),
+        0
+      );
+    } catch (error) {
+      console.error('Error fetching cash received in range:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Cash actually received (HNL) per patient — excludes saldo_positivo / advance-concept entries.
+   */
+  static async getCashPaidByPatient(patientIds: string[]): Promise<Record<string, number>> {
+    try {
+      if (!patientIds || patientIds.length === 0) return {};
+
+      const { data: treatments } = await supabase
+        .from('tratamientos_completados')
+        .select('id, paciente_id')
+        .in('paciente_id', patientIds);
+
+      const treatmentIds = treatments?.map((t: { id: string }) => t.id) || [];
+      if (treatmentIds.length === 0) return {};
+
+      const payments = await this.batchInQuery<PaymentRow>(
+        'payments',
+        'tratamiento_completado_id, monto_pago, moneda, metodo_pago, monto_convertido, moneda_conversion, tasa_conversion',
+        'tratamiento_completado_id',
+        treatmentIds
+      );
+
+      const byPatient: Record<string, number> = {};
+      const patientByTreatment = new Map<string, string>((treatments || []).map((t: { id: string; paciente_id: string }) => [t.id, t.paciente_id]));
+
+      for (const p of payments) {
+        if (!isCashLedgerEntry(p)) continue;
+        const pacienteId = patientByTreatment.get(p.tratamiento_completado_id);
+        if (!pacienteId) continue;
+        const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
+        byPatient[pacienteId] = (byPatient[pacienteId] || 0) + amount;
+      }
+
+      return byPatient;
+    } catch (error) {
+      console.error('Error fetching cash paid by patient:', error);
+      return {};
+    }
+  }
+
   static async getReportData(timeRange: 'daily' | 'weekly' | 'monthly' | 'yearly', startDate?: string, endDate?: string, doctorEmail?: string, doctorUserId?: string): Promise<ReportData[]> {
     try {
-      // Get completed treatments grouped by date, filtered by doctor if specified
-      let query = supabase
-        .from('tratamientos_completados')
-        .select(`
-          fecha_cita, 
-          total_final, 
-          moneda,
-          paciente_id,
-          patients!inner(doctor),
-          vista_tratamientos_realizados_detalles!inner(doctor_name)
-        `)
-        .gte('fecha_cita', startDate || this.getDateRangeStart(timeRange))
-        .lte('fecha_cita', endDate || new Date().toISOString())
-        .order('fecha_cita', { ascending: true });
+      const queryStartDate = startDate || this.getDateRangeStart(timeRange);
+      const queryEndDate = endDate || new Date().toISOString();
 
-      if (doctorEmail || doctorUserId) {
-        const doctorName = await this.resolveDoctorName(doctorEmail, doctorUserId);
-        if (doctorName) {
-          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName);
+      const payments = await this.getCashPaymentsInRange(queryStartDate, queryEndDate, doctorEmail, doctorUserId);
+
+      if (!payments || payments.length === 0) return [];
+
+      const allTreatmentIds = payments.map((p: PaymentRow) => p.tratamiento_completado_id).filter(Boolean);
+
+      const treatmentsMap = new Map<string, string>();
+      if (allTreatmentIds.length > 0) {
+        const { data: treatments } = await supabase
+          .from('tratamientos_completados')
+          .select('id, paciente_id')
+          .in('id', allTreatmentIds);
+        if (treatments) {
+          treatments.forEach((t: { id: string; paciente_id: string }) => treatmentsMap.set(t.id, t.paciente_id));
         }
       }
 
-      const { data: treatments, error } = await query;
+      const doctorsMap = new Map<string, Set<string>>();
+      if (allTreatmentIds.length > 0) {
+        const { data: items } = await supabase
+          .from('vista_tratamientos_realizados_detalles')
+          .select('tratamiento_completado_id, doctor_name')
+          .in('tratamiento_completado_id', allTreatmentIds);
+        if (items) {
+          items.forEach((i: { tratamiento_completado_id: string; doctor_name: string }) => {
+            if (!doctorsMap.has(i.tratamiento_completado_id)) {
+              doctorsMap.set(i.tratamiento_completado_id, new Set());
+            }
+            doctorsMap.get(i.tratamiento_completado_id)!.add(i.doctor_name || 'Desconocido');
+          });
+        }
+      }
 
-      if (error) throw error;
+      // Group by receipt date (collection-date basis)
+      const groupedData = payments.reduce<Record<string, ReportGroup>>((acc, payment) => {
+        const date = new Date(payment.fecha_pago).toISOString().split('T')[0];
 
-      // Group by date and calculate metrics
-      const groupedData = treatments?.reduce<Record<string, ReportGroup>>((acc, treatment) => {
-        const date = new Date(treatment.fecha_cita).toISOString().split('T')[0];
-        
-        // Get doctor name from the nested treatment details array
-        const treatmentDetails = treatment.vista_tratamientos_realizados_detalles?.[0];
-        const doctorName = treatmentDetails?.doctor_name || 'Desconocido';
-        
         if (!acc[date]) {
           acc[date] = {
-            date: new Date(treatment.fecha_cita).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            date: new Date(payment.fecha_pago).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             patients: new Set(),
             treatments: 0,
             revenue: 0,
             doctors: new Set()
           };
         }
-        
-        acc[date].patients.add(treatment.paciente_id);
+
+        const pacienteId = treatmentsMap.get(payment.tratamiento_completado_id);
+        if (pacienteId) acc[date].patients.add(pacienteId);
         acc[date].treatments += 1;
-        acc[date].revenue += this.toHNL(treatment.total_final, treatment.moneda);
-        acc[date].doctors.add(doctorName);
-        
+        acc[date].revenue += this.paymentToHNL(payment.monto_pago, payment.moneda, payment.monto_convertido, payment.moneda_conversion, payment.tasa_conversion);
+        doctorsMap.get(payment.tratamiento_completado_id)?.forEach((doctorName) => acc[date].doctors.add(doctorName));
+
         return acc;
       }, {});
 
-      // Convert to array format
       const reportData: ReportData[] = Object.values(groupedData).map((group: ReportGroup) => ({
         date: group.date,
         patients: group.patients.size,
@@ -703,35 +814,19 @@ export class ReportsService {
       // Only use defaults if no dates are specified
       const queryStartDate = startDate || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
       const queryEndDate = endDate || new Date().toISOString();
-      
-      let query = supabase
-        .from('tratamientos_completados')
-        .select(`
-          total_final, 
-          moneda,
-          fecha_cita, 
-          patients!inner(doctor),
-          vista_tratamientos_realizados_detalles!inner(doctor_name)
-        `)
-        .gte('fecha_cita', queryStartDate)
-        .lte('fecha_cita', queryEndDate);
 
-      if (doctorEmail || doctorUserId) {
-        const doctorName = await this.resolveDoctorName(doctorEmail, doctorUserId);
-        if (doctorName) {
-          query = query.eq('vista_tratamientos_realizados_detalles.doctor_name', doctorName);
-        }
-      }
+      const payments = await this.getCashPaymentsInRange(queryStartDate, queryEndDate, doctorEmail, doctorUserId);
 
-      const { data, error } = await query;
-      
-      const totalRevenue = data?.reduce((sum, item) => sum + this.toHNL(item.total_final || 0, item.moneda), 0) || 0;
-      const totalTreatments = data?.length || 0;
+      const totalRevenue = payments.reduce(
+        (sum, p) => sum + this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion),
+        0
+      );
+      const totalPayments = payments.length;
 
       return {
         totalRevenue,
-        totalTreatments,
-        averageRevenuePerTreatment: totalTreatments > 0 ? totalRevenue / totalTreatments : 0
+        totalTreatments: totalPayments,
+        averageRevenuePerTreatment: totalPayments > 0 ? totalRevenue / totalPayments : 0
       };
     } catch (error) {
       console.error('Error fetching revenue stats:', error);
@@ -761,7 +856,7 @@ export class ReportsService {
 
       const { data: treatments, error: treatmentsError } = await supabase
         .from('tratamientos_completados')
-        .select('paciente_id, total_final, moneda, monto_pagado, fecha_cita');
+        .select('id, paciente_id, total_final, moneda, monto_pagado, fecha_cita');
 
       if (treatmentsError) throw treatmentsError;
 
@@ -771,12 +866,32 @@ export class ReportsService {
 
       if (presupuestosError) throw presupuestosError;
 
+      // Cash actually received per treatment (excludes saldo_positivo / advance-concept entries),
+      // so patient "Pagado"/"Cobrado" figures never count credit applications as income.
+      const { data: allPayments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('tratamiento_completado_id, monto_pago, moneda, metodo_pago, monto_convertido, moneda_conversion, tasa_conversion');
+
+      if (paymentsError) throw paymentsError;
+
+      const cashByTreatment = new Map<string, number>();
+      for (const p of (allPayments || []) as PaymentRow[]) {
+        if (!isCashLedgerEntry(p)) continue;
+        const treatmentId = p.tratamiento_completado_id;
+        if (!treatmentId) continue;
+        cashByTreatment.set(
+          treatmentId,
+          (cashByTreatment.get(treatmentId) || 0) +
+            this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion)
+        );
+      }
+
       const patientAnalytics = patients?.map((patient: PatientRow) => {
-        const patientTreatments = treatments?.filter((t: { paciente_id: string; total_final: number; monto_pagado: number; fecha_cita: string }) => t.paciente_id === patient.paciente_id) || [];
+        const patientTreatments = treatments?.filter((t: { id: string; paciente_id: string; total_final: number; monto_pagado: number; fecha_cita: string }) => t.paciente_id === patient.paciente_id) || [];
         const patientPresupuestos = presupuestos?.filter((p: PresupuestoRow) => p.patient_id === patient.paciente_id) || [];
 
         const totalSpent = patientTreatments.reduce((sum: number, t: { total_final: number; moneda?: string }) => sum + this.toHNL(t.total_final || 0, t.moneda), 0);
-        const totalPaid = patientTreatments.reduce((sum: number, t: { monto_pagado: number }) => sum + (t.monto_pagado || 0), 0);
+        const totalPaid = patientTreatments.reduce((sum: number, t: { id: string }) => sum + (cashByTreatment.get(t.id) || 0), 0);
         const outstandingBalance = totalSpent - totalPaid;
 
         const pendingBudgets = patientPresupuestos.filter((p: PresupuestoRow) => p.status === 'pending');
@@ -932,6 +1047,11 @@ export class ReportsService {
         payments = (data || []) as PaymentRow[];
       }
 
+      payments = (payments || []).filter((p) => !isAdvanceConceptEntry(p)).map((p) => ({
+        ...p,
+        esSaldoPositivo: String(p.metodo_pago || '').toLowerCase() === 'saldo_positivo'
+      }));
+
       if (!payments || payments.length === 0) return [];
 
       const allTreatmentIds = payments.map((p: PaymentRow) => p.tratamiento_completado_id).filter(Boolean);
@@ -1007,7 +1127,8 @@ export class ReportsService {
           monedaOriginal,
           moneda,
           metodoPago: p.metodo_pago || 'Efectivo',
-          tratamiento
+          tratamiento,
+          esSaldoPositivo: Boolean(p.esSaldoPositivo)
         };
       });
     } catch (error) {
@@ -1051,6 +1172,11 @@ export class ReportsService {
         payments = (data || []) as PaymentRow[];
       }
 
+      payments = (payments || []).filter((p) => !isAdvanceConceptEntry(p)).map((p) => ({
+        ...p,
+        esSaldoPositivo: String(p.metodo_pago || '').toLowerCase() === 'saldo_positivo'
+      }));
+
       if (!payments || payments.length === 0) return [];
 
       const allTreatmentIds = payments.map((p: PaymentRow) => p.tratamiento_completado_id).filter(Boolean);
@@ -1126,7 +1252,8 @@ export class ReportsService {
           monedaOriginal,
           moneda,
           metodoPago: p.metodo_pago || 'Efectivo',
-          tratamiento
+          tratamiento,
+          esSaldoPositivo: Boolean(p.esSaldoPositivo)
         };
       });
     } catch (error) {

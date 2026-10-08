@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "lint:check": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "test": "node --test \"tests/**/*.test.ts\"",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {

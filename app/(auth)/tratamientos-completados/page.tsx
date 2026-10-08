@@ -53,6 +53,8 @@ function TratamientosCompletadosPageContent() {
   const [applyCredit, setApplyCredit] = useState(false);
   const [creditAmount, setCreditAmount] = useState<string>('');
   const [applyingCredit, setApplyingCredit] = useState(false);
+  const [paymentModalMode, setPaymentModalMode] = useState<'pago' | 'adelanto'>('pago');
+  const [advanceTreatmentId, setAdvanceTreatmentId] = useState<string>('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<{id: string, amount: number, currency: string, method: string} | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
@@ -338,13 +340,12 @@ function TratamientosCompletadosPageContent() {
   });
 
   // Payment management functions
-  const openPaymentModal = async (treatment: CompletedTreatment) => {
-    setSelectedTreatment(treatment);
+  const loadPaymentInfo = async (treatmentId: string) => {
     setLoadingPayments(true);
+    setShowPaymentModal(true);
     try {
-      const summary = await PaymentService.getPaymentSummary(treatment.id);
+      const summary = await PaymentService.getPaymentSummary(treatmentId);
       setPaymentSummary(summary);
-      setShowPaymentModal(true);
     } catch (error) {
       console.error('Error loading payment summary:', error);
       alert('Error al cargar información de pagos');
@@ -353,10 +354,45 @@ function TratamientosCompletadosPageContent() {
     }
   };
 
+  const openPaymentModal = async (treatment: CompletedTreatment) => {
+    setPaymentModalMode('pago');
+    setAdvanceTreatmentId('');
+    setSelectedTreatment(treatment);
+    await loadPaymentInfo(treatment.id);
+  };
+
+  const openAdvancePaymentModal = async () => {
+    setPaymentModalMode('adelanto');
+    const options = completedTreatments || [];
+    const pending = options.find((t) => (t.saldo_pendiente || 0) > 0);
+    const target = pending || options[0];
+    if (!target) {
+      alert('No hay tratamientos para registrar el pago');
+      return;
+    }
+    setSelectedTreatment(target);
+    setAdvanceTreatmentId(target.id);
+    await loadPaymentInfo(target.id);
+  };
+
+  const handleAdvanceTreatmentChange = async (treatmentId: string) => {
+    const treatment = (completedTreatments || []).find((t) => t.id === treatmentId);
+    if (!treatment) return;
+    setSelectedTreatment(treatment);
+    setAdvanceTreatmentId(treatmentId);
+    setNewPayment({ monto_pago: '', moneda: 'HNL' as Currency, metodo_pago: 'efectivo', notas_pago: '' });
+    setApplyCredit(false);
+    setCreditAmount('');
+    setPaymentSummary(null);
+    await loadPaymentInfo(treatmentId);
+  };
+
   const closePaymentModal = () => {
     setShowPaymentModal(false);
     setSelectedTreatment(null);
     setPaymentSummary(null);
+    setPaymentModalMode('pago');
+    setAdvanceTreatmentId('');
     setNewPayment({
       monto_pago: '',
       moneda: 'HNL' as Currency,
@@ -383,7 +419,7 @@ function TratamientosCompletadosPageContent() {
         fecha_pago: new Date().toISOString()
       };
       
-      await PaymentService.addPayment(paymentData, selectedTreatment.moneda || 'HNL');
+      const result = await PaymentService.addPayment(paymentData, selectedTreatment.moneda || 'HNL');
 
       const summary = await PaymentService.getPaymentSummary(selectedTreatment.id);
       setPaymentSummary(summary);
@@ -392,7 +428,11 @@ function TratamientosCompletadosPageContent() {
       await loadCompletedTreatments();
       
       setNewPayment({ monto_pago: '', moneda: 'HNL' as Currency, metodo_pago: 'efectivo', notas_pago: '' });
-      alert('Pago agregado exitosamente');
+      if (result.advance && result.advance.monto > 0) {
+        alert(`Pago registrado como efectivo por ${formatCurrency(result.payment?.monto_pago || result.advance.monto, result.payment?.moneda || result.advance.moneda)}. El excedente de ${formatCurrency(result.advance.monto, result.advance.moneda)} fue guardado como Saldo Positivo del paciente.`);
+      } else {
+        alert('Pago agregado exitosamente');
+      }
     } catch (error) {
       console.error('Error adding payment:', error);
       alert('Error al agregar pago');
@@ -672,14 +712,24 @@ function TratamientosCompletadosPageContent() {
       <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            {/* Left side - Nuevo Tratamiento */}
-            <button
-              onClick={() => handleCreateTreatment()}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <i className="fas fa-plus mr-2"></i>
-              Crear Nuevo Tratamiento
-            </button>
+            {/* Left side - Nuevo Tratamiento / Pago Adelantado */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleCreateTreatment()}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <i className="fas fa-plus mr-2"></i>
+                Crear Nuevo Tratamiento
+              </button>
+              <button
+                onClick={openAdvancePaymentModal}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                title="Registrar un pago adelantado (el excedente se guarda como Saldo Positivo)"
+              >
+                <i className="fas fa-hand-holding-usd mr-2"></i>
+                Pago Adelantado
+              </button>
+            </div>
             
             {/* Right side - Volver */}
             <button
@@ -1322,8 +1372,31 @@ function TratamientosCompletadosPageContent() {
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                     <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-                      Gestión de Pagos - Tratamiento
+                      {paymentModalMode === 'adelanto' ? 'Pago Adelantado' : 'Gestión de Pagos - Tratamiento'}
                     </h3>
+
+                    {/* Treatment selector (Pago Adelantado mode only) */}
+                    {paymentModalMode === 'adelanto' && (
+                      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Tratamiento a aplicar el pago:
+                        </label>
+                        <select
+                          value={advanceTreatmentId || selectedTreatment?.id || ''}
+                          onChange={(e) => handleAdvanceTreatmentChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-600 text-gray-900 dark:text-white text-sm"
+                        >
+                          {(completedTreatments || []).map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.paciente?.nombre_completo || 'Paciente'} - {new Date(t.fecha_cita).toLocaleDateString('es-HN')} - {formatCurrency(t.total_final, t.moneda)} ({t.saldo_pendiente && t.saldo_pendiente > 0 ? `Saldo: ${formatCurrency(t.saldo_pendiente, t.moneda)}` : 'Pagado'})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-2 text-sm text-indigo-700 dark:text-indigo-300">
+                          El pago se registra como efectivo en la fecha recibida. El excedente sobre el saldo pendiente se guarda automáticamente como Saldo Positivo del paciente.
+                        </p>
+                      </div>
+                    )}
                     
                     {/* Treatment Summary */}
                     <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
@@ -1472,9 +1545,20 @@ function TratamientosCompletadosPageContent() {
                     })()}
 
                     {/* Add New Payment Form */}
-                    {(!paymentSummary || paymentSummary.saldo_pendiente > 0) && (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-4">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-3">Agregar Nuevo Pago</h4>
+                    {(paymentModalMode === 'adelanto' || !paymentSummary || paymentSummary.saldo_pendiente > 0) && (
+                      <div className={`p-4 rounded-lg mb-4 ${paymentModalMode === 'adelanto' ? 'bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700' : 'bg-blue-50 dark:bg-blue-900/20'}`}>
+                        <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+                          {paymentModalMode === 'adelanto' ? 'Registrar Pago Adelantado' : 'Agregar Nuevo Pago'}
+                        </h4>
+                        
+                        {paymentModalMode === 'adelanto' && (
+                          <div className="mb-3 p-3 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-600 rounded">
+                            <p className="text-sm text-indigo-800 dark:text-indigo-200">
+                              <i className="fas fa-hand-holding-usd mr-2"></i>
+                              Puede ingresar un monto mayor al saldo pendiente. Todo lo que exceda el saldo se guarda automáticamente como Saldo Positivo (referencia atenuada) sin sumarse a los ingresos del mes/año.
+                            </p>
+                          </div>
+                        )}
                         
                         {!paymentSummary && (
                           <div className="mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded">
@@ -1484,7 +1568,7 @@ function TratamientosCompletadosPageContent() {
                           </div>
                         )}
                         
-                        {paymentSummary && paymentSummary.saldo_pendiente <= 0 && selectedTreatment?.total_final > 0 && (
+                        {paymentSummary && paymentSummary.saldo_pendiente <= 0 && selectedTreatment?.total_final > 0 && paymentModalMode !== 'adelanto' && (
                           <div className="mb-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
                             <p className="text-sm text-green-800 dark:text-green-200">
                               Este tratamiento ya está completamente pagado.
@@ -1534,9 +1618,9 @@ function TratamientosCompletadosPageContent() {
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" 
                               placeholder="0.00" 
                               min="0" 
-                              max={paymentSummary?.saldo_pendiente || 0} 
+                              max={paymentModalMode === 'adelanto' ? undefined : paymentSummary?.saldo_pendiente || 0} 
                               step="0.01"
-                              disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
+                              disabled={!paymentSummary || (paymentModalMode !== 'adelanto' && paymentSummary.saldo_pendiente <= 0)}
                             />
                           </div>
                           <div>
@@ -1545,7 +1629,7 @@ function TratamientosCompletadosPageContent() {
                               value={newPayment.moneda || 'HNL'} 
                               onChange={(e) => handlePaymentCurrencyChange((e.target.value || 'HNL') as Currency)} 
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
+                              disabled={!paymentSummary || (paymentModalMode !== 'adelanto' && paymentSummary.saldo_pendiente <= 0)}
                             >
                               <option value="HNL">HNL</option>
                               <option value="USD">USD</option>
@@ -1557,7 +1641,7 @@ function TratamientosCompletadosPageContent() {
                               value={newPayment.metodo_pago}
                               onChange={(e) => setNewPayment(prev => ({ ...prev, metodo_pago: e.target.value }))}
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
+                              disabled={!paymentSummary || (paymentModalMode !== 'adelanto' && paymentSummary.saldo_pendiente <= 0)}
                             >
                               {PaymentService.getPaymentMethods().map(method => (
                                 <option key={method} value={method}>
@@ -1574,16 +1658,16 @@ function TratamientosCompletadosPageContent() {
                               onChange={(e) => setNewPayment(prev => ({ ...prev, notas_pago: e.target.value }))}
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               placeholder="Notas del pago"
-                              disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
+                              disabled={!paymentSummary || (paymentModalMode !== 'adelanto' && paymentSummary.saldo_pendiente <= 0)}
                             />
                           </div>
                         </div>
                         <button
                           onClick={addPayment}
                           className="mt-3 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                          disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
+                          disabled={!paymentSummary || (paymentModalMode !== 'adelanto' && paymentSummary.saldo_pendiente <= 0)}
                         >
-                          <i className="fas fa-plus mr-2"></i>Agregar Pago
+                          <i className="fas fa-plus mr-2"></i>{paymentModalMode === 'adelanto' ? 'Registrar Pago Adelantado' : 'Agregar Pago'}
                         </button>
                       </div>
                     )}
