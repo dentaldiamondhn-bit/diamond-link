@@ -16,6 +16,7 @@ import {
   getLabels,
   getMedicalHistory,
   getRecentMedicalHistoryCount,
+  primaryPhone,
   queryContacts,
   sortContacts,
 } from '@/lib/contacts/db';
@@ -42,6 +43,8 @@ import { ContactEditorModal } from '@/components/contacts/ContactEditorModal';
 import { MedicalHistoryModal } from '@/components/contacts/MedicalHistoryModal';
 import { DeleteContactModal } from '@/components/contacts/DeleteContactModal';
 import { ImportExportModal } from '@/components/contacts/ImportExportModal';
+import { CreateAppointmentModal, type PrefilledContact } from '@/components/calendar-new/CreateAppointmentModal';
+import { ToastProvider } from '@/components/calendar-new/Toast';
 import { Button } from '@/components/ui/button';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 
@@ -75,6 +78,7 @@ export default function ContactosPage() {
   const columnPrefsLoaded = useRef(false);
   const [sort, setSort] = useState<ContactSort>({ key: 'name', dir: 'asc' });
   const [sheetContact, setSheetContact] = useState<LocalContact | null>(null);
+  const [appointmentContact, setAppointmentContact] = useState<LocalContact | null>(null);
   const [editor, setEditor] = useState<EditorState>({ open: false, editing: null });
   const [medicalEditor, setMedicalEditor] = useState<LocalContact | null>(null);
   const [importExportOpen, setImportExportOpen] = useState(false);
@@ -362,11 +366,25 @@ const labelList = useMemo(() => labels ?? [], [labels]);
     if (c.patient_id) router.push(`/patient-preview/${c.patient_id}`);
   };
 
+  const appointmentPrefill = useMemo<PrefilledContact | null>(() => {
+    if (!appointmentContact) return null;
+    const main = primaryPhone(appointmentContact);
+    return {
+      id: appointmentContact.id,
+      first_name: appointmentContact.first_name ?? '',
+      last_name: appointmentContact.last_name ?? '',
+      phone: main?.phone_number,
+      email: appointmentContact.emails[0]?.email,
+      patient_id: appointmentContact.patient_id,
+    };
+  }, [appointmentContact]);
+
   const handleResync = () => void syncRef.current?.syncNow();
 
   const loading = contacts === undefined;
 
   return (
+    <ToastProvider>
     <div className="relative flex h-[calc(100vh-4rem)] min-h-0 bg-white/40 dark:bg-slate-950/40">
       <ContactSidebar
         labels={labelList}
@@ -433,6 +451,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
                 onOpen={setSheetContact}
                 onQuickEdit={() => undefined}
                 onOpenEhr={() => undefined}
+                onSchedule={setAppointmentContact}
                 onDelete={() => undefined}
                 onRestore={() => undefined}
                 onToggleFavorite={() => undefined}
@@ -466,6 +485,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
                 onOpen={setSheetContact}
                 onQuickEdit={(c) => openEditor(c)}
                 onOpenEhr={openEhr}
+                onSchedule={setAppointmentContact}
                 onDelete={handleDelete}
                 onRestore={handleRestore}
                 onToggleFavorite={handleToggleFavorite}
@@ -487,6 +507,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
         medical={medical}
         onClose={() => setSheetContact(null)}
         onEdit={openEditor}
+        onSchedule={setAppointmentContact}
         onToggleFavorite={handleToggleFavorite}
         onDelete={handleDelete}
         onRestore={handleRestore}
@@ -528,7 +549,15 @@ const labelList = useMemo(() => labels ?? [], [labels]);
         allContacts={(activeBase ?? []).filter((c) => !c.is_archived)}
         onClose={() => setImportExportOpen(false)}
       />
+
+      <CreateAppointmentModal
+        key={appointmentContact?.id ?? 'appointment'}
+        isOpen={appointmentContact !== null}
+        prefilledContact={appointmentPrefill ?? undefined}
+        onClose={() => setAppointmentContact(null)}
+      />
     </div>
+    </ToastProvider>
   );
 }
 
