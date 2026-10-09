@@ -323,9 +323,10 @@ export class PaymentService {
         throw selectError;
       }
 
-      if (!existing) {
-        throw new Error('Payment not found');
-      }
+       if (!existing) {
+         console.warn('Attempted to delete payment that does not exist:', id);
+         return;
+       }
 
       // Clean up associated patient credits BEFORE deleting the payment row.
       // The payments->patient_credits FK uses ON DELETE SET NULL, so once the
