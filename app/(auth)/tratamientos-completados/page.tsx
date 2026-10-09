@@ -27,6 +27,7 @@ function TratamientosCompletadosPageContent() {
   const searchParams = useSearchParams();
   const { bypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   const [completedTreatments, setCompletedTreatments] = useState<any[]>([]);
+  const [advancePayments, setAdvancePayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,8 +117,40 @@ function TratamientosCompletadosPageContent() {
     }
   };
 
+  const loadAdvancePayments = async () => {
+    try {
+      if (pacienteId) {
+        const advances = await PaymentService.getAdvancePaymentsByPatientId(pacienteId);
+        setAdvancePayments(advances);
+      } else {
+        setAdvancePayments([]);
+      }
+    } catch (error) {
+      console.error('Error loading advance payments:', error);
+      setAdvancePayments([]);
+    }
+  };
+
+  const deleteAdvancePayment = async (payment: Payment) => {
+    const confirmed = window.confirm(
+      `¿Eliminar el pago adelantado de ${formatCurrency(payment.monto_pago, payment.moneda)}? El Saldo Positivo asociado dejará de estar disponible.`
+    );
+    if (!confirmed) return;
+    try {
+      await PaymentService.deletePayment(payment.id);
+      await loadAdvancePayments();
+    } catch (error) {
+      console.error('Error deleting advance payment:', error);
+      alert(
+        'Error al eliminar el pago adelantado: ' +
+          (error instanceof Error ? error.message : 'Error desconocido')
+      );
+    }
+  };
+
   useEffect(() => {
     loadCompletedTreatments();
+    loadAdvancePayments();
   }, [pacienteId]);
 
   // Load patient-specific historical mode settings when pacienteId is available
@@ -410,6 +443,7 @@ function TratamientosCompletadosPageContent() {
       );
       setShowAdvanceModal(false);
       await loadCompletedTreatments();
+      await loadAdvancePayments();
     } catch (error) {
       console.error('Error adding advance payment:', error);
       const message = error && typeof error === 'object' && 'message' in error
@@ -461,6 +495,7 @@ function TratamientosCompletadosPageContent() {
       
       // Refresh the treatments list to update payment status badges
       await loadCompletedTreatments();
+      await loadAdvancePayments();
       
       setNewPayment({ monto_pago: '', moneda: 'HNL' as Currency, metodo_pago: 'efectivo', notas_pago: '' });
       if (result.advance && result.advance.monto > 0) {
@@ -510,6 +545,7 @@ function TratamientosCompletadosPageContent() {
       const summary = await PaymentService.getPaymentSummary(selectedTreatment.id);
       setPaymentSummary(summary);
       await loadCompletedTreatments();
+      await loadAdvancePayments();
 
       setCreditAmount('');
       setApplyCredit(false);
@@ -582,6 +618,7 @@ function TratamientosCompletadosPageContent() {
       // Close modal and refresh treatments
       closeDeleteTreatmentModal();
       await loadCompletedTreatments();
+      await loadAdvancePayments();
       
     } catch (error) {
       console.error('Error deleting treatment:', error);
@@ -876,6 +913,66 @@ function TratamientosCompletadosPageContent() {
 
       {/* Main Content */}
       <main className="w-full px-4 sm:px-6 lg:px-8 py-6">
+        {/* Advance payments (no treatment) — visual record that money was received */}
+        {pacienteId && advancePayments.length > 0 && (
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                <i className="fas fa-hand-holding-usd text-indigo-600 dark:text-indigo-400"></i>
+                Pagos Adelantados (sin tratamiento)
+              </h2>
+              <div className="flex flex-wrap gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                {Object.entries(
+                  advancePayments.reduce<Record<string, number>>((acc, p) => {
+                    acc[p.moneda] = (acc[p.moneda] || 0) + (Number(p.monto_pago) || 0);
+                    return acc;
+                  }, {})
+                ).map(([moneda, total]) => (
+                  <span key={moneda} className="px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+                    Total {moneda}: {formatCurrency(total, moneda as Currency)}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Pagos recibidos que quedaron como Saldo Positivo del paciente. Todavía no se ha completado un tratamiento para aplicarlos.
+            </p>
+            <div className="space-y-3">
+              {advancePayments.map((payment) => (
+                <div
+                  key={payment.id}
+                  className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <i className="fas fa-coins text-indigo-600 dark:text-indigo-400 text-lg"></i>
+                    <div>
+                      <div className="font-semibold text-gray-800 dark:text-white">
+                        {formatCurrency(payment.monto_pago, payment.moneda)}
+                        <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200">
+                          Pago Adelantado
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {SimpleTimezoneFix.formatDateForConsultationAge(payment.fecha_pago)} · {PaymentService.formatPaymentMethod(payment.metodo_pago)}
+                        {payment.notas_pago ? ` · ${payment.notas_pago}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => deleteAdvancePayment(payment)}
+                    className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                    title="Eliminar pago adelantado"
+                  >
+                    <div className="w-4 h-4 flex items-center justify-center">
+                      <AnimatedRubish />
+                    </div>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {currentTreatments.length === 0 ? (
           <div className="text-center py-12">
             <i className="fas fa-clipboard-check text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
@@ -1890,6 +1987,7 @@ function TratamientosCompletadosPageContent() {
                         
                         // Refresh the treatments list to update payment status badges
                         await loadCompletedTreatments();
+      await loadAdvancePayments();
                         
                         setDeleteSuccess(true);
                       } catch (error) {

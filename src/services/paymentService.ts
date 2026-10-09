@@ -87,6 +87,28 @@ export class PaymentService {
     }
   }
 
+  // Get all standalone advance payments for a patient (no treatment linked)
+  static async getAdvancePaymentsByPatientId(pacienteId: string): Promise<Payment[]> {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('paciente_id', pacienteId)
+        .is('tratamiento_completado_id', null)
+        .order('fecha_pago', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching advance payments:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Unexpected error fetching advance payments:', error);
+      throw error;
+    }
+  }
+
   // Add a new payment with automatic currency conversion.
   // The full amount received is recorded as a cash entry on the receipt date;
   // any overpayment is captured automatically as a patient credit by the DB
