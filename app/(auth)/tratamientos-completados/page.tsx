@@ -415,8 +415,11 @@ function TratamientosCompletadosPageContent() {
       const message = error && typeof error === 'object' && 'message' in error
         ? String((error as { message?: unknown }).message)
         : 'Error desconocido';
-      alert('Error al registrar el pago adelantado: ' + message);
-    } finally {
+      if (message.includes('paciente_id') || message.includes('42703')) {
+        alert('Error al registrar el pago adelantado: Falta la columna payments.paciente_id. Ejecute la migración database/migrations/add_advance_payments.sql en el editor SQL de Supabase.');
+      } else {
+        alert('Error al registrar el pago adelantado: ' + message);
+      }
       setSavingAdvance(false);
     }
   };
