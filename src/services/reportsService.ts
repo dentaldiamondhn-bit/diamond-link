@@ -203,6 +203,7 @@ export interface FinancialTransaction {
   metodoPago: string;
   tratamiento: string;
   esSaldoPositivo?: boolean;
+  esPagoAdelantado?: boolean;
 }
 
 export interface PaymentStatusSummary {
@@ -1036,9 +1037,10 @@ export class ReportsService {
       const queryEndDate = endDate || new Date().toISOString();
 
       let treatmentIds: string[] | null = null;
+      let doctorName: string | null = null;
       
       if (doctorEmail || doctorUserId) {
-        const doctorName = await this.resolveDoctorName(doctorEmail, doctorUserId);
+        doctorName = await this.resolveDoctorName(doctorEmail, doctorUserId);
         if (doctorName) {
           const { data: treatments } = await supabase
             .from('tratamientos_completados')
@@ -1054,11 +1056,28 @@ export class ReportsService {
       if (treatmentIds && treatmentIds.length > 0) {
         payments = await this.batchInQuery<PaymentRow>(
           'payments',
-          'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_conversion, tasa_conversion',
+          'id, paciente_id, fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_original, moneda_conversion, tasa_conversion',
           'tratamiento_completado_id',
           treatmentIds,
           (q) => q.gte('fecha_pago', queryStartDate).lte('fecha_pago', queryEndDate)
         );
+        if (doctorName) {
+          const { data: doctorPatients } = await supabase
+            .from('patients')
+            .select('paciente_id')
+            .eq('doctor', doctorName);
+          const doctorPatientIds = (doctorPatients || []).map((p: { paciente_id: string }) => p.paciente_id);
+          if (doctorPatientIds.length > 0) {
+            const advances = await this.batchInQuery<PaymentRow>(
+              'payments',
+              'id, paciente_id, fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda, monto_convertido, moneda_original, moneda_conversion, tasa_conversion',
+              'paciente_id',
+              doctorPatientIds,
+              (q) => q.is('tratamiento_completado_id', null).gte('fecha_pago', queryStartDate).lte('fecha_pago', queryEndDate)
+            );
+            payments = [...payments, ...advances];
+          }
+        }
         payments.sort((a, b) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime());
       } else {
         const { data, error } = await supabase
@@ -1082,14 +1101,13 @@ export class ReportsService {
       
       const treatmentsMap = new Map<string, { id: string; paciente_id: string }>();
       if (allTreatmentIds.length > 0) {
-        const { data: treatments } = await supabase
-          .from('tratamientos_completados')
-          .select('id, paciente_id')
-          .in('id', allTreatmentIds);
-        
-        if (treatments) {
-          treatments.forEach((t: { id: string; paciente_id: string }) => treatmentsMap.set(t.id, t));
-        }
+        const treatments = await this.batchInQuery<{ id: string; paciente_id: string }>(
+          'tratamientos_completados',
+          'id, paciente_id',
+          'id',
+          allTreatmentIds
+        );
+        treatments.forEach((t) => treatmentsMap.set(t.id, t));
       }
 
       const patientIds = [
@@ -1099,36 +1117,35 @@ export class ReportsService {
       
       const patientsMap = new Map<string, string>();
       if (patientIds.length > 0) {
-        const { data: patients } = await supabase
-          .from('patients')
-          .select('paciente_id, nombre_completo')
-          .in('paciente_id', patientIds);
-        
-        if (patients) {
-          patients.forEach((p: { paciente_id: string; nombre_completo: string }) => patientsMap.set(p.paciente_id, p.nombre_completo));
-        }
+        const patients = await this.batchInQuery<{ paciente_id: string; nombre_completo: string }>(
+          'patients',
+          'paciente_id, nombre_completo',
+          'paciente_id',
+          patientIds
+        );
+        patients.forEach((p) => patientsMap.set(p.paciente_id, p.nombre_completo));
       }
 
       const treatmentItemsMap = new Map<string, string>();
       if (allTreatmentIds.length > 0) {
-        const { data: items } = await supabase
-          .from('vista_tratamientos_realizados_detalles')
-          .select('tratamiento_completado_id, nombre_tratamiento')
-          .in('tratamiento_completado_id', allTreatmentIds);
-        
-        if (items) {
-          items.forEach((i: { tratamiento_completado_id: string; nombre_tratamiento: string }) => {
-            if (!treatmentItemsMap.has(i.tratamiento_completado_id)) {
-              treatmentItemsMap.set(i.tratamiento_completado_id, i.nombre_tratamiento);
-            }
-          });
-        }
+        const items = await this.batchInQuery<{ tratamiento_completado_id: string; nombre_tratamiento: string }>(
+          'vista_tratamientos_realizados_detalles',
+          'tratamiento_completado_id, nombre_tratamiento',
+          'tratamiento_completado_id',
+          allTreatmentIds
+        );
+        items.forEach((i) => {
+          if (!treatmentItemsMap.has(i.tratamiento_completado_id)) {
+            treatmentItemsMap.set(i.tratamiento_completado_id, i.nombre_tratamiento);
+          }
+        });
       }
 
       return payments.map((p: PaymentRow) => {
+        const esPagoAdelantado = !p.tratamiento_completado_id;
         const tc = p.tratamiento_completado_id ? treatmentsMap.get(p.tratamiento_completado_id) : undefined;
         const pacienteId = tc?.paciente_id || p.paciente_id;
-        const tratamiento = tc ? (treatmentItemsMap.get(tc.id) || 'Tratamiento') : 'Pago Adelantado';
+        const tratamiento = esPagoAdelantado ? 'Pago Adelantado' : (tc ? (treatmentItemsMap.get(tc.id) || 'Tratamiento') : 'Tratamiento');
         const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
         const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
         
@@ -1155,7 +1172,8 @@ export class ReportsService {
           moneda,
           metodoPago: p.metodo_pago || 'Efectivo',
           tratamiento,
-          esSaldoPositivo: Boolean(p.esSaldoPositivo)
+          esSaldoPositivo: Boolean(p.esSaldoPositivo),
+          esPagoAdelantado
         };
       });
     } catch (error) {
@@ -1167,9 +1185,10 @@ export class ReportsService {
   static async getAllFinancialTransactions(doctorEmail?: string, doctorUserId?: string): Promise<FinancialTransaction[]> {
     try {
       let treatmentIds: string[] | null = null;
+      let doctorName: string | null = null;
       
       if (doctorEmail || doctorUserId) {
-        const doctorName = await this.resolveDoctorName(doctorEmail, doctorUserId);
+        doctorName = await this.resolveDoctorName(doctorEmail, doctorUserId);
         if (doctorName) {
           const { data: treatments } = await supabase
             .from('tratamientos_completados')
@@ -1185,10 +1204,27 @@ export class ReportsService {
       if (treatmentIds && treatmentIds.length > 0) {
         payments = await this.batchInQuery<PaymentRow>(
           'payments',
-          'fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda, monto_convertido, moneda_conversion, tasa_conversion',
+          'id, paciente_id, fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda, monto_convertido, moneda_conversion, tasa_conversion',
           'tratamiento_completado_id',
           treatmentIds
         );
+        if (doctorName) {
+          const { data: doctorPatients } = await supabase
+            .from('patients')
+            .select('paciente_id')
+            .eq('doctor', doctorName);
+          const doctorPatientIds = (doctorPatients || []).map((p: { paciente_id: string }) => p.paciente_id);
+          if (doctorPatientIds.length > 0) {
+            const advances = await this.batchInQuery<PaymentRow>(
+              'payments',
+              'id, paciente_id, fecha_pago, monto_pago, metodo_pago, tratamiento_completado_id, moneda_original, moneda, monto_convertido, moneda_conversion, tasa_conversion',
+              'paciente_id',
+              doctorPatientIds,
+              (q) => q.is('tratamiento_completado_id', null)
+            );
+            payments = [...payments, ...advances];
+          }
+        }
         payments.sort((a, b) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime());
       } else {
         const { data, error } = await supabase
@@ -1210,14 +1246,13 @@ export class ReportsService {
       
       const treatmentsMap = new Map<string, { id: string; paciente_id: string }>();
       if (allTreatmentIds.length > 0) {
-        const { data: treatments } = await supabase
-          .from('tratamientos_completados')
-          .select('id, paciente_id')
-          .in('id', allTreatmentIds);
-        
-        if (treatments) {
-          treatments.forEach((t: { id: string; paciente_id: string }) => treatmentsMap.set(t.id, t));
-        }
+        const treatments = await this.batchInQuery<{ id: string; paciente_id: string }>(
+          'tratamientos_completados',
+          'id, paciente_id',
+          'id',
+          allTreatmentIds
+        );
+        treatments.forEach((t) => treatmentsMap.set(t.id, t));
       }
 
       const patientIds = [
@@ -1227,36 +1262,35 @@ export class ReportsService {
       
       const patientsMap = new Map<string, string>();
       if (patientIds.length > 0) {
-        const { data: patients } = await supabase
-          .from('patients')
-          .select('paciente_id, nombre_completo')
-          .in('paciente_id', patientIds);
-        
-        if (patients) {
-          patients.forEach((p: { paciente_id: string; nombre_completo: string }) => patientsMap.set(p.paciente_id, p.nombre_completo));
-        }
+        const patients = await this.batchInQuery<{ paciente_id: string; nombre_completo: string }>(
+          'patients',
+          'paciente_id, nombre_completo',
+          'paciente_id',
+          patientIds
+        );
+        patients.forEach((p) => patientsMap.set(p.paciente_id, p.nombre_completo));
       }
 
       const treatmentItemsMap = new Map<string, string>();
       if (allTreatmentIds.length > 0) {
-        const { data: items } = await supabase
-          .from('vista_tratamientos_realizados_detalles')
-          .select('tratamiento_completado_id, nombre_tratamiento')
-          .in('tratamiento_completado_id', allTreatmentIds);
-        
-        if (items) {
-          items.forEach((i: { tratamiento_completado_id: string; nombre_tratamiento: string }) => {
-            if (!treatmentItemsMap.has(i.tratamiento_completado_id)) {
-              treatmentItemsMap.set(i.tratamiento_completado_id, i.nombre_tratamiento);
-            }
-          });
-        }
+        const items = await this.batchInQuery<{ tratamiento_completado_id: string; nombre_tratamiento: string }>(
+          'vista_tratamientos_realizados_detalles',
+          'tratamiento_completado_id, nombre_tratamiento',
+          'tratamiento_completado_id',
+          allTreatmentIds
+        );
+        items.forEach((i) => {
+          if (!treatmentItemsMap.has(i.tratamiento_completado_id)) {
+            treatmentItemsMap.set(i.tratamiento_completado_id, i.nombre_tratamiento);
+          }
+        });
       }
 
       return payments.map((p: PaymentRow) => {
+        const esPagoAdelantado = !p.tratamiento_completado_id;
         const tc = p.tratamiento_completado_id ? treatmentsMap.get(p.tratamiento_completado_id) : undefined;
         const pacienteId = tc?.paciente_id || p.paciente_id;
-        const tratamiento = tc ? (treatmentItemsMap.get(tc.id) || 'Tratamiento') : 'Pago Adelantado';
+        const tratamiento = esPagoAdelantado ? 'Pago Adelantado' : (tc ? (treatmentItemsMap.get(tc.id) || 'Tratamiento') : 'Tratamiento');
         const metodoPago = (p.metodo_pago || 'Efectivo').toLowerCase();
         const amount = this.paymentToHNL(p.monto_pago, p.moneda, p.monto_convertido, p.moneda_conversion, p.tasa_conversion);
         
@@ -1283,7 +1317,8 @@ export class ReportsService {
           moneda,
           metodoPago: p.metodo_pago || 'Efectivo',
           tratamiento,
-          esSaldoPositivo: Boolean(p.esSaldoPositivo)
+          esSaldoPositivo: Boolean(p.esSaldoPositivo),
+          esPagoAdelantado
         };
       });
     } catch (error) {

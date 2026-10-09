@@ -75,7 +75,6 @@ export interface CashLedgerEntry {
   verificado?: boolean | null;
 }
 
-const ADVANCE_METHODS = new Set(['pago_adelanto', 'adelanto', 'advance', 'prepayment']);
 const ADVANCE_ASIENTOS = new Set(['adelanto', 'advance', 'prepayment', 'liabilidad', 'liability', 'unearned']);
 const ADVANCE_CONCEPT = /adelanto|prepayment|unearned|prepago/i;
 const SALDO_POSITIVO_METHOD = 'saldo_positivo';
@@ -128,7 +127,9 @@ export function isAdvanceConceptEntry(entry: CashLedgerEntry | null | undefined)
   if (entry.es_adelanto === true) return true;
   if (entry.tipo_asiento && ADVANCE_ASIENTOS.has(String(entry.tipo_asiento).toLowerCase())) return true;
   if (entry.concepto && ADVANCE_CONCEPT.test(String(entry.concepto))) return true;
-  if (entry.metodo_pago && ADVANCE_METHODS.has(String(entry.metodo_pago).toLowerCase())) return true;
+  // A `payments` row is money actually received, so a payment whose method is
+  // labeled as an advance (e.g. "pago_adelanto") is still real cash income and
+  // must not be excluded here. Only true ledger/liability entries are filtered.
   return false;
 }
 

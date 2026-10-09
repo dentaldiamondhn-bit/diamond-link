@@ -199,7 +199,7 @@ describe('splitPayment', () => {
 });
 
 describe('cash balance ledger', () => {
-  test('excludes advance-generated, saldo_positivo and unverified entries', () => {
+  test('counts advance-method payments as cash but excludes ledger, saldo_positivo and unverified entries', () => {
     const entries = [
       { monto_pago: 500, metodo_pago: 'efectivo' },
       { monto_pago: 250, metodo_pago: 'pago_adelanto' },
@@ -212,7 +212,7 @@ describe('cash balance ledger', () => {
     ];
 
     assert.equal(isCashLedgerEntry(entries[0]), true);
-    assert.equal(isCashLedgerEntry(entries[1]), false);
+    assert.equal(isCashLedgerEntry(entries[1]), true, 'an advance-method payment is still cash received');
     assert.equal(isCashLedgerEntry(entries[2]), false);
     assert.equal(isCashLedgerEntry(entries[3]), false);
     assert.equal(isCashLedgerEntry(entries[4]), false);
@@ -220,8 +220,8 @@ describe('cash balance ledger', () => {
     assert.equal(isCashLedgerEntry(entries[6]), false, 'saldo_positivo usage must never count as cash');
     assert.equal(isCashLedgerEntry(entries[7]), true);
 
-    assert.equal(filterCashLedgerEntries(entries).length, 2);
-    assert.equal(computeCashBalance(entries), 1235, 'cash balance must ignore advance/saldo/unverified rows');
+    assert.equal(filterCashLedgerEntries(entries).length, 3);
+    assert.equal(computeCashBalance(entries), 1485, 'cash balance must ignore liability/saldo/unverified rows but count advance payments');
   });
 
   test('prefers the converted amount when computing the balance', () => {

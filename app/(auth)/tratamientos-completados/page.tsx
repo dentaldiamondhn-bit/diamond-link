@@ -1895,7 +1895,7 @@ function TratamientosCompletadosPageContent() {
                           onChange={(e) => setAdvancePayment(prev => ({ ...prev, metodo_pago: e.target.value }))}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
-                          {PaymentService.getPaymentMethods().map(method => (
+                          {PaymentService.getPaymentMethods().filter(method => method !== 'saldo_positivo').map(method => (
                             <option key={method} value={method}>
                               {PaymentService.formatPaymentMethod(method)}
                             </option>

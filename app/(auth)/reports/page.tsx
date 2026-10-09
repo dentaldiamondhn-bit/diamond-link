@@ -1524,6 +1524,11 @@ export default function ReportsPage() {
                                               Saldo Positivo aplicado
                                             </span>
                                           )}
+                                          {transaction.esPagoAdelantado && (
+                                            <span className="mr-2 px-2 py-0.5 rounded-full text-xs bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">
+                                              Pago Adelantado
+                                            </span>
+                                          )}
                                           {transaction.fecha ? new Date(transaction.fecha).toLocaleDateString('es-HN') : 'N/A'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
