@@ -145,8 +145,10 @@ export class PatientCreditService {
           console.error('Error marking credit as used:', updateError);
         }
       } else {
-        // Partially consume: split the credit
-        // Mark old credit as used for the partial amount
+        // Partially consume: keep the remainder as an available credit and
+        // record the consumed portion as its own 'usado' credit linked to this
+        // payment. This way deleting the payment releases exactly the consumed
+        // amount back to "disponible" (mirrors the fully-consumed case).
         const { error: updateError } = await supabase
           .from('patient_credits')
           .update({
@@ -157,6 +159,24 @@ export class PatientCreditService {
 
         if (updateError) {
           console.error('Error partially consuming credit:', updateError);
+        }
+
+        const { error: splitError } = await supabase
+          .from('patient_credits')
+          .insert([{
+            paciente_id: credit.paciente_id,
+            monto: useAmount,
+            moneda: credit.moneda,
+            tratamiento_completado_id: credit.tratamiento_completado_id ?? null,
+            usado_en_pago_id: payment.id,
+            estado: 'usado',
+            notas: credit.notas,
+            creado_en: new Date().toISOString(),
+            actualizado_en: new Date().toISOString()
+          }]);
+
+        if (splitError) {
+          console.error('Error recording consumed credit portion:', splitError);
         }
       }
 
