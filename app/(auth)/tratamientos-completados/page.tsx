@@ -412,7 +412,10 @@ function TratamientosCompletadosPageContent() {
       await loadCompletedTreatments();
     } catch (error) {
       console.error('Error adding advance payment:', error);
-      alert('Error al registrar el pago adelantado');
+      const message = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message)
+        : 'Error desconocido';
+      alert('Error al registrar el pago adelantado: ' + message);
     } finally {
       setSavingAdvance(false);
     }
