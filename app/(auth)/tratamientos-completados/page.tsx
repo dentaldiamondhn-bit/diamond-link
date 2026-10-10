@@ -14,6 +14,7 @@ import { PatientCreditService } from '../../../services/patientCreditService';
 import { currencyConversionService } from '../../../services/currencyConversionService';
 import type { CompletedTreatment, TreatmentItem } from '../../../services/completedTreatmentService';
 import type { Payment, PaymentSummary } from '../../../services/paymentService';
+import type { PatientCredit } from '../../../services/patientCreditService';
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
 import HistoricalBadge from '../../../components/HistoricalBadge';
@@ -27,7 +28,13 @@ function TratamientosCompletadosPageContent() {
   const searchParams = useSearchParams();
   const { bypassHistoricalMode, loadPatientSettings, savePatientSettings } = useHistoricalMode();
   const [completedTreatments, setCompletedTreatments] = useState<any[]>([]);
-  const [advancePayments, setAdvancePayments] = useState<any[]>([]);
+  // Advance payments with remaining credit balance
+  const [advancePayments, setAdvancePayments] = useState<{
+    payment: Payment;
+    remaining: number;
+  }[]>([]);
+  // Total positive balance (all available credits)
+  const [totalPositiveBalance, setTotalPositiveBalance] = useState<Record<Currency, number>>({ HNL: 0, USD: 0 });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,13 +128,48 @@ function TratamientosCompletadosPageContent() {
     try {
       if (pacienteId) {
         const advances = await PaymentService.getAdvancePaymentsByPatientId(pacienteId);
-        setAdvancePayments(advances);
+        // Fetch remaining credit balance for each advance payment
+        const advancesWithRemaining = await Promise.all(
+          advances.map(async (payment) => {
+            const credit = await PatientCreditService.getCreditByPaymentId(payment.id);
+            return {
+              payment,
+              remaining: credit?.estado === 'disponible' ? Number(credit.monto) || 0 : 0
+            };
+          })
+        );
+        // Filter out advance payments with 0 remaining balance
+        setAdvancePayments(advancesWithRemaining.filter(a => a.remaining > 0));
+        
+        // Load total positive balance (all available credits)
+        await loadTotalPositiveBalance();
       } else {
         setAdvancePayments([]);
+        setTotalPositiveBalance({ HNL: 0, USD: 0 });
       }
     } catch (error) {
       console.error('Error loading advance payments:', error);
       setAdvancePayments([]);
+    }
+  };
+
+  const loadTotalPositiveBalance = async () => {
+    if (!pacienteId) {
+      setTotalPositiveBalance({ HNL: 0, USD: 0 });
+      return;
+    }
+    try {
+      const credits = await PatientCreditService.getAvailableCredits(pacienteId);
+      const hnl = credits
+        .filter(c => c.moneda === 'HNL' && c.estado === 'disponible')
+        .reduce((sum, c) => sum + Number(c.monto), 0);
+      const usd = credits
+        .filter(c => c.moneda === 'USD' && c.estado === 'disponible')
+        .reduce((sum, c) => sum + Number(c.monto), 0);
+      setTotalPositiveBalance({ HNL: hnl, USD: usd });
+    } catch (error) {
+      console.error('Error loading total positive balance:', error);
+      setTotalPositiveBalance({ HNL: 0, USD: 0 });
     }
   };
 
@@ -924,21 +966,22 @@ function TratamientosCompletadosPageContent() {
               <div className="flex flex-wrap gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-300">
                 {Object.entries(
                   advancePayments.reduce<Record<string, number>>((acc, p) => {
-                    acc[p.moneda] = (acc[p.moneda] || 0) + (Number(p.monto_pago) || 0);
+                    const moneda = p.payment.moneda;
+                    acc[moneda] = (acc[moneda] || 0) + p.remaining;
                     return acc;
                   }, {})
                 ).map(([moneda, total]) => (
                   <span key={moneda} className="px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
-                    Total {moneda}: {formatCurrency(total, moneda as Currency)}
+                    Disponible {moneda}: {formatCurrency(total, moneda as Currency)}
                   </span>
                 ))}
               </div>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Pagos recibidos que quedaron como Saldo Positivo del paciente. Todavía no se ha completado un tratamiento para aplicarlos.
+              Pagos recibidos que quedaron como Saldo Positivo del paciente. El monto disponible disminuye al aplicar a tratamientos.
             </p>
             <div className="space-y-3">
-              {advancePayments.map((payment) => (
+              {advancePayments.map(({ payment, remaining }) => (
                 <div
                   key={payment.id}
                   className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg p-4"
@@ -946,11 +989,16 @@ function TratamientosCompletadosPageContent() {
                   <div className="flex items-center gap-3">
                     <i className="fas fa-coins text-indigo-600 dark:text-indigo-400 text-lg"></i>
                     <div>
-                      <div className="font-semibold text-gray-800 dark:text-white">
-                        {formatCurrency(payment.monto_pago, payment.moneda)}
+                      <div className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                        <span>{formatCurrency(remaining, payment.moneda)}</span>
                         <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200">
-                          Pago Adelantado
+                          Disponible
                         </span>
+                        {remaining < Number(payment.monto_pago) && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            (original: {formatCurrency(Number(payment.monto_pago), payment.moneda)})
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
                         {SimpleTimezoneFix.formatDateForConsultationAge(payment.fecha_pago)} · {PaymentService.formatPaymentMethod(payment.metodo_pago)}
@@ -970,6 +1018,31 @@ function TratamientosCompletadosPageContent() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Total Positive Balance (Saldo Positivo Total) - from all sources */}
+        {pacienteId && (totalPositiveBalance.HNL > 0 || totalPositiveBalance.USD > 0) && (
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                <i className="fas fa-wallet text-emerald-600 dark:text-emerald-400"></i>
+                Saldo Positivo Total Disponible
+              </h2>
+              <div className="flex flex-wrap gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                {Object.entries(totalPositiveBalance)
+                  .filter(([, amount]) => amount > 0)
+                  .map(([moneda, amount]) => (
+                    <span key={moneda} className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                      {moneda}: {formatCurrency(amount, moneda as Currency)}
+                    </span>
+                  ))}
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Crédito disponible del paciente (proveniente de pagos adelantados y sobre-pagos en tratamientos).
+              Se reduce automáticamente al aplicar a tratamientos.
+            </p>
           </div>
         )}
 

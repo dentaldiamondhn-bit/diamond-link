@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
+import { PaymentService } from '@/services/paymentService';
 import { supabase } from '@/lib/supabase';
 
 
@@ -168,19 +169,30 @@ export async function DELETE(
       }
     }
 
-    // Step 5: Delete any related payments
+    // Step 5: Delete any related payments (using PaymentService to properly release credits)
     console.log('Deleting related payments...');
     
     try {
-      const { error: paymentsError } = await supabase
+      const { data: payments, error: paymentsFetchError } = await supabase
         .from('payments')
-        .delete()
+        .select('id')
         .eq('tratamiento_completado_id', tratamientoId);
       
-      if (paymentsError) {
-        console.error('Error deleting payments:', paymentsError);
+      if (paymentsFetchError) {
+        console.error('Error fetching payments:', paymentsFetchError);
+      } else if (payments && payments.length > 0) {
+        console.log(`Found ${payments.length} payments to delete`);
+        for (const payment of payments) {
+          try {
+            await PaymentService.deletePayment(payment.id);
+            console.log(`Deleted payment: ${payment.id}`);
+          } catch (paymentError) {
+            console.error(`Error deleting payment ${payment.id}:`, paymentError);
+            // Continue with other payments
+          }
+        }
       } else {
-        console.log('Successfully deleted related payments');
+        console.log('No payments found for this treatment');
       }
     } catch (paymentsError) {
       console.error('Error processing payments deletion:', paymentsError);
