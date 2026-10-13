@@ -401,7 +401,13 @@ export class PaymentService {
 
       const payments = await this.getPaymentsByTreatmentId(tratamientoCompletadoId);
 
-      const totalPaid = treatment?.monto_pagado || 0;
+      // Calculate cash-only paid amount (exclude saldo_positivo credit applications)
+      const cashPaid = payments.reduce((sum, p) => {
+        if (String(p.metodo_pago || '').toLowerCase() === 'saldo_positivo') return sum;
+        const amt = parseFloat((p.monto_convertido ?? p.monto_pago).toString());
+        return sum + (isNaN(amt) ? 0 : amt);
+      }, 0);
+      const totalPaid = cashPaid || treatment?.monto_pagado || 0;
       const totalFinal = treatment?.total_final || 0;
       const saldoPendiente = this.calculatePendingBalance(totalFinal, totalPaid);
       const estadoPago = this.calculatePaymentStatus(totalFinal, totalPaid);
