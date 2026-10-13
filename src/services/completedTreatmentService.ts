@@ -877,13 +877,30 @@ export class CompletedTreatmentService {
       }
 
       const treatments = data || [];
+      const treatmentIds = treatments.map(t => t.id);
+      
+      // Fetch payments for these treatments to calculate cash-only paid amount
+      // (exclude saldo_positivo credit applications)
+      let cashPaid = 0;
+      if (treatmentIds.length > 0) {
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('monto_pago, moneda, monto_convertido, moneda_conversion, tasa_conversion')
+          .in('tratamiento_completado_id', treatmentIds);
+        
+        if (payments) {
+          cashPaid = payments.reduce((sum, p) => {
+            // Exclude saldo_positivo (credit applications) from cash total
+            if (p.metodo_pago?.toLowerCase() === 'saldo_positivo') return sum;
+            const amt = parseFloat((p.monto_convertido ?? p.monto_pago).toString());
+            return sum + (isNaN(amt) ? 0 : amt);
+          }, 0);
+        }
+      }
       
       // Calculate statistics
       const totalTreatments = treatments.length;
-      const totalAmountPaid = treatments.reduce((sum, t) => {
-        const paidAmount = t.monto_pagado || 0;
-        return sum + parseFloat(paidAmount.toString());
-      }, 0);
+      const totalAmountPaid = cashPaid; // Cash-only paid amount
       const totalAmountBilled = treatments.reduce((sum, t) => sum + parseFloat(t.total_final), 0);
       const totalDiscount = treatments.reduce((sum, t) => sum + parseFloat(t.total_descuento), 0);
       
