@@ -885,11 +885,11 @@ export class CompletedTreatmentService {
       if (treatmentIds.length > 0) {
         const { data: payments } = await supabase
           .from('payments')
-          .select('monto_pago, moneda, monto_convertido, moneda_conversion, tasa_conversion')
+          .select('monto_pago, moneda, monto_convertido, moneda_conversion, tasa_conversion, metodo_pago')
           .in('tratamiento_completado_id', treatmentIds);
         
         if (payments) {
-          cashPaid = payments.reduce((sum, p) => {
+          cashPaid = payments.reduce((sum, p: any) => {
             // Exclude saldo_positivo (credit applications) from cash total
             if (p.metodo_pago?.toLowerCase() === 'saldo_positivo') return sum;
             const amt = parseFloat((p.monto_convertido ?? p.monto_pago).toString());

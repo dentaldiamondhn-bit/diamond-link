@@ -45,7 +45,7 @@ function MenuNavegacionContent() {
   const [patientLoading, setPatientLoading] = useState(true);
   const [treatmentStats, setTreatmentStats] = useState<any>(null);
   const [treatmentStatsLoading, setTreatmentStatsLoading] = useState(true);
-  const [positiveBalance, setPositiveBalance] = useState<Record<Currency, number>>({ HNL: 0, USD: 0 });
+  const [positiveBalance, setPositiveBalance] = useState<Record<'HNL' | 'USD', number>>({ HNL: 0, USD: 0 });
   const [positiveBalanceLoading, setPositiveBalanceLoading] = useState(true);
   const [odontogramPilotStats, setOdontogramPilotStats] = useState<any>(null);
   const [odontogramPilotStatsLoading, setOdontogramPilotStatsLoading] = useState(true);
@@ -501,7 +501,7 @@ function MenuNavegacionContent() {
             <span className="text-emerald-600 dark:text-emerald-400 font-medium">
               Saldo Positivo: {Object.entries(positiveBalance)
                 .filter(([, amt]) => amt > 0)
-                .map(([moneda, amt]) => formatCurrency(amt, moneda as Currency))
+                .map(([moneda, amt]) => formatCurrency(amt, moneda as 'HNL' | 'USD'))
                 .join(' + ')}
             </span>
           </div>
