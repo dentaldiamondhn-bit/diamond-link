@@ -7,6 +7,7 @@ import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import { PatientService } from '@/services/patientService';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
+import { PatientCreditService } from '@/services/patientCreditService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { consentimientoService } from '@/services/consentimientoService';
 import { presupuestoService } from '@/services/presupuestoService';
@@ -44,6 +45,8 @@ function MenuNavegacionContent() {
   const [patientLoading, setPatientLoading] = useState(true);
   const [treatmentStats, setTreatmentStats] = useState<any>(null);
   const [treatmentStatsLoading, setTreatmentStatsLoading] = useState(true);
+  const [positiveBalance, setPositiveBalance] = useState<Record<Currency, number>>({ HNL: 0, USD: 0 });
+  const [positiveBalanceLoading, setPositiveBalanceLoading] = useState(true);
   const [odontogramPilotStats, setOdontogramPilotStats] = useState<any>(null);
   const [odontogramPilotStatsLoading, setOdontogramPilotStatsLoading] = useState(true);
   const [consentimientoStats, setConsentimientoStats] = useState<any>(null);
@@ -152,6 +155,28 @@ function MenuNavegacionContent() {
     };
 
     loadTreatmentStats();
+
+    const loadPositiveBalance = async () => {
+      if (!patient) return;
+      try {
+        setPositiveBalanceLoading(true);
+        const credits = await PatientCreditService.getAvailableCredits(patient.paciente_id);
+        const hnl = credits
+          .filter(c => c.moneda === 'HNL' && c.estado === 'disponible')
+          .reduce((sum, c) => sum + Number(c.monto), 0);
+        const usd = credits
+          .filter(c => c.moneda === 'USD' && c.estado === 'disponible')
+          .reduce((sum, c) => sum + Number(c.monto), 0);
+        setPositiveBalance({ HNL: hnl, USD: usd });
+      } catch (error) {
+        console.error('Error loading positive balance:', error);
+        setPositiveBalance({ HNL: 0, USD: 0 });
+      } finally {
+        setPositiveBalanceLoading(false);
+      }
+    };
+
+    loadPositiveBalance();
   }, [patient]);
 
   useEffect(() => {
@@ -466,6 +491,18 @@ function MenuNavegacionContent() {
           <div className="flex items-center space-x-2">
             <span className="text-blue-600 dark:text-blue-400 font-medium">
               Ahorró {formattedSaved}
+            </span>
+          </div>
+        )}
+        {/* Saldo Positivo Disponible */}
+        {!positiveBalanceLoading && (positiveBalance.HNL > 0 || positiveBalance.USD > 0) && (
+          <div className="flex items-center space-x-2 pt-1 border-t border-gray-200 dark:border-gray-700">
+            <i className="fas fa-wallet text-emerald-600 dark:text-emerald-400"></i>
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+              Saldo Positivo: {Object.entries(positiveBalance)
+                .filter(([, amt]) => amt > 0)
+                .map(([moneda, amt]) => formatCurrency(amt, moneda as Currency))
+                .join(' + ')}
             </span>
           </div>
         )}
