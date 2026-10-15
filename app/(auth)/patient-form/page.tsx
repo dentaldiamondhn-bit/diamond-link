@@ -59,12 +59,19 @@ import {
 import { formatCurrency } from '@/utils/currencyUtils';
 import SmartIDValidation from '@/components/SmartIDValidation';
 import MedicalWarningModal from '@/components/MedicalWarningModal';
+import type { ContactPhoneMatch } from '@/lib/contacts/contactSearch';
 import { 
   User, Phone, Mail, MapPin, Heart, Activity, Coffee, 
   FileText, Edit3, ArrowLeft, Download, Printer, 
   AlertTriangle, Calendar, Clock, Stethoscope, Smile,
-  Save, X, ChevronLeft, UserPlus, FileCheck, AlertCircle, RotateCcw
+  Save, X, ChevronLeft, UserPlus, FileCheck, AlertCircle, RotateCcw,
+  Link2, Search
 } from 'lucide-react';
+
+const digitsOnly = (s: string): string => s.replace(/\D/g, '');
+
+const contactDisplayName = (c: ContactPhoneMatch): string =>
+  [c.first_name, c.last_name].filter(Boolean).join(' ').trim() || c.company || 'Contacto sin nombre';
 
 // Medical condition severity calculation (same as menu-navegacion)
 const getConditionSeverity = (patient: Patient) => {
@@ -294,6 +301,17 @@ function PatientFormContent() {
   const [selectedPhoneCountry, setSelectedPhoneCountry] = useState('504');
   const [selectedEmergencyCountry, setSelectedEmergencyCountry] = useState('504');
   const [selectedLegalRepCountry, setSelectedLegalRepCountry] = useState('504');
+
+  // EHR ↔ contact linking driven by the Teléfono field. Matching contacts are
+  // looked up server-side (`/api/contacts/search`, the contacts tables are
+  // RLS-gated) and the pick rides along in `link_contact_id` when the form is
+  // saved, so a patient created here never needs a second trip to the contacts
+  // page just to get its contact attached.
+  const [phoneQuery, setPhoneQuery] = useState('');
+  const [contactSuggestions, setContactSuggestions] = useState<ContactPhoneMatch[]>([]);
+  const [contactSearchLoading, setContactSearchLoading] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<ContactPhoneMatch | null>(null);
+  const [relinkCandidate, setRelinkCandidate] = useState<ContactPhoneMatch | null>(null);
 
   const [tipoIdentificacion, setTipoIdentificacion] = useState('');
   const [parentesco, setParentesco] = useState('');
@@ -709,6 +727,38 @@ function PatientFormContent() {
     const formatted = formatPhoneNumber(value, countryCode);
     e.target.value = formatted;
   };
+
+  // Look up contacts whose phone matches the digits typed above, so an
+  // existing contact can be attached to this EHR without leaving the form.
+  useEffect(() => {
+    const digits = digitsOnly(phoneQuery);
+    if (digits.length < 4) {
+      setContactSuggestions([]);
+      setContactSearchLoading(false);
+      return;
+    }
+    setContactSearchLoading(true);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/contacts/search?q=${encodeURIComponent(digits)}`);
+        if (!res.ok) throw new Error(`search failed with ${res.status}`);
+        const rows = await res.json();
+        if (!cancelled) setContactSuggestions(Array.isArray(rows) ? rows : []);
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error buscando contactos por teléfono:', error);
+          setContactSuggestions([]);
+        }
+      } finally {
+        if (!cancelled) setContactSearchLoading(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [phoneQuery]);
 
   // ID formatting handlers
   const handleIDNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1602,6 +1652,10 @@ function PatientFormContent() {
         }
       }
       
+      // Contact chosen in the Teléfono field — rides along so the server action
+      // can attach this patient (EHR) to it right after the row is created.
+      formData.set('link_contact_id', selectedContact?.id ?? '');
+
       // Add signature data to form
       // Handle signature based on record category and bypass mode
       const shouldRequireSignature = !recordCategoryInfo?.isHistorical || bypassHistoricalMode;
@@ -2122,8 +2176,124 @@ function PatientFormContent() {
               name="telefono" 
               placeholder={getPhonePlaceholder(selectedPhoneCountry)} 
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900" 
-              onChange={(e) => handlePhoneChange(e, selectedPhoneCountry)}
+              onChange={(e) => {
+                handlePhoneChange(e, selectedPhoneCountry);
+                setPhoneQuery(e.target.value);
+                // A different number means a different contact — drop the pick.
+                setSelectedContact(null);
+                setRelinkCandidate(null);
+              }}
             />
+            {selectedContact ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+                <Link2 size={15} className="shrink-0" />
+                <span className="font-medium">Contacto vinculado:</span>
+                <span>{contactDisplayName(selectedContact)}</span>
+                {selectedContact.patient_id && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                    <AlertCircle size={12} />
+                    reemplazará el vínculo con {selectedContact.patient_name || 'otro paciente'}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedContact(null)}
+                  className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-teal-700 hover:bg-teal-100"
+                  aria-label="Quitar contacto vinculado"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : relinkCandidate ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <p className="flex items-start gap-2">
+                  <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                  <span>
+                    <strong>{contactDisplayName(relinkCandidate)}</strong> ya está vinculado a{' '}
+                    {relinkCandidate.patient_name || 'otro paciente'}. Al guardar se reemplazará ese
+                    vínculo: el contacto quedará ligado a esta ficha y solo se completarán sus campos
+                    en blanco.
+                  </span>
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedContact(relinkCandidate);
+                      setRelinkCandidate(null);
+                    }}
+                    className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                  >
+                    Reemplazar vínculo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRelinkCandidate(null)}
+                    className="rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {contactSearchLoading && (
+                  <p className="flex items-center gap-2 text-xs text-gray-500">
+                    <Search size={12} className="animate-pulse" />
+                    Buscando contactos…
+                  </p>
+                )}
+                {contactSuggestions.length > 0 && (
+                  <div className="rounded-lg border border-gray-300 bg-white shadow-sm">
+                    <p className="border-b border-gray-200 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                      Contactos con este teléfono
+                    </p>
+                    <div className="max-h-48 overflow-y-auto">
+                      {contactSuggestions.map((c) => {
+                        const linked = Boolean(c.patient_id);
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              if (linked) setRelinkCandidate(c);
+                              else setSelectedContact(c);
+                            }}
+                            className="flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-medium text-gray-900">
+                                {contactDisplayName(c)}
+                              </span>
+                              <span className="block truncate text-xs text-gray-500">
+                                {c.phone_number}
+                                {c.company ? ` · ${c.company}` : ''}
+                              </span>
+                            </span>
+                            <span
+                              className={
+                                linked
+                                  ? 'shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800'
+                                  : 'shrink-0 rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-medium text-teal-800'
+                              }
+                            >
+                              {linked ? 'vinculado' : 'vincular'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {!contactSearchLoading &&
+                  digitsOnly(phoneQuery).length >= 4 &&
+                  contactSuggestions.length === 0 && (
+                    <p className="text-xs text-gray-400">
+                      Sin contactos que coincidan con este teléfono.
+                    </p>
+                  )}
+              </>
+            )}
           </div>
 
           <label htmlFor="direccion" className="block mb-1 font-medium mt-4">Dirección:</label>

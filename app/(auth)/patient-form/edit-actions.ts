@@ -2,6 +2,7 @@
 
 import { PatientService } from '@/services/patientService';
 import { StorageService } from '@/services/storageService';
+import { linkContactToPatient } from '@/lib/contacts/linkContactServer';
 import { Patient } from '@/types/patient';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -350,6 +351,17 @@ export async function updatePatient(patientId: string, formData: FormData) {
     
     const updatedPatient = await updatePatientServer(patientId, patientData);
     console.log('🔍 Patient updated successfully:', updatedPatient);
+
+    // Attach the contact picked in the Teléfono field (best effort — a failed
+    // link must never roll back a patient update that already succeeded).
+    const linkContactId = formData.get('link_contact_id') as string;
+    if (linkContactId && updatedPatient.paciente_id) {
+      try {
+        await linkContactToPatient(linkContactId, updatedPatient.paciente_id);
+      } catch (linkError) {
+        console.error('Error linking contact to patient:', linkError);
+      }
+    }
     
     // Add notification for patient update
     try {

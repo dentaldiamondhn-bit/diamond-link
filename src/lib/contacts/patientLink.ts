@@ -1,6 +1,9 @@
 import type { LocalContact } from './db'
 import { newLocalId } from './db'
 import { updateLocalContact, updateMedicalHistory, type MedicalHistoryPatch } from './syncEngine'
+import { isMeaningfulMedicalTag, meaningfulMedicalTags, splitField } from './medicalTags'
+
+export { isMeaningfulMedicalTag, meaningfulMedicalTags, splitField }
 
 /**
  * The subset of a `patients` row needed to link + snapshot into a contact.
@@ -46,54 +49,6 @@ function emergencyPhoneToDisplay(p: PatientLinkMatch): string {
   if (raw.startsWith('+') || /^\d{1,3}\s/.test(raw)) return raw
   const cc = (p.codigopaisemergencia ?? '').trim()
   return cc ? `+${cc} ${raw}` : raw
-}
-
-/** Split a free-text patient-form field (newlines, commas, semicolons) into tags. */
-function splitField(s?: string | null): string[] {
-  return (s ?? '')
-    .split(/[\n,;]+/)
-    .map((x) => x.trim())
-    .filter(Boolean)
-}
-
-/** Values that mean "no allergies/conditions/medications" and must not tint UI. */
-const NEGATION_TAGS = new Set([
-  'no',
-  'n/a',
-  'na',
-  'none',
-  '0',
-  '-',
-  'no hay',
-  'no hay alergias',
-  'no presenta',
-  'no presenta alergias',
-  'no refiere',
-  'no refiere alergias',
-  'no aplica',
-  'no aplicable',
-  'ninguna',
-  'ninguno',
-  'ninguna alergia',
-  'sin alergias',
-  'sin',
-  'desconocido',
-  'no conocida',
-  'no conocidas',
-  'no se conocen',
-])
-
-const normalizeTag = (t: string): string =>
-  t.trim().toLowerCase().replace(/[¡!¿?.,]/g, '').replace(/\s+/g, ' ').trim()
-
-export function isMeaningfulMedicalTag(tag: string): boolean {
-  const t = normalizeTag(tag)
-  return t !== '' && !NEGATION_TAGS.has(t)
-}
-
-/** Keep only tags that represent an actual medical item (drops "No", "N/A", "0", …). */
-export function meaningfulMedicalTags(tags: string[]): string[] {
-  return tags.filter(isMeaningfulMedicalTag)
 }
 
 const BLOOD_TYPES = new Set(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])

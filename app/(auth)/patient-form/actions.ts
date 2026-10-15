@@ -2,6 +2,7 @@
 
 import { PatientService } from '@/services/patientService';
 import { StorageService } from '@/services/storageService';
+import { linkContactToPatient } from '@/lib/contacts/linkContactServer';
 import { Patient } from '@/types/patient';
 import { redirect } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
@@ -205,7 +206,18 @@ export async function createPatient(formData: FormData) {
 
       // Create patient first to get ID for file uploads
       const patient = await PatientService.createPatient(tempPatientData);
-      
+
+      // Attach the contact picked in the Teléfono field. Best effort: a failed
+      // link must never lose the patient that was just created.
+      const linkContactId = formData.get('link_contact_id') as string;
+      if (linkContactId && patient.paciente_id) {
+        try {
+          await linkContactToPatient(linkContactId, patient.paciente_id);
+        } catch (linkError) {
+          console.error('Error linking contact to new patient:', linkError);
+        }
+      }
+
       // Upload documents with patient ID
       // Only process document upload if files are actually provided
       if (documentFiles.length > 0 && documentFiles[0] && documentFiles[0].name && documentFiles[0].size > 0) {
