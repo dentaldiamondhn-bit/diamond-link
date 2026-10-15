@@ -363,7 +363,7 @@ const labelList = useMemo(() => labels ?? [], [labels]);
   };
 
   const openEhr = (c: LocalContact) => {
-    if (c.patient_id) router.push(`/patient-preview/${c.patient_id}`);
+    if (c.patient_id) router.push(`/menu-navegacion?id=${c.patient_id}`);
   };
 
   const appointmentPrefill = useMemo<PrefilledContact | null>(() => {

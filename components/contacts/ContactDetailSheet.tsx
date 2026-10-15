@@ -168,7 +168,7 @@ export function ContactDetailSheet({
   const effectiveMedications = meaningfulMedicalTags(medical?.currentMedications ?? []);
 
   const openEhr = () => {
-    if (contact.patient_id) router.push(`/patient-preview/${contact.patient_id}`);
+    if (contact.patient_id) router.push(`/menu-navegacion?id=${contact.patient_id}`);
   };
 
   const copyPatientId = async () => {
