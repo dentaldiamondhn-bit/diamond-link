@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const supabase = createServerServiceClient()
     const select = 'phone_number,contact_id,contacts(id,first_name,last_name,company,job_title,patient_id)'
 
-    const prefilter = await supabase.from('contact_phones').select(select).ilike('phone_number', `*${q}*`).limit(500)
+    const prefilter = await supabase.from('contact_phones').select(select).ilike('phone_number', `%${q}%`).limit(500)
 
     let rows: PhoneRow[]
     if (prefilter.error) {

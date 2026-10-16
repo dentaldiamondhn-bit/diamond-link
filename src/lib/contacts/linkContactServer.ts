@@ -57,7 +57,10 @@ export async function linkContactToPatient(contactId: string, pacienteId: string
   }
 
   if (!contact.address && patient.direccion) patch.address = patient.direccion
-  if (!contact.dob && patient.fecha_nacimiento) patch.dob = String(patient.fecha_nacimiento).slice(0, 10)
+  if (!contact.dob && patient.fecha_nacimiento) {
+    const dobRaw = patient.fecha_nacimiento
+    patch.dob = dobRaw instanceof Date ? dobRaw.toISOString().slice(0, 10) : String(dobRaw).slice(0, 10)
+  }
   if (!contact.job_title && patient.trabajo) patch.job_title = patient.trabajo
   if (!contact.notes && patient.observaciones_generales) patch.notes = patient.observaciones_generales
   if (!contact.emergency_contact) {
