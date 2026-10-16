@@ -142,7 +142,14 @@ export default function RootLayout({
             }}
           />
         </head>
-        <body className={`${inter.className} bg-gray-800`} suppressHydrationWarning>
+        <body
+          className={`${inter.className} bg-gray-800`}
+          // suppressHydrationWarning is intentional: theme and other client-only
+          // classes (e.g. from ThemeContext) are applied after mount, which the
+          // server cannot anticipate. Do not remove without resolving the
+          // underlying mismatch first.
+          suppressHydrationWarning
+        >
           <AdminOverrideProvider>
             <DocumentLang />
             <ContactsSupabaseBridge />
