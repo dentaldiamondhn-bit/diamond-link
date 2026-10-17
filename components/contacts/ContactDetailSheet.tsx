@@ -40,6 +40,7 @@ import { formatPhoneDisplay, openPrintView, sharePatientContact } from '@/lib/co
 import { whatsappHref, openWhatsAppConversation, isNativeShell } from '@/lib/contacts/vcard';
 import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { PatientLinkModal } from './PatientLinkModal';
 import { ContactAvatar } from './ContactAvatar';
 import { ContactQuickActions } from './ContactQuickActions';
@@ -151,6 +152,10 @@ export function ContactDetailSheet({
   const router = useRouter();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Declared before the focus effect below so it records the element that opened
+  // the sheet (the row / "Ver detalles" button) before focus is moved inside.
+  const panelRef = useFocusTrap<HTMLElement>(!!contact);
+
   // Move focus into the sheet when it opens so keyboard users are not lost.
   useEffect(() => {
     if (!contact) return;
@@ -224,6 +229,7 @@ export function ContactDetailSheet({
           />
           <motion.aside
             key="sheet-panel"
+            ref={panelRef}
             aria-modal="true"
             aria-labelledby="contact-sheet-title"
             initial={{ x: 480 }}
