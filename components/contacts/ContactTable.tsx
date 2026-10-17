@@ -359,7 +359,7 @@ export function ContactTable({
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">{formatDate(contact.updated_at)}</span>
                   </td>
                   <td className="py-3 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="inline-flex items-center gap-2 sm:gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       {isTrash ? (
                         <>
                           <button
