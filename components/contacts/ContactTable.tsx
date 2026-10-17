@@ -235,9 +235,11 @@ export function ContactTable({
               return (
                 <tr
                   key={contact.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Abrir contacto ${name}`}
+                  // Deliberately NOT role="button"/tabIndex: that role is
+                  // children-presentational and on a <tr> it also destroys the
+                  // row/cell semantics screen readers rely on. The row click is a
+                  // mouse-only convenience; keyboard users open the sheet with
+                  // the "Ver detalles" button in the actions cell.
                   onClick={() => onOpen(contact)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') onOpen(contact);
@@ -367,7 +369,10 @@ export function ContactTable({
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">{formatDate(contact.updated_at)}</span>
                   </td>
                   <td className="py-3 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="inline-flex items-center gap-2 sm:gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Always visible below md and on keyboard focus: `opacity-0` alone hid the
+                      row actions while leaving them tappable, which caused
+                      mis-taps on destructive actions on touch tablets. */}
+                    <div className="inline-flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
                       {isTrash ? (
                         <>
                           <button
