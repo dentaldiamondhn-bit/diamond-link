@@ -10,7 +10,6 @@ import {
   Printer,
   Trash2,
   RotateCcw,
-  Phone,
   Mail,
   MapPin,
   CalendarDays,
@@ -33,11 +32,17 @@ import {
   Share2,
   CalendarPlus,
   Link2,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LocalContact, LocalLabel, MedicalHistory } from '@/lib/contacts/db';
 import { LABEL_COLORS, formatDate, fullName, primaryPhone } from '@/lib/contacts/db';
 import { formatPhoneDisplay, openPrintView, sharePatientContact } from '@/lib/contacts/vcard';
+import {
+  whatsappHref,
+  openWhatsAppConversation,
+  usesNativeWhatsAppIntent,
+} from '@/lib/contacts/vcard';
 import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
 import { PatientLinkModal } from './PatientLinkModal';
 import { ContactAvatar } from './ContactAvatar';
@@ -408,8 +413,16 @@ export function ContactDetailSheet({
                           </p>
                           <p className="mt-0.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
                             <a
-                              href={`tel:${mainPhone.phone_number}`}
-                              className="text-zinc-800 dark:text-zinc-200 hover:underline hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                              href={whatsappHref(mainPhone.phone_number) || undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                if (!usesNativeWhatsAppIntent()) return
+                                e.preventDefault()
+                                openWhatsAppConversation(mainPhone.phone_number)
+                              }}
+                              className="text-zinc-800 dark:text-zinc-200 hover:underline hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                              title={`Abrir conversación de WhatsApp con ${name || 'el paciente'}`}
                             >
                               {formatPhoneDisplay(mainPhone.phone_number)}
                             </a>
@@ -440,10 +453,18 @@ export function ContactDetailSheet({
                       <SectionTitle>Teléfonos</SectionTitle>
                       {contact.phones.map((p) => (
                         <div key={p.id} className="flex items-center gap-2 py-1.5 text-sm text-zinc-800 dark:text-zinc-200">
-                          <Phone size={14} className="text-zinc-400 shrink-0" />
+                          <MessageCircle size={14} className="text-emerald-500 shrink-0" />
                           <a
-                            href={`tel:${p.phone_number}`}
-                            className="font-medium hover:underline hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                            href={whatsappHref(p.phone_number) || undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => {
+                              if (!usesNativeWhatsAppIntent()) return
+                              e.preventDefault()
+                              openWhatsAppConversation(p.phone_number)
+                            }}
+                            className="font-medium hover:underline hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                            title={`Abrir conversación de WhatsApp con ${name || 'el paciente'}`}
                           >
                             {formatPhoneDisplay(p.phone_number)}
                           </a>
