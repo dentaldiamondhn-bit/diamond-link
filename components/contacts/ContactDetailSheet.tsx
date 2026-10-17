@@ -37,11 +37,7 @@ import { cn } from '@/lib/utils';
 import type { LocalContact, LocalLabel, MedicalHistory } from '@/lib/contacts/db';
 import { LABEL_COLORS, formatDate, fullName, primaryPhone } from '@/lib/contacts/db';
 import { formatPhoneDisplay, openPrintView, sharePatientContact } from '@/lib/contacts/vcard';
-import {
-  whatsappHref,
-  openWhatsAppConversation,
-  usesNativeWhatsAppIntent,
-} from '@/lib/contacts/vcard';
+import { whatsappHref, openWhatsAppConversation } from '@/lib/contacts/vcard';
 import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { PatientLinkModal } from './PatientLinkModal';
@@ -417,7 +413,6 @@ export function ContactDetailSheet({
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => {
-                                if (!usesNativeWhatsAppIntent()) return
                                 e.preventDefault()
                                 openWhatsAppConversation(mainPhone.phone_number)
                               }}
@@ -459,7 +454,6 @@ export function ContactDetailSheet({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => {
-                              if (!usesNativeWhatsAppIntent()) return
                               e.preventDefault()
                               openWhatsAppConversation(p.phone_number)
                             }}
