@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils';
 import type { LocalContact, LocalLabel, MedicalHistory } from '@/lib/contacts/db';
 import { LABEL_COLORS, formatDate, fullName, primaryPhone } from '@/lib/contacts/db';
 import { formatPhoneDisplay, openPrintView, sharePatientContact } from '@/lib/contacts/vcard';
-import { whatsappHref, openWhatsAppConversation } from '@/lib/contacts/vcard';
+import { whatsappHref, openWhatsAppConversation, isNativeShell } from '@/lib/contacts/vcard';
 import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { PatientLinkModal } from './PatientLinkModal';
@@ -413,6 +413,7 @@ export function ContactDetailSheet({
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => {
+                                if (!isNativeShell()) return
                                 e.preventDefault()
                                 openWhatsAppConversation(mainPhone.phone_number)
                               }}
@@ -454,6 +455,7 @@ export function ContactDetailSheet({
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => {
+                              if (!isNativeShell()) return
                               e.preventDefault()
                               openWhatsAppConversation(p.phone_number)
                             }}
@@ -463,6 +465,9 @@ export function ContactDetailSheet({
                             {formatPhoneDisplay(p.phone_number)}
                           </a>
                           <span className="text-xs text-zinc-400 uppercase">{p.type}</span>
+                          <span className="ml-auto">
+                            <ContactQuickActions phone={p.phone_number} patientName={name} />
+                          </span>
                         </div>
                       ))}
                     </section>

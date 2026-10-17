@@ -9,6 +9,7 @@ import {
   openWhatsAppConversation,
   whatsappGreeting,
   whatsappHref,
+  isNativeShell,
 } from '@/lib/contacts/vcard';
 
 interface ContactQuickActionsProps {
@@ -23,7 +24,7 @@ interface ContactQuickActionsProps {
 export function ContactQuickActions({ phone, patientName, size = 'md', className }: ContactQuickActionsProps) {
   const btn = cn(
     'rounded-full transition-colors',
-    size === 'sm' ? 'p-2' : 'p-2',
+    'rounded-full transition-colors p-2',
   );
 
   // WhatsApp is the clinic's main channel, so it is a real anchor (middle-click,
@@ -46,6 +47,9 @@ export function ContactQuickActions({ phone, patientName, size = 'md', className
           // WebView follows wa.me's redirect to whatsapp:// and dies with
           // net::ERR_UNKNOWN_URL_SCHEME.
           e.stopPropagation()
+          // On web the anchor's own wa.me href is correct (and keeps
+          // middle-click / "copy link address" working); only the shell takes over.
+          if (!isNativeShell()) return
           e.preventDefault()
           void openWhatsAppConversation(phone, greeting)
         }}
