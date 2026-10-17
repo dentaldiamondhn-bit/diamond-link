@@ -14,7 +14,6 @@ import {
   Mail,
   Merge,
   Pencil,
-  Send,
   RotateCcw,
   Star,
   StarOff,
@@ -294,7 +293,6 @@ export function ContactTable({
                   <td className={cellCls(phoneVisible)} onClick={(e) => e.stopPropagation()}>
                     {phone ? (
                       <div className="flex items-center gap-1.5">
-                        <Send size={13} className="text-emerald-500 shrink-0" />
                         <a
                           href={whatsappHref(phone.phone_number) || undefined}
                           target="_blank"
