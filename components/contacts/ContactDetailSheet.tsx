@@ -32,7 +32,6 @@ import {
   Share2,
   CalendarPlus,
   Link2,
-  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LocalContact, LocalLabel, MedicalHistory } from '@/lib/contacts/db';
@@ -44,6 +43,7 @@ import {
   usesNativeWhatsAppIntent,
 } from '@/lib/contacts/vcard';
 import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
+import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { PatientLinkModal } from './PatientLinkModal';
 import { ContactAvatar } from './ContactAvatar';
 import { ContactQuickActions } from './ContactQuickActions';
@@ -453,7 +453,7 @@ export function ContactDetailSheet({
                       <SectionTitle>Teléfonos</SectionTitle>
                       {contact.phones.map((p) => (
                         <div key={p.id} className="flex items-center gap-2 py-1.5 text-sm text-zinc-800 dark:text-zinc-200">
-                          <MessageCircle size={14} className="text-emerald-500 shrink-0" />
+                          <AnimatedWhatsApp size={15} />
                           <a
                             href={whatsappHref(p.phone_number) || undefined}
                             target="_blank"

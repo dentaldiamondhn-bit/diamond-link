@@ -17,12 +17,14 @@ export default function AnimatedWhatsApp({ className = '', size }: AnimatedWhats
     const container = containerRef.current;
     if (!container) return;
 
+    let observer: IntersectionObserver | undefined;
+
     // Load Lottie animation
     const animation = lottie.loadAnimation({
       container: container,
       renderer: 'svg',
       loop: true,
-      autoplay: true,
+      autoplay: false,
       animationData: animatedWhatsAppData,
       rendererSettings: {
         preserveAspectRatio: 'xMidYMid meet',
@@ -33,6 +35,23 @@ export default function AnimatedWhatsApp({ className = '', size }: AnimatedWhats
 
     // Set appropriate speed
     animation.setSpeed(0.5);
+    
+    // Only animate while the icon is on screen. The contacts list renders one of
+    // these per row, so autoplaying every instance at once is wasteful and was a
+    // source of main-thread jank while scrolling.
+    if (typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries.some((e) => e.isIntersecting);
+          if (visible) animation.play();
+          else animation.stop();
+        },
+        { rootMargin: '150px' }
+      );
+      observer.observe(container);
+    } else {
+      animation.play();
+    }
     
     // Change all shapes to WhatsApp green color
     animation.addEventListener('DOMLoaded', () => {
@@ -72,6 +91,7 @@ export default function AnimatedWhatsApp({ className = '', size }: AnimatedWhats
     });
     
     return () => {
+      observer?.disconnect();
       animation.destroy();
     };
   }, []);
