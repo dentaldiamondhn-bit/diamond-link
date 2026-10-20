@@ -23,6 +23,8 @@ import DocumentDisplay from '@/components/DocumentDisplay';
 import DocumentPreviewModal from '@/components/DocumentPreviewModal';
 import LoadingAnimation from '@/components/LoadingAnimation';
 
+const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.xls', '.xlsx', '.doc', '.docx'];
+
 interface DocumentItem {
   id: string;
   url: string;
@@ -55,6 +57,8 @@ function DocumentsPageContent() {
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [filter, setFilter] = useState<'all' | 'patient' | 'orthodontic' | 'signature' | 'dental-study'>('all');
   const [isUploading, setIsUploading] = useState(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<DocumentItem | null>(null);
@@ -345,11 +349,8 @@ function DocumentsPageContent() {
     }
   };
 
-  const handleQuickUpload = async () => {
-    const fileInput = fileInputRef.current;
-    const files = fileInput?.files;
-
-    if (!files || files.length === 0) {
+  const uploadFiles = async (files: File[]) => {
+    if (files.length === 0) {
       setUploadMessage({
         type: 'warning',
         text: 'Por favor selecciona al menos un archivo para subir'
@@ -406,9 +407,10 @@ function DocumentsPageContent() {
         text: `Se subieron ${result.uploadedUrls.length} archivo(s) correctamente.`
       });
 
-      if (fileInput) {
-        fileInput.value = '';
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
+      setSelectedFiles([]);
 
       setTimeout(() => {
         setUploadMessage(null);
@@ -423,6 +425,65 @@ function DocumentsPageContent() {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleQuickUpload = async () => {
+    const files = fileInputRef.current?.files;
+
+    if (!files || files.length === 0) {
+      setUploadMessage({
+        type: 'warning',
+        text: 'Por favor selecciona al menos un archivo para subir'
+      });
+      return;
+    }
+
+    await uploadFiles(Array.from(files));
+  };
+
+  const handleFileInputChange = () => {
+    const files = fileInputRef.current?.files;
+    setSelectedFiles(files ? Array.from(files).map(f => f.name) : []);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isUploading) {
+      setIsDraggingFiles(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDraggingFiles(false);
+    }
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+
+    if (isUploading) return;
+
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(file => {
+      const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+      return ACCEPTED_EXTENSIONS.includes(extension);
+    });
+
+    if (droppedFiles.length === 0) {
+      setUploadMessage({
+        type: 'warning',
+        text: 'Tipo de archivo no permitido. Formatos aceptados: PDF, JPG, PNG, XLS y DOC'
+      });
+      setTimeout(() => setUploadMessage(null), 3000);
+      return;
+    }
+
+    await uploadFiles(droppedFiles);
   };
 
   if (loading) {
@@ -538,53 +599,6 @@ function DocumentsPageContent() {
           </div>
         </div>
 
-        {/* Upload Section */}
-        {patient && (
-          <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Subir Documentos</h3>
-            </div>
-            <div className="flex items-center gap-4">
-              <input
-                type="file"
-                ref={fileInputRef}
-                multiple
-                accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx"
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                type="button"
-                onClick={handleQuickUpload}
-                disabled={isUploading || !patient?.paciente_id}
-                className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isUploading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                    Subiendo...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Subir
-                  </>
-                )}
-              </button>
-            </div>
-            {uploadMessage && (
-              <div className={`mt-3 p-3 rounded-md text-sm ${
-                uploadMessage.type === 'success' 
-                  ? 'bg-green-50 text-green-800 border border-green-200' 
-                  : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
-              }`}>
-                {uploadMessage.text}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Documents Grid */}
         {filteredDocuments.length === 0 ? (
           <div className="text-center py-12">
@@ -674,6 +688,116 @@ function DocumentsPageContent() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Upload Section */}
+        {patient && (
+          <div className="mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Subir Documentos</h3>
+            </div>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleFileDrop}
+              className={`cursor-pointer rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isDraggingFiles
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <svg
+                className={`mx-auto h-10 w-10 ${isDraggingFiles ? 'text-blue-500' : 'text-gray-400'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+              {isDraggingFiles ? (
+                <p className="mt-2 text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Suelta los archivos aquí para subirlos
+                </p>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Arrastra y suelta archivos aquí
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    o haz clic para seleccionar desde tu equipo
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    Formatos: PDF, JPG, PNG, XLS, DOC
+                  </p>
+                </>
+              )}
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx"
+              className="hidden"
+              onChange={handleFileInputChange}
+            />
+            {selectedFiles.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {selectedFiles.map((fileName, index) => (
+                  <li key={index} className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                    <svg className="w-4 h-4 mr-2 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {fileName}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handleQuickUpload}
+                disabled={isUploading || selectedFiles.length === 0 || !patient?.paciente_id}
+                className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isUploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Subiendo...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Subir
+                  </>
+                )}
+              </button>
+            </div>
+            {uploadMessage && (
+              <div className={`mt-3 p-3 rounded-md text-sm ${
+                uploadMessage.type === 'success' 
+                  ? 'bg-green-50 text-green-800 border border-green-200' 
+                  : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+              }`}>
+                {uploadMessage.text}
+              </div>
+            )}
           </div>
         )}
       </div>
