@@ -22,6 +22,7 @@ import HistoricalBanner from '../../../components/HistoricalBanner';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
 import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '../../../lib/supabase';
+import { paymentStatusFor, comparePaymentStatus } from '../../../src/lib/treatments/completedTreatmentSort';
 
 function TratamientosCompletadosPageContent() {
   const router = useRouter();
@@ -392,24 +393,23 @@ function TratamientosCompletadosPageContent() {
         comparison = (a.total_final || 0) - (b.total_final || 0);
         break;
       case 'estado':
-        // Sort by payment status - pagado vs pendiente
-        const statusA = (a.pagado || a.pagado_totalmente) ? 'pagado' : 'pendiente';
-        const statusB = (b.pagado || b.pagado_totalmente) ? 'pagado' : 'pendiente';
-        
-        // For string comparisons, we need to handle the order explicitly
-        if (sortOrder === 'asc') {
-          comparison = statusA.localeCompare(statusB);
-        } else {
-          comparison = statusB.localeCompare(statusA);
+        // Sort by the same payment status the Estado column renders
+        // (PaymentService.calculatePaymentStatus: pendiente / parcialmente_pagado
+        // / pagado). The previous fields (pagado / pagado_totalmente) did not
+        // reflect the column, so the order looked wrong.
+        {
+          const statusA = paymentStatusFor(a.total_final, a.monto_pagado);
+          const statusB = paymentStatusFor(b.total_final, b.monto_pagado);
+          comparison = comparePaymentStatus(statusA, statusB, sortOrder);
+
+          // If status is the same, use a secondary sort by fecha to maintain consistent ordering
+          if (comparison === 0) {
+            const dateA = new Date(a.fecha_cita || 0).getTime();
+            const dateB = new Date(b.fecha_cita || 0).getTime();
+            comparison = sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+          }
         }
-        
-        // If status is the same, use a secondary sort by fecha to maintain consistent ordering
-        if (comparison === 0) {
-          const dateA = new Date(a.fecha_cita || 0).getTime();
-          const dateB = new Date(b.fecha_cita || 0).getTime();
-          comparison = sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-        }
-        
+
         return comparison; // Return early for estado since we handled order here
     }
     
