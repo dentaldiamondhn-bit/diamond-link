@@ -12,6 +12,7 @@ import {
   type PhoneType,
   type EmailType,
 } from './db'
+import { decideContactReconcile, shouldAdoptRemotePatientLink } from './syncDecisions'
 
 // ---------------------------------------------------------------------------
 // SINGLE-FLIGHT SYNC LOCK
@@ -452,13 +453,17 @@ async function runPullRemoteContacts(userId: string): Promise<number> {
   // Reconcile contacts
   for (const row of rows) {
     const existing = await db.contacts.get(row.id)
-    const remoteTs = new Date(row.updated_at ?? 0).getTime()
-    const localTs = existing ? new Date(existing.updated_at ?? 0).getTime() : 0
+    const decision = decideContactReconcile(existing, { updated_at: row.updated_at })
 
-    // Local unsynced edit that is newer (or ties) wins and is pushed later.
-    // `>=` (not `>`) prevents a millisecond-equality collision from silently
-    // dropping a pending local edit; the next push re-stamps updated_at.
-    if (existing && existing.synced === 0 && localTs >= remoteTs) continue
+    if (decision === 'keep-local') {
+      // The local edit wins, but adopt a server-side patient link this device
+      // has not learned yet, so the pending push cannot undo it.
+      if (existing && shouldAdoptRemotePatientLink(existing.patient_id, row.patient_id)) {
+        existing.patient_id = row.patient_id ?? null
+        await db.contacts.put(existing)
+      }
+      continue
+    }
 
     const local = toLocalContact(row, userId)
     local.label_ids = junctionByContact.get(row.id) ?? []

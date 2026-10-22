@@ -1001,6 +1001,9 @@ function PatientFormContent() {
           
           const phoneInput = form.querySelector('#telefono') as HTMLInputElement;
           if (phoneInput) phoneInput.value = patient.telefono || '';
+          // Mirror the prefilled phone into React state so the contact lookup
+          // runs in edit mode too (the DOM write above bypasses onChange).
+          setPhoneQuery(patient.telefono || '');
           
           // Set phone country codes if phone data exists
           if (patient.telefono) {
@@ -2178,10 +2181,23 @@ function PatientFormContent() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white text-gray-900" 
               onChange={(e) => {
                 handlePhoneChange(e, selectedPhoneCountry);
-                setPhoneQuery(e.target.value);
-                // A different number means a different contact — drop the pick.
-                setSelectedContact(null);
-                setRelinkCandidate(null);
+                const nextQuery = e.target.value;
+                setPhoneQuery(nextQuery);
+                // Keep a chosen contact while the typed number still matches it;
+                // only a genuinely different number drops the pick. Comparing
+                // digits avoids clearing the pick on the formatter's rewrite.
+                setSelectedContact((current) => {
+                  if (!current) return null;
+                  const typed = digitsOnly(nextQuery);
+                  const chosen = digitsOnly(current.phone_number);
+                  return typed.length >= 4 && typed.slice(-8) === chosen.slice(-8) ? current : null;
+                });
+                setRelinkCandidate((current) => {
+                  if (!current) return null;
+                  const typed = digitsOnly(nextQuery);
+                  const chosen = digitsOnly(current.phone_number);
+                  return typed.length >= 4 && typed.slice(-8) === chosen.slice(-8) ? current : null;
+                });
               }}
             />
             {selectedContact ? (
