@@ -23,7 +23,7 @@ export function AppHeader({
   const { userRole } = useUserRole();
 
   return (
-    <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900">
+    <header className="bg-white backdrop-blur-xl border-b border-slate-200 text-slate-800 shadow-sm dark:bg-slate-900/80 dark:backdrop-blur-xl dark:border-b dark:border-white/10 dark:text-slate-100 transition-colors duration-300">
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center space-x-4">
           {showSidebarToggle && onSidebarToggle && (
@@ -34,7 +34,7 @@ export function AppHeader({
               <i className="fas fa-bars"></i>
             </button>
           )}
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-white">
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">
             {title}
           </h1>
         </div>
@@ -43,11 +43,11 @@ export function AppHeader({
           <div className="text-right">
             <div className="flex items-center justify-end space-x-2">
               <RoleBadge role={userRole} />
-              <p className="font-medium text-gray-900 dark:text-white">
+              <p className="font-medium text-slate-800 dark:text-slate-100">
                 {user?.fullName || "Usuario"}
               </p>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               {user?.primaryEmailAddress?.emailAddress || ""}
             </p>
           </div>
