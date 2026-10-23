@@ -322,6 +322,9 @@ function PatientFormContent() {
   const [edad, setEdad] = useState<number | ''>('');
   const [edadAlMomentoConsulta, setEdadAlMomentoConsulta] = useState<number | ''>('');
   const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaInicioDisplay, setFechaInicioDisplay] = useState('');
+  const [fechaNacDisplay, setFechaNacDisplay] = useState('');
+  const [fechaNacIso, setFechaNacIso] = useState('');
   
   // Additional Personal Information state variables
   const [otroTipoIdentificacion, setOtroTipoIdentificacion] = useState('');
@@ -516,7 +519,14 @@ function PatientFormContent() {
     tipo_alimentacion: (v) => setTipoAlimentacion(v),
     momentos_azucar: (v) => setMomentosAzucar(v),
     doctor: (v) => setDoctor(v),
-    fecha_inicio: (v) => setFechaInicio(v),
+    fecha_inicio: (v) => {
+      setFechaInicio(v);
+      setFechaInicioDisplay(isoDateToDisplayMask(v));
+    },
+    fecha_nacimiento: (v) => {
+      setFechaNacIso(v);
+      setFechaNacDisplay(isoDateToDisplayMask(v));
+    },
     seguro: (v) => setSeguro(v),
     otro_seguro: (v) => setOtroSeguro(v),
     poliza: (v) => setPoliza(v),
@@ -679,21 +689,46 @@ function PatientFormContent() {
     setDraftAvailable(false);
   };
 
-  // Calculate age from birthdate
-  const handleFechaNacimientoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fecha = e.target.value;
-    if (!fecha) {
+  // --- mm/dd/yyyy date mask helpers -----------------------------------------
+  // Some platforms let the native <input type="date"> year segment accept more
+  // than four digits. Masked text inputs hard-cap the year at four digits; the
+  // form still submits ISO dates through hidden mirror inputs so validation,
+  // drafts and server actions keep working unchanged.
+  const isoDateToDisplayMask = (iso: string): string => {
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? `${m[2]}/${m[3]}/${m[1]}` : '';
+  };
+  const maskMmDdyYyy = (raw: string): { display: string; iso: string } => {
+    const digits = raw.replace(/\D/g, '').slice(0, 8);
+    const mm = digits.slice(0, 2);
+    const dd = digits.slice(2, 4);
+    const yyyy = digits.slice(4, 8);
+
+    let display = mm;
+    if (digits.length > 2) display += `/${dd}`;
+    if (digits.length > 4) display += `/${yyyy}`;
+
+    const mNum = Number(mm || 0);
+    const dNum = Number(dd || 0);
+    const yNum = yyyy.length === 4 ? Number(yyyy) : 0;
+    let iso = '';
+    if (yNum && mNum >= 1 && mNum <= 12 && dNum >= 1 && dNum <= 31) {
+      const probe = new Date(yNum, mNum - 1, dNum);
+      if (probe.getFullYear() === yNum && probe.getMonth() === mNum - 1 && probe.getDate() === dNum) {
+        iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+      }
+    }
+    return { display, iso };
+  };
+
+  // Calculate age from birthdate (receives the masked input's ISO value)
+  const handleFechaNacimientoIso = (iso: string) => {
+    if (!iso) {
       setEdad('');
       return;
     }
-    
-    // Validate year is exactly 4 digits
-    const yearMatch = fecha.match(/(\d{4})/);
-    if (!yearMatch) {
-      return; // Invalid year format
-    }
-    
-    const birthDate = new Date(fecha);
+
+    const birthDate = new Date(iso);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const m = today.getMonth() - birthDate.getMonth();
@@ -704,17 +739,10 @@ function PatientFormContent() {
   };
   
   // Real-time historical detection for new patient creation
-  const handleFechaInicioChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fechaInicio = e.target.value;
-    
-    // Validate year is exactly 4 digits
-    if (fechaInicio) {
-      const yearMatch = fechaInicio.match(/(\d{4})/);
-      if (!yearMatch) {
-        return; // Invalid year format
-      }
-      
-      const categoryInfo = await getRecordCategoryInfo(fechaInicio);
+  const handleFechaInicioIso = async (iso: string) => {
+    setFechaInicio(iso);
+    if (iso) {
+      const categoryInfo = await getRecordCategoryInfo(iso);
       setRecordCategoryInfo(categoryInfo);
     } else {
       setRecordCategoryInfo(null);
@@ -860,7 +888,8 @@ function PatientFormContent() {
       setMomentosAzucar(patient.momentos_azucar || '');
       
       setDoctor(patient.doctor || '');
-      setFechaInicio(patient.fecha_inicio);
+      setFechaInicio(patient.fecha_inicio || '');
+      setFechaInicioDisplay(isoDateToDisplayMask(patient.fecha_inicio || ''));
       setSeguro(patient.seguro || '');
       setContacto(patient.contacto || '');
       setHospitalizaciones(patient.hospitalizaciones || '');
@@ -895,6 +924,7 @@ function PatientFormContent() {
       setEdad(patient.edad || '');
       setEdadAlMomentoConsulta(patient.edad_al_momento_consulta || '');
       setFechaInicio(patient.fecha_inicio || '');
+      setFechaInicioDisplay(isoDateToDisplayMask(patient.fecha_inicio || ''));
       setOtroDoctor(patient.otro_doctor || '');
       setOtroSeguro(patient.otro_seguro || '');
       setPoliza(patient.poliza || '');
@@ -987,8 +1017,9 @@ function PatientFormContent() {
             setOriginalIdNumber(idValue); // Store original ID for smart validation
           }
           
-          const birthDateInput = form.querySelector('#fecha_nacimiento') as HTMLInputElement;
-          if (birthDateInput) birthDateInput.value = patient?.fecha_nacimiento || '';
+          const birthIso = patient?.fecha_nacimiento || '';
+          setFechaNacIso(birthIso);
+          setFechaNacDisplay(isoDateToDisplayMask(birthIso));
           
           const ageInput = form.querySelector('#edad') as HTMLInputElement;
           if (ageInput) ageInput.value = patient?.edad?.toString() || '';
@@ -1032,13 +1063,12 @@ function PatientFormContent() {
           const doctorSelect = form.querySelector('#doctor') as HTMLSelectElement;
           if (doctorSelect) doctorSelect.value = patient.doctor;
           
-          const startDateInput = form.querySelector('#fecha_inicio') as HTMLInputElement;
-          if (startDateInput) {
-            startDateInput.value = patient.fecha_inicio;
-            // Trigger the change handler to update historical banner
-            if (patient.fecha_inicio) {
-              handleFechaInicioChange({ target: { value: patient.fecha_inicio } } as any);
-            }
+          const startIso = patient.fecha_inicio || '';
+          setFechaInicio(startIso);
+          setFechaInicioDisplay(isoDateToDisplayMask(startIso));
+          // Trigger the change handler to update historical banner
+          if (startIso) {
+            void handleFechaInicioIso(startIso);
           }
           
           const insuranceSelect = form.querySelector('#seguro') as HTMLSelectElement;
@@ -1988,19 +2018,28 @@ function PatientFormContent() {
 
           <label htmlFor="fecha_nacimiento" className="block mb-1 font-medium">Fecha de nacimiento:</label>
           <input 
-            type="date" 
+            type="text" 
+            inputMode="numeric"
             id="fecha_nacimiento" 
-            name="fecha_nacimiento" 
+            name="fecha_nacimiento_display" 
+            placeholder="mm/dd/yyyy"
+            autoComplete="off"
+            maxLength={10}
             required 
+            value={fechaNacDisplay}
             className={`input px-3 py-2 text-gray-900 dark:text-white ${getFieldStyle('fecha_nacimiento')}`} 
             onChange={(e) => {
-              handleFechaNacimientoChange(e);
-              updateFieldValidation('fecha_nacimiento', e.target.value);
+              const mask = maskMmDdyYyy(e.target.value);
+              setFechaNacDisplay(mask.display);
+              setFechaNacIso(mask.iso);
+              handleFechaNacimientoIso(mask.iso);
+              updateFieldValidation('fecha_nacimiento', mask.iso);
             }}
             style={{
               colorScheme: resolvedTheme,
             }}
           />
+          <input type="hidden" name="fecha_nacimiento" value={fechaNacIso} />
 
           <label htmlFor="edad" className="block mb-1 font-medium">Edad:</label>
           <input type="number" id="edad" name="edad" value={edad} readOnly className="input bg-gray-100 cursor-not-allowed" />
@@ -2488,19 +2527,27 @@ function PatientFormContent() {
 
           <label htmlFor="fecha_inicio" className="block mb-1 font-medium mt-4">Fecha inicio de consulta:</label>
           <input 
-            type="date" 
+            type="text" 
+            inputMode="numeric"
             id="fecha_inicio" 
-            name="fecha_inicio" 
+            name="fecha_inicio_display" 
+            placeholder="mm/dd/yyyy"
+            autoComplete="off"
+            maxLength={10}
             required 
+            value={fechaInicioDisplay}
             className={`input px-3 py-2 text-gray-900 dark:text-white ${getFieldStyle('fecha_inicio')}`} 
             onChange={(e) => {
-              handleFechaInicioChange(e);
-              updateFieldValidation('fecha_inicio', e.target.value);
+              const mask = maskMmDdyYyy(e.target.value);
+              setFechaInicioDisplay(mask.display);
+              void handleFechaInicioIso(mask.iso);
+              updateFieldValidation('fecha_inicio', mask.iso);
             }}
             style={{
               colorScheme: resolvedTheme,
             }}
           />
+          <input type="hidden" name="fecha_inicio" value={fechaInicio} />
 
           <label htmlFor="seguro" className="block mb-1 font-medium mt-4">Seguro Medico:</label>
           <select
