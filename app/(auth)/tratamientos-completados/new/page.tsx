@@ -721,9 +721,6 @@ function NuevoTratamientoCompletadoPageContent() {
           }
         }
 
-        // Decrement inventory for insumos used (main payer)
-        await decrementInsumosInventory(selectedTreatments);
-        
         // 2. Create separate treatment records for each beneficiary
         for (const beneficiary of beneficiaries) {
           const beneficiaryTreatmentData = {
@@ -804,9 +801,6 @@ function NuevoTratamientoCompletadoPageContent() {
           }
         }
 
-        // Decrement inventory for insumos used
-        await decrementInsumosInventory(selectedTreatments);
-        
         alert('Tratamiento completado guardado exitosamente');
       }
       
@@ -816,28 +810,6 @@ function NuevoTratamientoCompletadoPageContent() {
       alert('Error al guardar el tratamiento');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const decrementInsumosInventory = async (items: SelectedTreatment[]) => {
-    for (const item of items) {
-      if (typeof item.tratamiento_id === 'string' && item.tratamiento_id.startsWith('inv_')) {
-        const inventarioId = item.tratamiento_id.replace('inv_', '');
-        try {
-          await fetch('/api/inventario/movimientos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              inventario_id: inventarioId,
-              tipo: 'salida',
-              cantidad: item.cantidad || 1,
-              notas: `Venta: ${item.nombre_tratamiento}`,
-            }),
-          });
-        } catch (error) {
-          console.error(`Error registrando salida de inventario item ${inventarioId}:`, error);
-        }
-      }
     }
   };
 

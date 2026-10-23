@@ -514,40 +514,24 @@ export class CompletedTreatmentService {
           .from('tratamientos_inventario')
           .insert(inventarioInserts);
 
-        // Decrement stock_actual for each inventory item used
+        // Decrement stock and register the movement atomically
         for (const invItem of inventarioItems) {
           const inventarioId = String(invItem.tratamiento_id).replace('inv_', '');
           const cantidad = invItem.cantidad || 1;
 
-          const { data: current } = await supabase
-            .from('inventario')
-            .select('stock_actual')
-            .eq('id', inventarioId)
-            .single();
-
-          if (current) {
-            const newStock = Math.max(0, current.stock_actual - cantidad);
-            await supabase
-              .from('inventario')
-              .update({ stock_actual: newStock, updated_at: new Date().toISOString() })
-              .eq('id', inventarioId);
-          }
-
-          // Register movement record for audit trail
-          try {
-            await supabase
-              .from('movimientos_inventario')
-              .insert([{
-                inventario_id: inventarioId,
-                tipo: 'salida',
-                cantidad,
-                notas: `Venta: ${invItem.nombre_tratamiento}`,
-                created_at: new Date().toISOString(),
-              }])
-              .select()
-              .maybeSingle();
-          } catch (movError) {
-            console.warn('Could not register movement (table may not exist):', movError);
+          const { error: movementError } = await supabase.rpc('register_inventory_movement', {
+            p_inventario_id: inventarioId,
+            p_tipo: 'salida',
+            p_cantidad: cantidad,
+            p_precio_unitario: null,
+            p_notas: `Venta: ${invItem.nombre_tratamiento}`,
+            p_created_by: null,
+            p_precio: null,
+            p_precio_compra: null,
+            p_fecha_compra: null,
+          });
+          if (movementError) {
+            console.warn(`Could not register inventory exit for ${inventarioId}:`, movementError);
           }
         }
       }

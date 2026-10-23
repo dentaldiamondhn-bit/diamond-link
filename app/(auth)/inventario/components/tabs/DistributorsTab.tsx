@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { inventoryApi } from '@/services/inventoryApi';
 import { Distribuidor } from '@/types/distribuidores';
-import { Marca } from '@/types/marcas';
 
 interface Categoria {
   id: string;
@@ -10,7 +10,7 @@ interface Categoria {
   subcategorias: { id: string; nombre: string }[];
 }
 
-export default function DistribuidoresTab() {
+export default function DistributorsTab() {
   const [items, setItems] = useState<Distribuidor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -22,15 +22,14 @@ export default function DistribuidoresTab() {
   });
 
   const [showAddMarca, setShowAddMarca] = useState(false);
-  const [marcasList, setMarcasList] = useState<Marca[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [marcaForm, setMarcaForm] = useState({ nombre: '', codigo: '', tipo: '', subcategoria: '' });
   const [savingMarca, setSavingMarca] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/inventario/distribuidores');
-      if (res.ok) setItems(await res.json());
+      const data = await inventoryApi.listSuppliers();
+      setItems(data as unknown as Distribuidor[]);
     } catch (err) {
       console.error('Error loading distribuidores:', err);
     } finally {
@@ -40,12 +39,8 @@ export default function DistribuidoresTab() {
 
   const loadMarcasYCategorias = useCallback(async () => {
     try {
-      const [mRes, cRes] = await Promise.all([
-        fetch('/api/inventario/marcas'),
-        fetch('/api/inventario/categorias'),
-      ]);
-      if (mRes.ok) setMarcasList(await mRes.json());
-      if (cRes.ok) setCategorias(await cRes.json());
+      const categoriasData = await inventoryApi.listCategories();
+      setCategorias(categoriasData as unknown as Categoria[]);
     } catch (err) {
       console.error('Error loading marcas/categorias:', err);
     }
@@ -77,29 +72,34 @@ export default function DistribuidoresTab() {
   const save = async () => {
     if (!form.nombre.trim()) return;
     try {
-      const url = editing
-        ? `/api/inventario/distribuidores?id=${editing.id}`
-        : '/api/inventario/distribuidores';
-      const method = editing ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      if (res.ok) {
-        await load();
-        setShowForm(false);
+      if (editing) {
+        // Deserialize-safe diff: only send fields the user changed so a
+        // stale modal can never overwrite data saved by a previous edit.
+        const changed: Record<string, string> = {};
+        (Object.keys(form) as (keyof typeof form)[]).forEach((key) => {
+          if (form[key] !== ((editing[key] as string | null) || '')) {
+            changed[key] = form[key];
+          }
+        });
+        if (Object.keys(changed).length > 0) {
+          await inventoryApi.updateSupplier(editing.id, changed);
+        }
+      } else {
+        await inventoryApi.createSupplier(form);
       }
+      await load();
+      setShowForm(false);
     } catch (err) {
       console.error('Error saving distribuidor:', err);
+      alert(err instanceof Error ? err.message : 'Error al guardar');
     }
   };
 
   const deleteDist = async (d: Distribuidor) => {
     if (!confirm(`¿Eliminar "${d.nombre}"?`)) return;
     try {
-      const res = await fetch(`/api/inventario/distribuidores?id=${d.id}`, { method: 'DELETE' });
-      if (res.ok) await load();
+      await inventoryApi.deleteSupplier(d.id);
+      await load();
     } catch (err) {
       console.error('Error deleting distribuidor:', err);
     }
@@ -109,34 +109,24 @@ export default function DistribuidoresTab() {
     if (!marcaForm.nombre.trim() || !marcaForm.codigo.trim()) return;
     setSavingMarca(true);
     try {
-      const res = await fetch('/api/inventario/marcas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codigo: marcaForm.codigo.toUpperCase(),
-          nombre: marcaForm.nombre.trim(),
-          tipo: marcaForm.tipo || null,
-          subcategoria: marcaForm.subcategoria || null,
-          distribuidor_id: editing?.id || null,
-        }),
+      await inventoryApi.createBrand({
+        codigo: marcaForm.codigo.toUpperCase(),
+        nombre: marcaForm.nombre.trim(),
+        tipo: marcaForm.tipo || null,
+        subcategoria: marcaForm.subcategoria || null,
+        distribuidor_id: editing?.id || null,
       });
-      if (res.ok) {
-        const newMarca = await res.json();
-        setMarcasList(prev => [...prev, newMarca]);
-        const nuevaMarca = `${marcaForm.nombre.trim()}${marcaForm.tipo ? ' - ' + marcaForm.tipo : ''}`;
-        const actual = form.marcas_provistas.trim();
-        setForm({
-          ...form,
-          marcas_provistas: actual ? `${actual}, ${nuevaMarca}` : nuevaMarca,
-        });
-        setMarcaForm({ nombre: '', codigo: '', tipo: '', subcategoria: '' });
-        setShowAddMarca(false);
-      } else {
-        const err = await res.json();
-        alert(err.error || 'Error al crear marca');
-      }
+      const nuevaMarca = `${marcaForm.nombre.trim()}${marcaForm.tipo ? ' - ' + marcaForm.tipo : ''}`;
+      const actual = form.marcas_provistas.trim();
+      setForm({
+        ...form,
+        marcas_provistas: actual ? `${actual}, ${nuevaMarca}` : nuevaMarca,
+      });
+      setMarcaForm({ nombre: '', codigo: '', tipo: '', subcategoria: '' });
+      setShowAddMarca(false);
     } catch (err) {
       console.error('Error creating marca:', err);
+      alert(err instanceof Error ? err.message : 'Error al crear marca');
     } finally {
       setSavingMarca(false);
     }
@@ -160,7 +150,7 @@ export default function DistribuidoresTab() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar distribuidor..."
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white max-w-xs"
+          className="bg-white/[0.04] backdrop-blur-md border border-white/10 rounded-xl text-slate-100 placeholder:text-slate-500 h-11 px-4 text-sm focus:outline-none focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-500/10 transition-all max-w-xs"
         />
         <button
           onClick={openNew}
@@ -177,7 +167,7 @@ export default function DistribuidoresTab() {
           <div className="col-span-full text-center py-12 text-gray-400">No hay distribuidores registrados</div>
         ) : (
           filtered.map(d => (
-            <div key={d.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+            <div key={d.id} className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-2xl dark:shadow-black/50 rounded-2xl p-4 hover:bg-slate-900/60 hover:border-white/20 hover:shadow-cyan-500/10 transition-all duration-300">
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">{d.nombre}</h3>

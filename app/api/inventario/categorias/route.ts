@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase';
+import { authorizeAuthenticated, authorizeInventory } from '@/lib/inventoryAuth';
 
 export async function GET() {
+  const auth = await authorizeAuthenticated();
+  if ('response' in auth) return auth.response;
+
   try {
+    const supabase = createServiceClient();
     const { data, error } = await supabase
       .from('categorias')
       .select('*, subcategorias(*)')
       .order('nombre');
 
     if (error) throw error;
-    return NextResponse.json(data || []);
+    return NextResponse.json(data || [], { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error fetching categorias:', error);
     return NextResponse.json({ error: 'Error al obtener categorías' }, { status: 500 });
@@ -17,7 +22,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeInventory();
+  if ('response' in auth) return auth.response;
+
   try {
+    const supabase = createServiceClient();
     const body = await request.json();
     const { nombre, subcategorias } = body;
 
@@ -64,7 +73,11 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const auth = await authorizeInventory();
+  if ('response' in auth) return auth.response;
+
   try {
+    const supabase = createServiceClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
@@ -108,7 +121,11 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const auth = await authorizeInventory();
+  if ('response' in auth) return auth.response;
+
   try {
+    const supabase = createServiceClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });

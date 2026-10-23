@@ -52,6 +52,7 @@ export interface MovimientoInventario {
     nombre: string;
     marca: string;
     imagen_url: string;
+    moneda: string;
   };
   insumo?: {
     codigo: string;

@@ -1,323 +1,332 @@
-import { supabase } from '../lib/supabase';
-import { InventarioItem, MovimientoInventario } from '../types/inventario';
+import 'server-only';
+import { createServiceClient } from '../lib/supabase';
+import {
+  inventoryValuation,
+  isLowStock,
+  mergeInventoryPatch,
+  parseItemInput,
+  parseItemPatch,
+  type ItemInput,
+  type MovementInput,
+} from '../lib/inventory/domain';
+import type { InventarioItem, MovimientoInventario } from '../types/inventario';
+
+let db: ReturnType<typeof createServiceClient> | null = null;
+
+function getDb() {
+  if (!db) db = createServiceClient();
+  return db;
+}
 
 export class InventarioService {
   static async getInventario(activeOnly: boolean = false): Promise<InventarioItem[]> {
-    try {
-      let query = supabase
+    const client = getDb();
+    let query = client
+      .from('inventario')
+      .select('*, marca_ref:marcas(*), insumo:insumos(*)')
+      .order('created_at', { ascending: false });
+
+    if (activeOnly) {
+      query = query.eq('activo', true);
+    }
+
+    const { data, error } = await query;
+
+    if (error && error.code === 'PGRST200' && error.message?.includes('marca_ref')) {
+      let fallbackQuery = client
+        .from('inventario')
+        .select('*, insumo:insumos(*)')
+        .order('created_at', { ascending: false });
+      if (activeOnly) {
+        fallbackQuery = fallbackQuery.eq('activo', true);
+      }
+      const { data: fallback, error: fallbackError } = await fallbackQuery;
+      if (fallbackError) throw fallbackError;
+      return (fallback ?? []) as InventarioItem[];
+    }
+
+    if (error && activeOnly && (error.message?.includes('activo') || error.code === 'PGRST200')) {
+      const { data: fallback, error: fallbackError } = await client
         .from('inventario')
         .select('*, marca_ref:marcas(*), insumo:insumos(*)')
         .order('created_at', { ascending: false });
-
-      if (activeOnly) {
-        query = query.eq('activo', true);
-      }
-
-      const { data, error } = await query;
-
-      if (error && error.code === 'PGRST200' && error.message?.includes('marca_ref')) {
-        let fallbackQuery = supabase
+      if (fallbackError && fallbackError.message?.includes('marca_ref')) {
+        const { data: withoutBrand, error: withoutBrandError } = await client
           .from('inventario')
           .select('*, insumo:insumos(*)')
           .order('created_at', { ascending: false });
-        if (activeOnly) {
-          fallbackQuery = fallbackQuery.eq('activo', true);
-        }
-        const { data: fallback, error: fallbackError } = await fallbackQuery;
-        if (fallbackError) throw fallbackError;
-        return fallback || [];
+        if (withoutBrandError) throw withoutBrandError;
+        return (withoutBrand ?? []) as InventarioItem[];
       }
-
-      // Fallback: if activo column doesn't exist yet, retry without filter
-      if (error && activeOnly && (error.message?.includes('activo') || error.code === 'PGRST200')) {
-        const { data: fallback, error: fallbackError } = await supabase
-          .from('inventario')
-          .select('*, marca_ref:marcas(*), insumo:insumos(*)')
-          .order('created_at', { ascending: false });
-        if (fallbackError && fallbackError.message?.includes('marca_ref')) {
-          const { data: f2 } = await supabase
-            .from('inventario')
-            .select('*, insumo:insumos(*)')
-            .order('created_at', { ascending: false });
-          return f2 || [];
-        }
-        if (fallbackError) throw fallbackError;
-        return fallback || [];
-      }
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching inventario:', error);
-      return [];
+      if (fallbackError) throw fallbackError;
+      return (fallback ?? []) as InventarioItem[];
     }
+
+    if (error) throw error;
+    return (data ?? []) as InventarioItem[];
   }
 
   static async getInventarioItem(id: string): Promise<InventarioItem | null> {
-    try {
-      const { data, error } = await supabase
+    const client = getDb();
+    const { data, error } = await client
+      .from('inventario')
+      .select('*, marca_ref:marcas(*), insumo:insumos(*)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error && error.message?.includes('marca_ref')) {
+      const { data: fallback, error: fallbackError } = await client
         .from('inventario')
-        .select('*, marca_ref:marcas(*), insumo:insumos(*)')
+        .select('*, insumo:insumos(*)')
         .eq('id', id)
-        .single();
-
-      if (error && error.message?.includes('marca_ref')) {
-        const { data: fallback } = await supabase
-          .from('inventario')
-          .select('*, insumo:insumos(*)')
-          .eq('id', id)
-          .single();
-        return fallback;
-      }
-
-      if (error) {
-        if (error.code === 'PGRST116') return null;
-        throw error;
-      }
-      return data;
-    } catch (error) {
-      console.error('Error fetching inventario item:', error);
-      return null;
+        .maybeSingle();
+      if (fallbackError) throw fallbackError;
+      return (fallback ?? null) as InventarioItem | null;
     }
+
+    if (error) throw error;
+    return (data ?? null) as InventarioItem | null;
   }
 
-  static async upsertInventario(item: {
-    id?: string;
-    insumo_id?: string | null;
-    marca_id?: string | null;
-    codigo?: string;
-    nombre?: string;
-    precio?: number;
-    precio_compra?: number;
-    fecha_compra?: string | null;
-    moneda?: string;
-    marca?: string;
-    stock_actual: number;
-    stock_minimo: number;
-    ubicacion?: string;
-    imagen_url?: string | null;
-    activo?: boolean;
-  }): Promise<InventarioItem> {
-    try {
-      // Sync to insumos table (legacy) — insert or update matching row
-      const insumoPayload: any = {
-        codigo: item.codigo || null,
-        nombre: item.nombre || '',
-        precio: item.precio ?? 0,
-        moneda: item.moneda || 'HNL',
-        activo: item.activo ?? true,
-      };
+  static async updateInventario(
+    id: string,
+    patch: Record<string, unknown>
+  ): Promise<InventarioItem | null> {
+    const parsedPatch = parseItemPatch(patch);
+    const client = getDb();
+    const { data: existing, error: fetchError } = await client
+      .from('inventario')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
 
-      const { data: existingInsumo, error: lookupError } = await supabase
+    if (fetchError) throw fetchError;
+    if (!existing) return null;
+
+    if (Object.keys(parsedPatch).length === 0) {
+      return this.getInventarioItem(id);
+    }
+
+    const merged = mergeInventoryPatch(existing as InventarioItem, parsedPatch);
+    const updatePayload: Record<string, unknown> = {
+      ...parsedPatch,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { error } = await client
+      .from('inventario')
+      .update(updatePayload)
+      .eq('id', id)
+      .select('id')
+      .single();
+
+    if (error && (error.message?.includes('precio_compra') || error.code === 'PGRST204')) {
+      const fallbackPayload = { ...updatePayload };
+      delete fallbackPayload.precio_compra;
+      const retry = await client
+        .from('inventario')
+        .update(fallbackPayload)
+        .eq('id', id)
+        .select('id')
+        .single();
+      error = retry.error;
+    }
+
+    if (error) throw error;
+
+    const updated = await this.getInventarioItem(id);
+    if (!updated) throw new Error('Failed to update inventory item');
+
+    const insumoFields = ['codigo', 'nombre', 'precio', 'moneda', 'activo'];
+    if (
+      existing.insumo_id &&
+      insumoFields.some((field) => Object.prototype.hasOwnProperty.call(parsedPatch, field))
+    ) {
+      const insumoPatch: Record<string, unknown> = {};
+      for (const field of insumoFields) {
+        if (Object.prototype.hasOwnProperty.call(parsedPatch, field)) {
+          insumoPatch[field] = parsedPatch[field];
+        }
+      }
+      const { error: insumoError } = await client
+        .from('insumos')
+        .update(insumoPatch)
+        .eq('id', existing.insumo_id);
+      if (insumoError) throw insumoError;
+    }
+
+    await this.registrarActividad({
+      accion: 'item_editado',
+      entidad_tipo: 'inventario',
+      entidad_nombre: merged.nombre,
+      entidad_codigo: merged.codigo,
+      inventario_id: id,
+      detalle: `Item "${merged.nombre}" (${merged.codigo || 'sin código'}) fue actualizado`,
+    });
+
+    return updated;
+  }
+
+  static async upsertInventario(item: ItemInput & { id?: string }): Promise<InventarioItem> {
+    if (item.id) {
+      const updated = await this.updateInventario(
+        item.id,
+        item as unknown as Record<string, unknown>
+      );
+      if (!updated) throw new Error(`Inventory item not found: ${item.id}`);
+      return updated;
+    }
+
+    const input = parseItemInput(item as unknown as Record<string, unknown>);
+    const client = getDb();
+    let insumoId: string | null = null;
+
+    if (input.codigo) {
+      const insumoPayload = {
+        codigo: input.codigo,
+        nombre: input.nombre,
+        precio: input.precio,
+        moneda: input.moneda,
+        activo: input.activo,
+      };
+      const { data: existingInsumo, error: lookupError } = await client
         .from('insumos')
         .select('id')
-        .eq('codigo', insumoPayload.codigo)
+        .eq('codigo', input.codigo)
         .maybeSingle();
+      if (lookupError) throw lookupError;
 
-      let insumoId = item.insumo_id;
-      if (existingInsumo && !lookupError) {
+      if (existingInsumo) {
         insumoId = existingInsumo.id;
-        await supabase.from('insumos').update(insumoPayload).eq('id', insumoId);
+        const { error: updateError } = await client
+          .from('insumos')
+          .update(insumoPayload)
+          .eq('id', insumoId);
+        if (updateError) throw updateError;
       } else {
-        const { data: newInsumo } = await supabase
+        const { data: newInsumo, error: insertError } = await client
           .from('insumos')
           .insert(insumoPayload)
           .select('id')
           .single();
-        if (newInsumo) insumoId = newInsumo.id;
+        if (insertError) throw insertError;
+        insumoId = newInsumo.id;
       }
-
-      const payload: any = {
-        insumo_id: insumoId || null,
-        marca_id: item.marca_id || null,
-        codigo: item.codigo || null,
-        nombre: item.nombre || '',
-        precio: item.precio ?? 0,
-        precio_compra: item.precio_compra ?? 0,
-        fecha_compra: item.fecha_compra || null,
-        moneda: item.moneda || 'HNL',
-        marca: item.marca || null,
-        stock_actual: item.stock_actual,
-        stock_minimo: item.stock_minimo,
-        ubicacion: item.ubicacion || null,
-        imagen_url: item.imagen_url || null,
-        activo: item.activo ?? true,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (item.id) payload.id = item.id;
-
-      const { data, error } = await supabase
-        .from('inventario')
-        .upsert(payload)
-        .select('*, marca_ref:marcas(*), insumo:insumos(*)')
-        .single();
-
-      // Fallback: precio_compra column may not exist in schema cache
-      if (error && (error.message?.includes('precio_compra') || error.code === 'PGRST204')) {
-        delete payload.precio_compra;
-        const { data: fallback } = await supabase
-          .from('inventario')
-          .upsert(payload)
-          .select('*, marca_ref:marcas(*), insumo:insumos(*)')
-          .single();
-        if (fallback) return fallback;
-      }
-
-      if (error && error.message?.includes('marca_ref')) {
-        const { data: fallback } = await supabase
-          .from('inventario')
-          .upsert(payload)
-          .select('*, insumo:insumos(*)')
-          .single();
-        return fallback;
-      }
-
-      if (error) throw error;
-      this.registrarActividad({
-        accion: item.id ? 'item_editado' : 'item_creado',
-        entidad_tipo: 'inventario',
-        entidad_nombre: data.nombre,
-        entidad_codigo: data.codigo,
-        inventario_id: data.id,
-        detalle: item.id
-          ? `Item "${data.nombre}" (${data.codigo || 'sin código'}) fue actualizado`
-          : `Item "${data.nombre}" (${data.codigo || 'sin código'}) fue creado`,
-      }).catch(() => {});
-      return data;
-    } catch (error: any) {
-      const supabaseError = error?.message || error?.details || error;
-      console.error('Error upserting inventario:', supabaseError);
-      throw new Error(typeof supabaseError === 'string' ? supabaseError : JSON.stringify(supabaseError));
     }
+
+    const payload: Record<string, unknown> = {
+      insumo_id: insumoId,
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { data: inserted, error } = await client
+      .from('inventario')
+      .insert(payload)
+      .select('id')
+      .single();
+
+    if (error && (error.message?.includes('precio_compra') || error.code === 'PGRST204')) {
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.precio_compra;
+      const retry = await client
+        .from('inventario')
+        .insert(fallbackPayload)
+        .select('id')
+        .single();
+      inserted = retry.data;
+      error = retry.error;
+    }
+
+    if (error) throw error;
+    if (!inserted) throw new Error('Failed to create inventory item');
+
+    const created = await this.getInventarioItem(inserted.id);
+    if (!created) throw new Error('Failed to create inventory item');
+
+    await this.registrarActividad({
+      accion: 'item_creado',
+      entidad_tipo: 'inventario',
+      entidad_nombre: created.nombre,
+      entidad_codigo: created.codigo,
+      inventario_id: created.id,
+      detalle: `Item "${created.nombre}" (${created.codigo || 'sin código'}) fue creado`,
+    });
+
+    return created;
   }
 
   static async deleteInventario(id: string): Promise<void> {
-    try {
-      // Fetch item first to get image URL and insumo_id
-      const { data: item } = await supabase
-        .from('inventario')
-        .select('imagen_url, insumo_id, nombre, codigo')
-        .eq('id', id)
-        .single();
+    const client = getDb();
+    const { data: item, error: fetchError } = await client
+      .from('inventario')
+      .select('imagen_url, insumo_id, nombre, codigo')
+      .eq('id', id)
+      .maybeSingle();
 
-      this.registrarActividad({
-        accion: 'item_eliminado',
-        entidad_tipo: 'inventario',
-        entidad_nombre: item?.nombre,
-        entidad_codigo: item?.codigo,
-        inventario_id: id,
-        detalle: item ? `Item "${item.nombre}" (${item.codigo || 'sin código'}) fue eliminado` : 'Item eliminado',
-      }).catch(() => {});
+    if (fetchError) throw fetchError;
+    if (!item) return;
 
-      // Delete image from storage if present
-      if (item?.imagen_url) {
-        const url = new URL(item.imagen_url);
-        const pathParts = url.pathname.split('/');
-        const fileName = pathParts[pathParts.length - 1];
-        if (fileName) {
-          await supabase.storage.from('inventario-imagenes').remove([fileName]);
-        }
+    await this.registrarActividad({
+      accion: 'item_eliminado',
+      entidad_tipo: 'inventario',
+      entidad_nombre: item.nombre,
+      entidad_codigo: item.codigo,
+      inventario_id: id,
+      detalle: `Item "${item.nombre}" (${item.codigo || 'sin código'}) fue eliminado`,
+    });
+
+    if (item.imagen_url) {
+      const url = new URL(item.imagen_url);
+      const pathParts = url.pathname.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+      if (fileName) {
+        const { error: storageError } = await client.storage
+          .from('inventario-imagenes')
+          .remove([fileName]);
+        if (storageError) console.warn('Could not delete inventory image:', storageError);
       }
-
-      // Also delete corresponding insumo from legacy table
-      if (item?.insumo_id) {
-        await supabase.from('insumos').delete().eq('id', item.insumo_id);
-      }
-
-      const { error } = await supabase
-        .from('inventario')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error deleting inventario:', error);
-      throw error;
     }
+
+    if (item.insumo_id) {
+      const { data: otherInventory, error: otherError } = await client
+        .from('inventario')
+        .select('id')
+        .eq('insumo_id', item.insumo_id)
+        .neq('id', id)
+        .limit(1)
+        .maybeSingle();
+      if (otherError) throw otherError;
+
+      if (!otherInventory) {
+        const { error: insumoError } = await client
+          .from('insumos')
+          .delete()
+          .eq('id', item.insumo_id);
+        if (insumoError) throw insumoError;
+      }
+    }
+
+    const { error } = await client.from('inventario').delete().eq('id', id);
+    if (error) throw error;
   }
 
-  static async registrarMovimiento(mov: {
-    inventario_id: string;
-    insumo_id?: string;
-    tipo: 'entrada' | 'salida';
-    cantidad: number;
-    precio_unitario?: number;
-    notas?: string;
-    created_by?: string;
-  }): Promise<MovimientoInventario | null> {
-    // Always update stock first
-    const updateStock = async () => {
-      const { data: invItem } = await supabase
-        .from('inventario')
-        .select('stock_actual')
-        .eq('id', mov.inventario_id)
-        .single();
+  static async registrarMovimiento(mov: MovementInput): Promise<MovimientoInventario> {
+    const { data, error } = await getDb().rpc('register_inventory_movement', {
+      p_inventario_id: mov.inventario_id,
+      p_tipo: mov.tipo,
+      p_cantidad: mov.cantidad,
+      p_precio_unitario: mov.precio_unitario ?? null,
+      p_notas: mov.notas ?? null,
+      p_created_by: mov.created_by ?? null,
+      p_precio: mov.precio ?? null,
+      p_precio_compra: mov.precio_compra ?? null,
+      p_fecha_compra: mov.fecha_compra ?? null,
+    });
 
-      if (invItem) {
-        let newStock = invItem.stock_actual;
-        if (mov.tipo === 'entrada') {
-          newStock += mov.cantidad;
-        } else if (mov.tipo === 'salida') {
-          newStock = Math.max(0, newStock - mov.cantidad);
-        }
-        await supabase
-          .from('inventario')
-          .update({ stock_actual: newStock, updated_at: new Date().toISOString() })
-          .eq('id', mov.inventario_id);
-      }
-    };
-
-    try {
-      const { data, error } = await supabase
-        .from('movimientos_inventario')
-        .insert([{
-          inventario_id: mov.inventario_id,
-          insumo_id: mov.insumo_id || null,
-          tipo: mov.tipo,
-          cantidad: mov.cantidad,
-          precio_unitario: mov.precio_unitario || null,
-          notas: mov.notas || null,
-          created_by: mov.created_by || null,
-          created_at: new Date().toISOString(),
-        }])
-        .select('*, inventario:inventario(codigo, nombre, marca, imagen_url), insumo:insumos(codigo, nombre)')
-        .single();
-
-      // Always update stock
-      await updateStock();
-
-      if (error && error.message?.includes('inventario')) {
-        const { data: fallback } = await supabase
-          .from('movimientos_inventario')
-          .insert([{
-            inventario_id: mov.inventario_id,
-            insumo_id: mov.insumo_id || null,
-            tipo: mov.tipo,
-            cantidad: mov.cantidad,
-            precio_unitario: mov.precio_unitario || null,
-            notas: mov.notas || null,
-            created_by: mov.created_by || null,
-            created_at: new Date().toISOString(),
-          }])
-          .select('*, insumo:insumos(codigo, nombre)')
-          .single();
-
-        if (fallback) await updateStock();
-        return fallback;
-      }
-
-      if (error) {
-        console.warn('Could not insert movement, stock updated directly:', error);
-        return null;
-      }
-      return data;
-    } catch (error) {
-      // Stock was already updated, log but don't throw
-      console.warn('Movement insert failed, stock updated directly:', error);
-      await updateStock().catch(() => {});
-      return null;
-    }
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('No movement returned');
+    return data as MovimientoInventario;
   }
 
   static async registrarActividad(params: {
@@ -334,8 +343,9 @@ export class InventarioService {
     created_by?: string;
     detalle?: string;
   }): Promise<void> {
+    const client = getDb();
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         inventario_id: params.inventario_id || null,
         insumo_id: params.insumo_id || null,
         tipo: params.tipo || null,
@@ -345,7 +355,7 @@ export class InventarioService {
         created_by: params.created_by || null,
         created_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from('movimientos_inventario').insert([{
+      const { error } = await client.from('movimientos_inventario').insert([{
         ...payload,
         accion: params.accion,
         entidad_tipo: params.entidad_tipo,
@@ -354,8 +364,7 @@ export class InventarioService {
         detalle: params.detalle || null,
       }]);
       if (error) {
-        // Columns may not exist yet (migration not run) — insert without them
-        await supabase.from('movimientos_inventario').insert([{
+        await client.from('movimientos_inventario').insert([{
           ...payload,
           notas: params.detalle || params.notas || null,
         }]);
@@ -375,80 +384,64 @@ export class InventarioService {
     limit?: number;
     offset?: number;
   }): Promise<MovimientoInventario[]> {
-    try {
-      let query = supabase
+    const client = getDb();
+    let query = client
+      .from('movimientos_inventario')
+      .select('*, inventario:inventario(codigo, nombre, marca, imagen_url, moneda), insumo:insumos(codigo, nombre)')
+      .order('created_at', { ascending: false });
+
+    if (params?.inventario_id) query = query.eq('inventario_id', params.inventario_id);
+    if (params?.insumo_id) query = query.eq('insumo_id', params.insumo_id);
+    if (params?.tipo) query = query.eq('tipo', params.tipo);
+    if (params?.accion) query = query.eq('accion', params.accion);
+    if (params?.desde) query = query.gte('created_at', params.desde);
+    if (params?.hasta) query = query.lte('created_at', params.hasta);
+    if (params?.limit) query = query.limit(params.limit);
+    if (params?.offset) query = query.range(params.offset, params.offset + (params.limit || 50) - 1);
+
+    const { data, error } = await query;
+
+    if (error && error.message?.includes('inventario')) {
+      const { data: fallback, error: fallbackError } = await client
         .from('movimientos_inventario')
-        .select('*, inventario:inventario(codigo, nombre, marca, imagen_url), insumo:insumos(codigo, nombre)')
+        .select('*, insumo:insumos(codigo, nombre)')
         .order('created_at', { ascending: false });
-
-      if (params?.inventario_id) query = query.eq('inventario_id', params.inventario_id);
-      if (params?.insumo_id) query = query.eq('insumo_id', params.insumo_id);
-      if (params?.tipo) query = query.eq('tipo', params.tipo);
-      if (params?.accion) query = query.eq('accion', params.accion);
-      if (params?.desde) query = query.gte('created_at', params.desde);
-      if (params?.hasta) query = query.lte('created_at', params.hasta);
-      if (params?.limit) query = query.limit(params.limit);
-      if (params?.offset) query = query.range(params.offset, params.offset + (params.limit || 50) - 1);
-
-      const { data, error } = await query;
-
-      if (error && error.message?.includes('inventario')) {
-        const { data: fallback } = await supabase
-          .from('movimientos_inventario')
-          .select('*, insumo:insumos(codigo, nombre)')
-          .order('created_at', { ascending: false });
-        return fallback || [];
-      }
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching movimientos:', error);
-      return [];
+      if (fallbackError) throw fallbackError;
+      return (fallback ?? []) as MovimientoInventario[];
     }
+
+    if (error) throw error;
+    return (data ?? []) as MovimientoInventario[];
   }
 
   static async getStockBajo(): Promise<InventarioItem[]> {
-    try {
-      const all = await this.getInventario();
-      return all.filter(item => item.stock_actual < item.stock_minimo);
-    } catch (error) {
-      console.error('Error fetching low stock items:', error);
-      return [];
-    }
+    const items = await this.getInventario();
+    return items.filter(isLowStock);
   }
 
   static async getValorTotalInventario(): Promise<number> {
-    try {
-      const items = await this.getInventario();
-      return items.reduce((sum, item) => {
-        const precio = item.precio ?? item.insumo?.precio ?? 0;
-        return sum + (precio * item.stock_actual);
-      }, 0);
-    } catch (error) {
-      console.error('Error calculating total inventory value:', error);
-      return 0;
-    }
+    const items = await this.getInventario();
+    return inventoryValuation(items).retail;
   }
 
-  // -- Marcas --
   static async getMarcas(): Promise<any[]> {
-    try {
-      const { data, error } = await supabase
-        .from('marcas')
-        .select('*, distribuidor:distribuidores(nombre, contacto)')
-        .order('nombre');
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching marcas:', error);
-      return [];
-    }
+    const { data, error } = await getDb()
+      .from('marcas')
+      .select('*, distribuidor:distribuidores(nombre, contacto)')
+      .order('nombre');
+    if (error) throw error;
+    return data ?? [];
   }
 
-  static async createMarca(marca: { codigo: string; nombre: string; tipo?: string; subcategoria?: string; distribuidor_id?: string | null }): Promise<any> {
+  static async createMarca(marca: {
+    codigo: string;
+    nombre: string;
+    tipo?: string;
+    subcategoria?: string;
+    distribuidor_id?: string | null;
+  }): Promise<any> {
     try {
-      const { data, error } = await supabase.from('marcas').insert([{
+      const { data, error } = await getDb().from('marcas').insert([{
         codigo: marca.codigo,
         nombre: marca.nombre,
         tipo: marca.tipo || null,
@@ -470,10 +463,17 @@ export class InventarioService {
     }
   }
 
-  static async updateMarca(id: string, marca: { codigo?: string; nombre?: string; tipo?: string; subcategoria?: string; distribuidor_id?: string | null }): Promise<any> {
+  static async updateMarca(id: string, marca: {
+    codigo?: string;
+    nombre?: string;
+    tipo?: string;
+    subcategoria?: string;
+    distribuidor_id?: string | null;
+  }): Promise<any> {
     try {
-      const { data: before } = await supabase.from('marcas').select('nombre, codigo').eq('id', id).single();
-      const { data, error } = await supabase.from('marcas').update({
+      const client = getDb();
+      const { data: before } = await client.from('marcas').select('nombre, codigo').eq('id', id).single();
+      const { data, error } = await client.from('marcas').update({
         ...marca,
         updated_at: new Date().toISOString(),
       }).eq('id', id).select().single();
@@ -494,9 +494,10 @@ export class InventarioService {
 
   static async deleteMarca(id: string): Promise<void> {
     try {
-      const { data: before } = await supabase.from('marcas').select('nombre, codigo').eq('id', id).single();
-      await supabase.from('inventario').update({ marca_id: null }).eq('marca_id', id);
-      const { error } = await supabase.from('marcas').delete().eq('id', id);
+      const client = getDb();
+      const { data: before } = await client.from('marcas').select('nombre, codigo').eq('id', id).single();
+      await client.from('inventario').update({ marca_id: null }).eq('marca_id', id);
+      const { error } = await client.from('marcas').delete().eq('id', id);
       if (error) throw error;
       if (before) {
         await this.registrarActividad({
@@ -513,21 +514,15 @@ export class InventarioService {
     }
   }
 
-  // -- Distribuidores --
   static async getDistribuidores(): Promise<any[]> {
-    try {
-      const { data, error } = await supabase.from('distribuidores').select('*').order('nombre');
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching distribuidores:', error);
-      return [];
-    }
+    const { data, error } = await getDb().from('distribuidores').select('*').order('nombre');
+    if (error) throw error;
+    return data ?? [];
   }
 
   static async createDistribuidor(d: any): Promise<any> {
     try {
-      const { data, error } = await supabase.from('distribuidores').insert([d]).select().single();
+      const { data, error } = await getDb().from('distribuidores').insert([d]).select().single();
       if (error) throw error;
       return data;
     } catch (error) {
@@ -538,7 +533,7 @@ export class InventarioService {
 
   static async updateDistribuidor(id: string, d: any): Promise<any> {
     try {
-      const { data, error } = await supabase.from('distribuidores').update({
+      const { data, error } = await getDb().from('distribuidores').update({
         ...d,
         updated_at: new Date().toISOString(),
       }).eq('id', id).select().single();
@@ -552,7 +547,7 @@ export class InventarioService {
 
   static async deleteDistribuidor(id: string): Promise<void> {
     try {
-      const { error } = await supabase.from('distribuidores').delete().eq('id', id);
+      const { error } = await getDb().from('distribuidores').delete().eq('id', id);
       if (error) throw error;
     } catch (error) {
       console.error('Error deleting distribuidor:', error);

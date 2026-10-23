@@ -1,29 +1,28 @@
 'use client';
 
 import React, { useState } from 'react';
+import { isLowStock } from '@/lib/inventory/domain';
 import { InventarioItem } from '@/types/inventario';
-import { formatCurrency } from '@/utils/currencyUtils';
+import { formatCurrency, type Currency } from '@/utils/currencyUtils';
 
-interface InventarioCardProps {
+interface ItemCardProps {
   item: InventarioItem;
   onEdit: (item: InventarioItem) => void;
   onAddStock: (item: InventarioItem) => void;
   onDelete: (item: InventarioItem) => void;
 }
 
-export default function InventarioCard({ item, onEdit, onAddStock, onDelete }: InventarioCardProps) {
+export default function ItemCard({ item, onEdit, onAddStock, onDelete }: ItemCardProps) {
   const [imgError, setImgError] = useState(false);
   const nombre = item.nombre || item.insumo?.nombre || 'Desconocido';
   const codigo = item.codigo || item.insumo?.codigo || '';
   const precio = item.precio ?? item.insumo?.precio ?? 0;
   const moneda = item.moneda || item.insumo?.moneda || 'HNL';
-  const stockBajo = item.stock_actual < item.stock_minimo;
+  const stockBajo = isLowStock(item);
   const sinStock = item.stock_actual === 0;
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow ${
-      item.activo === false ? 'border-red-300 dark:border-red-700 opacity-70' : 'border-gray-200 dark:border-gray-700'
-    }`}>
+    <div className={`bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-2xl dark:shadow-black/50 overflow-hidden hover:bg-white/90 dark:hover:bg-slate-900/60 hover:border-slate-300 dark:hover:border-white/20 hover:shadow-cyan-500/10 transition-all duration-300 ${item.activo === false ? 'opacity-70' : ''}`}>
       {/* Image */}
       <div className="h-40 bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
         {item.imagen_url && !imgError ? (
@@ -95,7 +94,7 @@ export default function InventarioCard({ item, onEdit, onAddStock, onDelete }: I
           <div className="flex justify-between text-sm">
             <span className="text-gray-500 dark:text-gray-400">Precio:</span>
             <span className="font-medium text-gray-900 dark:text-white">
-              {formatCurrency(precio, moneda as any)}
+              {formatCurrency(precio, moneda as Currency)}
             </span>
           </div>
           {item.precio_compra > 0 && (
@@ -104,7 +103,7 @@ export default function InventarioCard({ item, onEdit, onAddStock, onDelete }: I
               <span className={`font-medium ${
                 precio > item.precio_compra ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}>
-                {formatCurrency(precio - item.precio_compra, moneda as any)}
+                {formatCurrency(precio - item.precio_compra, moneda as Currency)}
                 <span className="ml-1 text-xs">
                   ({item.precio_compra > 0 ? Math.round(((precio - item.precio_compra) / item.precio_compra) * 100) : 0}%)
                 </span>

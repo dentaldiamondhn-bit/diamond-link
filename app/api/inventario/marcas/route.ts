@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { InventarioService } from '@/services/inventarioService';
+import { authorizeAuthenticated, authorizeInventory } from '@/lib/inventoryAuth';
 
 export async function GET() {
+  const auth = await authorizeAuthenticated();
+  if ('response' in auth) return auth.response;
+
   try {
     const data = await InventarioService.getMarcas();
     return NextResponse.json(data, {
@@ -18,6 +22,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await authorizeInventory();
+  if ('response' in auth) return auth.response;
+
   try {
     const body = await request.json();
     const data = await InventarioService.createMarca(body);
@@ -29,9 +36,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const auth = await authorizeInventory();
+  if ('response' in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id') || '';
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
+
     const body = await request.json();
     const data = await InventarioService.updateMarca(id, body);
     return NextResponse.json(data);
@@ -42,9 +54,14 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const auth = await authorizeInventory();
+  if ('response' in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id') || '';
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
+
     await InventarioService.deleteMarca(id);
     return NextResponse.json({ success: true });
   } catch (error) {
