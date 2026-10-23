@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServiceClient } from '@/lib/supabase';
+import { authorizeInventory } from '@/lib/inventoryAuth';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
+  const auth = await authorizeInventory();
+  if ('response' in auth) return auth.response;
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -10,6 +16,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'El archivo debe ser una imagen' }, { status: 400 });
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'La imagen no puede superar 5 MB' }, { status: 400 });
+    }
+
+    const supabase = createServiceClient();
     const buffer = Buffer.from(await file.arrayBuffer());
     const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 

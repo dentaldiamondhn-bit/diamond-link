@@ -1,7 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { inventoryApi } from '@/services/inventoryApi';
 import { Marca } from '@/types/marcas';
+
+interface DistribuidorOption {
+  id: string;
+  nombre: string;
+}
 
 interface Categoria {
   id: string;
@@ -9,9 +15,9 @@ interface Categoria {
   subcategorias: { id: string; nombre: string }[];
 }
 
-export default function MarcasTab() {
+export default function BrandsTab() {
   const [marcas, setMarcas] = useState<Marca[]>([]);
-  const [distribuidores, setDistribuidores] = useState<any[]>([]);
+  const [distribuidores, setDistribuidores] = useState<DistribuidorOption[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -25,14 +31,14 @@ export default function MarcasTab() {
 
   const load = useCallback(async () => {
     try {
-      const [mRes, dRes, cRes] = await Promise.all([
-        fetch(`/api/inventario/marcas?_=${Date.now()}`),
-        fetch(`/api/inventario/distribuidores?_=${Date.now()}`),
-        fetch(`/api/inventario/categorias?_=${Date.now()}`),
+      const [marcasData, distribuidoresData, categoriasData] = await Promise.all([
+        inventoryApi.listBrands(),
+        inventoryApi.listSuppliers(),
+        inventoryApi.listCategories(),
       ]);
-      if (mRes.ok) setMarcas(await mRes.json());
-      if (dRes.ok) setDistribuidores(await dRes.json());
-      if (cRes.ok) setCategorias(await cRes.json());
+      setMarcas(marcasData as unknown as Marca[]);
+      setDistribuidores(distribuidoresData as unknown as DistribuidorOption[]);
+      setCategorias(categoriasData as unknown as Categoria[]);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -54,7 +60,7 @@ export default function MarcasTab() {
       codigo: m.codigo,
       nombre: m.nombre,
       tipo: m.tipo || '',
-      subcategoria: (m as any).subcategoria || '',
+      subcategoria: (m as Marca & { subcategoria?: string }).subcategoria || '',
       distribuidor_id: m.distribuidor_id || '',
     });
     setShowForm(true);
@@ -63,47 +69,34 @@ export default function MarcasTab() {
   const save = async () => {
     if (!form.codigo.trim() || !form.nombre.trim()) return;
     try {
-      const url = editing
-        ? `/api/inventario/marcas?id=${editing.id}`
-        : '/api/inventario/marcas';
-      const method = editing ? 'PUT' : 'POST';
-      const body: any = {
+      const body: Record<string, unknown> = {
         codigo: form.codigo,
         nombre: form.nombre,
         tipo: form.tipo || null,
         subcategoria: form.subcategoria || null,
       };
       if (form.distribuidor_id) body.distribuidor_id = form.distribuidor_id;
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        await load();
-        setShowForm(false);
+      if (editing) {
+        await inventoryApi.updateBrand(editing.id, body);
       } else {
-        const err = await res.json();
-        alert(err.error || 'Error al guardar');
+        await inventoryApi.createBrand(body);
       }
+      await load();
+      setShowForm(false);
     } catch (err) {
       console.error('Error saving marca:', err);
+      alert(err instanceof Error ? err.message : 'Error al guardar');
     }
   };
 
   const deleteMarca = async (m: Marca) => {
     if (!confirm(`¿Eliminar "${m.nombre}"?`)) return;
     try {
-      const res = await fetch(`/api/inventario/marcas?id=${m.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        await load();
-      } else {
-        const err = await res.json();
-        alert(err.error || 'Error desconocido al eliminar');
-      }
+      await inventoryApi.deleteBrand(m.id);
+      await load();
     } catch (err) {
       console.error('Error deleting marca:', err);
-      alert('Error de red al eliminar la marca');
+      alert(err instanceof Error ? err.message : 'Error al eliminar la marca');
     }
   };
 
@@ -111,25 +104,17 @@ export default function MarcasTab() {
     if (!categoryForm.nombre.trim()) return;
     setSavingCategoria(true);
     try {
-      const res = await fetch('/api/inventario/categorias', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre: categoryForm.nombre.trim(),
-          subcategorias: categoryForm.subcategorias.filter(s => s.trim()),
-        }),
+      await inventoryApi.createCategory({
+        nombre: categoryForm.nombre.trim(),
+        subcategorias: categoryForm.subcategorias.filter(s => s.trim()),
       });
-      if (res.ok) {
-        const updated = await fetch('/api/inventario/categorias');
-        if (updated.ok) setCategorias(await updated.json());
-        setShowCategoryModal(false);
-        setCategoryForm({ nombre: '', subcategorias: [''] });
-      } else {
-        const err = await res.json();
-        alert(err.error || 'Error al guardar categoría');
-      }
+      const updated = await inventoryApi.listCategories();
+      setCategorias(updated as unknown as Categoria[]);
+      setShowCategoryModal(false);
+      setCategoryForm({ nombre: '', subcategorias: [''] });
     } catch (err) {
       console.error('Error saving categoria:', err);
+      alert(err instanceof Error ? err.message : 'Error al guardar categoría');
     } finally {
       setSavingCategoria(false);
     }
@@ -138,11 +123,9 @@ export default function MarcasTab() {
   const deleteCategoria = async (id: string) => {
     if (!confirm('¿Eliminar esta categoría y todas sus subcategorías?')) return;
     try {
-      const res = await fetch(`/api/inventario/categorias?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        const updated = await fetch('/api/inventario/categorias');
-        if (updated.ok) setCategorias(await updated.json());
-      }
+      await inventoryApi.deleteCategory(id);
+      const updated = await inventoryApi.listCategories();
+      setCategorias(updated as unknown as Categoria[]);
     } catch (err) {
       console.error('Error deleting categoria:', err);
     }
@@ -167,7 +150,7 @@ export default function MarcasTab() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar marca, código, tipo o distribuidor..."
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white max-w-xs"
+          className="bg-white/[0.04] backdrop-blur-md border border-white/10 rounded-xl text-slate-100 placeholder:text-slate-500 h-11 px-4 text-sm focus:outline-none focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-500/10 transition-all max-w-xs"
         />
         <div className="flex gap-2">
           <button
@@ -185,10 +168,10 @@ export default function MarcasTab() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl shadow-black/30 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+            <thead className="bg-white/[0.02]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
@@ -198,7 +181,7 @@ export default function MarcasTab() {
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Cargando...</td></tr>
               ) : filtered.length === 0 ? (
@@ -209,7 +192,7 @@ export default function MarcasTab() {
                     <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900 dark:text-white">{m.codigo}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{m.nombre}</td>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{m.tipo || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{(m as any).subcategoria || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{(m as Marca & { subcategoria?: string }).subcategoria || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{m.distribuidor?.nombre || '-'}</td>
                     <td className="px-4 py-3 text-right text-sm">
                       <button onClick={() => openEdit(m)} className="text-teal-600 hover:text-teal-800 mr-3">
