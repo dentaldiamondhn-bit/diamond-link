@@ -53,6 +53,9 @@ export async function getCalendarSession(): Promise<CalendarSession | null> {
   const { userId, sessionClaims } = await auth();
   if (!userId) return null;
   let role = roleFromSessionClaims(sessionClaims);
+  if (process.env.DEBUG_AUTH_ROLE === '1') {
+    console.log('[auth-debug]', { userId, role, claims: JSON.stringify(sessionClaims) });
+  }
   if ((TECH_SUPPORT_USER_IDS as readonly string[]).includes(userId)) {
     role = 'tech_support';
   }
