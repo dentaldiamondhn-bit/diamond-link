@@ -117,7 +117,7 @@ export default function AuthLayout({
 
   return providers(
     <>
-    <div className="ambient flex h-screen w-full min-w-0 bg-white/40 relative overflow-x-clip dark:bg-slate-950/40 print:block print:h-auto print:overflow-visible">
+    <div className="ambient flex h-screen w-full min-w-0 bg-slate-100 relative overflow-x-clip dark:bg-[#0a0e17] print:block print:h-auto print:overflow-visible">
       {/* Mobile Menu Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -158,7 +158,7 @@ export default function AuthLayout({
                   {/* Main Content */}
                   <div className={`flex-1 xl:ml-0 min-h-0 overflow-auto flex flex-col w-full min-w-0 transition-all duration-300 ${primaryCollapsed ? 'xl:pl-16' : ''} print:overflow-visible print:h-auto`}>
                     {/* Header with User Info */}
-                    <header className={`transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'} glass-tint border-b border-white/40 dark:border-white/5 px-3 sm:px-4 py-3 print:hidden`}>
+                    <header className={`transition-opacity duration-300 ${ready ? 'opacity-100' : 'opacity-0'} bg-white backdrop-blur-xl border-b border-slate-200 text-slate-800 shadow-sm dark:bg-slate-900/80 dark:backdrop-blur-xl dark:border-b dark:border-white/10 dark:text-slate-100 px-3 sm:px-4 py-3 print:hidden`}>
                     <div className="flex items-center justify-between">
                       {/* Left side - Page Title */}
                       <div className="flex items-center">
