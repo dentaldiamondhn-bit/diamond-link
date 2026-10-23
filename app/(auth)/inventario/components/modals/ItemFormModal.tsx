@@ -143,7 +143,24 @@ export default function ItemFormModal({ item, brands, onClose, onSaved }: ItemFo
 
     try {
       if (item) {
-        await inventoryApi.updateItem(item.id, payload);
+        // Send only fields the user edited so a stale modal can never
+        // revert data saved by a previous edit.
+        const changed: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(payload)) {
+          const original = item[key as keyof InventarioItem];
+          const normalize = (v: unknown) => (v ?? null) ?? null;
+          if (typeof value === 'number') {
+            const before = typeof original === 'number' ? original : Number(original ?? 0);
+            if (value !== before) changed[key] = value;
+          } else if (typeof value === 'boolean') {
+            if (value !== Boolean(original)) changed[key] = value;
+          } else if (normalize(value) !== normalize(original)) {
+            changed[key] = value;
+          }
+        }
+        if (Object.keys(changed).length > 0) {
+          await inventoryApi.updateItem(item.id, changed);
+        }
       } else {
         await inventoryApi.createItem({ ...payload, stock_actual: form.stock_actual });
       }
