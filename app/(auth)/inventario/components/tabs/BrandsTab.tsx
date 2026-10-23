@@ -168,7 +168,7 @@ export default function BrandsTab() {
         </div>
       </div>
 
-      <div className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl shadow-black/30 overflow-hidden">
+      <div className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-2xl dark:shadow-black/50 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-white/[0.02]">

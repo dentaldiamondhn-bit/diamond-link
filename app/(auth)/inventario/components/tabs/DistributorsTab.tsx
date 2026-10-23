@@ -157,7 +157,7 @@ export default function DistributorsTab() {
           <div className="col-span-full text-center py-12 text-gray-400">No hay distribuidores registrados</div>
         ) : (
           filtered.map(d => (
-            <div key={d.id} className="bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl shadow-black/30 p-4 hover:bg-slate-900/60 hover:border-white/20 hover:shadow-cyan-500/10 transition-all duration-300">
+            <div key={d.id} className="bg-white/80 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-2xl dark:shadow-black/50 rounded-2xl p-4 hover:bg-slate-900/60 hover:border-white/20 hover:shadow-cyan-500/10 transition-all duration-300">
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">{d.nombre}</h3>

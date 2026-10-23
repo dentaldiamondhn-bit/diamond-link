@@ -172,7 +172,7 @@ export default function InventarioPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0a0e17] dark:text-slate-100 -m-4 sm:-m-6 p-4 sm:p-6 transition-colors duration-300">
+    <div className="w-full min-h-screen p-4 sm:p-6 lg:p-8 bg-slate-100 dark:bg-[#0a0e17] transition-colors duration-300 text-slate-900 dark:text-slate-100">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute top-10 left-1/4 w-80 h-80 bg-cyan-500/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-10 right-1/4 w-80 h-80 bg-indigo-500/10 rounded-full blur-[100px]"></div>
