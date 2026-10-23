@@ -73,7 +73,17 @@ export default function DistributorsTab() {
     if (!form.nombre.trim()) return;
     try {
       if (editing) {
-        await inventoryApi.updateSupplier(editing.id, form);
+        // Deserialize-safe diff: only send fields the user changed so a
+        // stale modal can never overwrite data saved by a previous edit.
+        const changed: Record<string, string> = {};
+        (Object.keys(form) as (keyof typeof form)[]).forEach((key) => {
+          if (form[key] !== ((editing[key] as string | null) || '')) {
+            changed[key] = form[key];
+          }
+        });
+        if (Object.keys(changed).length > 0) {
+          await inventoryApi.updateSupplier(editing.id, changed);
+        }
       } else {
         await inventoryApi.createSupplier(form);
       }

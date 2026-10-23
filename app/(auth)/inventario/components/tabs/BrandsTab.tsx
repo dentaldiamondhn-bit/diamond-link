@@ -69,16 +69,29 @@ export default function BrandsTab() {
   const save = async () => {
     if (!form.codigo.trim() || !form.nombre.trim()) return;
     try {
-      const body: Record<string, unknown> = {
-        codigo: form.codigo,
-        nombre: form.nombre,
-        tipo: form.tipo || null,
-        subcategoria: form.subcategoria || null,
-      };
-      if (form.distribuidor_id) body.distribuidor_id = form.distribuidor_id;
       if (editing) {
-        await inventoryApi.updateBrand(editing.id, body);
+        // Only send fields the user changed so a stale modal can never
+        // overwrite data saved by a previous edit.
+        const changed: Record<string, unknown> = {};
+        (Object.keys(form) as (keyof typeof form)[]).forEach((key) => {
+          const original = key === 'distribuidor_id'
+            ? editing.distribuidor_id || ''
+            : (editing[key as keyof Marca] as string | null | undefined) || '';
+          if (form[key] !== original) {
+            changed[key] = key === 'distribuidor_id' && form[key] === '' ? null : form[key];
+          }
+        });
+        if (Object.keys(changed).length > 0) {
+          await inventoryApi.updateBrand(editing.id, changed);
+        }
       } else {
+        const body: Record<string, unknown> = {
+          codigo: form.codigo,
+          nombre: form.nombre,
+          tipo: form.tipo || null,
+          subcategoria: form.subcategoria || null,
+        };
+        if (form.distribuidor_id) body.distribuidor_id = form.distribuidor_id;
         await inventoryApi.createBrand(body);
       }
       await load();

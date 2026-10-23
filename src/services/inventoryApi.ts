@@ -25,7 +25,7 @@ export async function apiRequest<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetcher(url, { ...init, headers });
+  const response = await fetcher(url, { ...init, headers, cache: init.cache ?? 'no-store' });
 
   if (response.status === 204) {
     return undefined as T;
