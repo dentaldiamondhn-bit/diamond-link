@@ -164,8 +164,10 @@ export function mergeInventoryPatch<T extends { id?: string; created_at?: string
 
 export function isInventoryRole(role: string | null | undefined): boolean {
   if (typeof role !== 'string') return false;
-  const r = role.trim().toLowerCase();
-  return ['admin', 'tech_support', 'administrador', 'superadmin', 'owner'].includes(r);
+  const r = role.trim().toLowerCase().replace(/_/g, '');
+  if (['admin', 'techsupport', 'administrador', 'superadmin', 'owner', 'administrator'].includes(r)) return true;
+  if (r.includes('admin') || r.includes('support')) return true;
+  return false;
 }
 
 export function parseItemInput(raw: Record<string, unknown>): ItemInput {
