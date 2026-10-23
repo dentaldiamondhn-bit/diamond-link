@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
 /**
@@ -53,8 +53,22 @@ export async function getCalendarSession(): Promise<CalendarSession | null> {
   const { userId, sessionClaims } = await auth();
   if (!userId) return null;
   let role = roleFromSessionClaims(sessionClaims);
+  if (role === 'staff') {
+    // Session claims may not carry public_metadata depending on the JWT
+    // template; fall back to the full user record, which is the same
+    // source the client-side role hooks read from.
+    try {
+      const user = await currentUser();
+      const metaRole = (user?.publicMetadata as { role?: unknown } | null)?.role;
+      if (typeof metaRole === 'string' && metaRole) {
+        role = metaRole.toLowerCase();
+      }
+    } catch {
+      // keep claim-derived role if the fetch fails
+    }
+  }
   if (process.env.DEBUG_AUTH_ROLE === '1') {
-    console.log('[auth-debug]', { userId, role, claims: JSON.stringify(sessionClaims) });
+    console.log('[auth-debug]', { userId, role });
   }
   if ((TECH_SUPPORT_USER_IDS as readonly string[]).includes(userId)) {
     role = 'tech_support';
