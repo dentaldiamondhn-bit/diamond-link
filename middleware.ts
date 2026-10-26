@@ -5,6 +5,7 @@ import { isAuthorized, optionsResponse, propfindResponse, unauthorized } from '@
 const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
+  '/post-sign-in',
   '/privacy',
   '/terms',
   '/api/(.*)',

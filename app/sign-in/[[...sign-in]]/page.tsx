@@ -160,7 +160,7 @@ appearance={{
                 }}
                 routing="path"
                 path="/sign-in"
-                fallbackRedirectUrl="/dashboard"
+                fallbackRedirectUrl="/post-sign-in"
               />
             </div>
           )}
