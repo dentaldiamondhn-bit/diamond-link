@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { infraEndpointGuard } from '@/lib/apiSecurity';
 
 
 export async function POST(request: NextRequest) {
+  const guard = infraEndpointGuard(request);
+  if (guard) return guard;
+
   try {
     return NextResponse.json({ 
       success: true,

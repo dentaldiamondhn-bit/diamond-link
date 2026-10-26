@@ -196,6 +196,24 @@ export async function createPatient(formData: FormData) {
         firma_digital: '', // Will be updated with URL after upload
       };
 
+      // Enum select columns have CHECK constraints like
+      // CHECK (ortodoncia IN ('no', 'si')), and an untouched "Seleccionar"
+      // option submits ''. Mirror updatePatient's enum defense: any empty
+      // selection falls back to 'no' so the insert can never fail with a
+      // 23514 check violation.
+      const record = tempPatientData as unknown as Record<string, unknown>;
+      const enumSelectFields = [
+        'cafe', 'objetos', 'hielo', 'boca', 'refrescos', 'dulces', 'pegajosos',
+        'azucarados', 'encias', 'dolor', 'dolor_cabeza', 'chasquidos',
+        'dolor_oido', 'suction_digital', 'ortodoncia', 'sensibilidad',
+        'bruxismo', 'hilo_dental', 'enjuague_bucal',
+      ];
+      for (const field of enumSelectFields) {
+        if (record[field] === '') {
+          record[field] = 'no';
+        }
+      }
+
       // Calculate pregnancy status if applicable
       if (tempPatientData.embarazo === 'si' && tempPatientData.fecha_inicio && tempPatientData.semanas_embarazo) {
         // Import the pregnancy utils function

@@ -13,13 +13,12 @@ export async function GET(request: NextRequest) {
 
     // Get user with full metadata from Clerk
     const user = await currentUser();
-    
+
     return NextResponse.json({
       userId,
-      user: user,
-      publicMetadata: user?.publicMetadata,
-      privateMetadata: user?.privateMetadata,
-      unsafeMetadata: user?.unsafeMetadata,
+      user: user ? { ...user, privateMetadata: undefined } : null,
+      publicMetadata: user?.publicMetadata ?? null,
+      unsafeMetadata: user?.unsafeMetadata ?? null,
     });
   } catch (error) {
     console.error('Error getting user info:', error);

@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { infraEndpointGuard } from '@/lib/apiSecurity';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const guard = infraEndpointGuard(request);
+  if (guard) return guard;
+
   try {
     // Use service role key for admin operations
     const serviceClient = createClient(

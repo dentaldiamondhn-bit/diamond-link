@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { infraEndpointGuard } from '@/lib/apiSecurity';
 import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +12,8 @@ const supabase = createClient(
 
 // Setup webhook tables
 export async function POST(request: NextRequest) {
+  const guard = infraEndpointGuard(request);
+  if (guard) return guard;
   try {
     const { userId } = await auth();
     

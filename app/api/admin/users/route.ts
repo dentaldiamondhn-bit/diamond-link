@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClerkClient } from '@clerk/backend';
+import { requireAdmin } from '@/lib/apiClerk';
 
 // Ensure this API route runs dynamically at request time
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const gate = await requireAdmin();
+  if (gate.ok === false) return gate.response;
+
   try {
     console.log('API: Admin users GET request received');
     
@@ -45,6 +49,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const gate = await requireAdmin();
+  if (gate.ok === false) return gate.response;
+
   try {
     // Initialize Clerk client
     const clerk = createClerkClient({

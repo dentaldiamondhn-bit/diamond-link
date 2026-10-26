@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClerkClient } from '@clerk/backend';
+import { requireSession } from '@/lib/apiClerk';
 
 export async function GET(request: NextRequest) {
+  const gate = await requireSession();
+  if (gate.ok === false) return gate.response;
+
   try {
     // Get the ID from query parameters
     const { searchParams } = new URL(request.url);

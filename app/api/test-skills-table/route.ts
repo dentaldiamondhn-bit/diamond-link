@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { infraEndpointGuard } from '@/lib/apiSecurity';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,9 @@ const supabase = createClient(
 
 // Test endpoint to check skills table accessibility
 export async function GET(request: NextRequest) {
+  const guard = infraEndpointGuard(request);
+  if (guard) return guard;
+
   try {
     console.log('Testing skills table access...');
     

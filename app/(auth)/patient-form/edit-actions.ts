@@ -219,14 +219,24 @@ export async function updatePatient(patientId: string, formData: FormData) {
     }
     
     // Process main select fields - always save them, but validate enum fields
+    // Enum select columns are CHECK-constrained (e.g. CHECK (suction_digital
+    // IN ('no','si')); writing '' would fail with a 23514 check violation. For
+    // these, an empty "Seleccionar" selection means "no change": skip the
+    // write and keep the existing database value untouched.
+    const enumSelectFields = new Set([
+      'hielo', 'boca', 'refrescos', 'dulces', 'pegajosos', 'azucarados',
+      'suction_digital', 'protesis_nocturno', 'protesis_tipo', 'tipo_bruxismo',
+    ]);
     mainSelectFields.forEach(field => {
       const value = formData.get(field) as string;
       
       if (value !== null) {
+        if (enumSelectFields.has(field) && value.trim() === '') {
+          return;
+        }
         (patientData as any)[field] = value.trim();
       }
     });
-    
     // Process other optional fields - only save if not empty
     const otherOptionalFields = optionalFields.filter(field => !mainSelectFields.includes(field));
     otherOptionalFields.forEach(field => {

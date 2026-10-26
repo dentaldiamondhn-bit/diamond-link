@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { infraEndpointGuard } from '@/lib/apiSecurity';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,9 @@ const supabase = createClient(
 
 // Setup skills table
 export async function POST(request: NextRequest) {
+  const guard = infraEndpointGuard(request);
+  if (guard) return guard;
+
   try {
     // Allow internal calls without authentication for setup
     const isInternalCall = request.headers.get('x-internal-call') === 'true';

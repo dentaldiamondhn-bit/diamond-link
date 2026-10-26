@@ -322,8 +322,6 @@ function PatientFormContent() {
   const [edad, setEdad] = useState<number | ''>('');
   const [edadAlMomentoConsulta, setEdadAlMomentoConsulta] = useState<number | ''>('');
   const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaInicioDisplay, setFechaInicioDisplay] = useState('');
-  const [fechaNacDisplay, setFechaNacDisplay] = useState('');
   const [fechaNacIso, setFechaNacIso] = useState('');
   
   // Additional Personal Information state variables
@@ -519,14 +517,8 @@ function PatientFormContent() {
     tipo_alimentacion: (v) => setTipoAlimentacion(v),
     momentos_azucar: (v) => setMomentosAzucar(v),
     doctor: (v) => setDoctor(v),
-    fecha_inicio: (v) => {
-      setFechaInicio(v);
-      setFechaInicioDisplay(isoDateToDisplayMask(v));
-    },
-    fecha_nacimiento: (v) => {
-      setFechaNacIso(v);
-      setFechaNacDisplay(isoDateToDisplayMask(v));
-    },
+    fecha_inicio: (v) => setFechaInicio(v),
+    fecha_nacimiento: (v) => setFechaNacIso(v),
     seguro: (v) => setSeguro(v),
     otro_seguro: (v) => setOtroSeguro(v),
     poliza: (v) => setPoliza(v),
@@ -689,39 +681,19 @@ function PatientFormContent() {
     setDraftAvailable(false);
   };
 
-  // --- mm/dd/yyyy date mask helpers -----------------------------------------
-  // Some platforms let the native <input type="date"> year segment accept more
-  // than four digits. Masked text inputs hard-cap the year at four digits; the
-  // form still submits ISO dates through hidden mirror inputs so validation,
-  // drafts and server actions keep working unchanged.
-  const isoDateToDisplayMask = (iso: string): string => {
-    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${m[2]}/${m[3]}/${m[1]}` : '';
-  };
-  const maskMmDdyYyy = (raw: string): { display: string; iso: string } => {
-    const digits = raw.replace(/\D/g, '').slice(0, 8);
-    const mm = digits.slice(0, 2);
-    const dd = digits.slice(2, 4);
-    const yyyy = digits.slice(4, 8);
+  // --- native date picker helpers -------------------------------------------
+  // Date fields use native <input type="date"> pickers, whose value is already
+  // ISO yyyy-mm-dd. The onChange handlers guard the value with a strict regex so
+  // any device-specific oddity (e.g. year segments accepting more than four
+  // digits) falls back to '' instead of leaking a malformed date.
+  // NOTE: each date input must own its name key exclusively. If two controls
+  // (e.g. a visible input plus a hidden mirror) share the same form key, the
+  // named getters return a RadioNodeList whose .value is '' and validation
+  // reading form.fecha_* would always see an empty date, blocking the save.
+  const sanitizeIsoDate = (value: string): string =>
+    /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
 
-    let display = mm;
-    if (digits.length > 2) display += `/${dd}`;
-    if (digits.length > 4) display += `/${yyyy}`;
-
-    const mNum = Number(mm || 0);
-    const dNum = Number(dd || 0);
-    const yNum = yyyy.length === 4 ? Number(yyyy) : 0;
-    let iso = '';
-    if (yNum && mNum >= 1 && mNum <= 12 && dNum >= 1 && dNum <= 31) {
-      const probe = new Date(yNum, mNum - 1, dNum);
-      if (probe.getFullYear() === yNum && probe.getMonth() === mNum - 1 && probe.getDate() === dNum) {
-        iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-      }
-    }
-    return { display, iso };
-  };
-
-  // Calculate age from birthdate (receives the masked input's ISO value)
+  // Calculate age from birthdate (receives the date picker's ISO value)
   const handleFechaNacimientoIso = (iso: string) => {
     if (!iso) {
       setEdad('');
@@ -889,7 +861,6 @@ function PatientFormContent() {
       
       setDoctor(patient.doctor || '');
       setFechaInicio(patient.fecha_inicio || '');
-      setFechaInicioDisplay(isoDateToDisplayMask(patient.fecha_inicio || ''));
       setSeguro(patient.seguro || '');
       setContacto(patient.contacto || '');
       setHospitalizaciones(patient.hospitalizaciones || '');
@@ -924,7 +895,6 @@ function PatientFormContent() {
       setEdad(patient.edad || '');
       setEdadAlMomentoConsulta(patient.edad_al_momento_consulta || '');
       setFechaInicio(patient.fecha_inicio || '');
-      setFechaInicioDisplay(isoDateToDisplayMask(patient.fecha_inicio || ''));
       setOtroDoctor(patient.otro_doctor || '');
       setOtroSeguro(patient.otro_seguro || '');
       setPoliza(patient.poliza || '');
@@ -1019,7 +989,6 @@ function PatientFormContent() {
           
           const birthIso = patient?.fecha_nacimiento || '';
           setFechaNacIso(birthIso);
-          setFechaNacDisplay(isoDateToDisplayMask(birthIso));
           
           const ageInput = form.querySelector('#edad') as HTMLInputElement;
           if (ageInput) ageInput.value = patient?.edad?.toString() || '';
@@ -1065,7 +1034,6 @@ function PatientFormContent() {
           
           const startIso = patient.fecha_inicio || '';
           setFechaInicio(startIso);
-          setFechaInicioDisplay(isoDateToDisplayMask(startIso));
           // Trigger the change handler to update historical banner
           if (startIso) {
             void handleFechaInicioIso(startIso);
@@ -2018,28 +1986,22 @@ function PatientFormContent() {
 
           <label htmlFor="fecha_nacimiento" className="block mb-1 font-medium">Fecha de nacimiento:</label>
           <input 
-            type="text" 
-            inputMode="numeric"
+            type="date" 
             id="fecha_nacimiento" 
-            name="fecha_nacimiento_display" 
-            placeholder="mm/dd/yyyy"
-            autoComplete="off"
-            maxLength={10}
+            name="fecha_nacimiento" 
             required 
-            value={fechaNacDisplay}
+            value={fechaNacIso}
             className={`input px-3 py-2 text-gray-900 dark:text-white ${getFieldStyle('fecha_nacimiento')}`} 
             onChange={(e) => {
-              const mask = maskMmDdyYyy(e.target.value);
-              setFechaNacDisplay(mask.display);
-              setFechaNacIso(mask.iso);
-              handleFechaNacimientoIso(mask.iso);
-              updateFieldValidation('fecha_nacimiento', mask.iso);
+              const iso = sanitizeIsoDate(e.target.value);
+              setFechaNacIso(iso);
+              handleFechaNacimientoIso(iso);
+              updateFieldValidation('fecha_nacimiento', iso);
             }}
             style={{
               colorScheme: resolvedTheme,
             }}
           />
-          <input type="hidden" name="fecha_nacimiento" value={fechaNacIso} />
 
           <label htmlFor="edad" className="block mb-1 font-medium">Edad:</label>
           <input type="number" id="edad" name="edad" value={edad} readOnly className="input bg-gray-100 cursor-not-allowed" />
@@ -2527,27 +2489,21 @@ function PatientFormContent() {
 
           <label htmlFor="fecha_inicio" className="block mb-1 font-medium mt-4">Fecha inicio de consulta:</label>
           <input 
-            type="text" 
-            inputMode="numeric"
+            type="date" 
             id="fecha_inicio" 
-            name="fecha_inicio_display" 
-            placeholder="mm/dd/yyyy"
-            autoComplete="off"
-            maxLength={10}
+            name="fecha_inicio" 
             required 
-            value={fechaInicioDisplay}
+            value={fechaInicio}
             className={`input px-3 py-2 text-gray-900 dark:text-white ${getFieldStyle('fecha_inicio')}`} 
             onChange={(e) => {
-              const mask = maskMmDdyYyy(e.target.value);
-              setFechaInicioDisplay(mask.display);
-              void handleFechaInicioIso(mask.iso);
-              updateFieldValidation('fecha_inicio', mask.iso);
+              const iso = sanitizeIsoDate(e.target.value);
+              void handleFechaInicioIso(iso);
+              updateFieldValidation('fecha_inicio', iso);
             }}
             style={{
               colorScheme: resolvedTheme,
             }}
           />
-          <input type="hidden" name="fecha_inicio" value={fechaInicio} />
 
           <label htmlFor="seguro" className="block mb-1 font-medium mt-4">Seguro Medico:</label>
           <select

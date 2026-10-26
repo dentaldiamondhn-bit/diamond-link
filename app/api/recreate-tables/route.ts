@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { infraEndpointGuard } from '@/lib/apiSecurity';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const guard = infraEndpointGuard(request);
+  if (guard) return guard;
+
   try {
     const serviceClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

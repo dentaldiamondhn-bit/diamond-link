@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { infraEndpointGuard } from '@/lib/apiSecurity';
 import { execSync, spawn } from 'child_process';
 import { existsSync, statSync, readdirSync, readFileSync } from 'fs';
 import path from 'path';
@@ -20,6 +21,8 @@ const DIAMOND_LINK_COMMANDS = [
 ];
 
 export async function POST(request: NextRequest) {
+  const guard = infraEndpointGuard(request);
+  if (guard) return guard;
   try {
     const { command, cwd = '/home/dentaldiamondhn/clerk' } = await request.json();
     

@@ -30,20 +30,21 @@ function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
   response.headers.set('Vary', 'Accept-Encoding');
 
   if (req.nextUrl.pathname.startsWith('/api/')) {
-    const isUserScopedCalendarApi =
-      req.nextUrl.pathname.startsWith('/api/events') ||
-      req.nextUrl.pathname.startsWith('/api/tasks') ||
-      req.nextUrl.pathname.startsWith('/api/reminders');
-    const isCalendarRealtime = req.nextUrl.pathname.includes('/api/events/realtime');
+    // Chat-streaming routes control their own response headers; leave them unset.
+    const isChatStreamRoute =
+      req.nextUrl.pathname.includes('/api/odysseus-chat') ||
+      req.nextUrl.pathname.includes('/api/groq-chat') ||
+      req.nextUrl.pathname.includes('/api/ollama-chat');
+    // The only genuinely public API payload is the VAPID key handed to every
+    // logged-out browser for push subscription registration.
+    const isPublicApiRoute = req.nextUrl.pathname.includes('/api/push/vapid-public-key');
 
-    if (isUserScopedCalendarApi && !isCalendarRealtime) {
-      response.headers.set('Cache-Control', 'no-store');
-    } else if (
-      !req.nextUrl.pathname.includes('/api/odysseus-chat') &&
-      !req.nextUrl.pathname.includes('/api/groq-chat') &&
-      !req.nextUrl.pathname.includes('/api/ollama-chat')
-    ) {
-      response.headers.set('Cache-Control', 'public, max-age=7200, s-maxage=7200');
+    if (isPublicApiRoute) {
+      response.headers.set('Cache-Control', 'public, max-age=3600');
+    } else if (!isChatStreamRoute) {
+      // API responses are per-session by default (they carry user data,
+      // auth-gated payloads or per-tenant rows) — never shared-cacheable.
+      response.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
     }
     response.headers.set('X-RateLimit-Limit', '100');
     response.headers.set('X-RateLimit-Remaining', '99');

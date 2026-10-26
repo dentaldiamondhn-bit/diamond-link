@@ -1,5 +1,6 @@
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import { parseCommaSeparatedIds } from './apiSecurity';
 
 /**
  * Calendar-wide server-side auth (Phase 0 of CALENDARIO_OVERHAUL_PLAN).
@@ -43,15 +44,27 @@ export function isCalendarRole(role: string): boolean {
 
 /**
  * Masks replicated from `middleware.ts` so server route auth stays consistent
- * with page-level gating: the tech-support superuser is granted `tech_support`
- * unconditionally (metadata broken → still passes).
+ * with page-level gating: allowlisted tech-support superusers (from the
+ * TECH_SUPPORT_USER_IDS env var, comma-separated) are granted `tech_support`
+ * unconditionally. The list is empty when the env var is unset — fail-closed.
  */
-export const TECH_SUPPORT_USER_IDS = ['user_3A1mYfR054eV3tqtellpfMKZ7f6'] as const;
+export const TECH_SUPPORT_USER_IDS: readonly string[] = parseCommaSeparatedIds(
+  process.env.TECH_SUPPORT_USER_IDS
+);
 
 /** Resolve the Clerk session + role, or null when unauthenticated. */
 export async function getCalendarSession(): Promise<CalendarSession | null> {
-  const { userId, sessionClaims } = await auth();
-  if (!userId) return null;
+  let session: { userId: string | null; sessionClaims: unknown } | null = null;
+  try {
+    const resolved = await auth();
+    session = { userId: resolved.userId ?? null, sessionClaims: resolved.sessionClaims };
+  } catch {
+    // Clerk session could not be resolved (e.g. outage) — fail closed.
+    return null;
+  }
+  if (!session.userId) return null;
+  const userId = session.userId;
+  const sessionClaims = session.sessionClaims;
   let role = roleFromSessionClaims(sessionClaims);
   if (role === 'staff') {
     // Session claims may not carry public_metadata depending on the JWT

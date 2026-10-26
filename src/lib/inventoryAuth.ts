@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getCalendarSession, type CalendarAuthResult, roleFromSessionClaims } from './calendarAuth';
 import { isInventoryRole } from './inventory/domain';
 import { auth, currentUser } from '@clerk/nextjs/server';
+import { parseCommaSeparatedIds } from './apiSecurity';
 
 export async function authorizeAuthenticated(): Promise<CalendarAuthResult> {
   const session = await getCalendarSession();
@@ -15,7 +16,10 @@ export async function authorizeAuthenticated(): Promise<CalendarAuthResult> {
   return { ok: true, userId: session.userId, role: session.role };
 }
 
-const ADMIN_USER_IDS = ['user_3A1mYfR054eV3tqtellpfMKZ7f6'];
+/** Superuser allowlist for inventory admin bypasses; env-driven, fail-closed. */
+export const ADMIN_USER_IDS: readonly string[] = parseCommaSeparatedIds(
+  process.env.TECH_SUPPORT_USER_IDS
+);
 
 export async function authorizeInventory(deepRoleCheck = true): Promise<CalendarAuthResult> {
   const result = await authorizeAuthenticated();

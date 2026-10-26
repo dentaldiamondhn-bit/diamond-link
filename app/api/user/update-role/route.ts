@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClerkClient } from '@clerk/backend';
+import { requireAdmin } from '@/lib/apiClerk';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  const gate = await requireAdmin();
+  if (gate.ok === false) return gate.response;
+
   try {
     // Initialize Clerk client
     const clerk = createClerkClient({
