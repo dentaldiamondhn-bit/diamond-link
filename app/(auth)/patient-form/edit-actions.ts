@@ -103,6 +103,7 @@ async function updatePatientServer(id: string, updates: Partial<Patient>): Promi
 }
 
 export async function updatePatient(patientId: string, formData: FormData) {
+  let updatedPatientId: string | undefined;
   try {
     console.log('🔍 Starting patient update for ID:', patientId);
     
@@ -412,12 +413,21 @@ export async function updatePatient(patientId: string, formData: FormData) {
       // Don't fail the whole operation if notification fails
     }
     
-    // Redirect to menu-navegacion with patient context
-    const pacienteId = updatedPatient.paciente_id;
-    redirect(`/menu-navegacion?id=${encodeURIComponent(pacienteId)}`);
-    
+    // Remember the updated patient so the redirect can run after the
+    // try/catch (redirect() aborts control flow by throwing a
+    // NEXT_REDIRECT digest error).
+    updatedPatientId = updatedPatient.paciente_id;
+
   } catch (error) {
     console.error('Error updating patient:', error);
     throw error;
   }
+
+  // Redirect to menu-navegacion with patient context. MUST stay outside the
+  // try/catch: redirect() aborts control flow by throwing a NEXT_REDIRECT
+  // digest error, and a catch would log a successful save as a failure.
+  if (!updatedPatientId) {
+    throw new Error('Patient update returned no id');
+  }
+  redirect(`/menu-navegacion?id=${encodeURIComponent(updatedPatientId)}`);
 }

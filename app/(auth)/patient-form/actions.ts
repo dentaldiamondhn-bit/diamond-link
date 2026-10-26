@@ -51,6 +51,7 @@ function calculateEdadAlMomentoConsulta(fechaNacimiento: string, fechaInicio: st
 }
 
 export async function createPatient(formData: FormData) {
+  let createdPatientId: string | undefined;
   try {
     // Handle signature upload if present
     let signatureUrl = null;
@@ -265,9 +266,10 @@ export async function createPatient(formData: FormData) {
         }
       }
       
-      // Redirect to menu-navegacion with patient context
-      const pacienteId = patient.paciente_id;
-      redirect(`/menu-navegacion?id=${encodeURIComponent(pacienteId)}`);
+      // Remember the created patient so the redirect can run after the
+      // try/catch (redirect() aborts control flow by throwing a
+      // NEXT_REDIRECT digest error).
+      createdPatientId = patient.paciente_id;
     } catch (error) {
       console.error('Error creating patient:', error);
       console.error('Error details:', {
@@ -280,4 +282,12 @@ export async function createPatient(formData: FormData) {
       // You might want to redirect to an error page or handle the error differently
       throw error;
     }
+
+    // Redirect to menu-navegacion with patient context. MUST stay outside the
+    // try/catch: redirect() aborts control flow by throwing a NEXT_REDIRECT
+    // digest error, and a catch would log a successful save as a failure.
+    if (!createdPatientId) {
+      throw new Error('Patient creation returned no id');
+    }
+    redirect(`/menu-navegacion?id=${encodeURIComponent(createdPatientId)}`);
 }

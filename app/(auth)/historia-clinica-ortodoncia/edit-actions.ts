@@ -44,9 +44,13 @@ export async function updateOrthodonticHistoryAction(formData: FormData) {
 
   try {
     await updateOrthodonticHistory(recordId, submitData);
-    redirect(`/historia-clinica-ortodoncia?id=${patientId}&edit=true`);
   } catch (error) {
     console.error('Error updating orthodontic history:', error);
     throw new Error(`Error al actualizar historia clínica ortodóncica: ${error.message}`);
   }
+
+  // redirect() aborts control flow by throwing a NEXT_REDIRECT digest error;
+  // it must never run inside a try/catch or the successful save is reported
+  // as "Error al actualizar...".
+  redirect(`/historia-clinica-ortodoncia?id=${patientId}&edit=true`);
 }

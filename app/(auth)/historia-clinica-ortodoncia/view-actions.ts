@@ -18,12 +18,13 @@ export async function viewOrthodonticHistory(formData: FormData) {
     if (!history) {
       throw new Error('No se encontró historia clínica ortodóncica para este paciente');
     }
-
-    // Redirect to edit page with patient ID
-    redirect(`/historia-clinica-ortodoncia?id=${patientId}&edit=true`);
-    
   } catch (error) {
     console.error('Error viewing orthodontic history:', error);
     throw new Error(`Error al ver historia clínica ortodóncica: ${error.message}`);
   }
+
+  // redirect() aborts control flow by throwing a NEXT_REDIRECT digest error;
+  // it must never run inside a try/catch or the successful lookup is reported
+  // as "Error al ver...".
+  redirect(`/historia-clinica-ortodoncia?id=${patientId}&edit=true`);
 }
