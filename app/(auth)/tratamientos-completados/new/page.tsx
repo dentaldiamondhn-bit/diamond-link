@@ -9,7 +9,6 @@ import { Patient } from '../../../../types/patient';
 import { AVAILABLE_DOCTORS, getDoctorById, Doctor } from '../../../../config/doctors';
 import { getRecordCategoryInfoSync, generateTranscriptionMetadata } from '../../../../utils/recordCategoryUtils';
 import { useHistoricalMode } from '../../../../contexts/HistoricalModeContext';
-import AnimatedRubish from '@/components/AnimatedRubish';
 import { getPatientType } from '../../../../utils/patientTypeUtils';
 import { supabase } from '../../../../lib/supabase';
 import { useUser } from '@clerk/nextjs';
@@ -58,6 +57,8 @@ import LoadingAnimation from '../../../../components/LoadingAnimation';
 import { TreatmentModalWrapper } from '../../../../components/TreatmentModalWrapper';
 import { useTreatmentModal } from '../../../../contexts/TreatmentModalContext';
 import { TreatmentService } from '../../../../services/treatmentService';
+import dynamic from 'next/dynamic';
+const AnimatedRubish = dynamic(() => import('@/components/AnimatedRubish'), { ssr: false });
 
 interface Treatment {
   id: number;

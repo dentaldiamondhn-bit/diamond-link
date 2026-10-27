@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import AnimatedVer from './AnimatedVer';
 import DocumentPreviewModal from './DocumentPreviewModal';
-import AnimatedRubish from './AnimatedRubish';
+import dynamic from 'next/dynamic';
+const AnimatedVer = dynamic(() => import('./AnimatedVer'), { ssr: false });
+const AnimatedRubish = dynamic(() => import('./AnimatedRubish'), { ssr: false });
 
 interface DocumentDisplayProps {
   documents: string[];

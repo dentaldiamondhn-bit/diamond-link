@@ -2,7 +2,8 @@
 
 import React from 'react';
 import SignaturePadComponent from './SignaturePad';
-import AnimatedBorderContainer from './AnimatedBorderContainer';
+import dynamic from 'next/dynamic';
+const AnimatedBorderContainer = dynamic(() => import('./AnimatedBorderContainer'), { ssr: false });
 
 interface SignatureSectionProps {
   value?: string | null;

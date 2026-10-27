@@ -39,11 +39,12 @@ import { LABEL_COLORS, formatDate, fullName, primaryPhone } from '@/lib/contacts
 import { formatPhoneDisplay, openPrintView, sharePatientContact } from '@/lib/contacts/vcard';
 import { whatsappHref, openWhatsAppConversation, isNativeShell } from '@/lib/contacts/vcard';
 import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { PatientLinkModal } from './PatientLinkModal';
 import { ContactAvatar } from './ContactAvatar';
 import { ContactQuickActions } from './ContactQuickActions';
+import dynamic from 'next/dynamic';
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
 
 type SheetTab = 'info' | 'medical' | 'labels';
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { useUserRole } from '@/hooks/useUserRole';
 import { usePagePreferences, useUserPreferences } from '@/hooks/useUserPreferences';
@@ -16,25 +17,27 @@ import type {
   FinancialExportPayload,
 } from '@/types/financial';
 import { useTheme } from '@/contexts/ThemeContext';
-import { 
-  LineChart, 
-  Line, 
-  AreaChart, 
-  Area, 
-  BarChart, 
-  Bar, 
-  PieChart, 
-  Pie, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer,
-  RadialBarChart,
-  RadialBar,
-  Cell
-} from 'recharts';
+// Recharts is a heavy charting library that is only needed once the reports
+// page renders its charts. Loading the components lazily keeps recharts out of
+// the page's initial bundle.
+const recharts = () => import('recharts');
+const LineChart = dynamic(() => recharts().then((m) => m.LineChart), { ssr: false });
+const Line = dynamic(() => recharts().then((m) => m.Line), { ssr: false });
+const AreaChart = dynamic(() => recharts().then((m) => m.AreaChart), { ssr: false });
+const Area = dynamic(() => recharts().then((m) => m.Area), { ssr: false });
+const BarChart = dynamic(() => recharts().then((m) => m.BarChart), { ssr: false });
+const Bar = dynamic(() => recharts().then((m) => m.Bar), { ssr: false });
+const PieChart = dynamic(() => recharts().then((m) => m.PieChart), { ssr: false });
+const Pie = dynamic(() => recharts().then((m) => m.Pie), { ssr: false });
+const XAxis = dynamic(() => recharts().then((m) => m.XAxis), { ssr: false });
+const YAxis = dynamic(() => recharts().then((m) => m.YAxis), { ssr: false });
+const CartesianGrid = dynamic(() => recharts().then((m) => m.CartesianGrid), { ssr: false });
+const Tooltip = dynamic(() => recharts().then((m) => m.Tooltip), { ssr: false });
+const Legend = dynamic(() => recharts().then((m) => m.Legend), { ssr: false });
+const ResponsiveContainer = dynamic(() => recharts().then((m) => m.ResponsiveContainer), { ssr: false });
+const RadialBarChart = dynamic(() => recharts().then((m) => m.RadialBarChart), { ssr: false });
+const RadialBar = dynamic(() => recharts().then((m) => m.RadialBar), { ssr: false });
+const Cell = dynamic(() => recharts().then((m) => m.Cell), { ssr: false });
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import AccessDenied from '@/components/AccessDenied';
 import { 

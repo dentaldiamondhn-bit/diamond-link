@@ -12,10 +12,11 @@ import { Paquete } from '@/types/paquete';
 import { Insumo } from '@/types/insumo';
 import { Odontogram, DienteData } from '@/types/odontogram';
 import { parseConteoPorEstado } from '@/services/presupuestoService';
-import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult, drawConteoBadges } from '@/services/pdfAssets';
-import jsPDF from 'jspdf';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
-import AnimatedRubish from '@/components/AnimatedRubish';
+import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult, drawConteoBadges, loadJsPdf } from '@/services/pdfAssets';
+import type jsPDF from 'jspdf';
+import dynamic from 'next/dynamic';
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
+const AnimatedRubish = dynamic(() => import('@/components/AnimatedRubish'), { ssr: false });
 
 // Define Promotion interface
 interface Promotion {
@@ -780,7 +781,10 @@ function PresupuestosPageContent() {
   };
 
   const generateQuotePdf = async (quote: Quote): Promise<jsPDF> => {
-    const pdf = new jsPDF();
+    // jspdf is only needed when a quote is exported — load it on demand so the
+    // library stays out of the page bundle.
+    const JsPDF = await loadJsPdf();
+    const pdf = new JsPDF();
     const pageWidth = pdf.internal.pageSize.getWidth();
     const margin = 20;
     let y = 30;

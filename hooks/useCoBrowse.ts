@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { record, takeFullSnapshot, type eventWithTime } from 'rrweb';
+// rrweb and pako are only needed once a co-browse session actually starts, so
+// they are imported dynamically inside startSupportSession instead of being
+// shipped with the authenticated shell bundle.
+import type { record as rrwebRecord, eventWithTime } from 'rrweb';
 import { useUser } from '@clerk/nextjs';
-import pako from 'pako';
 import {
   createCobrowseChannel,
   broadcastEvent,
@@ -53,7 +55,7 @@ function findScrollable(el: Element | null): Element | null {
  *  - recordCrossOriginIframes disabled + recordCanvas disabled so no
  *    incidental image data leaks
  */
-const RECORD_OPTIONS: Parameters<typeof record>[0] = {
+const RECORD_OPTIONS: Parameters<typeof rrwebRecord>[0] = {
   maskAllInputs: true,
   blockClass: 'rr-block',
   blockSelector: '[data-rr-block]',
@@ -112,6 +114,10 @@ export function useCoBrowse() {
     sessionIdRef.current = newSessionId;
     setAgentInfo(null);
 
+    // Load the recorder only now: rrweb is heavy and only needed while a
+    // session is actually being recorded.
+    const { record, takeFullSnapshot } = await import('rrweb');
+
     console.log(`[co-browse] client session ${newSessionId} — joining Supabase channel`);
 
     let lastFullSnapshot: eventWithTime | null = null;
@@ -119,7 +125,8 @@ export function useCoBrowse() {
     const uploadFullSnapshot = async (event: eventWithTime, channel: RealtimeChannel, sid: string) => {
       try {
         const json = JSON.stringify(event);
-        const compressed = pako.gzip(json);
+        const { gzip } = await import('pako');
+        const compressed = gzip(json);
         console.log(`[co-browse] FullSnapshot: ${json.length} bytes → ${compressed.length} bytes gzip`);
 
         setFullsnapshotStatus('uploading...');

@@ -1,6 +1,9 @@
+'use client';
+
 import React, { useState, useEffect, useCallback } from 'react';
-import AnimatedLeft from './AnimatedLeft';
-import AnimatedRight from './AnimatedRight';
+import dynamic from 'next/dynamic';
+const AnimatedLeft = dynamic(() => import('./AnimatedLeft'), { ssr: false });
+const AnimatedRight = dynamic(() => import('./AnimatedRight'), { ssr: false });
 
 // Utility function to extract filename from URL (matches DocumentDisplay logic)
 const getFileName = (url: string): string => {

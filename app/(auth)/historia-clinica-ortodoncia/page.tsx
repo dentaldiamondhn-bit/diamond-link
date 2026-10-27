@@ -28,10 +28,11 @@ import { useProgressCalculation } from '@/hooks/useProgressCalculation';
 import { useVersionManagement } from '@/hooks/useVersionManagement';
 import { OrthodonticVersion, normalizeRadiografias, isVersionLocked } from '@/utils/versionUtils';
 import { calculateProgress, extractMonthsFromDuration, calculateEstimatedAppointments } from '@/utils/progressUtils';
-import AnimatedLeft from '@/components/AnimatedLeft';
-import AnimatedRight from '@/components/AnimatedRight';
 import AdminOverrideModal from '@/components/AdminOverrideModal';
 import { useAdminOverride } from '@/contexts/AdminOverrideContext';
+import dynamic from 'next/dynamic';
+const AnimatedLeft = dynamic(() => import('@/components/AnimatedLeft'), { ssr: false });
+const AnimatedRight = dynamic(() => import('@/components/AnimatedRight'), { ssr: false });
 
 // Utility function to extract filename from URL (matches DocumentDisplay logic)
 const getFileName = (url: string): string => {

@@ -7,7 +7,7 @@ import { consentimientoService } from '../../../../../services/consentimientoSer
 import { Patient } from '../../../../../types/patient';
 import { supabase } from '../../../../../lib/supabase';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
+import { loadJsPdf } from '@/services/pdfAssets';
 import { useHistoricalMode } from '../../../../../contexts/HistoricalModeContext';
 import { getRecordCategoryInfo } from '../../../../../utils/recordCategoryUtils';
 import HistoricalBanner from '../../../../../components/HistoricalBanner';
@@ -85,7 +85,9 @@ export default function ConsentimientoPreview() {
     
     try {
       // Create PDF
-      const pdf = new jsPDF();
+      // jspdf is only needed when the document is printed/exported.
+      const JsPDF = await loadJsPdf();
+      const pdf = new JsPDF();
       
       // Add title (skip logo for now to ensure PDF works)
       pdf.setFontSize(20);

@@ -74,7 +74,15 @@ if (existsSync(CSS_DIR)) {
 }
 
 // Stable public shell assets.
-for (const f of ['/manifest.json', '/Logo.svg', '/favicon.ico']) {
+for (const f of [
+  '/manifest.json',
+  '/Logo.svg',
+  '/favicon.ico',
+  '/fonts/fa-subset.css',
+  '/fonts/fa-solid-subset.woff2',
+  '/fonts/fa-brands-subset.woff2',
+  '/fonts/fa-regular-subset.woff2',
+]) {
   if (existsSync(join(ROOT, 'public', f.replace(/^\//, '')))) add(f);
 }
 

@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { X, Trash2, Pencil, CopyPlus, Loader2, MapPin, UserRound, CalendarDays, Clock, Stethoscope, FileText, Bell, Mail, ArrowUpRight, Phone, LayoutGrid, FilePlus2, ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
 import { formatPhoneDisplay, createWhatsAppUrl } from '@/utils/phoneUtils';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import type { ClinicEvent } from '@/lib/types-calendar';
 import { formatClock12 } from '@/calendario/timezone';
 import {
@@ -34,6 +33,8 @@ import {
 } from '@/calendario/glass';
 import { withAlpha } from '@/calendario/eventTint';
 import { cn } from '@/lib/utils';
+import dynamic from 'next/dynamic';
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
 
 interface Props {
   /** Non-null while the drawer is open (C18 — slot/event select => detail drawer). */

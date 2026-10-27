@@ -1,9 +1,13 @@
-import { Workbook, type Row, type Worksheet } from 'exceljs';
+import type { Row, Worksheet } from 'exceljs';
+import { loadExcelJs } from './loadExcelJs';
 import { saveAs } from 'file-saver';
-import { FinancialExportPayload } from '@/types/financial';
+import type { FinancialExportPayload } from '@/types/financial';
+
+export { loadExcelJs };
 
 export async function exportFinancialsToExcel(data: FinancialExportPayload) {
-  const workbook = new Workbook();
+  const ExcelJS = await loadExcelJs();
+  const workbook = new ExcelJS.Workbook();
   workbook.creator = data.clinicName || 'Dental Clinic Management System';
   workbook.created = new Date();
 

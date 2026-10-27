@@ -6,7 +6,6 @@ import { PatientService } from '../../../services/patientService';
 import { Patient } from '../../../types/patient';
 import Link from 'next/link';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { getPatientType } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
@@ -22,6 +21,8 @@ import MobileLayout from '@/components/MobileLayout';
 import { VirtualizedPatientList } from '@/components/VirtualizedPatientList';
 import { useDeviceInfo, getDeviceSpecificStyles } from '@/hooks/useDeviceInfo';
 import { useMobileAnalytics } from '@/services/mobileAnalyticsService';
+import dynamic from 'next/dynamic';
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
 
 export default function PacientesPage() {
   const [patients, setPatients] = useState<Patient[]>([]);

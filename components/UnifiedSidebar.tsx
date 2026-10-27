@@ -3,14 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import HydratedUserButton from './HydratedUserButton';
 import { useTutorial } from '../contexts/TutorialContext';
-import AnimatedUser from './AnimatedUser';
-import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
-import AnimatedUsers from './AnimatedUsers';
-import AnimatedReport from './AnimatedReport';
+// Lottie icons never render on the server, so loading them lazily is visually
+// identical and keeps lottie-web out of the authenticated shell bundle.
+const AnimatedTratamientosCompletados = dynamic(() => import('./AnimatedTratamientosCompletados'), { ssr: false });
+const AnimatedUsers = dynamic(() => import('./AnimatedUsers'), { ssr: false });
+const AnimatedReport = dynamic(() => import('./AnimatedReport'), { ssr: false });
 import { DarkModeToggle } from './DarkModeToggle';
 import { getAvailableDoctorsSync, Doctor } from '../config/doctors';
 import { cn } from '@/lib/utils';

@@ -17,11 +17,12 @@ import { supabase } from '@/lib/supabase';
 import HistoricalBadge from '@/components/HistoricalBadge';
 import HistoricalBanner from '@/components/HistoricalBanner';
 import Link from 'next/link';
-import AnimatedFolder from '@/components/AnimatedFolder';
-import AnimatedVer from '@/components/AnimatedVer';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import DocumentPreviewModal from '@/components/DocumentPreviewModal';
 import LoadingAnimation from '@/components/LoadingAnimation';
+import dynamic from 'next/dynamic';
+const AnimatedFolder = dynamic(() => import('@/components/AnimatedFolder'), { ssr: false });
+const AnimatedVer = dynamic(() => import('@/components/AnimatedVer'), { ssr: false });
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.xls', '.xlsx', '.doc', '.docx'];
 

@@ -53,13 +53,17 @@ export default function RootLayout({
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="application-name" content="Diamond Link" />
           <link rel="manifest" href="/manifest.json" />
-          <link 
-            rel="stylesheet" 
-            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-            integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+          {/* Font Awesome is self-hosted and trimmed to the glyphs the app
+              actually uses (scripts/build-fa-subset.mjs) instead of the
+              render-blocking cdnjs stylesheet. */}
+          <link
+            rel="preload"
+            href="/fonts/fa-solid-subset.woff2"
+            as="font"
+            type="font/woff2"
             crossOrigin="anonymous"
-            referrerPolicy="no-referrer"
           />
+          <link rel="stylesheet" href="/fonts/fa-subset.css" />
           <link rel="icon" href="/Logo.svg" />
           <link rel="shortcut icon" href="/Logo.svg" />
           <link rel="apple-touch-icon" href="/Logo.svg" />

@@ -2,7 +2,8 @@
 
 import { Phone, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
+import dynamic from 'next/dynamic';
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
 import {
   formatToE164,
   smsDeepLink,

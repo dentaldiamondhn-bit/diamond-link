@@ -30,8 +30,10 @@ import { UserAvatar } from '../../../components/ui/UserComponents';
 import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import PatientsTableModal from '../../../components/PatientsTableModal';
 import { formatClock12 } from '@/calendario/timezone';
+import { CalendarRepository } from '@/calendario/calendarRepository';
 import { formatPhoneDisplay, createWhatsAppUrl } from '@/utils/phoneUtils';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
+import dynamic from 'next/dynamic';
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
 
 // Safe locale formatters: some mobile browsers (Android WebView / in-app
 // browsers) ship reduced ICU data and throw `RangeError: Incorrect locale
@@ -281,17 +283,19 @@ export default function DashboardPage() {
       const userUpcomingEvents = evRes.ok ? await evRes.json() : [];
       setUpcomingEvents(userUpcomingEvents);
 
+      // One batched request for every event's participants instead of one
+      // request per event (the /api/events/participants?ids= endpoint applies
+      // the same membership checks as the per-event route).
+      const upcomingEvents = userUpcomingEvents as Array<{ id?: number }>;
+      const eventIds = upcomingEvents
+        .map((event) => event.id)
+        .filter((id): id is number => typeof id === 'number' && Number.isFinite(id));
+      const batchedParticipants = await CalendarRepository.getParticipants(eventIds);
+
       const participantsData: Record<string, any[]> = {};
       for (const event of userUpcomingEvents) {
         if (event.id) {
-          const res = await fetch(`/api/events/${event.id}/participants`, {
-            headers: { 'x-user-id': event.user_id },
-          });
-          if (res.ok) {
-            participantsData[event.id] = await res.json();
-          } else {
-            participantsData[event.id] = [];
-          }
+          participantsData[event.id] = batchedParticipants[event.id] || [];
         }
       }
       setEventParticipants(participantsData);
@@ -305,105 +309,113 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         const doctorName = user?.fullName || '';
-        
-        // Fetch role-specific data
-        
-        // Fetch upcoming events for logged-in user
-        await refreshUpcomingEvents();
-        
+
+        // Upcoming events and the role-specific metrics are independent — run
+        // them concurrently instead of one waterfall after the other.
+        const upcomingEventsPromise = refreshUpcomingEvents();
+
         if (userRole === 'doctor') {
-          // Fetch doctor's patients and stats
-          const doctorPatients = await PatientService.getPatientsByDoctor(doctorName);
-          const doctorPatientStats = await PatientService.getDoctorPatientStats(doctorName);
+          // Fetch doctor's patients and stats, revenue and follow-up in one go.
+          const [
+            doctorPatients,
+            doctorPatientStats,
+            prospectCount,
+            completedCount,
+            individualCount,
+            revenue,
+            avgRevenue,
+            followUpJson,
+          ] = await Promise.all([
+            PatientService.getPatientsByDoctor(doctorName),
+            PatientService.getDoctorPatientStats(doctorName),
+            // Prospect orto count (active odontograms marked as ortho prospects)
+            import('../../../services/odontogramPilotService').then((m) =>
+              m.OdontogramPilotService.getProspectOrtoCount()
+            ),
+            CompletedTreatmentService.getCompletedTreatmentsCountByDoctor(doctorName),
+            // Individual treatments count for current month
+            CompletedTreatmentService.getIndividualTreatmentsCountByDoctor(doctorName),
+            CompletedTreatmentService.getDoctorRevenue(doctorName),
+            CompletedTreatmentService.getDoctorAverageRevenue(doctorName),
+            fetch('/api/patient-follow-up?type=all').then((res) => res.json()),
+          ]);
+
           setPatientCount(doctorPatients.length);
           setPatientStats(doctorPatientStats);
-
-          // Fetch prospect orto count (active odontograms marked as ortho prospects)
-          const { OdontogramPilotService } = await import('../../../services/odontogramPilotService');
-          const prospectCount = await OdontogramPilotService.getProspectOrtoCount();
           setProspectOrtoCount(prospectCount);
-
-          const completedCount = await CompletedTreatmentService.getCompletedTreatmentsCountByDoctor(doctorName);
           setTreatmentCount(completedCount);
-
-          // Fetch individual treatments count for current month
-          const individualCount = await CompletedTreatmentService.getIndividualTreatmentsCountByDoctor(doctorName);
           setIndividualTreatmentCount(individualCount);
-
-          // Fetch doctor's revenue and average
-          const revenue = await CompletedTreatmentService.getDoctorRevenue(doctorName);
-          const avgRevenue = await CompletedTreatmentService.getDoctorAverageRevenue(doctorName);
           setDoctorRevenue(revenue);
           setAverageRevenue(avgRevenue);
-
-          // Fetch follow-up count
-          const followUpRes = await fetch('/api/patient-follow-up?type=all');
-          const followUpJson = await followUpRes.json();
           setFollowUpCount(followUpJson.data?.length || 0);
 
         } else if (userRole === 'admin') {
-          // Fetch all patients for admin
-          const allPatients = await PatientService.getPatients();
-          setPatientCount(allPatients.length);
-
-          // Fetch prospect orto count (active odontograms marked as ortho prospects)
-          const { OdontogramPilotService } = await import('../../../services/odontogramPilotService');
-          const prospectCount = await OdontogramPilotService.getProspectOrtoCount();
-          setProspectOrtoCount(prospectCount);
-
-          // Fetch treatments count for current month
+          // Treatments count for current month
           const now = new Date();
           const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
           const firstOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
           const { supabase } = await import('../../../lib/supabase');
-          
-          const { data: monthlyCompleted } = await supabase
-            .from('tratamientos_completados')
-            .select(`
-              id,
-              fecha_cita,
-              vista_tratamientos_realizados_detalles!inner (
-                doctor_name
-              )
-            `)
-            .gte('fecha_cita', firstOfMonth.toISOString().split('T')[0])
-            .lt('fecha_cita', firstOfNextMonth.toISOString().split('T')[0]);
-          setTreatmentCount(monthlyCompleted?.length || 0);
-          
-          // Fetch individual treatments count for current month
-          const { data: monthlyItems } = await supabase
-            .from('vista_tratamientos_realizados_detalles')
-            .select('id')
-            .gte('creado_en', firstOfMonth.toISOString())
-            .lt('creado_en', firstOfNextMonth.toISOString());
-          setIndividualTreatmentCount(monthlyItems?.length || 0);
-
-          // Fetch follow-up count
-          const followUpRes = await fetch('/api/patient-follow-up?type=all');
-          const followUpJson = await followUpRes.json();
-          setFollowUpCount(followUpJson.data?.length || 0);
 
           // Today's cash actually received (excludes saldo_positivo credit-usage)
           const today = new Date();
           const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
           const tomorrowStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-          const { ReportsService } = await import('../../../services/reportsService');
-          const receivedToday = await ReportsService.getCashReceivedInRange(
-            todayStart.toISOString(),
-            tomorrowStart.toISOString()
-          );
+
+          const [allPatients, prospectCount, monthlyCompleted, monthlyItems, followUpJson, receivedToday] =
+            await Promise.all([
+              PatientService.getPatients(),
+              // Prospect orto count (active odontograms marked as ortho prospects)
+              import('../../../services/odontogramPilotService').then((m) =>
+                m.OdontogramPilotService.getProspectOrtoCount()
+              ),
+              supabase
+                .from('tratamientos_completados')
+                .select(`
+                  id,
+                  fecha_cita,
+                  vista_tratamientos_realizados_detalles!inner (
+                    doctor_name
+                  )
+                `)
+                .gte('fecha_cita', firstOfMonth.toISOString().split('T')[0])
+                .lt('fecha_cita', firstOfNextMonth.toISOString().split('T')[0])
+                .then((res) => res.data),
+              supabase
+                .from('vista_tratamientos_realizados_detalles')
+                .select('id')
+                .gte('creado_en', firstOfMonth.toISOString())
+                .lt('creado_en', firstOfNextMonth.toISOString())
+                .then((res) => res.data),
+              fetch('/api/patient-follow-up?type=all').then((res) => res.json()),
+              import('../../../services/reportsService').then((m) =>
+                m.ReportsService.getCashReceivedInRange(
+                  todayStart.toISOString(),
+                  tomorrowStart.toISOString()
+                )
+              ),
+            ]);
+
+          setPatientCount(allPatients.length);
+          setProspectOrtoCount(prospectCount);
+          setTreatmentCount(monthlyCompleted?.length || 0);
+          setIndividualTreatmentCount(monthlyItems?.length || 0);
+          setFollowUpCount(followUpJson.data?.length || 0);
           setTodayIncome(receivedToday);
 
         } else {
           // For staff and others, fetch all patients
-          const patients = await PatientService.getPatients();
+          const [patients, prospectCount] = await Promise.all([
+            PatientService.getPatients(),
+            // Prospect orto count (active odontograms marked as ortho prospects)
+            import('../../../services/odontogramPilotService').then((m) =>
+              m.OdontogramPilotService.getProspectOrtoCount()
+            ),
+          ]);
           setPatientCount(patients.length);
-
-          // Fetch prospect orto count (active odontograms marked as ortho prospects)
-          const { OdontogramPilotService } = await import('../../../services/odontogramPilotService');
-          const prospectCount = await OdontogramPilotService.getProspectOrtoCount();
           setProspectOrtoCount(prospectCount);
         }
+
+        await upcomingEventsPromise;
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         setPatientCount(0);

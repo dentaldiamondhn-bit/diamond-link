@@ -20,9 +20,10 @@ import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
 import HistoricalBadge from '../../../components/HistoricalBadge';
 import HistoricalBanner from '../../../components/HistoricalBanner';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
-import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '../../../lib/supabase';
 import { paymentStatusFor, comparePaymentStatus } from '../../../src/lib/treatments/completedTreatmentSort';
+import dynamic from 'next/dynamic';
+const AnimatedRubish = dynamic(() => import('../../../components/AnimatedRubish'), { ssr: false });
 
 function TratamientosCompletadosPageContent() {
   const router = useRouter();

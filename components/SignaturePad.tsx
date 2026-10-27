@@ -3,7 +3,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import SignaturePad from 'signature_pad';
 import { useTheme } from '@/contexts/ThemeContext';
-import AnimatedBorderContainer from './AnimatedBorderContainer';
+import dynamic from 'next/dynamic';
+const AnimatedBorderContainer = dynamic(() => import('./AnimatedBorderContainer'), { ssr: false });
 
 interface SignaturePadComponentProps {
   onChange: (signatureData: string | null) => void;

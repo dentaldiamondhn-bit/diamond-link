@@ -24,14 +24,15 @@ import HistoricalBadge from '@/components/HistoricalBadge';
 import MedicalWarningModal from '@/components/MedicalWarningModal';
 import HistoricalBanner from '@/components/HistoricalBanner';
 import Link from 'next/link';
-import AnimatedWallet from '@/components/AnimatedWallet';
-import AnimatedReport from '@/components/AnimatedReport';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
-import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
-import AnimatedFolder from '@/components/AnimatedFolder';
 import { dentalStudyService } from '@/services/dentalStudyService';
 import { orthodonticVersionService } from '@/services/orthodonticVersionService';
 import { OrthodonticVersion } from '@/utils/versionUtils';
+import dynamic from 'next/dynamic';
+const AnimatedWallet = dynamic(() => import('@/components/AnimatedWallet'), { ssr: false });
+const AnimatedReport = dynamic(() => import('@/components/AnimatedReport'), { ssr: false });
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
+const AnimatedTratamientosCompletados = dynamic(() => import('@/components/AnimatedTratamientosCompletados'), { ssr: false });
+const AnimatedFolder = dynamic(() => import('@/components/AnimatedFolder'), { ssr: false });
 
 function MenuNavegacionContent() {
   const { user } = useUser();

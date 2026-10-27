@@ -1,5 +1,20 @@
-import jsPDF from 'jspdf';
-import { ConteoEstadoEntry } from './presupuestoService';
+import type jsPDF from 'jspdf';
+import type { ConteoEstadoEntry } from './presupuestoService';
+
+/**
+ * jsPDF is only needed when a document is exported/printed, so it is loaded on
+ * demand instead of shipping with every page that renders a quote.
+ * The interop covers both module shapes: the browser ESM build exposes the
+ * constructor as the default export, the node/CJS build nests it.
+ */
+export async function loadJsPdf() {
+  const mod = (await import('jspdf')) as unknown as {
+    default?: unknown;
+    jsPDF?: unknown;
+  };
+  const nested = (mod.default as { jsPDF?: unknown } | undefined)?.jsPDF;
+  return (nested ?? mod.jsPDF ?? mod.default) as typeof import('jspdf').default;
+}
 
 let cachedLogoPng: SvgPngResult | null = null;
 let cachedWhatsappIconPng: SvgPngResult | null = null;

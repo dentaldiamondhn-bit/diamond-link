@@ -10,8 +10,6 @@ import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils
 import { formatDateForDisplay } from '../../../utils/dateUtils';
 import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
-import AnimatedRubish from '@/components/AnimatedRubish';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import type { CompletedTreatment, TreatmentItem } from '../../../services/completedTreatmentService';
 import { TreatmentService } from '../../../services/treatmentService';
@@ -21,6 +19,9 @@ import { supabase } from '../../../lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
+import dynamic from 'next/dynamic';
+const AnimatedRubish = dynamic(() => import('@/components/AnimatedRubish'), { ssr: false });
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
 
 export default function TratamientosPage() {
   const { userRole, isLoaded } = useRoleBasedAccess();

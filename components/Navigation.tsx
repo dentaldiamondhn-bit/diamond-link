@@ -4,8 +4,9 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
-import AnimatedUser from './AnimatedUser';
-import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
+import dynamic from 'next/dynamic';
+const AnimatedUser = dynamic(() => import('./AnimatedUser'), { ssr: false });
+const AnimatedTratamientosCompletados = dynamic(() => import('./AnimatedTratamientosCompletados'), { ssr: false });
 
 interface NavItem {
   href: string;

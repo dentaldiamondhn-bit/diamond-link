@@ -1,14 +1,13 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import HydratedUserButton from '@/components/HydratedUserButton';
 import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import UnifiedSidebar from '@/components/UnifiedSidebar';
-import AnimatedReport from '@/components/AnimatedReport';
-import AnimatedBurger from '@/components/AnimatedBurger';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { HistoricalModeProvider } from '@/contexts/HistoricalModeContext';
 import { BellNotificationProvider } from '@/contexts/BellNotificationContext';
@@ -18,12 +17,21 @@ import { TutorialModal } from '@/components/TutorialModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { TutorialButton } from '@/components/TutorialButton';
 import GlobalSearch from '@/components/GlobalSearch';
-import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCompletados';
-import AnimatedFolder from '@/components/AnimatedFolder';
-import AnimatedUsers from '@/components/AnimatedUsers';
 import { usePathname } from 'next/navigation';
 import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
 import { SupportWidget } from '@/components/support/SupportWidget';
+
+// The five lottie decorations pull in lottie-web plus their animation JSON.
+// Loading them as client-only dynamic imports keeps lottie-web out of the
+// authenticated shell bundle.
+const AnimatedReport = dynamic(() => import('@/components/AnimatedReport'), { ssr: false });
+const AnimatedBurger = dynamic(() => import('@/components/AnimatedBurger'), { ssr: false });
+const AnimatedTratamientosCompletados = dynamic(
+  () => import('@/components/AnimatedTratamientosCompletados'),
+  { ssr: false }
+);
+const AnimatedFolder = dynamic(() => import('@/components/AnimatedFolder'), { ssr: false });
+const AnimatedUsers = dynamic(() => import('@/components/AnimatedUsers'), { ssr: false });
 
 export default function AuthLayout({
   children,

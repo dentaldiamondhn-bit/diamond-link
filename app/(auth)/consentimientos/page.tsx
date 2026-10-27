@@ -8,7 +8,8 @@ import { PatientService } from '../../../services/patientService';
 import { createWhatsAppUrl, formatPhoneDisplay } from '../../../utils/phoneUtils';
 import { getPatientType } from '../../../utils/patientTypeUtils';
 import { CONSENT_TEMPLATES, getConsentTemplate } from '../../../utils/consentTemplates';
-import AnimatedRubish from '../../../components/AnimatedRubish';
+import dynamic from 'next/dynamic';
+const AnimatedRubish = dynamic(() => import('../../../components/AnimatedRubish'), { ssr: false });
 
 function ConsentimientosContent() {
   const [consentimientos, setConsentimientos] = useState<any[]>([]);

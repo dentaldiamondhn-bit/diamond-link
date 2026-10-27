@@ -8,11 +8,11 @@ import { ExportService } from '@/services/exportService';
 import { consentimientoService, Consentimiento } from '@/services/consentimientoService';
 import { CompletedTreatmentService, CompletedTreatment } from '@/services/completedTreatmentService';
 import { Presupuesto, parseConteoPorEstado } from '@/services/presupuestoService';
-import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult, drawConteoBadges } from '@/services/pdfAssets';
+import { getClinicLogoPng, getWhatsappIconPng, SvgPngResult, drawConteoBadges, loadJsPdf } from '@/services/pdfAssets';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { Odontogram } from '@/types/odontogram';
 import { formatCurrency } from '@/utils/currencyUtils';
-import jsPDF from 'jspdf';
+import type jsPDF from 'jspdf';
 import { Patient } from '@/types/patient';
 import { useHistoricalMode } from '@/contexts/HistoricalModeContext';
 import { getRecordCategoryInfoSync } from '@/utils/recordCategoryUtils';
@@ -22,14 +22,15 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/nextjs';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 import HistoricalBanner from '@/components/HistoricalBanner';
-import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
-import AnimatedUser from '@/components/AnimatedUser';
 import DocumentDisplay from '@/components/DocumentDisplay';
 import MedicalWarningModal from '@/components/MedicalWarningModal';
 import OdontogramPreview from '@/components/OdontogramPreview';
 import ProgressBar from '@/components/ProgressBar';
 import { OrthodonticVersion, sortVersionsByDate, formatVersionDisplay } from '@/utils/versionUtils';
 import { orthodonticVersionService } from '@/services/orthodonticVersionService';
+import dynamic from 'next/dynamic';
+const AnimatedWhatsApp = dynamic(() => import('@/components/AnimatedWhatsApp'), { ssr: false });
+const AnimatedUser = dynamic(() => import('@/components/AnimatedUser'), { ssr: false });
 import {
   translateMordida,
   translateAparato,
@@ -429,7 +430,10 @@ export default function PatientPreviewPage() {
   };
 
   const generateQuotePdf = async (quote: Presupuesto): Promise<jsPDF> => {
-    const pdf = new jsPDF();
+    // jspdf is only needed when a quote is exported — load it on demand so the
+    // library stays out of the page bundle.
+    const JsPDF = await loadJsPdf();
+    const pdf = new JsPDF();
     const pageWidth = pdf.internal.pageSize.getWidth();
     const margin = 20;
     let y = 30;
