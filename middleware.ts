@@ -48,10 +48,6 @@ function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
       response.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
     }
   }
-
-  if (req.nextUrl.pathname.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$/)) {
-    response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-  }
 }
 
 export default clerkMiddleware(async (auth, req) => {
