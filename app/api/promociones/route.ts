@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TreatmentService } from '../../../services/treatmentService';
+import { TreatmentService } from '@/services/treatmentService';
 
 // Prevent static generation for this API route
 export const revalidate = 0;

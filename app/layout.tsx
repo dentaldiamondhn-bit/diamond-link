@@ -5,7 +5,6 @@ import VercelAnalytics from '@/components/VercelAnalytics'
 import './globals.css'
 import './color-system.css'
 import BannerAlert from '@/components/BannerAlert'
-import AdminOverrideTimer from '@/components/AdminOverrideTimer'
 import { AdminOverrideProvider } from '@/contexts/AdminOverrideContext'
 import { QueryProvider } from '@/contexts/QueryProvider'
 import { DocumentLang } from '@/chat/i18n/DocumentLang'
@@ -157,7 +156,6 @@ export default function RootLayout({
             <QueryProvider>
               {children}
             </QueryProvider>
-            <AdminOverrideTimer />
             <Analytics />
             <VercelAnalytics />
           </AdminOverrideProvider>

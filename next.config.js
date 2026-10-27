@@ -9,6 +9,7 @@ const nextConfig = {
   // Removed static export to allow dynamic App Router routes such as Clerk sign-in
   trailingSlash: false, // Explicitly set to false to prevent redirect loops
   outputFileTracingRoot: __dirname, // Pin tracing to this project (stray home-dir package.json/node_modules confuse root inference and livelock builds)
+  poweredByHeader: false,
   images: {
     unoptimized: true
   },

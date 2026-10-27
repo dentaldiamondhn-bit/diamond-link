@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DoctorService } from '../../../services/doctorService';
+import { DoctorService } from '@/services/doctorService';
 import { auth } from '@clerk/nextjs/server';
 
 // GET /api/doctors - Get all doctors

@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PatientService } from '../../../../../services/patientService';
+import { PatientService } from '@/services/patientService';
 import { consentimientoService } from '../../../../../services/consentimientoService';
 import { Patient } from '../../../../../types/patient';
-import { supabase } from '../../../../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
 import { useHistoricalMode } from '../../../../../contexts/HistoricalModeContext';
@@ -219,7 +219,7 @@ export default function ConsentimientoPreview() {
       : new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     
     return content
-      .replace(/\{\{PATIENT_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.nombre_completo || '_________________________'}</span>`)
+      .replace(/\{\{PATIENT_NAME\}\}/g, `<span class='font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block'>${patient.nombre_completo || '_________________________'}</span>`)
       .replace(/\{\{PATIENT_ID\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.numero_identidad || '_____________________'}</span>`)
       .replace(/\{\{PATIENT_ADDRESS\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.direccion || '__________________________________________'}</span>`)
       .replace(/\{\{DOCTOR_NAME\}\}/g, `<span class="font-semibold border-b-2 border-gray-400 dark:border-gray-500 px-1 pb-1 inline-block">${patient.doctor || '_________________________'}</span>`)

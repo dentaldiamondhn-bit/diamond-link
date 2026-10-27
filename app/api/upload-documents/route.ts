@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-import { StorageService } from '../../../services/storageService';
+import { StorageService } from '@/services/storageService';
 import { PatientService } from '../../../services/patientService';
 
 

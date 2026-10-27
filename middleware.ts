@@ -47,9 +47,6 @@ function addCloudflareHeaders(response: NextResponse, req: NextRequest) {
       // auth-gated payloads or per-tenant rows) — never shared-cacheable.
       response.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
     }
-    response.headers.set('X-RateLimit-Limit', '100');
-    response.headers.set('X-RateLimit-Remaining', '99');
-    response.headers.set('X-RateLimit-Reset', new Date(Date.now() + 60000).toISOString());
   }
 
   if (req.nextUrl.pathname.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$/)) {

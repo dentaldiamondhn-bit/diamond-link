@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PatientService } from '../../../services/patientService';
+import { PatientService } from '@/services/patientService';
 
 
 

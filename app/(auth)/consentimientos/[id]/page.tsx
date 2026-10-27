@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
-import { PatientService } from '../../../../services/patientService';
+import { PatientService } from '@/services/patientService';
 import { consentimientoService } from '../../../../services/consentimientoService';
 import { Patient } from '../../../../types/patient';
-import { supabase } from '../../../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import SignaturePadComponent from '../../../../components/SignaturePad';
 import Link from 'next/link';
 import { useHistoricalMode } from '../../../../contexts/HistoricalModeContext';
@@ -264,7 +264,7 @@ export default function ConsentimientoDocument() {
     } catch (error) {
       console.error('Error saving consentimiento:', error);
       // Rollback: remove the record if it was created without signatures so a
-      // broken "firmado" consentimiento is not left behind with missing URLs.
+      // broken 'firmado' consentimiento is not left behind with missing URLs.
       if (createdConsentimientoId) {
         try {
           await consentimientoService.deleteConsentimiento(createdConsentimientoId);

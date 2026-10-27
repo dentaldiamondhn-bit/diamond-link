@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PatientService } from '../../../services/patientService';
+import { PatientService } from '@/services/patientService';
 import { Patient } from '../../../types/patient';
 import Link from 'next/link';
 import { createWhatsAppUrl, formatPhoneDisplay } from '@/utils/phoneUtils';
@@ -13,7 +13,7 @@ import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
 import { useRoleBasedAccess } from '../../../hooks/useRoleBasedAccess';
 import { useUser } from '@clerk/nextjs';
 import { usePagePreferences } from '../../../hooks/useUserPreferences';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import HistoricalBanner from '../../../components/HistoricalBanner';
 import AccessDenied from '@/components/AccessDenied';
@@ -464,7 +464,7 @@ export default function PacientesPage() {
   if (loading) {
     return (
       <LoadingAnimation 
-        message="Cargando Pacientes"
+        message='Cargando Pacientes'
         subMessage="Obteniendo lista de pacientes"
         customMessages={[
           "• Cargando pacientes registrados...",

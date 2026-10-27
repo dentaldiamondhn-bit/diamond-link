@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useBellNotifications, BellNotification } from '../contexts/BellNotificationContext';
-import { showBrowserNotification as showNotification, requestNotificationPermission } from '../lib/browserNotification';
+import { showBrowserNotification as showNotification, requestNotificationPermission } from '@/lib/browserNotification';
 
 // Notification types already delivered as an OS card by the service worker
 // (server-pushed via /api/push/*). The listener must NOT toast those again or
@@ -22,7 +22,7 @@ export function useNotificationListener() {
   const initialized = useRef(false);
 
   useEffect(() => {
-    // First run after mount (or refresh): seed the "already seen" set WITHOUT
+    // First run after mount (or refresh): seed the 'already seen" set WITHOUT
     // toasting anything. Otherwise every unread notification would pop again
     // in the OS tray every time the page reloads.
     if (!initialized.current) {

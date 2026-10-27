@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Search, X, Loader2, FileText, Sparkles, ArrowRight } from 'lucide-react';
-import { PatientService } from '../services/patientService';
-import { OdontogramPilotService } from '../services/odontogramPilotService';
-import { consentimientoService } from '../services/consentimientoService';
-import { CompletedTreatmentService } from '../services/completedTreatmentService';
-import { TreatmentService } from '../services/treatmentService';
+import { PatientService } from '@/services/patientService';
+import { OdontogramPilotService } from '@/services/odontogramPilotService';
+import { consentimientoService } from '@/services/consentimientoService';
+import { CompletedTreatmentService } from '@/services/completedTreatmentService';
+import { TreatmentService } from '@/services/treatmentService';
 import { Patient } from '../types/patient';
 import { format } from 'date-fns';
 import { formatCurrency } from '../utils/currencyUtils';
@@ -370,7 +370,7 @@ export default function GlobalSearch() {
       {/* Search Trigger Button */}
       <button
         onClick={openSearch}
-        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+        className='p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors'
         title="Búsqueda General"
       >
         <Search size={20} />

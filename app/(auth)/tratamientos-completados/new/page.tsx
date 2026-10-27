@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CompletedTreatmentService } from '../../../../services/completedTreatmentService';
+import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import { PatientService } from '../../../../services/patientService';
 import { SupabaseDoctorService } from '../../../../services/supabaseDoctorService';
 import { Patient } from '../../../../types/patient';
@@ -11,7 +11,7 @@ import { getRecordCategoryInfoSync, generateTranscriptionMetadata } from '../../
 import { useHistoricalMode } from '../../../../contexts/HistoricalModeContext';
 import AnimatedRubish from '@/components/AnimatedRubish';
 import { getPatientType } from '../../../../utils/patientTypeUtils';
-import { supabase } from '../../../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/nextjs';
 import HistoricalBadge from '../../../../components/HistoricalBadge';
 import HistoricalBanner from '../../../../components/HistoricalBanner';
@@ -894,7 +894,7 @@ function NuevoTratamientoCompletadoPageContent() {
   if (loading) {
     return (
       <LoadingAnimation 
-        message="Preparando Tratamiento"
+        message='Preparando Tratamiento'
         subMessage="Cargando información del paciente"
         customMessages={[
           "• Cargando datos del paciente...",

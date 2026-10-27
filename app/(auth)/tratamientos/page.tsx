@@ -12,12 +12,12 @@ import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import AnimatedRubish from '@/components/AnimatedRubish';
 import AnimatedWhatsApp from '@/components/AnimatedWhatsApp';
-import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
+import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import type { CompletedTreatment, TreatmentItem } from '../../../services/completedTreatmentService';
 import { TreatmentService } from '../../../services/treatmentService';
 import LoadingAnimation from '../../../components/LoadingAnimation';
 import { usePagePreferences } from '../../../hooks/useUserPreferences';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import AccessDenied from '@/components/AccessDenied';
@@ -1083,7 +1083,7 @@ export default function TratamientosPage() {
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className='flex items-center justify-center min-h-screen'>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
       </div>
     );

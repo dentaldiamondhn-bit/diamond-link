@@ -22,9 +22,12 @@ import AnimatedTratamientosCompletados from '@/components/AnimatedTratamientosCo
 import AnimatedFolder from '@/components/AnimatedFolder';
 import AnimatedUsers from '@/components/AnimatedUsers';
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
 import { SupportWidget } from '@/components/support/SupportWidget';
 
+
+const AdminOverrideTimer = dynamic(() => import('@/components/AdminOverrideTimer'), { ssr: false });
 export default function AuthLayout({
   children,
 }: {
@@ -428,6 +431,7 @@ export default function AuthLayout({
                 
                 {/* Tutorial Modal */}
                 {ready && <TutorialModal />}
+                <AdminOverrideTimer />
               </div>
     <style>{`
       @media (orientation: portrait) {

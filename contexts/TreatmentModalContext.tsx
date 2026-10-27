@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { TreatmentFormData, PromotionFormData } from '../components/TreatmentModal';
-import { TreatmentService } from '../services/treatmentService';
+import { TreatmentService } from '@/services/treatmentService';
 import { Currency } from '../utils/currencyUtils';
 
 interface TreatmentModalContextType {

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, Currency } from '../../../utils/currencyUtils';
 import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils';
-import { SimpleTimezoneFix } from '../../../services/simpleTimezoneFix';
+import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
 import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
@@ -21,7 +21,7 @@ import HistoricalBadge from '../../../components/HistoricalBadge';
 import HistoricalBanner from '../../../components/HistoricalBanner';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
 import AnimatedRubish from '../../../components/AnimatedRubish';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { paymentStatusFor, comparePaymentStatus } from '../../../src/lib/treatments/completedTreatmentSort';
 
 function TratamientosCompletadosPageContent() {
@@ -790,7 +790,7 @@ function TratamientosCompletadosPageContent() {
   if (loading) {
     return (
       <LoadingAnimation 
-        message="Cargando Tratamientos"
+        message='Cargando Tratamientos'
         subMessage="Obteniendo tratamientos completados"
         customMessages={[
           "• Cargando tratamientos completados...",

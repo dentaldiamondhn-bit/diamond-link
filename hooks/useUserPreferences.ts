@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { UserPreferencesService, UserPreferences } from '../services/userPreferencesService';
+import { UserPreferencesService, UserPreferences } from '@/services/userPreferencesService';
 
 interface UseUserPreferencesReturn {
   preferences: UserPreferences | null;

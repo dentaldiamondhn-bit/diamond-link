@@ -1,6 +1,6 @@
 'use server';
 
-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { redirect } from 'next/navigation';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 import { normalizeRadiografias } from '@/utils/versionUtils';
