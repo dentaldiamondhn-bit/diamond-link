@@ -117,7 +117,8 @@ function MenuNavegacionContent() {
                !['na', 'n/a', 'no', 'ninguna', 'ninguno', 'ningún', 'sin', 'sin enfermedades', 'sin alergias', 'sin medicamentos', 'sin antecedentes', 'no aplica', 'no se', 'no tiene', 'no presenta', 'no refiere', 'negado', 'niega', 'desconoce', 'no sabe', 'no recuerda'].includes(patientData.alergias.toLowerCase().trim())) ||
             (patientData.medicamentos && patientData.medicamentos.trim() !== '' && 
                !['na', 'n/a', 'no', 'ninguna', 'ninguno', 'ningún', 'sin', 'sin enfermedades', 'sin alergias', 'sin medicamentos', 'sin antecedentes', 'no aplica', 'no se', 'no tiene', 'no presenta', 'no refiere', 'negado', 'niega', 'desconoce', 'no sabe', 'no recuerda'].includes(patientData.medicamentos.toLowerCase().trim())) ||
-            (patientData.sexo === 'femenino' && patientData.embarazo === 'si');
+            (patientData.sexo === 'femenino' && patientData.embarazo === 'si') ||
+            patientData.bruxismo === 'si';
           
           if (hasSignificantConditions) {
             setShowWarningModal(true);

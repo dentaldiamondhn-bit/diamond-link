@@ -1274,7 +1274,8 @@ function PatientFormContent() {
            !['na', 'n/a', 'no', 'ninguna', 'ninguno', 'ningún', 'sin', 'sin enfermedades', 'sin alergias', 'sin medicamentos', 'sin antecedentes', 'no aplica', 'no se', 'no tiene', 'no presenta', 'no refiere', 'negado', 'niega', 'desconoce', 'no sabe', 'no recuerda'].includes(patient.alergias.toLowerCase().trim())) ||
         (patient.medicamentos && patient.medicamentos.trim() !== '' && 
            !['na', 'n/a', 'no', 'ninguna', 'ninguno', 'ningún', 'sin', 'sin enfermedades', 'sin alergias', 'sin medicamentos', 'sin antecedentes', 'no aplica', 'no se', 'no tiene', 'no presenta', 'no refiere', 'negado', 'niega', 'desconoce', 'no sabe', 'no recuerda'].includes(patient.medicamentos.toLowerCase().trim())) ||
-        (patient.sexo === 'femenino' && patient.embarazo === 'si' && (!patient.embarazo_activo || patient.embarazo_activo === true));
+        (patient.sexo === 'femenino' && patient.embarazo === 'si' && (!patient.embarazo_activo || patient.embarazo_activo === true)) ||
+        patient.bruxismo === 'si';
       
       if (hasSignificantConditions) {
         setShowWarningModal(true);

@@ -197,6 +197,11 @@ const getImprovedConditionSeverity = (patient: Patient) => {
     conditions.push('pregnancy');
   }
   
+  if (patient.bruxismo === 'si') {
+    severityScore += 2;
+    conditions.push('bruxismo');
+  }
+  
   // Multiple meaningful medical fields (additional severity)
   const meaningfulFieldsCount = [
     hasMeaningfulContent(patient.enfermedades),
@@ -292,6 +297,10 @@ const getConditionDetails = (patient: Patient, conditions: string[]): string[] =
   
   if (patient.medicamentos && conditions.includes('multiple-meds')) {
     details.push(`Medicamentos: ${patient.medicamentos}`);
+  }
+  
+  if (patient.bruxismo === 'si' && conditions.includes('bruxismo')) {
+    details.push('Bruxismo: Sí');
   }
   
   if (conditions.includes('multiple-conditions')) {
