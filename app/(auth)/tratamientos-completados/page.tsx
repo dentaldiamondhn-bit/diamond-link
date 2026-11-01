@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency, Currency } from '../../../utils/currencyUtils';
@@ -20,9 +20,17 @@ import { useHistoricalMode } from '../../../contexts/HistoricalModeContext';
 import HistoricalBadge from '../../../components/HistoricalBadge';
 import HistoricalBanner from '../../../components/HistoricalBanner';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
+import { useTheme } from '@/contexts/ThemeContext';
 import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '@/lib/supabase';
 import { paymentStatusFor, comparePaymentStatus } from '../../../src/lib/treatments/completedTreatmentSort';
+import {
+  buildDoctorOptions,
+  collectTreatmentDoctors,
+  isValidDateRange,
+  matchesDateRange,
+  matchesDoctorFilter,
+} from '../../../src/lib/treatments/completedTreatmentFilters';
 
 function TratamientosCompletadosPageContent() {
   const router = useRouter();
@@ -45,12 +53,17 @@ function TratamientosCompletadosPageContent() {
   
   // Use page preferences for tratamientos-completados page
   const { preferences: pagePrefs, updatePreferences: updatePagePrefs, loading: prefsLoading } = usePagePreferences('tratamientos-completados');
+  const { resolvedTheme } = useTheme();
   
   // Initialize state from preferences or defaults
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(pagePrefs?.viewMode || 'grid');
   const [recordsPerPagePref, setRecordsPerPagePref] = useState(pagePrefs?.recordsPerPage || 25);
   const [sortBy, setSortBy] = useState<'paciente' | 'fecha' | 'doctor' | 'total' | 'estado' | 'tratamientos'>(pagePrefs?.sortBy || 'fecha');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(pagePrefs?.sortOrder || 'desc');
+  const [doctorFilter, setDoctorFilter] = useState<string>(pagePrefs?.doctorFilter || '');
+  const [doctorFilterLabel, setDoctorFilterLabel] = useState<string>(pagePrefs?.doctorFilterLabel || '');
+  const [dateFrom, setDateFrom] = useState<string>(pagePrefs?.dateFrom || '');
+  const [dateTo, setDateTo] = useState<string>(pagePrefs?.dateTo || '');
   
   // Payment management state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -240,6 +253,16 @@ function TratamientosCompletadosPageContent() {
       if (pagePrefs.sortOrder) {
         setSortOrder(pagePrefs.sortOrder);
       }
+      if (pagePrefs.doctorFilter !== undefined) {
+        setDoctorFilter(pagePrefs.doctorFilter || '');
+        setDoctorFilterLabel(pagePrefs.doctorFilterLabel || '');
+      }
+      if (pagePrefs.dateFrom !== undefined) {
+        setDateFrom(pagePrefs.dateFrom || '');
+      }
+      if (pagePrefs.dateTo !== undefined) {
+        setDateTo(pagePrefs.dateTo || '');
+      }
     }
   }, [pagePrefs, prefsLoading]);
 
@@ -282,6 +305,21 @@ function TratamientosCompletadosPageContent() {
       return () => clearTimeout(timeoutId);
     }
   }, [sortOrder, prefsLoading, updatePagePrefs]);
+
+  // Save filter preferences when they change (debounced)
+  useEffect(() => {
+    if (!prefsLoading && (
+      (pagePrefs?.doctorFilter || '') !== doctorFilter ||
+      (pagePrefs?.doctorFilterLabel || '') !== doctorFilterLabel ||
+      (pagePrefs?.dateFrom || '') !== dateFrom ||
+      (pagePrefs?.dateTo || '') !== dateTo
+    )) {
+      const timeoutId = setTimeout(() => {
+        updatePagePrefs({ doctorFilter, doctorFilterLabel, dateFrom, dateTo });
+      }, 500); // 500ms delay to prevent rapid saves
+      return () => clearTimeout(timeoutId);
+    }
+  }, [doctorFilter, doctorFilterLabel, dateFrom, dateTo, prefsLoading, pagePrefs?.doctorFilter, pagePrefs?.doctorFilterLabel, pagePrefs?.dateFrom, pagePrefs?.dateTo, updatePagePrefs]);
 
   const handleCreateTreatment = (treatment?: CompletedTreatment) => {
     if (treatment) {
@@ -340,7 +378,47 @@ function TratamientosCompletadosPageContent() {
     }
   };
 
-  const filteredTreatments = completedTreatments.filter(treatment => {
+  // Enrich each treatment with its clinic-local date and the doctors attached to it.
+  // Derived once per data load so the filters never recompute it on every render.
+  const enrichedTreatments = useMemo(() => (
+    completedTreatments.map(treatment => ({
+      treatment,
+      localDate: SimpleTimezoneFix.toLocalDate(treatment.fecha_cita),
+      doctors: collectTreatmentDoctors(treatment),
+    }))
+  ), [completedTreatments]);
+
+  const dateRangeIsValid = isValidDateRange(dateFrom, dateTo);
+  const hasActiveFilters = Boolean(doctorFilter || dateFrom || dateTo);
+
+  // Doctor options come from the treatments that survive the date range, so the
+  // count next to each doctor reflects the selected dates.
+  const doctorOptions = useMemo(() => {
+    const scoped = enrichedTreatments
+      .filter(entry => matchesDateRange(entry.localDate, dateFrom, dateTo))
+      .map(entry => entry.doctors);
+    const options = buildDoctorOptions(scoped);
+    if (doctorFilter && !options.some(option => option.value === doctorFilter)) {
+      options.push({ value: doctorFilter, label: doctorFilterLabel || doctorFilter, count: 0 });
+      options.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+    }
+    return options;
+  }, [enrichedTreatments, dateFrom, dateTo, doctorFilter, doctorFilterLabel]);
+
+  const handleDoctorFilterChange = (value: string) => {
+    setDoctorFilter(value);
+    const match = doctorOptions.find(option => option.value === value);
+    setDoctorFilterLabel(match ? match.label : '');
+  };
+
+  const clearFilters = () => {
+    setDoctorFilter('');
+    setDoctorFilterLabel('');
+    setDateFrom('');
+    setDateTo('');
+  };
+
+  const filteredTreatments = enrichedTreatments.filter(({ treatment, localDate, doctors }) => {
     // Check if this is a historical treatment and filter it out
     if (!bypassHistoricalMode) {
       // Check if this is a historical treatment and filter it out
@@ -358,6 +436,14 @@ function TratamientosCompletadosPageContent() {
         // }
       }
     }
+
+    if (!matchesDateRange(localDate, dateFrom, dateTo)) {
+      return false;
+    }
+
+    if (!matchesDoctorFilter(doctors, doctorFilter)) {
+      return false;
+    }
     
     // Then filter by search term - handle null paciente data
     if (!searchTerm) {
@@ -373,7 +459,7 @@ function TratamientosCompletadosPageContent() {
              tr.nombre_tratamiento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
              tr.codigo_tratamiento?.toLowerCase().includes(searchTerm.toLowerCase())
            );
-  }).sort((a, b) => {
+  }).map(({ treatment }) => treatment).sort((a, b) => {
     let comparison = 0;
     
     switch (sortBy) {
@@ -740,10 +826,10 @@ function TratamientosCompletadosPageContent() {
   const endIndex = startIndex + recordsPerPagePref;
   const currentTreatments = filteredTreatments.slice(startIndex, endIndex);
 
-  // Reset to page 1 when search term, records per page, sort by, or sort order changes
+  // Reset to page 1 when search term, records per page, sort by, sort order, or any filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, recordsPerPagePref, sortBy, sortOrder]);
+  }, [searchTerm, recordsPerPagePref, sortBy, sortOrder, doctorFilter, dateFrom, dateTo]);
 
   const handleRecordsPerPageChange = (value: number) => {
     setRecordsPerPagePref(value);
@@ -950,6 +1036,77 @@ function TratamientosCompletadosPageContent() {
               </div>
             </div>
           </div>
+
+          {/* Doctor and date range filters */}
+          <div className="flex flex-col lg:flex-row lg:items-end gap-3 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="doctor-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Doctor:
+              </label>
+              <select
+                id="doctor-filter"
+                value={doctorFilter}
+                onChange={(e) => handleDoctorFilterChange(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Todos los doctores</option>
+                {doctorOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} ({option.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="date-from" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Desde:
+              </label>
+              <input
+                id="date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                style={{ colorScheme: resolvedTheme }}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="date-to" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Hasta:
+              </label>
+              <input
+                id="date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                style={{ colorScheme: resolvedTheme }}
+              />
+            </div>
+
+            <div className="lg:ml-auto flex flex-wrap items-center gap-3">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Mostrando <span className="font-semibold text-gray-900 dark:text-white">{filteredTreatments.length}</span> de {completedTreatments.length} tratamientos
+              </span>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white"
+                >
+                  <i className="fas fa-times mr-1"></i>
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          </div>
+
+          {!dateRangeIsValid && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              Rango de fechas inválido: la fecha "Desde" es posterior a la fecha "Hasta".
+            </p>
+          )}
         </div>
       </div>
 
