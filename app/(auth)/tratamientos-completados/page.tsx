@@ -31,6 +31,7 @@ import {
   matchesDateRange,
   matchesDoctorFilter,
 } from '../../../src/lib/treatments/completedTreatmentFilters';
+import { buildNewTreatmentUrl } from '../../../src/lib/treatments/completedTreatmentNavigation';
 
 function TratamientosCompletadosPageContent() {
   const router = useRouter();
@@ -321,23 +322,13 @@ function TratamientosCompletadosPageContent() {
     }
   }, [doctorFilter, doctorFilterLabel, dateFrom, dateTo, prefsLoading, pagePrefs?.doctorFilter, pagePrefs?.doctorFilterLabel, pagePrefs?.dateFrom, pagePrefs?.dateTo, updatePagePrefs]);
 
-  const handleCreateTreatment = (treatment?: CompletedTreatment) => {
-    if (treatment) {
-      router.push(`/tratamientos-completados/${treatment.id}/view`);
-    } else {
-      // Get paciente_id from URL parameter first, then from first treatment if needed
-      let targetPacienteId = pacienteId;
-      
-      if (!targetPacienteId && completedTreatments.length > 0) {
-        targetPacienteId = completedTreatments[0].paciente_id;
-      }
-      
-      // Pass the paciente_id when creating a new treatment
-      const newTreatmentUrl = targetPacienteId 
-        ? `/tratamientos-completados/new?paciente_id=${targetPacienteId}`
-        : '/tratamientos-completados/new';
-      router.push(newTreatmentUrl);
-    }
+  // The create-treatment action belongs to a patient context: without one there
+  // is nothing to create the treatment for, so the whole action bar stays hidden.
+  const newTreatmentUrl = buildNewTreatmentUrl(pacienteId);
+
+  const handleCreateTreatment = () => {
+    if (!newTreatmentUrl) return;
+    router.push(newTreatmentUrl);
   };
 
   const loadPatientSettingsForTreatments = async (treatments: any[]) => {
@@ -908,20 +899,20 @@ function TratamientosCompletadosPageContent() {
         />
       )}
       
-      {/* Top Action Bar */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left side - Nuevo Tratamiento / Pago Adelantado */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => handleCreateTreatment()}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              >
-                <i className="fas fa-plus mr-2"></i>
-                Crear Nuevo Tratamiento
-              </button>
-              {pacienteId && (
+      {/* Top Action Bar — only for a selected patient */}
+      {newTreatmentUrl && (
+        <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              {/* Left side - Nuevo Tratamiento / Pago Adelantado */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleCreateTreatment()}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <i className="fas fa-plus mr-2"></i>
+                  Crear Nuevo Tratamiento
+                </button>
                 <button
                   onClick={openAdvancePaymentModal}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -930,23 +921,22 @@ function TratamientosCompletadosPageContent() {
                   <i className="fas fa-hand-holding-usd mr-2"></i>
                   Pago Adelantado
                 </button>
-              )}
+              </div>
+              
+              {/* Right side - Volver */}
+              <button
+                onClick={() => {
+                  router.push(`/menu-navegacion?id=${encodeURIComponent(pacienteId!)}`);
+                }}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                <i className="fas fa-arrow-left mr-2"></i>
+                Volver
+              </button>
             </div>
-            
-            {/* Right side - Volver */}
-            <button
-              onClick={() => {
-                const url = pacienteId ? `/menu-navegacion?id=${encodeURIComponent(pacienteId)}` : '/menu-navegacion';
-                router.push(url);
-              }}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              <i className="fas fa-arrow-left mr-2"></i>
-              Volver
-            </button>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Search and Filters Bar */}
       <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
