@@ -14,31 +14,30 @@ export interface UserPreferences {
   global_preferences: {
     theme?: 'light' | 'dark' | 'system';
     language?: string;
+    sidebarCollapsed?: boolean;
     [key: string]: any;
   };
   updated_at?: string;
 }
 
 export class UserPreferencesService {
-  // Get user preferences
+  // Get user preferences.
+  // A failed read throws instead of resolving to null: the update paths below
+  // merge into the current values, so treating a read error as "no row yet"
+  // would wipe every other stored preference.
   static async getUserPreferences(clerkUserId: string): Promise<UserPreferences | null> {
-    try {
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('clerk_user_id', clerkUserId)
-        .limit(1);
+    const { data, error } = await supabase
+      .from('user_preferences')
+      .select('*')
+      .eq('clerk_user_id', clerkUserId)
+      .limit(1);
 
-      if (error) {
-        console.error('Error fetching user preferences:', error);
-        return null;
-      }
-
-      return data?.[0] || null;
-    } catch (error) {
-      console.error('Unexpected error fetching user preferences:', error);
-      return null;
+    if (error) {
+      console.error('Error fetching user preferences:', error);
+      throw new Error(error.message);
     }
+
+    return data?.[0] || null;
   }
 
   // Save user preferences

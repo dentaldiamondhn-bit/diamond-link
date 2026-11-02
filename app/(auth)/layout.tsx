@@ -16,6 +16,15 @@ import AppHeader from '@/components/layout/AppHeader';
 import { usePathname } from 'next/navigation';
 import { NotificationListenerWrapper } from '@/components/notifications/NotificationListenerWrapper';
 import AdminOverrideTimerGate from '@/components/AdminOverrideTimerGate';
+import { useGlobalPreferences } from '@/hooks/useUserPreferences';
+import {
+  DEFAULT_SIDEBAR_COLLAPSED,
+  readSavedSidebarCollapsed,
+  resolveNextSidebarCollapsed,
+  resolveSidebarCollapsed,
+  shouldApplySavedSidebarCollapsed,
+  shouldPersistSidebarCollapsed,
+} from '@/lib/shell/sidebarCollapse';
 export default function AuthLayout({
   children,
 }: {
@@ -24,24 +33,80 @@ export default function AuthLayout({
   const { user, isLoaded: userLoaded } = useUser();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const {
+    preferences: globalPrefs,
+    updatePreferences: updateGlobalPrefs,
+    loading: globalPrefsLoading,
+  } = useGlobalPreferences();
 
   const isContactsPage = pathname.startsWith('/contactos') || pathname.includes('/contacts');
 
-  // Auto-collapse the primary sidebar to an icon rail on the Contacts page
-  // (Supabase style). Manual toggles persist until navigating into/out of it.
-  const [primaryCollapsed, setPrimaryCollapsed] = React.useState(isContactsPage);
+  // The rail starts collapsed and the choice is saved in global_preferences,
+  // so it follows the user to their other devices. The Contacts page keeps its
+  // own forced icon rail and only honours a manual toggle for that visit.
+  const [preferredCollapsed, setPreferredCollapsed] = React.useState(
+    DEFAULT_SIDEBAR_COLLAPSED,
+  );
+  const [contactsOverride, setContactsOverride] = React.useState<boolean | null>(null);
+
+  const primaryCollapsed = resolveSidebarCollapsed({
+    isContactsPage,
+    preferredCollapsed,
+    contactsOverride,
+  });
+
+  // Apply the saved preference once the preferences have loaded, unless the
+  // user has already made a choice while the load was still in flight.
+  const userChoseRail = React.useRef(false);
   React.useEffect(() => {
-    setPrimaryCollapsed(isContactsPage);
+    if (!shouldApplySavedSidebarCollapsed(globalPrefsLoading, userChoseRail.current)) {
+      return;
+    }
+
+    const saved = readSavedSidebarCollapsed(globalPrefs);
+    if (saved !== null) {
+      setPreferredCollapsed(saved);
+    }
+  }, [globalPrefs, globalPrefsLoading]);
+
+  // Leaving the Contacts page drops its manual override.
+  React.useEffect(() => {
+    setContactsOverride(null);
   }, [isContactsPage]);
 
   const ready = userLoaded && !!user;
   const isAIChatPage = pathname === '/tech-support/ai-chat';
 
-  // Stable identity so the memoized sidebar can bail out of re-rendering.
-  const toggleCollapsed = React.useCallback(
-    () => setPrimaryCollapsed((v) => !v),
-    [],
-  );
+  // Stable identity across renders that do not touch the rail state, so the
+  // memoized sidebar can bail out of re-rendering.
+  const toggleCollapsed = React.useCallback(() => {
+    if (!isContactsPage) {
+      userChoseRail.current = true;
+    }
+
+    const next = resolveNextSidebarCollapsed({
+      isContactsPage,
+      preferredCollapsed,
+      contactsOverride,
+    });
+
+    setPreferredCollapsed(next.preferredCollapsed);
+    setContactsOverride(next.contactsOverride);
+
+    if (!shouldPersistSidebarCollapsed(isContactsPage, !!user?.id)) return;
+
+    void updateGlobalPrefs({ sidebarCollapsed: next.preferredCollapsed }).catch(() => {
+      console.warn('Could not save the sidebar preference.');
+    });
+  }, [
+    contactsOverride,
+    isContactsPage,
+    preferredCollapsed,
+    setContactsOverride,
+    setPreferredCollapsed,
+    updateGlobalPrefs,
+    user?.id,
+  ]);
 
   const providers = (content: React.ReactNode) => (
     <TutorialProvider>
