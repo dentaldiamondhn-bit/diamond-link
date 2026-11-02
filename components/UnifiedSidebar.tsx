@@ -1,57 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '@/hooks/useRoleBasedAccess';
 import HydratedUserButton from './HydratedUserButton';
 import { useTutorial } from '../contexts/TutorialContext';
-import AnimatedUser from './AnimatedUser';
-import AnimatedTratamientosCompletados from './AnimatedTratamientosCompletados';
-import AnimatedUsers from './AnimatedUsers';
-import AnimatedReport from './AnimatedReport';
-import { DarkModeToggle } from './DarkModeToggle';
 import { getAvailableDoctorsSync, Doctor } from '../config/doctors';
 import { cn } from '@/lib/utils';
 import { ChevronRight, GraduationCap } from 'lucide-react';
-
-interface NavItem {
-  href: string;
-  icon: string | React.ReactNode;
-  label: string;
-  roles: string[];
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt', roles: ['admin', 'doctor', 'staff'] },
-  { href: '/patient-form', label: 'Nueva Historia Clínica', icon: 'fas fa-file-medical', roles: ['admin', 'doctor', 'staff'] },
-  { href: '/pacientes', label: 'Pacientes', icon: 'fas fa-users', roles: ['admin', 'doctor', 'staff'] },
-  { href: '/doctores', label: 'Doctores', icon: 'fas fa-user-md', roles: ['admin'] },
-  { href: '/tratamientos', label: 'Tratamientos', icon: 'fas fa-tooth', roles: ['admin', 'doctor'] },
-  { href: '/tratamientos-completados', label: 'Tratamientos Completados', icon: <AnimatedTratamientosCompletados />, roles: ['admin', 'doctor', 'staff'] },
-  { href: '/inventario', label: 'Inventario', icon: 'fas fa-warehouse', roles: ['admin'] },
-  { href: '/patient-follow-up', label: 'Seguimiento', icon: 'fas fa-clipboard-check', roles: ['admin', 'doctor'] },
-  { href: '/contactos', label: 'Contactos', icon: 'fas fa-address-book', roles: ['admin', 'doctor', 'staff'] },
-  { href: '/calendario', label: 'Calendario', icon: 'fas fa-calendar', roles: ['admin', 'doctor', 'staff'] },
-  { href: '/reports', label: 'Reportes', icon: <AnimatedReport />, roles: ['admin', 'doctor'] },
-  { href: '/tickets', label: 'Tickets', icon: 'fas fa-ticket-alt', roles: ['admin', 'doctor', 'staff'] },
-  { href: '/facebook-ads', label: 'Facebook Ads', icon: 'fab fa-facebook', roles: ['admin'] },
-  { href: '/dental-ai-vision', label: 'Dental AI Vision', icon: 'fas fa-eye', roles: ['admin'] },
-  // Tech Support routes
-  { href: '/tech-support/dashboard', label: 'Dashboard', icon: 'fas fa-tachometer-alt', roles: ['tech_support'] },
-  { href: '/tech-support/co-browse', label: 'Soporte Remoto', icon: 'fas fa-tower-broadcast', roles: ['tech_support'] },
-  { href: '/tech-support/tickets', label: 'Tickets de Soporte', icon: 'fas fa-ticket-alt', roles: ['tech_support'] },
-  { href: '/tech-support/system-logs', label: 'Logs del Sistema', icon: 'fas fa-file-alt', roles: ['tech_support'] },
-  { href: '/tech-support/system-settings', label: 'Configuración del Sistema', icon: 'fas fa-cogs', roles: ['tech_support'] },
-  { href: '/tech-support/terminal', label: 'Terminal', icon: 'fas fa-terminal', roles: ['tech_support'] },
-  { href: '/tech-support/code-runner', label: 'Code Runner', icon: 'fas fa-code', roles: ['tech_support'] },
-  { href: '/tech-support/claude-code', label: 'Claude Code', icon: 'fas fa-robot', roles: ['tech_support'] },
-  { href: '/tech-support/codespaces', label: 'Local Android Dev', icon: 'fas fa-mobile-alt', roles: ['tech_support'] },
-  { href: '/tech-support/github-codespaces', label: 'GitHub Codespaces', icon: 'fas fa-code-branch', roles: ['tech_support'] },
-  { href: '/tech-support/access-portal', label: 'Portal de Acceso', icon: 'fas fa-th-large', roles: ['tech_support'] },
-  { href: '/tech-support/users', label: 'Usuarios', icon: 'fas fa-users-cog', roles: ['tech_support'] },
-];
+import SidebarNavigation from '@/components/layout/SidebarNavigation';
 
 // Role-based theme
 function getRoleTheme(role: string | null, specialty: string | null) {
@@ -180,21 +137,26 @@ function getRoleTheme(role: string | null, specialty: string | null) {
 }
 
 interface UnifiedSidebarProps {
-  sidebarOpen?: boolean;
   setSidebarOpen?: (open: boolean) => void;
   /** When true the sidebar renders as an icon-only rail (expands on hover). */
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }
 
-export default function UnifiedSidebar({
-  sidebarOpen,
+/** Created once so Clerk's UserButton keeps a stable appearance prop. */
+const USER_BUTTON_APPEARANCE = {
+  elements: {
+    avatarBox: 'w-9 h-9 rounded-full border !border-white/30',
+    userButton: 'rounded-full overflow-visible',
+  },
+};
+
+function UnifiedSidebar({
   setSidebarOpen,
   collapsed = false,
   onToggleCollapsed,
 }: UnifiedSidebarProps) {
   const [supabaseDoctors, setSupabaseDoctors] = useState<Doctor[]>([]);
-  const pathname = usePathname();
   const { user } = useUser();
   const { userRole } = useRoleBasedAccess();
   const { startTutorial } = useTutorial();
@@ -235,7 +197,7 @@ export default function UnifiedSidebar({
   };
 
   const specialty = getDoctorSpecialty();
-  const theme = getRoleTheme(userRole, specialty);
+  const theme = useMemo(() => getRoleTheme(userRole, specialty), [userRole, specialty]);
   const footerRoleLabel =
     userRole === 'doctor' ? 'Doctor' :
     userRole === 'admin' ? 'Admin' :
@@ -257,27 +219,20 @@ export default function UnifiedSidebar({
 
   const getSidebarWidth = () => (collapsed ? 'w-16 hover:w-64' : 'w-64');
 
-  const handleLinkClick = () => {
-    if (sidebarOpen && setSidebarOpen) setSidebarOpen(false);
-  };
+  // Close the mobile drawer after a navigation. Written as a functional update
+  // so the callback identity stays stable and the memoized nav list can bail out.
+  const handleLinkClick = useCallback(() => {
+    setSidebarOpen?.(false);
+  }, [setSidebarOpen]);
 
-  const visibleItems = NAV_ITEMS.filter(item => item.roles.includes(userRole || ''));
-
-  const navItemClasses = (isActive: boolean) => {
-    const base = `flex items-center rounded-lg transition-all duration-200 ${
-      collapsed
-        ? 'justify-center w-10 h-10 mx-auto group-hover/sidebar:justify-start group-hover/sidebar:gap-3 group-hover/sidebar:w-full group-hover/sidebar:px-4 group-hover/sidebar:py-2.5'
-        : 'justify-start gap-3 w-full px-4 py-2.5'
-    }`;
-    if (isActive) return `${base} ${theme.activeBg} text-white shadow-lg`;
-    return `${base} ${theme.textClass} ${theme.hoverBg} hover:text-white`;
-  };
-
-  const navLabelClasses = () =>
-    cn(
-      'text-sm font-medium whitespace-nowrap',
-      collapsed ? 'hidden group-hover/sidebar:inline' : 'inline',
-    );
+  // The appearance prop drives Clerk's UserButton, so it must keep a stable
+  // identity or the button re-renders on every navigation.
+  const userButtonAppearance = useMemo(() => ({
+    elements: {
+      ...USER_BUTTON_APPEARANCE.elements,
+      userButton: `${theme.buttonHover} ${USER_BUTTON_APPEARANCE.elements.userButton}`,
+    },
+  }), [theme.buttonHover]);
 
   return (
     <div className={`${getSidebarClasses()} ${getSidebarWidth()}`} style={getSidebarStyle()}>
@@ -321,23 +276,11 @@ export default function UnifiedSidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
-        {visibleItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={handleLinkClick}
-            className={navItemClasses(pathname === item.href || pathname.startsWith(item.href + '/'))}
-          >
-            {typeof item.icon === 'string' ? (
-              <i className={`${item.icon} w-5 h-5 flex-shrink-0`}></i>
-            ) : (
-              <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">{item.icon}</div>
-            )}
-            <span className={navLabelClasses()}>{item.label}</span>
-          </Link>
-        ))}
-      </nav>
+      <SidebarNavigation
+        collapsed={collapsed}
+        theme={theme}
+        onNavigate={handleLinkClick}
+      />
 
       {/* FOOTER BLOCK - Single Top White Divider, Unclipped Avatar & Status Dot */}
       <div className="mt-auto border-t !border-white/20 p-3 w-full bg-white/5 flex flex-col gap-2.5">
@@ -346,14 +289,7 @@ export default function UnifiedSidebar({
 
           {/* Avatar (overflow-visible to prevent status dot cutoff) */}
           <div className="relative flex-shrink-0 overflow-visible">
-            <HydratedUserButton
-              appearance={{
-                elements: {
-                  avatarBox: 'w-9 h-9 rounded-full border !border-white/30',
-                  userButton: `${theme.buttonHover} rounded-full overflow-visible`,
-                },
-              }}
-            />
+            <HydratedUserButton appearance={userButtonAppearance} />
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 !border-purple-600 z-10" />
           </div>
 
@@ -401,3 +337,5 @@ export default function UnifiedSidebar({
     </div>
   );
 }
+
+export default memo(UnifiedSidebar);

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRoleBasedAccess } from '../hooks/useRoleBasedAccess';
 
@@ -110,59 +110,64 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [steps, setSteps] = useState<TutorialStep[]>([]);
 
-  useEffect(() => {
-    if (user && userRole) {
-      const hasSeenTutorial = localStorage.getItem(`tutorial_seen_${user.id}_${userRole}`);
-      if (!hasSeenTutorial) {
-        startTutorial();
-      }
-    }
-  }, [user, userRole]);
-
-  const startTutorial = () => {
+  const startTutorial = useCallback(() => {
     if (userRole && tutorials[userRole]) {
       setSteps(tutorials[userRole]);
       setCurrentStep(0);
       setIsActive(true);
     }
-  };
+  }, [userRole]);
 
-  const nextStep = () => {
+  const completeTutorial = useCallback(() => {
+    setIsActive(false);
+    if (user && userRole) {
+      localStorage.setItem(`tutorial_seen_${user.id}_${userRole}`, 'true');
+    }
+  }, [user, userRole]);
+
+  const nextStep = useCallback(() => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       completeTutorial();
     }
-  };
+  }, [currentStep, steps, completeTutorial]);
 
-  const prevStep = () => {
+  const prevStep = useCallback(() => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
-  };
+  }, [currentStep]);
 
-  const skipTutorial = () => {
+  const skipTutorial = useCallback(() => {
     completeTutorial();
-  };
+  }, [completeTutorial]);
 
-  const completeTutorial = () => {
-    setIsActive(false);
+  useEffect(() => {
     if (user && userRole) {
-      localStorage.setItem(`tutorial_seen_${user.id}_${userRole}`, 'true');
+      const hasSeenTutorial = localStorage.getItem(`tutorial_seen_${user.id}_${userRole}`);
+      if (!hasSeenTutorial) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        startTutorial();
+      }
     }
-  };
+  }, [user, userRole, startTutorial]);
+
+  // A stable context value keeps consumers from re-rendering when the provider
+  // re-renders for an unrelated reason (e.g. a route change in the layout).
+  const value = useMemo<TutorialContextType>(() => ({
+    isActive,
+    currentStep,
+    steps,
+    startTutorial,
+    nextStep,
+    prevStep,
+    skipTutorial,
+    completeTutorial
+  }), [isActive, currentStep, steps, startTutorial, nextStep, prevStep, skipTutorial, completeTutorial]);
 
   return (
-    <TutorialContext.Provider value={{
-      isActive,
-      currentStep,
-      steps,
-      startTutorial,
-      nextStep,
-      prevStep,
-      skipTutorial,
-      completeTutorial
-    }}>
+    <TutorialContext.Provider value={value}>
       {children}
     </TutorialContext.Provider>
   );

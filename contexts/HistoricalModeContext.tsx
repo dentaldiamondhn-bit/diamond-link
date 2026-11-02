@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from 'react';
 
 interface HistoricalModeContextType {
   // Current state
@@ -28,12 +28,12 @@ export function HistoricalModeProvider({ children }: { children: ReactNode }) {
   const [currentPatient, setCurrentPatient] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const toggleHistoricalMode = () => {
+  const toggleHistoricalMode = useCallback(() => {
     setIsHistoricalMode(prev => !prev);
-  };
+  }, []);
 
   // Load patient-specific settings
-  const loadPatientSettings = async (patientId: string) => {
+  const loadPatientSettings = useCallback(async (patientId: string) => {
     if (!patientId) return;
     
     setLoading(true);
@@ -70,10 +70,10 @@ export function HistoricalModeProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Save patient-specific settings (global across all users)
-  const savePatientSettings = async (patientId: string, bypass: boolean) => {
+  const savePatientSettings = useCallback(async (patientId: string, bypass: boolean) => {
     if (!patientId) return;
     
     setLoading(true);
@@ -149,28 +149,32 @@ export function HistoricalModeProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Get effective mode for current patient
-  const getEffectiveMode = (): 'historical' | 'active' | 'bypassed' => {
+  const getEffectiveMode = useCallback((): 'historical' | 'active' | 'bypassed' => {
     if (!currentPatient) return 'active';
     if (!isHistoricalMode) return 'active';
     return bypassHistoricalMode ? 'bypassed' : 'historical';
-  };
+  }, [currentPatient, isHistoricalMode, bypassHistoricalMode]);
+
+  // A stable context value keeps consumers from re-rendering when the provider
+  // re-renders for an unrelated reason (e.g. a route change in the layout).
+  const value = useMemo<HistoricalModeContextType>(() => ({
+    isHistoricalMode,
+    toggleHistoricalMode,
+    bypassHistoricalMode,
+    setBypassHistoricalMode,
+    setCurrentPatient,
+    currentPatient,
+    loading,
+    loadPatientSettings,
+    savePatientSettings,
+    getEffectiveMode
+  }), [isHistoricalMode, toggleHistoricalMode, bypassHistoricalMode, currentPatient, loading, loadPatientSettings, savePatientSettings, getEffectiveMode]);
 
   return (
-    <HistoricalModeContext.Provider value={{ 
-      isHistoricalMode, 
-      toggleHistoricalMode, 
-      bypassHistoricalMode, 
-      setBypassHistoricalMode, 
-      setCurrentPatient, 
-      currentPatient,
-      loading,
-      loadPatientSettings,
-      savePatientSettings,
-      getEffectiveMode
-    }}>
+    <HistoricalModeContext.Provider value={value}>
       {children}
     </HistoricalModeContext.Provider>
   );

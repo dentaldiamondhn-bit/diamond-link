@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
-export function DarkModeToggle() {
+function DarkModeToggleBase() {
   const { theme, setTheme } = useTheme();
 
   const handleToggle = () => {
@@ -24,3 +24,5 @@ export function DarkModeToggle() {
     </button>
   );
 }
+
+export const DarkModeToggle = React.memo(DarkModeToggleBase);

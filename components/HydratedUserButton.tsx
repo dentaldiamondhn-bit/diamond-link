@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { UserButton } from '@clerk/nextjs';
 import type { UserButtonProps } from '@clerk/shared/types';
 
@@ -10,7 +10,7 @@ type HydratedUserButtonProps = Partial<UserButtonProps> & {
   afterSignOutUrl?: string;
 };
 
-export default function HydratedUserButton({
+function HydratedUserButtonBase({
   showOnlineDot = false,
   placeholderClassName = 'w-8 h-8',
   ...userButtonProps
@@ -39,3 +39,5 @@ export default function HydratedUserButton({
     </>
   );
 }
+
+export default memo(HydratedUserButtonBase);

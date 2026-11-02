@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { memo } from 'react';
 import { useAdminOverride } from '@/contexts/AdminOverrideContext';
 
 const AdminOverrideTimer = dynamic(() => import('@/components/AdminOverrideTimer'), { ssr: false });
@@ -11,8 +12,10 @@ const AdminOverrideTimer = dynamic(() => import('@/components/AdminOverrideTimer
  * app shell, so keeping it unmounted means the library is never fetched for
  * the users who are not running an override.
  */
-export default function AdminOverrideTimerGate() {
+function AdminOverrideTimerGateBase() {
   const { overrides, recentVersionId } = useAdminOverride();
   if (!recentVersionId || !overrides[recentVersionId]) return null;
   return <AdminOverrideTimer />;
 }
+
+export default memo(AdminOverrideTimerGateBase);

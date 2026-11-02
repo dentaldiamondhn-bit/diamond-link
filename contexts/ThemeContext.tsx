@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useGlobalPreferences } from '../hooks/useUserPreferences';
 
 type Theme = 'dark' | 'light' | 'system';
@@ -80,19 +80,21 @@ export function ThemeProvider({
     }
   }, [theme]);
 
-  const setTheme = async (newTheme: Theme) => {
+  const setTheme = useCallback(async (newTheme: Theme) => {
     setThemeState(newTheme);
     // Save to user preferences
     await updateGlobalPrefs({ theme: newTheme });
     // Also save to localStorage as backup
     localStorage.setItem(storageKey, newTheme);
-  };
+  }, [updateGlobalPrefs, storageKey]);
 
-  const value: ThemeProviderState = {
+  // A stable context value keeps consumers from re-rendering when the provider
+  // re-renders for an unrelated reason (e.g. a route change in the layout).
+  const value = useMemo<ThemeProviderState>(() => ({
     theme,
     setTheme,
     resolvedTheme,
-  };
+  }), [theme, setTheme, resolvedTheme]);
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>

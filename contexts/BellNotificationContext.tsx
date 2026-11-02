@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
 
 export interface BellNotification {
@@ -98,7 +98,7 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const addNotification = async (notification: { type?: string; title: string; message: string; metadata?: Record<string, any> }) => {
+  const addNotification = useCallback(async (notification: { type?: string; title: string; message: string; metadata?: Record<string, any> }) => {
     try {
       await fetch('/api/notifications', {
         method: 'POST',
@@ -109,9 +109,9 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
     } catch (e) {
       console.error('Error adding notification:', e);
     }
-  };
+  }, []);
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = useCallback(async (id: string) => {
     try {
       const res = await fetch('/api/notifications', {
         method: 'PATCH',
@@ -125,9 +125,9 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
     } catch (e) {
       console.error('Error marking notification as read:', e);
     }
-  };
+  }, []);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     try {
       const res = await fetch('/api/notifications', {
         method: 'PATCH',
@@ -141,9 +141,9 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
     } catch (e) {
       console.error('Error marking all as read:', e);
     }
-  };
+  }, []);
 
-  const removeNotification = async (id: string) => {
+  const removeNotification = useCallback(async (id: string) => {
     try {
       const res = await fetch('/api/notifications', {
         method: 'PATCH',
@@ -157,9 +157,9 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
     } catch (e) {
       console.error('Error removing notification:', e);
     }
-  };
+  }, []);
 
-  const clearAll = async () => {
+  const clearAll = useCallback(async () => {
     try {
       const res = await fetch('/api/notifications', {
         method: 'PATCH',
@@ -173,12 +173,22 @@ export function BellNotificationProvider({ children }: { children: ReactNode }) 
     } catch (e) {
       console.error('Error clearing all:', e);
     }
-  };
+  }, []);
+
+  // A stable context value keeps consumers from re-rendering when the provider
+  // re-renders for an unrelated reason (e.g. a route change in the layout).
+  const value = useMemo<BellNotificationContextType>(() => ({
+    notifications,
+    unreadCount,
+    addNotification,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+    clearAll,
+  }), [notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification, clearAll]);
 
   return (
-    <BellNotificationContext.Provider
-      value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification, clearAll }}
-    >
+    <BellNotificationContext.Provider value={value}>
       {children}
     </BellNotificationContext.Provider>
   );

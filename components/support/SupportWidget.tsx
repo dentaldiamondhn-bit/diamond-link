@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, X, Send, Loader2, User, MessageCircle, Maximize2 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
@@ -25,7 +25,7 @@ interface Message {
  *    widget shows the session panel (agent URL, relay status, stop) and the
  *    agent's remote cursor/pings are drawn over the page.
  */
-export function SupportWidget({ variant = 'floating' }: { variant?: 'floating' | 'header' } = {}) {
+function SupportWidgetImpl({ variant = 'floating' }: { variant?: 'floating' | 'header' } = {}) {
   const {
     isSharing,
     sessionId,
@@ -681,3 +681,5 @@ function AiChatPanel() {
     </div>
   );
 }
+
+export const SupportWidget = memo(SupportWidgetImpl);

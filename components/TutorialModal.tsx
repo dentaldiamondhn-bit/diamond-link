@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { useTutorial } from '../contexts/TutorialContext';
 
-export function TutorialModal() {
+function TutorialModalBase() {
   const { isActive, currentStep, steps, nextStep, prevStep, skipTutorial } = useTutorial();
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -158,3 +158,5 @@ export function TutorialModal() {
     </>
   );
 }
+
+export const TutorialModal = memo(TutorialModalBase);

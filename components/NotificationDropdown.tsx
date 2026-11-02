@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { useBellNotifications, BellNotification } from '../contexts/BellNotificationContext';
 
-export function NotificationDropdown() {
+function NotificationDropdownBase() {
   const [isOpen, setIsOpen] = useState(false);
   const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification } = useBellNotifications();
 
@@ -196,3 +196,5 @@ export function NotificationDropdown() {
     </div>
   );
 }
+
+export const NotificationDropdown = memo(NotificationDropdownBase);

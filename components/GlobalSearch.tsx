@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Search, X, Loader2, FileText, Sparkles, ArrowRight } from 'lucide-react';
@@ -13,7 +13,7 @@ import { Patient } from '../types/patient';
 import { format } from 'date-fns';
 import { formatCurrency } from '../utils/currencyUtils';
 
-export default function GlobalSearch() {
+function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [patients, setPatients] = useState<any[]>([]);
@@ -709,3 +709,5 @@ export default function GlobalSearch() {
     </>
   );
 }
+
+export default memo(GlobalSearch);
