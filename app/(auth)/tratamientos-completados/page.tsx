@@ -2,17 +2,24 @@
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import {
+  ArrowLeft,
+  ClipboardCheck,
+  Coins,
+  HandCoins,
+  Plus,
+  Trash2,
+  UserRound,
+  Wallet,
+} from 'lucide-react';
 import { formatCurrency, Currency } from '../../../utils/currencyUtils';
-import { formatPhoneDisplay, createWhatsAppUrl } from '../../../utils/phoneUtils';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
-import { getPatientType, calculateAge } from '../../../utils/patientTypeUtils';
-import { getRecordCategoryInfo, getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
+import { getRecordCategoryInfoSync } from '../../../utils/recordCategoryUtils';
 import { CompletedTreatmentService } from '../../../services/completedTreatmentService';
 import { PaymentService } from '../../../services/paymentService';
 import { PatientCreditService } from '../../../services/patientCreditService';
 import { currencyConversionService } from '../../../services/currencyConversionService';
-import type { CompletedTreatment, TreatmentItem } from '../../../services/completedTreatmentService';
+import type { CompletedTreatment } from '../../../services/completedTreatmentService';
 import type { Payment, PaymentSummary } from '../../../services/paymentService';
 import type { PatientCredit } from '../../../services/patientCreditService';
 import LoadingAnimation from '../../../components/LoadingAnimation';
@@ -23,6 +30,10 @@ import { usePagePreferences } from '@/hooks/useUserPreferences';
 import { useTheme } from '@/contexts/ThemeContext';
 import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '@/lib/supabase';
+import TreatmentCard from '../../../components/tratamientos-completados/TreatmentCard';
+import TreatmentFiltersBar from '../../../components/tratamientos-completados/TreatmentFiltersBar';
+import TreatmentTable from '../../../components/tratamientos-completados/TreatmentTable';
+import TreatmentPagination from '../../../components/tratamientos-completados/TreatmentPagination';
 import { paymentStatusFor, comparePaymentStatus } from '../../../src/lib/treatments/completedTreatmentSort';
 import {
   buildDoctorOptions,
@@ -747,34 +758,6 @@ function TratamientosCompletadosPageContent() {
     }
   };
 
-  const getPaymentStatusBadge = (treatment: CompletedTreatment) => {
-    const totalPaid = treatment.monto_pagado || 0;
-    const totalFinal = treatment.total_final || 0;
-    const paymentStatus = PaymentService.calculatePaymentStatus(totalFinal, totalPaid);
-    
-    if (paymentStatus === 'pagado') {
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-    } else if (paymentStatus === 'parcialmente_pagado') {
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-    } else {
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-    }
-  };
-
-  const getPaymentStatusText = (treatment: CompletedTreatment) => {
-    const totalPaid = treatment.monto_pagado || 0;
-    const totalFinal = treatment.total_final || 0;
-    const paymentStatus = PaymentService.calculatePaymentStatus(totalFinal, totalPaid);
-    
-    if (paymentStatus === 'pagado') {
-      return 'Pagado';
-    } else if (paymentStatus === 'parcialmente_pagado') {
-      return 'Parcialmente Pagado';
-    } else {
-      return 'Pendiente';
-    }
-  };
-
   // Calculate conversion when payment amount or currency changes
   const calculateConversion = async (amount: string, fromCurrency: Currency, toCurrency: Currency) => {
     if (!amount || parseFloat(amount) <= 0 || fromCurrency === toCurrency) {
@@ -830,38 +813,15 @@ function TratamientosCompletadosPageContent() {
     setCurrentPage(page);
   };
 
-  const getPaginationNumbers = () => {
-    const pages = [];
-    const maxVisiblePages = 5;
-    
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-      const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-      
-      if (startPage > 1) {
-        pages.push(1);
-        if (startPage > 2) {
-          pages.push('...');
-        }
-      }
-      
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i);
-      }
-      
-      if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-          pages.push('...');
-        }
-        pages.push(totalPages);
-      }
-    }
-    
-    return pages;
+  const paginationProps = {
+    totalTreatments,
+    startIndex,
+    endIndex,
+    totalPages,
+    currentPage,
+    recordsPerPage: recordsPerPagePref,
+    onRecordsPerPageChange: handleRecordsPerPageChange,
+    onPageChange: handlePageChange,
   };
 
   if (loading) {
@@ -901,213 +861,93 @@ function TratamientosCompletadosPageContent() {
       
       {/* Top Action Bar — only for a selected patient */}
       {newTreatmentUrl && (
-        <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              {/* Left side - Nuevo Tratamiento / Pago Adelantado */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleCreateTreatment()}
-                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  <i className="fas fa-plus mr-2"></i>
-                  Crear Nuevo Tratamiento
-                </button>
-                <button
-                  onClick={openAdvancePaymentModal}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  title="Registrar un pago adelantado: el monto queda como Saldo Positivo disponible para el paciente, aunque aún no tenga tratamiento registrado"
-                >
-                  <i className="fas fa-hand-holding-usd mr-2"></i>
-                  Pago Adelantado
-                </button>
-              </div>
-              
-              {/* Right side - Volver */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/70">
+            {/* Left side - Nuevo Tratamiento / Pago Adelantado */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => {
-                  router.push(`/menu-navegacion?id=${encodeURIComponent(pacienteId!)}`);
-                }}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                onClick={() => handleCreateTreatment()}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-teal-500 hover:to-cyan-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50"
               >
-                <i className="fas fa-arrow-left mr-2"></i>
-                Volver
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Crear Nuevo Tratamiento
+              </button>
+              <button
+                onClick={openAdvancePaymentModal}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+                title="Registrar un pago adelantado: el monto queda como Saldo Positivo disponible para el paciente, aunque aún no tenga tratamiento registrado"
+              >
+                <HandCoins className="h-4 w-4" aria-hidden="true" />
+                Pago Adelantado
               </button>
             </div>
+
+            {/* Right side - Volver */}
+            <button
+              onClick={() => {
+                router.push(`/menu-navegacion?id=${encodeURIComponent(pacienteId!)}`);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/80 px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300 dark:hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Volver
+            </button>
           </div>
         </div>
       )}
 
-      {/* Search and Filters Bar */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          {/* Patient-specific header */}
-          {pacienteId && completedTreatments.length > 0 && (
-            <div className="mb-4 p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg">
-              <div className="flex items-center">
-                <i className="fas fa-user-injured text-teal-600 dark:text-teal-400 mr-3"></i>
-                <div>
-                  <h2 className="text-lg font-semibold text-teal-800 dark:text-teal-200">
-                    Tratamientos del Paciente
-                  </h2>
-                  <p className="text-sm text-teal-600 dark:text-teal-400">
-                    Paciente ID: {pacienteId}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div className="flex-1">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder="Buscar por nombre, identidad, teléfono o tratamiento..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                  />
-                  <i className="fas fa-search absolute right-3 top-3 text-gray-400"></i>
-                </div>
-                
-                {/* Sort Controls */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por:</label>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as 'paciente' | 'fecha' | 'doctor' | 'total' | 'estado' | 'tratamientos')}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="fecha">Fecha</option>
-                    <option value="paciente">Paciente</option>
-                    <option value="doctor">Doctor</option>
-                    <option value="tratamientos">Tratamientos</option>
-                    <option value="total">Total</option>
-                    <option value="estado">Estado</option>
-                  </select>
-                  <button
-                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                    title={`Orden ${sortOrder === 'asc' ? 'ascendente' : 'descendente'}`}
-                  >
-                    <i className={`fas fa-sort-amount-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              {/* View Toggle Button */}
-              <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    viewMode === 'grid'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  <i className="fas fa-th-large mr-2"></i>
-                  Cuadrícula
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    viewMode === 'list'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  <i className="fas fa-list mr-2"></i>
-                  Lista
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Doctor and date range filters */}
-          <div className="flex flex-col lg:flex-row lg:items-end gap-3 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="doctor-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Doctor:
-              </label>
-              <select
-                id="doctor-filter"
-                value={doctorFilter}
-                onChange={(e) => handleDoctorFilterChange(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">Todos los doctores</option>
-                {doctorOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label} ({option.count})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor="date-from" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Desde:
-              </label>
-              <input
-                id="date-from"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                style={{ colorScheme: resolvedTheme }}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor="date-to" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Hasta:
-              </label>
-              <input
-                id="date-to"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                style={{ colorScheme: resolvedTheme }}
-              />
-            </div>
-
-            <div className="lg:ml-auto flex flex-wrap items-center gap-3">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Mostrando <span className="font-semibold text-gray-900 dark:text-white">{filteredTreatments.length}</span> de {completedTreatments.length} tratamientos
-              </span>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white"
-                >
-                  <i className="fas fa-times mr-1"></i>
-                  Limpiar filtros
-                </button>
-              )}
-            </div>
-          </div>
-
-          {!dateRangeIsValid && (
-            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-              Rango de fechas inválido: la fecha "Desde" es posterior a la fecha "Hasta".
-            </p>
-          )}
-        </div>
-      </div>
-
       {/* Main Content */}
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-6">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Patient-specific header */}
+        {pacienteId && completedTreatments.length > 0 && (
+          <div className="mb-5 rounded-2xl border border-teal-200/80 bg-teal-50/80 p-4 backdrop-blur-xl dark:border-teal-900/60 dark:bg-teal-900/15">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-300">
+                <UserRound className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold text-teal-900 dark:text-teal-100">
+                  Tratamientos del Paciente
+                </h2>
+                <p className="text-sm text-teal-700/80 dark:text-teal-300/80">
+                  Paciente ID: {pacienteId}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4">
+          <TreatmentFiltersBar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            doctorFilter={doctorFilter}
+            onDoctorChange={handleDoctorFilterChange}
+            doctorOptions={doctorOptions}
+            dateFrom={dateFrom}
+            onDateFromChange={setDateFrom}
+            dateTo={dateTo}
+            onDateToChange={setDateTo}
+            dateRangeInvalid={!dateRangeIsValid}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            sortBy={sortBy}
+            onSortByChange={(value) => setSortBy(value)}
+            sortOrder={sortOrder}
+            onToggleSortOrder={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            visibleCount={filteredTreatments.length}
+            totalCount={completedTreatments.length}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearFilters}
+            colorScheme={resolvedTheme}
+          />
+        </div>
         {/* Advance payments (no treatment) — visual record that money was received */}
         {pacienteId && advancePayments.length > 0 && (
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-                <i className="fas fa-hand-holding-usd text-indigo-600 dark:text-indigo-400"></i>
+          <div className="mb-6">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+                <HandCoins className="h-5 w-5 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
                 Pagos Adelantados (sin tratamiento)
               </h2>
               <div className="flex flex-wrap gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-300">
@@ -1118,49 +958,55 @@ function TratamientosCompletadosPageContent() {
                     return acc;
                   }, {})
                 ).map(([moneda, total]) => (
-                  <span key={moneda} className="px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+                  <span
+                    key={moneda}
+                    className="rounded-full bg-indigo-500/10 px-3 py-1 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-500/15"
+                  >
                     Disponible {moneda}: {formatCurrency(total, moneda as Currency)}
                   </span>
                 ))}
               </div>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
               Pagos recibidos que quedaron como Saldo Positivo del paciente. El monto disponible disminuye al aplicar a tratamientos.
             </p>
             <div className="space-y-3">
               {advancePayments.map(({ payment, remaining }) => (
                 <div
                   key={payment.id}
-                  className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg p-4"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-indigo-200/70 bg-indigo-50/70 p-4 backdrop-blur-xl dark:border-indigo-900/50 dark:bg-indigo-900/15"
                 >
-                  <div className="flex items-center gap-3">
-                    <i className="fas fa-coins text-indigo-600 dark:text-indigo-400 text-lg"></i>
-                    <div>
-                      <div className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
+                      <Coins className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 font-semibold text-slate-900 dark:text-white">
                         <span>{formatCurrency(remaining, payment.moneda)}</span>
-                        <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200">
+                        <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-700 ring-1 ring-inset ring-indigo-500/20 dark:text-indigo-200">
                           Disponible
                         </span>
                         {remaining < Number(payment.monto_pago) && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
                             (original: {formatCurrency(Number(payment.monto_pago), payment.moneda)})
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {SimpleTimezoneFix.formatDateForConsultationAge(payment.fecha_pago)} · {PaymentService.formatPaymentMethod(payment.metodo_pago)}
+                      <div className="truncate text-sm text-slate-500 dark:text-slate-400">
+                        {SimpleTimezoneFix.formatDateForConsultationAge(payment.fecha_pago)} ·{' '}
+                        {PaymentService.formatPaymentMethod(payment.metodo_pago)}
                         {payment.notas_pago ? ` · ${payment.notas_pago}` : ''}
                       </div>
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={() => deleteAdvancePayment(payment)}
-                    className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                    aria-label="Eliminar pago adelantado"
                     title="Eliminar pago adelantado"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-transparent text-slate-500 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 dark:text-slate-400 dark:hover:border-rose-500/40 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                   >
-                    <div className="w-4 h-4 flex items-center justify-center">
-                      <AnimatedRubish />
-                    </div>
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               ))}
@@ -1170,23 +1016,26 @@ function TratamientosCompletadosPageContent() {
 
         {/* Total Positive Balance (Saldo Positivo Total) - from all sources */}
         {pacienteId && (totalPositiveBalance.HNL > 0 || totalPositiveBalance.USD > 0) && (
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-                <i className="fas fa-wallet text-emerald-600 dark:text-emerald-400"></i>
+          <div className="mb-6">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+                <Wallet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                 Saldo Positivo Total Disponible
               </h2>
               <div className="flex flex-wrap gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
                 {Object.entries(totalPositiveBalance)
                   .filter(([, amount]) => amount > 0)
                   .map(([moneda, amount]) => (
-                    <span key={moneda} className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                    <span
+                      key={moneda}
+                      className="rounded-full bg-emerald-500/10 px-3 py-1 ring-1 ring-inset ring-emerald-500/20 dark:bg-emerald-500/15"
+                    >
                       {moneda}: {formatCurrency(amount, moneda as Currency)}
                     </span>
                   ))}
               </div>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Crédito disponible del paciente (proveniente de pagos adelantados y sobre-pagos en tratamientos).
               Se reduce automáticamente al aplicar a tratamientos.
             </p>
@@ -1194,521 +1043,53 @@ function TratamientosCompletadosPageContent() {
         )}
 
         {currentTreatments.length === 0 ? (
-          <div className="text-center py-12">
-            <i className="fas fa-clipboard-check text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
-            <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+          <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-14 text-center shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/70">
+            <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800/70 dark:text-slate-500">
+              <ClipboardCheck className="h-8 w-8" aria-hidden="true" />
+            </span>
+            <h3 className="mb-2 text-xl font-semibold text-slate-700 dark:text-slate-200">
               No se encontraron tratamientos completados
             </h3>
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-slate-500 dark:text-slate-400">
               {searchTerm ? 'No hay tratamientos que coincidan con tu búsqueda.' : 'No hay tratamientos completados registrados.'}
             </p>
           </div>
         ) : (
           <>
-            {/* Treatment Cards */}
             {viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {currentTreatments.map((treatment) => {
-                  // Try to get patient type, fallback to adult if no birth date
-                  let patientType = null;
-                  if (treatment.paciente?.fecha_nacimiento) {
-                    patientType = getPatientType(treatment.paciente);
-                  } else if (treatment.paciente?.edad) {
-                    // Create a mock patient object with age
-                    const mockPatient = {
-                      nombre_completo: treatment.paciente.nombre_completo,
-                      fecha_nacimiento: new Date(Date.now() - (treatment.paciente.edad * 365.25 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
-                    };
-                    patientType = getPatientType(mockPatient);
-                  }
-                  
-                  const recordCategoryInfo = treatment.fecha_cita ? getRecordCategoryInfoSync(treatment.fecha_cita) : null;
-                  
-                  return (
-                  <div key={treatment.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-                    {/* Treatment Header */}
-                    <div 
-                      className={`bg-gradient-to-r p-4 ${
-                        patientType?.colors.header || 'from-teal-500 to-teal-600 dark:from-teal-600 dark:to-teal-700'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-lg font-semibold text-white">
-                            {treatment.paciente?.nombre_completo || 'Paciente Desconocido'}
-                          </h3>
-                          <p className="text-white/80 text-sm">
-                            {treatment.paciente?.identificacion || treatment.paciente?.numero_identidad || 'Sin identificación'}
-                          </p>
-                          {treatment.paciente?.telefono && (
-                            <p className="text-white/70 text-xs mt-1">
-                              <i className="fas fa-phone mr-1"></i>
-                              {formatPhoneDisplay(treatment.paciente.telefono, treatment.paciente.codigopais)}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <div className="flex flex-col gap-1">
-                            {/* Patient Type Badge */}
-                            {patientType && (
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${patientType.colors.badge} border ${patientType.colors.badgeText}`}>
-                                {patientType.label}
-                              </span>
-                            )}
-                            {/* Historical Badge - only show if historical and NOT bypassed */}
-                            {recordCategoryInfo?.isHistorical && !patientBypassStatus[treatment.paciente_id] && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
-                                Histórico
-                              </span>
-                            )}
-                            {/* Status Badge */}
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusBadge(treatment)}`}>
-                              <i className={`fas ${
-                                treatment.estado_pago === 'pagado' || treatment.estado === 'pagado' ? 'fa-dollar-sign' :
-                                (treatment.estado_pago === 'parcialmente_pagado' || treatment.estado === 'firmado' || treatment.firma_paciente_url) ? 'fa-check-circle' :
-                                'fa-clock'
-                              } mr-1`}></i>
-                              {getPaymentStatusText(treatment)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+              <>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                  {currentTreatments.map((treatment) => (
+                    <TreatmentCard
+                      key={treatment.id}
+                      treatment={treatment}
+                      patientBypassStatus={patientBypassStatus}
+                      onOpenPayments={openPaymentModal}
+                      onDelete={openDeleteTreatmentModal}
+                    />
+                  ))}
+                </div>
 
-                    {/* Treatment Details */}
-                    <div className="p-4">
-                      <div className="space-y-3 mb-4">
-                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <i className="fas fa-calendar w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
-                          <span>{SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <i className="fas fa-phone w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
-                          {treatment.paciente?.telefono ? (
-                            <a 
-                              href={createWhatsAppUrl(treatment.paciente.telefono, treatment.paciente.codigopais)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline flex items-center gap-1"
-                            >
-                              <i className="fab fa-whatsapp text-xs"></i>
-                              {formatPhoneDisplay(treatment.paciente.telefono, treatment.paciente.codigopais)}
-                            </a>
-                          ) : (
-                            <span>No especificado</span>
-                          )}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <i className="fas fa-user-md w-4 mr-2 text-teal-600 dark:text-teal-400"></i>
-                          <span>{treatment.paciente?.doctor || treatment.paciente_doctor || 'No especificado'}</span>
-                        </div>
-                      </div>
-
-                      {/* Treatment Items */}
-                      <div className="mb-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                          Tratamientos Realizados ({(treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0)})
-                        </div>
-                        {treatment.tratamientos_realizados?.map((tr) => (
-                          <div key={tr.id} className="flex items-center justify-between py-1">
-                            <div className="flex-1">
-                              <div className="flex flex-col">
-                                <span className="text-sm text-gray-700 dark:text-gray-300">
-                                  {tr.cantidad}x {tr.nombre_tratamiento}
-                                </span>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {tr.codigo_tratamiento}
-                                </div>
-                                {/* Doctor Information */}
-                                <div className="text-xs text-teal-600 dark:text-teal-400 mt-1">
-                                  <i className="fas fa-user-md mr-1"></i>
-                                  Tratado por: {tr.doctor_name || 'No especificado'}
-                                </div>
-                              </div>
-                            </div>
-                            <span className="text-sm font-semibold text-teal-600 dark:text-teal-400">
-                              {formatCurrency(tr.precio_final * tr.cantidad)}
-                            </span>
-                          </div>
-                        ))}
-                        {treatment.tratamientos_inventario?.map((item) => (
-                          <div key={`inv-${item.id}`} className="flex items-center justify-between py-1 pl-4 border-l-2 border-amber-300 dark:border-amber-700">
-                            <div className="flex-1">
-                              <div className="flex flex-col">
-                                <span className="text-sm text-gray-700 dark:text-gray-300">
-                                  {item.cantidad}x {item.nombre}
-                                </span>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {item.codigo} <span className="text-amber-600 dark:text-amber-400">(Inventario)</span>
-                                </div>
-                              </div>
-                            </div>
-                            <span className="text-sm font-semibold text-teal-600 dark:text-teal-400">
-                              {formatCurrency(item.precio * item.cantidad)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Pricing Summary */}
-                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Resumen de Precios</h4>
-                        
-                        {/* Show prices when historical mode is bypassed for this patient */}
-                        {(!recordCategoryInfo?.isHistorical || patientBypassStatus[treatment.paciente_id]) && (() => {
-                          const itemsTotal = treatment.tratamientos_realizados?.reduce(
-                            (sum, tr) => {
-                              const itemTotal = (tr.precio_final || 0) * (tr.cantidad || 0);
-                              return sum + itemTotal;
-                            }, 0
-                          ) || 0;
-                          
-                          const subtotal = treatment.subtotal || itemsTotal;
-                          const descuento = treatment.total_descuento || 0;
-                          const total = treatment.total_final || (subtotal - descuento);
-                          
-                          return (
-                            <>
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">Subtotal:</span>
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {formatCurrency(subtotal)}
-                                </span>
-                              </div>
-                              {(descuento > 0) && (
-                                <div className="flex justify-between items-center mb-2">
-                                  <span className="text-sm text-gray-600 dark:text-gray-400">Descuento:</span>
-                                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                    -{formatCurrency(descuento)}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex justify-between items-center">
-                                <span className="text-lg font-semibold text-gray-900 dark:text-white">Total:</span>
-                                <span className="text-lg font-bold text-teal-600 dark:text-teal-400">
-                                  {formatCurrency(total)}
-                                </span>
-                              </div>
-                              
-                              {/* Payment Information - Use same logic as payment modal */}
-                              {(() => {
-                                const totalPaid = treatment.monto_pagado || 0;
-                                const totalFinal = treatment.total_final || 0;
-                                const pendingBalance = PaymentService.calculatePendingBalance(totalFinal, totalPaid);
-                                const paymentStatus = PaymentService.calculatePaymentStatus(totalFinal, totalPaid);
-                                
-                                return (totalPaid > 0 || pendingBalance > 0 || paymentStatus !== 'pendiente') && (
-                                  <>
-                                    <div className="border-t border-gray-200 dark:border-gray-600 mt-2 pt-2">
-                                      <div className="flex justify-between items-center mb-1">
-                                        <span className="text-sm text-green-600 dark:text-green-400">Pagado:</span>
-                                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                                          {formatCurrency(totalPaid)}
-                                        </span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-sm text-red-600 dark:text-red-400">Pendiente:</span>
-                                        <span className="text-sm font-medium text-red-600 dark:text-red-400">
-                                          {formatCurrency(pendingBalance)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </>
-                                );
-                              })()}
-                            </>
-                          );
-                        })()}
-                        
-                        {/* Show message when historical mode is not bypassed for this patient */}
-                        {recordCategoryInfo?.isHistorical && !patientBypassStatus[treatment.paciente_id] && (
-                          <div className="text-sm text-gray-500 dark:text-gray-400 italic">
-                            Precios ocultos (modo histórico activado)
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex justify-end space-x-3 mt-4">
-                        <button
-                          onClick={() => openPaymentModal(treatment)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <i className="fas fa-dollar-sign mr-2"></i>
-                          Pagos
-                        </button>
-                        <button
-                          onClick={() => openDeleteTreatmentModal(treatment)}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                          <div className="w-4 h-4 mr-2 flex items-center justify-center">
-                            <AnimatedRubish />
-                          </div>
-                          Eliminar
-                        </button>
-                        <Link
-                          href={`/tratamientos-completados/${treatment.id}/view`}
-                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        >
-                          <i className="fas fa-eye mr-2"></i>
-                          Ver Detalles
-                        </Link>
-                      </div>
-                    </div>
+                {totalTreatments > 0 ? (
+                  <div className="mt-6">
+                    <TreatmentPagination {...paginationProps} variant="standalone" />
                   </div>
-                  );
-                })}
-              </div>
+                ) : null}
+              </>
             ) : (
-              /* List View */
-              <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Paciente
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Fecha
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Doctor
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Tratamientos
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Total
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {currentTreatments.map((treatment) => {
-                      // Get patient type information for color coding
-                      // Try to get patient type, fallback to adult if no birth date
-                      let patientType = null;
-                      if (treatment.paciente?.fecha_nacimiento) {
-                        patientType = getPatientType(treatment.paciente);
-                      } else if (treatment.paciente?.edad) {
-                        // Create a mock patient object with age
-                        const mockPatient = {
-                          ...treatment.paciente,
-                          fecha_nacimiento: new Date(Date.now() - (treatment.paciente.edad * 365.25 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
-                        };
-                        patientType = getPatientType(mockPatient);
-                      }
-                      
-                      const recordCategoryInfo = treatment.fecha_cita ? getRecordCategoryInfoSync(treatment.fecha_cita) : null;
-                      
-                      return (
-                      <tr key={treatment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm">
-                            <div className="font-medium text-gray-900 dark:text-white">
-                              {treatment.paciente?.nombre_completo || 'Paciente Desconocido'}
-                            </div>
-                            <div className="text-gray-500 dark:text-gray-400">
-                              {treatment.paciente?.identificacion || treatment.paciente?.numero_identidad || 'Sin identificación'}
-                            </div>
-                            {treatment.paciente?.telefono && (
-                              <div className="text-gray-400 dark:text-gray-500 text-xs mt-1">
-                                <a 
-                                  href={createWhatsAppUrl(treatment.paciente.telefono, treatment.paciente.codigopais)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline"
-                                >
-                                  <i className="fab fa-whatsapp text-xs"></i>
-                                  <i className="fas fa-phone mr-1"></i>
-                                  {formatPhoneDisplay(treatment.paciente.telefono, treatment.paciente.codigopais)}
-                                </a>
-                              </div>
-                            )}
-                            {/* Patient Type and Historical Badges */}
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {patientType && (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${patientType.colors.badge} border ${patientType.colors.badgeText}`}>
-                                  {patientType.label}
-                                </span>
-                              )}
-                              {/* Historical Badge - only show if historical and NOT bypassed */}
-                              {recordCategoryInfo?.isHistorical && !patientBypassStatus[treatment.paciente_id] && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
-                                  Histórico
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {treatment.paciente_doctor || treatment.paciente?.doctor || 'No especificado'}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {(treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0)} item(s)
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                          <div>
-                            {formatCurrency(treatment.total_final, treatment.moneda)}
-                            {/* Payment Information - Use same logic as grid view */}
-                            {(() => {
-                              const totalPaid = treatment.monto_pagado || 0;
-                              const totalFinal = treatment.total_final || 0;
-                              const pendingBalance = PaymentService.calculatePendingBalance(totalFinal, totalPaid);
-                              const paymentStatus = PaymentService.calculatePaymentStatus(totalFinal, totalPaid);
-                              
-                              return (totalPaid > 0 || pendingBalance > 0 || paymentStatus !== 'pendiente') && (
-                                <div className="mt-1 space-y-0.5">
-                                  {totalPaid > 0 && (
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs text-green-600 dark:text-green-400">Pagado:</span>
-                                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
-                                        {formatCurrency(totalPaid)}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {pendingBalance > 0 && (
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs text-red-600 dark:text-red-400">Pendiente:</span>
-                                      <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                                        {formatCurrency(pendingBalance)}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusBadge(treatment)}`}>
-                            {getPaymentStatusText(treatment)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                          <div className="flex justify-end space-x-2">
-                            <button
-                              onClick={() => openPaymentModal(treatment)}
-                              className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                              title="Gestionar Pagos"
-                            >
-                              <i className="fas fa-dollar-sign text-xs"></i>
-                              <span className="text-xs">Pagos</span>
-                            </button>
-                            <button
-                              onClick={() => openDeleteTreatmentModal(treatment)}
-                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                              title="Eliminar Tratamiento"
-                            >
-                              <div className="w-4 h-4 flex items-center justify-center">
-                                <AnimatedRubish />
-                              </div>
-                              <span className="text-xs">Eliminar</span>
-                            </button>
-                            <Link
-                              href={`/tratamientos-completados/${treatment.id}/view`}
-                              className="text-teal-600 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-300 inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
-                              title="Ver Detalles"
-                            >
-                              <i className="fas fa-eye text-xs"></i>
-                              <span className="text-xs">Ver</span>
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                </div>
-              </div>
+              <TreatmentTable
+                treatments={currentTreatments}
+                patientBypassStatus={patientBypassStatus}
+                onOpenPayments={openPaymentModal}
+                onDelete={openDeleteTreatmentModal}
+                footer={
+                  totalTreatments > 0 ? (
+                    <TreatmentPagination {...paginationProps} variant="attached" />
+                  ) : null
+                }
+              />
             )}
 
-            {/* Pagination and Records Counter */}
-            {totalTreatments > 0 && (
-              <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4">
-                <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
-                  {/* Records Counter */}
-                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">Total Tratamientos: {totalTreatments}</span>
-                    <span className="mx-2">|</span>
-                    <span>Mostrando: {startIndex + 1}-{Math.min(endIndex, totalTreatments)} de {totalTreatments}</span>
-                  </div>
-
-                  {/* Records Per Page Dropdown */}
-                  <div className="flex items-center space-x-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Registros por página:</label>
-                    <div className="relative">
-                      <select
-                        value={recordsPerPagePref}
-                        onChange={(e) => handleRecordsPerPageChange(Number(e.target.value))}
-                        className="appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 pr-8 text-sm font-medium text-gray-900 dark:text-white hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 cursor-pointer transition-colors duration-200"
-                      >
-                        <option value={10}>10</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                        <i className="fas fa-chevron-down text-xs"></i>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center space-x-1">
-                      {/* Previous Button */}
-                      <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-teal-500"
-                      >
-                        <i className="fas fa-chevron-left"></i>
-                      </button>
-
-                      {/* Page Numbers */}
-                      {getPaginationNumbers().map((page, index) => (
-                        <span key={index}>
-                          {page === '...' ? (
-                            <span className="px-3 py-1 text-sm text-gray-500 dark:text-gray-400">...</span>
-                          ) : (
-                            <button
-                              onClick={() => handlePageChange(page as number)}
-                              className={`px-3 py-1 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500 ${
-                                currentPage === page
-                                  ? 'bg-teal-600 text-white border-teal-600'
-                                  : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          )}
-                        </span>
-                      ))}
-
-                      {/* Next Button */}
-                      <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-teal-500"
-                      >
-                        <i className="fas fa-chevron-right"></i>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </>
         )}
       </main>
