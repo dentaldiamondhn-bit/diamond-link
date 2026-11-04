@@ -2,6 +2,35 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  ClipboardList,
+  Info,
+  Package,
+  PenLine,
+  Percent,
+  Plus,
+  Save,
+  Search,
+  Signature as SignatureIcon,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import GlassModal from '@/components/tratamientos-completados/GlassModal';
+import SelectedTreatmentsPanel from '@/components/tratamientos-completados/SelectedTreatmentsPanel';
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY_DARK,
+  GLASS_DIVIDER,
+  GLASS_INSET,
+  GLASS_INSET_DARK,
+  GLASS_MUTED,
+  GLASS_PANEL,
+  GLASS_SUMMARY,
+} from '@/components/tratamientos-completados/glassTheme';
 import { CompletedTreatmentService } from '@/services/completedTreatmentService';
 import { PatientService } from '../../../../services/patientService';
 import { SupabaseDoctorService } from '../../../../services/supabaseDoctorService';
@@ -86,6 +115,13 @@ interface SelectedTreatment {
   disableElderlyDiscount?: boolean;
   imagen_url?: string;
 }
+
+const SELECTOR_TABS: { id: 'tratamientos' | 'promociones' | 'paquetes' | 'insumos'; label: string }[] = [
+  { id: 'tratamientos', label: 'Tratamientos' },
+  { id: 'promociones', label: 'Promociones' },
+  { id: 'paquetes', label: 'Paquetes' },
+  { id: 'insumos', label: 'Insumos' },
+];
 
 
 function NuevoTratamientoCompletadoPageContent() {
@@ -907,10 +943,10 @@ function NuevoTratamientoCompletadoPageContent() {
 
   if (!patient) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <i className="fas fa-exclamation-triangle text-4xl text-red-600 mb-4"></i>
-          <p className="text-gray-600 dark:text-gray-400">Paciente no encontrado</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className={cn(GLASS_PANEL, 'px-8 py-10 text-center')}>
+          <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-rose-500" aria-hidden="true" />
+          <p className="text-slate-600 dark:text-slate-300">Paciente no encontrado</p>
         </div>
       </div>
     );
@@ -920,151 +956,127 @@ function NuevoTratamientoCompletadoPageContent() {
 
   return (
     <>
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link
-                href={`/tratamientos-completados?paciente_id=${pacienteId}`}
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              >
-                <i className="fas fa-arrow-left mr-2"></i>
-                Volver a Tratamientos
-              </Link>
-              <div className="h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Nuevo Tratamiento Completado</h1>
-                <div className="flex items-center space-x-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Paciente: {patient.nombre_completo}
-                  </p>
-                  <div className="h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
-                  <div className="flex items-center space-x-2">
-                    <label htmlFor="treatment-date" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Fecha del Tratamiento:
-                    </label>
-                    <input
-                      id="treatment-date"
-                      type="date"
-                      value={treatmentDate}
-                      onChange={(e) => setTreatmentDate(e.target.value)}
-                      max={getTodayForDatabase()}
-                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      style={{
-                        colorScheme: resolvedTheme,
-                      }}
-                    />
-                    <span className="text-xs text-gray-500 dark:text-gray-400" title="Útil para transcribir registros históricos">
-                      <i className="fas fa-info-circle"></i>
-                    </span>
-                  </div>
-                  {patient && (getPatientType(patient).category === '3ra' || getPatientType(patient).category === '4ta') && (
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      getPatientType(patient).category === '4ta' 
-                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    }`}>
-                      <i className="fas fa-percent mr-1"></i>
-                      {getPatientType(patient).category === '4ta' ? '35%' : '25%'} descuento
-                    </span>
-              )}
-
-            </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Historical Mode Banner */}
-      <HistoricalBanner
-        isHistorical={recordCategoryInfo?.isHistorical}
-        isBypassed={bypassHistoricalMode}
-        patientId={pacienteId}
-        onBypassChange={handleBypassChange}
-        loading={false}
-        compact={true}
-      />
-
       {/* Save Button at Bottom */}
       <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={saveTreatment}
           disabled={saving || selectedTreatments.length === 0}
-          className="px-6 py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 text-white rounded-lg shadow-lg transition-colors flex items-center space-x-2"
+          className={cn(BTN_PRIMARY, 'px-6 py-3')}
         >
-          <i className="fas fa-save"></i>
+          <Save className="h-4 w-4" aria-hidden="true" />
           <span>{saving ? 'Guardando...' : 'Guardar Tratamiento'}</span>
         </button>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Page header */}
+        <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-lg backdrop-blur-md sm:p-6 lg:flex-row lg:items-center lg:justify-between dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <Link
+              href={`/tratamientos-completados?paciente_id=${pacienteId}`}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2 text-sm font-medium text-slate-600 backdrop-blur-sm transition-colors hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:border-slate-700/60 dark:bg-slate-950/40 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Volver
+            </Link>
+
+            <div className="hidden h-8 w-px bg-slate-200 sm:block dark:bg-slate-800" aria-hidden="true" />
+
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-white">
+                Nuevo Tratamiento Completado
+              </h1>
+
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                  <UserRound className="h-3.5 w-3.5" aria-hidden="true" />
+                  {patient.nombre_completo}
+                </span>
+
+                {(getPatientType(patient).category === '3ra' || getPatientType(patient).category === '4ta') && (
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${
+                    getPatientType(patient).category === '4ta'
+                      ? 'bg-purple-500/10 text-purple-700 ring-purple-500/20 dark:bg-purple-500/15 dark:text-purple-300'
+                      : 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300'
+                  }`}>
+                    <Percent className="h-3.5 w-3.5" aria-hidden="true" />
+                    {getPatientType(patient).category === '4ta' ? '35%' : '25%'} descuento
+                  </span>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <label htmlFor="treatment-date" className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Fecha:
+                  </label>
+                  <input
+                    id="treatment-date"
+                    type="date"
+                    value={treatmentDate}
+                    onChange={(e) => setTreatmentDate(e.target.value)}
+                    max={getTodayForDatabase()}
+                    className={cn(GLASS_INSET, 'px-2.5 py-1 text-xs')}
+                    style={{
+                      colorScheme: resolvedTheme,
+                    }}
+                  />
+                  <span className="text-slate-500 dark:text-slate-400" title="Útil para transcribir registros históricos">
+                    <Info className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Historical Mode Banner */}
+        <HistoricalBanner
+          isHistorical={recordCategoryInfo?.isHistorical}
+          isBypassed={bypassHistoricalMode}
+          patientId={pacienteId}
+          onBypassChange={handleBypassChange}
+          loading={false}
+          compact={true}
+        />
+
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Left Column - Treatment Selection */}
           <div className="lg:col-span-2 space-y-6">
             {/* Treatment Selector */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Agregar Tratamientos de la Base de Datos</h2>
+            <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-5 shadow-md backdrop-blur-xl dark:border-slate-800/60 dark:bg-slate-900/40">
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Agregar Tratamientos de la Base de Datos</h2>
                 <div className="flex items-center space-x-3">
                   <CreateTreatmentButton />
                 </div>
               </div>
 
               {/* Tabs */}
-              <div className="flex space-x-1 mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                <button
-                  onClick={() => setActiveTab('tratamientos')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'tratamientos'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Tratamientos
-                </button>
-                <button
-                  onClick={() => setActiveTab('promociones')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'promociones'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Promociones
-                </button>
-                <button
-                  onClick={() => setActiveTab('paquetes')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'paquetes'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Paquetes
-                </button>
-                <button
-                  onClick={() => setActiveTab('insumos')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'insumos'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Insumos
-                </button>
+              <div className="mb-4 flex gap-1 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-slate-800/80 dark:bg-slate-950/60">
+                {SELECTOR_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40',
+                      activeTab === tab.id
+                        ? 'bg-emerald-600/90 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-white'
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
               {/* Treatments Tab */}
               {activeTab === 'tratamientos' && (
                 <div>
                   {/* Filters */}
-                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row">
                     <select
                       value={selectedSpecialty}
                       onChange={(e) => setSelectedSpecialty(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      className={cn(GLASS_INSET, 'flex-1 cursor-pointer px-3 py-2 text-sm')}
                     >
                       <option value="">Todas las Especialidades</option>
                       {specialties.map(specialty => (
@@ -1076,35 +1088,35 @@ function NuevoTratamientoCompletadoPageContent() {
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      className={cn(GLASS_INSET, 'flex-1 px-3 py-2 text-sm')}
                       placeholder="Buscar tratamiento..."
                     />
                   </div>
 
                   {/* Treatments List */}
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                  <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
                     {filteredTreatments.length > 0 ? (
                       filteredTreatments.map((treatment) => (
                         <div
                           key={treatment.id}
                           onClick={() => addTreatment(treatment)}
-                          className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-800/50"
                         >
                           <div className="flex-1">
-                            <div className="font-medium text-sm text-gray-900 dark:text-white">
+                            <div className="text-sm font-medium text-slate-900 dark:text-white">
                               {treatment.codigo} - {treatment.nombre}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                               {treatment.especialidad}
                             </div>
                           </div>
-                          <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
+                          <div className="text-sm font-medium text-emerald-600 dark:text-emerald-300">
                             {treatment.moneda === 'HNL' ? 'L ' : '$'}{formatCurrency(treatment.precio, treatment.moneda || 'HNL' as Currency).replace(/[^\d.,]/g, '')}
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
                         No se encontraron tratamientos
                       </div>
                     )}
@@ -1116,45 +1128,45 @@ function NuevoTratamientoCompletadoPageContent() {
               {activeTab === 'promociones' && (
                 <div>
                   {/* Filters */}
-                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row">
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      className={cn(GLASS_INSET, 'flex-1 px-3 py-2 text-sm')}
                       placeholder="Buscar promoción..."
                     />
                   </div>
 
                   {/* Promotions List */}
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                  <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
                     {filteredPromotions.length > 0 ? (
                       filteredPromotions.map((promotion) => (
                         <div
                           key={promotion.id}
                           onClick={() => addPromotion(promotion)}
-                          className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-800/50"
                         >
                           <div className="flex-1">
-                            <div className="font-medium text-sm text-gray-900 dark:text-white">
+                            <div className="text-sm font-medium text-slate-900 dark:text-white">
                               {promotion.codigo} - {promotion.nombre}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                               {promotion.descuento}% OFF - Vigencia: {formatDateForDisplay(promotion.fecha_inicio)} a {formatDateForDisplay(promotion.fecha_fin)}
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-xs text-gray-500 dark:text-gray-400 line-through">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 line-through">
                               {promotion.moneda === 'HNL' ? 'L ' : '$'}{formatCurrency(promotion.precio_original, promotion.moneda || 'HNL' as Currency).replace(/[^\d.,]/g, '')}
                             </div>
-                            <div className="text-sm font-medium text-green-600 dark:text-green-400">
+                            <div className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
                               {promotion.moneda === 'HNL' ? 'L ' : '$'}{formatCurrency(promotion.precio_promocional, promotion.moneda || 'HNL' as Currency).replace(/[^\d.,]/g, '')}
                             </div>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
                         No se encontraron promociones
                       </div>
                     )}
@@ -1165,38 +1177,38 @@ function NuevoTratamientoCompletadoPageContent() {
               {/* Paquetes Tab */}
               {activeTab === 'paquetes' && (
                 <div>
-                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row">
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      className={cn(GLASS_INSET, 'flex-1 px-3 py-2 text-sm')}
                       placeholder="Buscar paquete..."
                     />
                   </div>
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                  <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
                     {filteredPaquetes.length > 0 ? (
                       filteredPaquetes.map((paquete) => (
                         <div
                           key={paquete.id}
                           onClick={() => addPaquete(paquete)}
-                          className="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-800/50"
                         >
                           <div className="flex-1">
-                            <div className="font-medium text-sm text-gray-900 dark:text-white">
+                            <div className="text-sm font-medium text-slate-900 dark:text-white">
                               {paquete.codigo} - {paquete.nombre}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                               {paquete.descripcion}
                             </div>
                           </div>
-                          <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
+                          <div className="text-sm font-medium text-emerald-600 dark:text-emerald-300">
                             {formatCurrency(paquete.precio_total, paquete.moneda || 'HNL' as Currency)}
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
                         No se encontraron paquetes
                       </div>
                     )}
@@ -1207,24 +1219,24 @@ function NuevoTratamientoCompletadoPageContent() {
               {/* Insumos Tab */}
               {activeTab === 'insumos' && (
                 <div>
-                  <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row">
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      className={cn(GLASS_INSET, 'flex-1 px-3 py-2 text-sm')}
                       placeholder="Buscar insumo..."
                     />
                   </div>
-                  <div className="max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                  <div className="max-h-60 space-y-1 overflow-y-auto pr-1">
                     {filteredInsumos.length > 0 ? (
                       filteredInsumos.map((inv) => (
                         <div
                           key={inv.id}
                           onClick={() => addInsumo(inv)}
-                          className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                          className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-800/50"
                         >
-                          <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                          <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800/60">
                             {inv.imagen_url ? (
                               <img
                                 src={inv.imagen_url}
@@ -1232,31 +1244,31 @@ function NuevoTratamientoCompletadoPageContent() {
                                 className="w-full h-full object-contain"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                <i className="fas fa-box text-sm"></i>
+                              <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                <Package className="h-5 w-5" aria-hidden="true" />
                               </div>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                            <div className="font-medium text-sm text-slate-900 dark:text-white truncate">
                               {inv.codigo || inv.insumo?.codigo} - {inv.nombre || inv.insumo?.nombre}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
                               {inv.insumo?.descripcion}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <div className="text-sm font-medium text-teal-600 dark:text-teal-400">
+                            <div className="text-sm font-medium text-emerald-600 dark:text-emerald-300">
                               {formatCurrency(inv.precio ?? inv.insumo?.precio ?? 0, (inv.moneda || inv.insumo?.moneda || 'HNL') as Currency)}
                             </div>
-                            <div className={`text-xs ${inv.stock_actual < inv.stock_minimo ? 'text-red-500' : 'text-gray-500'}`}>
+                            <div className={`text-xs ${inv.stock_actual < inv.stock_minimo ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'}`}>
                               Stock: {inv.stock_actual}
                             </div>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
                         No se encontraron items en inventario
                       </div>
                     )}
@@ -1265,132 +1277,44 @@ function NuevoTratamientoCompletadoPageContent() {
               )}
             </div>
 
-            {/* Selected Treatments */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tratamientos Seleccionados</h2>
-              
-              {selectedTreatments.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <i className="fas fa-clipboard-list text-4xl mb-2"></i>
-                  <p>No hay tratamientos seleccionados</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {selectedTreatments.map((item, index) => {
-                    const isPromotion = item.notas?.toLowerCase().includes('promoción') || 
-                                      item.notas?.toLowerCase().includes('promocion') ||
-                                      item.notas?.toLowerCase().includes('promo');
-                    
-                    return (
-                    <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 flex items-start gap-3">
-                          {item.imagen_url && (
-                            <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
-                              <img
-                                src={item.imagen_url}
-                                alt={item.nombre_tratamiento}
-                                className="w-full h-full object-contain"
-                              />
-                            </div>
-                          )}
-                          <div>
-                            <h4 className="font-medium text-gray-900 dark:text-white">{item.nombre_tratamiento}</h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{item.codigo_tratamiento}</p>
-                            <p className="text-sm font-medium text-teal-600">{formatCurrency(item.precio_original, item.moneda || 'HNL' as Currency)}</p>
-                          
-                          {/* Doctor Selection */}
-                          <div className="mt-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Tratado por:
-                            </label>
-                            <select
-                              value={item.doctor_id || 'dr-default'}
-                              onChange={(e) => updateTreatmentDoctor(index, e.target.value)}
-                              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
-                            >
-                              {availableDoctors.map(doctor => (
-                                <option key={doctor.id} value={doctor.id}>
-                                  {doctor.name} - {doctor.specialty}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          
-                          {/* Elderly Discount Override Checkbox for Promotional Treatments */}
-                          {isElderlyPatient && isPromotion && (
-                            <div className="mt-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-2">
-                              <label className="flex items-center space-x-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={!item.disableElderlyDiscount}
-                                  onChange={(e) => updateTreatmentElderlyDiscount(index, !e.target.checked)}
-                                  className="w-3 h-3 text-amber-600 border-gray-300 rounded focus:ring-amber-500 dark:focus:ring-amber-400 dark:bg-gray-700 dark:border-gray-600"
-                                />
-                                <div className="flex-1">
-                                  <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                                    Aplicar descuento de tercera/cuarta edad
-                                  </span>
-                                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                                    {getPatientType(patient!).category === '4ta' ? '35%' : '25%'} adicional
-                                  </p>
-                                </div>
-                              </label>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="number"
-                            value={item.cantidad}
-                            onChange={(e) => updateTreatmentQuantity(index, parseInt(e.target.value) || 1)}
-                            min="1"
-                            className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center dark:bg-gray-700 dark:text-white"
-                          />
-                          <button
-                            onClick={() => removeTreatment(index)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </div>
-                      </div>
-                      <textarea
-                        value={item.notas || ''}
-                        onChange={(e) => updateTreatmentNotes(index, e.target.value)}
-                        placeholder="Notas del tratamiento..."
-                        className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white text-sm"
-                        rows={2}
-                      />
-                    </div>
-                    </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <SelectedTreatmentsPanel
+              treatments={selectedTreatments}
+              doctors={availableDoctors}
+              elderlyDiscountPercent={
+                isElderlyPatient
+                  ? getPatientType(patient!).category === '4ta'
+                    ? 35
+                    : 25
+                  : null
+              }
+              onDoctorChange={updateTreatmentDoctor}
+              onQuantityChange={updateTreatmentQuantity}
+              onElderlyDiscountToggle={updateTreatmentElderlyDiscount}
+              onNotesChange={updateTreatmentNotes}
+              onRemove={removeTreatment}
+            />
           </div>
 
           {/* Right Column - Summary and Details */}
           <div className="space-y-6">
             {/* Pricing Summary */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Resumen de Precios</h2>
+            <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-5 shadow-md backdrop-blur-xl dark:border-slate-800/60 dark:bg-slate-900/40">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Resumen de Precios</h2>
               
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                  <span className="font-medium">{formatCurrency(subtotal, selectedTreatments[0]?.moneda || 'HNL' as Currency)}</span>
+                  <span className="text-slate-600 dark:text-slate-300">Subtotal:</span>
+                  <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(subtotal, selectedTreatments[0]?.moneda || 'HNL' as Currency)}</span>
                 </div>
                 
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <div className={cn('border-t pt-3', GLASS_DIVIDER)}>
+                  <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Tipo de Descuento
                   </label>
                   <select
                     value={discountType}
                     onChange={(e) => setDiscountType(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                    className={cn(GLASS_INSET, 'w-full cursor-pointer px-3 py-2')}
                   >
                     <option value="ninguno">Sin descuento</option>
                     <option value="monto">Monto fijo</option>
@@ -1400,7 +1324,7 @@ function NuevoTratamientoCompletadoPageContent() {
 
                 {discountType !== 'ninguno' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                       {discountType === 'monto' ? 'Monto de descuento:' : 'Porcentaje de descuento:'}
                     </label>
                     <div className="flex items-center space-x-2">
@@ -1411,56 +1335,63 @@ function NuevoTratamientoCompletadoPageContent() {
                         min="0"
                         max={discountType === 'porcentaje' ? 100 : undefined}
                         step={discountType === 'monto' ? 0.01 : 1}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                        className={cn(GLASS_INSET, 'flex-1 px-3 py-2')}
                       />
-                      {discountType === 'porcentaje' && <span>%</span>}
+                      {discountType === 'porcentaje' && <span className="text-slate-600 dark:text-slate-300">%</span>}
                     </div>
                   </div>
                 )}
 
                 {discount > 0 && (
                   <div className="space-y-2">
-                    <div className="flex justify-between text-green-600">
+                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
                       <span>Descuento:</span>
                       <span className="font-medium">-{formatCurrency(discount, selectedTreatments[0]?.moneda || 'HNL' as Currency)}</span>
                     </div>
                     {discountReason && (
-                      <div className="text-xs text-green-600 italic">
-                        <i className="fas fa-info-circle mr-1"></i>
+                      <div className="flex items-start gap-1 text-xs italic text-emerald-600 dark:text-emerald-400">
+                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                         {discountReason}
                       </div>
                     )}
                   </div>
                 )}
 
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-                  <div className="flex justify-between text-lg font-semibold text-gray-900 dark:text-white">
+                <div className={cn('border-t pt-3', GLASS_DIVIDER)}>
+                  <div
+                    className={cn(
+                      GLASS_SUMMARY,
+                      'flex items-center justify-between gap-3 text-lg font-semibold',
+                      'border-emerald-200/80 bg-emerald-50/80 text-emerald-700',
+                      'dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-400'
+                    )}
+                  >
                     <span>Total:</span>
-                    <span className="text-teal-600">{formatCurrency(total, selectedTreatments[0]?.moneda || 'HNL' as Currency)}</span>
+                    <span>{formatCurrency(total, selectedTreatments[0]?.moneda || 'HNL' as Currency)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Doctor Notes */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Notas del Doctor</h2>
+            <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-5 shadow-md backdrop-blur-xl dark:border-slate-800/60 dark:bg-slate-900/40">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Notas del Doctor</h2>
               <textarea
                 value={doctorNotes}
                 onChange={(e) => setDoctorNotes(e.target.value)}
                 placeholder="Añada notas sobre el tratamiento realizado..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                className={cn(GLASS_INSET, 'w-full px-3 py-2')}
                 rows={4}
               />
             </div>
 
             {/* Signatures */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Firmas</h2>
+            <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-5 shadow-md backdrop-blur-xl dark:border-slate-800/60 dark:bg-slate-900/40">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Firmas</h2>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     {!recordCategoryInfo?.isHistorical || bypassHistoricalMode ? 'Firma del Paciente *' : 'Estado de Firma'}
                   </label>
                   <div className="flex items-center space-x-3">
@@ -1469,7 +1400,7 @@ function NuevoTratamientoCompletadoPageContent() {
                         // Active record OR bypassed historical record - show signature
                         <>
                           {patientSignature ? (
-                            <div className="border-2 border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white">
+                            <div className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700">
                               <img 
                                 src={patientSignature} 
                                 alt="Firma del paciente" 
@@ -1477,26 +1408,26 @@ function NuevoTratamientoCompletadoPageContent() {
                               />
                             </div>
                           ) : (
-                            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center text-gray-500 dark:text-gray-400">
-                              <i className="fas fa-signature text-2xl mb-2"></i>
+                            <div className="rounded-lg border-2 border-dashed border-slate-300 p-4 text-center text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                              <SignatureIcon className="mb-2 h-7 w-7" aria-hidden="true" />
                               <p>Haga clic en "Firmar" para agregar la firma</p>
                             </div>
                           )}
                         </>
                       ) : (
                         // Historical record with no bypass - no signature required
-                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
-                          <i className="fas fa-check-circle text-green-600 dark:text-green-400 text-xl mb-2"></i>
-                          <p className="text-green-800 dark:text-green-200 font-medium">No se requiere firma para registros históricos</p>
+                        <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/80 p-4 text-center dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                          <CheckCircle2 className="mb-2 h-6 w-6 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                          <p className="font-medium text-emerald-800 dark:text-emerald-200">No se requiere firma para registros históricos</p>
                         </div>
                       )} 
                     </div>
                     {(!recordCategoryInfo?.isHistorical || bypassHistoricalMode) && (
                       <button
                         onClick={() => setShowPatientSignatureModal(true)}
-                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
+                        className={BTN_PRIMARY}
                       >
-                        <i className="fas fa-pen mr-2"></i>
+                        <PenLine className="h-4 w-4" aria-hidden="true" />
                         {patientSignature ? 'Cambiar Firma' : 'Añadir Firma'}
                       </button>
                     )}
@@ -1575,9 +1506,12 @@ function NuevoTratamientoCompletadoPageContent() {
                       searchPatients(e.target.value);
                     }}
                     placeholder="Buscar por nombre o número de identidad..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-gray-700 dark:text-white"
+                    className={cn(GLASS_INSET, 'w-full pl-10 pr-4 py-2')}
                   />
-                  <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    aria-hidden="true"
+                  />
                 </div>
 
                 {/* Search Results */}
@@ -1661,7 +1595,7 @@ function NuevoTratamientoCompletadoPageContent() {
                             <div className="text-xs text-gray-500 dark:text-gray-400">
                               Score: {patientResult.score}
                             </div>
-                            <i className="fas fa-plus text-teal-600 hover:text-teal-800"></i>
+                            <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                           </div>
                         </div>
                       </div>
@@ -1718,7 +1652,7 @@ function NuevoTratamientoCompletadoPageContent() {
                 <button
                   onClick={confirmGroupPromotion}
                   disabled={beneficiaries.length === 0}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Confirmar Promoción ({beneficiaries.length + 1} pacientes)
                 </button>
@@ -1738,9 +1672,9 @@ function CreateTreatmentButton() {
   return (
     <button
       onClick={() => openTreatmentModal('treatment')}
-      className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+      className={cn(BTN_PRIMARY, 'px-4 py-2')}
     >
-      <i className="fas fa-plus"></i>
+      <Plus className="h-4 w-4" aria-hidden="true" />
       <span>Crear Tratamiento</span>
     </button>
   );

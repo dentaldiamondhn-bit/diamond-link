@@ -2,7 +2,24 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Coins,
+  FileText,
+  Info,
+  PenLine,
+  Phone,
+  Plus,
+  StickyNote,
+  User,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { formatCurrency, Currency } from '../../../../../utils/currencyUtils';
 import { formatDateForDisplay } from '../../../../../utils/dateUtils';
 import { SimpleTimezoneFix } from '../../../../../services/simpleTimezoneFix';
@@ -10,8 +27,25 @@ import { Patient } from '../../../../../types/patient';
 import SignatureDisplay from '../../../../../components/SignatureDisplay';
 import { CompletedTreatmentService } from '../../../../../services/completedTreatmentService';
 import { useHistoricalMode } from '../../../../../contexts/HistoricalModeContext';
-import { getRecordCategoryInfo } from '../../../../../utils/recordCategoryUtils';
+import { getRecordCategoryInfo, type HistoricalRecordInfo } from '../../../../../utils/recordCategoryUtils';
 import HistoricalBanner from '../../../../../components/HistoricalBanner';
+import StatusBadge from '../../../../../components/tratamientos-completados/StatusBadge';
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  GLASS_DIVIDER,
+  GLASS_FIELD_LABEL,
+  GLASS_HEADING,
+  GLASS_INSET,
+  GLASS_MUTED,
+  GLASS_PANEL,
+  GLASS_SUMMARY,
+} from '../../../../../components/tratamientos-completados/glassTheme';
+import {
+  getPaymentStatusPresentation,
+  type PaymentStatusTone,
+} from '@/lib/treatments/completedTreatmentMetrics';
+import type { PaymentStatus } from '@/lib/treatments/completedTreatmentSort';
 
 interface CompletedTreatment {
   id: string;
@@ -67,12 +101,35 @@ interface CompletedTreatment {
   }[];
 }
 
+const PAYMENT_DOT_CLASSES: Record<PaymentStatusTone, string> = {
+  pagado: 'bg-emerald-500',
+  parcialmente_pagado: 'bg-amber-500',
+  pendiente: 'bg-rose-500',
+};
+
+const PAYMENT_ICON: Record<PaymentStatusTone, LucideIcon> = {
+  pagado: CheckCircle2,
+  parcialmente_pagado: Wallet,
+  pendiente: Clock3,
+};
+
+const PAYMENT_ICON_CLASSES: Record<PaymentStatusTone, string> = {
+  pagado: 'text-emerald-600 dark:text-emerald-400',
+  parcialmente_pagado: 'text-amber-600 dark:text-amber-400',
+  pendiente: 'text-rose-600 dark:text-rose-400',
+};
+
+const PAYMENT_TIMELINE_LABEL: Record<PaymentStatusTone, string> = {
+  pagado: 'Tratamiento Pagado',
+  parcialmente_pagado: 'Tratamiento Parcialmente Pagado',
+  pendiente: 'Tratamiento Pendiente de Pago',
+};
+
 export default function TratamientoCompletadoViewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [treatment, setTreatment] = useState<CompletedTreatment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [recordCategoryInfo, setRecordCategoryInfo] = useState<any>(null);
+  const [recordCategoryInfo, setRecordCategoryInfo] = useState<HistoricalRecordInfo | null>(null);
   const { bypassHistoricalMode, loadPatientSettings } = useHistoricalMode();
 
   // Unwrap params with React.use()
@@ -111,51 +168,12 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
     loadTreatment();
   }, [treatmentId]);
 
-  const getStatusColor = (estado_pago: string) => {
-    switch (estado_pago) {
-      case 'pagado':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'parcialmente_pagado':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'pendiente':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-    }
-  };
-
-  const getStatusIcon = (estado_pago: string) => {
-    switch (estado_pago) {
-      case 'pagado':
-        return 'fa-dollar-sign';
-      case 'parcialmente_pagado':
-        return 'fa-check-circle';
-      case 'pendiente':
-        return 'fa-clock';
-      default:
-        return 'fa-question-circle';
-    }
-  };
-
-  const getStatusText = (estado_pago: string) => {
-    switch (estado_pago) {
-      case 'pagado':
-        return 'Pagado';
-      case 'parcialmente_pagado':
-        return 'Parcialmente Pagado';
-      case 'pendiente':
-        return 'Pendiente';
-      default:
-        return 'Desconocido';
-    }
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando tratamiento...</p>
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600 dark:border-emerald-400"></div>
+          <p className="mt-4 text-slate-600 dark:text-slate-300">Cargando tratamiento...</p>
         </div>
       </div>
     );
@@ -163,455 +181,506 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
 
   if (!treatment) {
     return (
-      <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+      <div className="py-12 text-center">
+        <h3 className="mb-2 text-lg font-medium text-slate-900 dark:text-white">
           Tratamiento no encontrado
         </h3>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
+        <p className="mb-4 text-slate-600 dark:text-slate-300">
           El tratamiento que buscas no existe o ha sido eliminado.
         </p>
       </div>
     );
   }
 
+  const paymentStatus: PaymentStatus = treatment.estado_pago || 'pendiente';
+  const paymentTone = getPaymentStatusPresentation(paymentStatus).tone;
+  const PaymentIcon = PAYMENT_ICON[paymentTone];
+
   return (
     <>
       {/* Top Action Bar */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left side - Crear Nuevo Tratamiento */}
-            <button
-              onClick={() => {
-                const url = treatment.paciente_id 
-                  ? `/tratamientos-completados/new?paciente_id=${treatment.paciente_id}`
-                  : '/tratamientos-completados/new';
-                router.push(url);
-              }}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <i className="fas fa-plus mr-2"></i>
-              Crear Nuevo Tratamiento
-            </button>
-            
-            {/* Right side - Volver */}
-            <button
-              onClick={() => {
-                const url = treatment.paciente_id 
-                  ? `/tratamientos-completados?paciente_id=${encodeURIComponent(treatment.paciente_id)}`
-                  : '/tratamientos-completados';
-                router.push(url);
-              }}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              <i className="fas fa-arrow-left mr-2"></i>
-              Volver
-            </button>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+        <div className={cn(GLASS_PANEL, 'flex flex-wrap items-center justify-between gap-3 p-4')}>
+          {/* Left side - Crear Nuevo Tratamiento */}
+          <button
+            type="button"
+            onClick={() => {
+              const url = treatment.paciente_id 
+                ? `/tratamientos-completados/new?paciente_id=${treatment.paciente_id}`
+                : '/tratamientos-completados/new';
+              router.push(url);
+            }}
+            className={BTN_PRIMARY}
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Crear Nuevo Tratamiento
+          </button>
+
+          {/* Right side - Volver */}
+          <button
+            type="button"
+            onClick={() => {
+              const url = treatment.paciente_id 
+                ? `/tratamientos-completados?paciente_id=${encodeURIComponent(treatment.paciente_id)}`
+                : '/tratamientos-completados';
+              router.push(url);
+            }}
+            className={BTN_SECONDARY}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Volver
+          </button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Detalles del Tratamiento Completado
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Paciente: {treatment.paciente?.nombre_completo || 'Paciente desconocido'}
-            </p>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 pb-8 pt-6 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Detalles del Tratamiento Completado
+          </h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Paciente: {treatment.paciente?.nombre_completo || 'Paciente desconocido'}
+          </p>
         </div>
-      </div>
 
-      {/* Historical Mode Banner - Prominent Position */}
-      <HistoricalBanner
-        isHistorical={recordCategoryInfo?.isHistorical}
-        isBypassed={bypassHistoricalMode}
-        patientId={treatment?.paciente_id}
-        loading={loading}
-        compact={false}
-        showBypassToggle={true}
-      />
+        {/* Historical Mode Banner - Prominent Position */}
+        <HistoricalBanner
+          isHistorical={recordCategoryInfo?.isHistorical}
+          isBypassed={bypassHistoricalMode}
+          patientId={treatment?.paciente_id}
+          loading={loading}
+          compact={false}
+          showBypassToggle={true}
+        />
 
-      {/* Status Badge */}
-      <div className="mb-6">
-        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(treatment.estado_pago || 'pendiente')}`}>
-          <i className={`fas ${getStatusIcon(treatment.estado_pago || 'pendiente')} mr-2`}></i>
-          {getStatusText(treatment.estado_pago || 'pendiente')}
-        </span>
-      </div>
+        {/* Status Badge */}
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <StatusBadge status={paymentStatus} />
+        </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Patient Information */}
-        <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Información del Paciente
-            </h2>
-            {treatment.paciente ? (
-              <div className="space-y-4">
-                {/* Basic Information */}
-                <div className="border-b border-gray-200 dark:border-gray-700 pb-3">
-                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Datos Básicos</h3>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Nombre</p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {treatment.paciente.nombre_completo}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Identidad</p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {treatment.paciente.numero_identidad}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Teléfono</p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {treatment.paciente.telefono ? (
-                          <a 
-                            href={`https://wa.me/${(treatment.paciente.codigopais || '504')}${treatment.paciente.telefono.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 underline flex items-center gap-1"
-                          >
-                            <i className="fab fa-whatsapp"></i>
-                            {(treatment.paciente.codigopais || '504')} {treatment.paciente.telefono}
-                          </a>
-                        ) : (
-                          <span className="text-gray-500">No disponible</span>
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Fecha de Cita</p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}
-                      </p>
-                    </div>
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Patient Information */}
+          <div className="lg:col-span-1">
+            <div className={cn(GLASS_PANEL, 'p-6')}>
+              <h2 className={cn(GLASS_HEADING, 'mb-5 flex items-center gap-2 text-slate-900 dark:text-white')}>
+                <User className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                Información del Paciente
+              </h2>
+
+              {treatment.paciente ? (
+                <div className="space-y-4">
+                  <div className={cn('border-b pb-4', GLASS_DIVIDER)}>
+                    <p className={cn(GLASS_MUTED, 'text-slate-500 dark:text-slate-400')}>Nombre</p>
+                    <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                      <User className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                      {treatment.paciente.nombre_completo}
+                    </p>
+                  </div>
+
+                  <div className={cn('border-b pb-4', GLASS_DIVIDER)}>
+                    <p className={cn(GLASS_MUTED, 'text-slate-500 dark:text-slate-400')}>Identidad</p>
+                    <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                      <FileText className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                      {treatment.paciente.numero_identidad}
+                    </p>
+                  </div>
+
+                  <div className={cn('border-b pb-4', GLASS_DIVIDER)}>
+                    <p className={cn(GLASS_MUTED, 'text-slate-500 dark:text-slate-400')}>Teléfono</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                      {treatment.paciente.telefono ? (
+                        <a
+                          href={`https://wa.me/${(treatment.paciente.codigopais || '504')}${treatment.paciente.telefono.replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-emerald-600 underline underline-offset-2 transition-colors hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                        >
+                          <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          {(treatment.paciente.codigopais || '504')} {treatment.paciente.telefono}
+                        </a>
+                      ) : (
+                        <span className="text-slate-500 dark:text-slate-400">No disponible</span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className={cn(GLASS_MUTED, 'text-slate-500 dark:text-slate-400')}>Fecha de Cita</p>
+                    <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                      <CalendarDays className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                      {SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}
+                    </p>
                   </div>
                 </div>
-
-                              </div>
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400">
-                Información del paciente no disponible
-              </p>
-            )}
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Información del paciente no disponible
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-        
-        {/* Treatment Details */}
-        <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Detalles del Tratamiento
-            </h2>
 
-            {/* Treatment Overview */}
-            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Treatment Details */}
+          <div className="lg:col-span-2">
+            <div className={cn(GLASS_PANEL, 'p-6')}>
+              <h2 className={cn(GLASS_HEADING, 'mb-5 text-slate-900 dark:text-white')}>
+                Detalles del Tratamiento
+              </h2>
+
+              {/* Treatment Overview */}
+              <div className={cn(GLASS_INSET, 'mb-6 grid grid-cols-1 gap-4 p-4 md:grid-cols-3')}>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Fecha del Tratamiento</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <p className={cn(GLASS_FIELD_LABEL, 'text-slate-700 dark:text-slate-300')}>
+                    Fecha del Tratamiento
+                  </p>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                    <CalendarDays className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                     {SimpleTimezoneFix.formatDisplayDate(treatment.fecha_cita)}
                   </p>
                 </div>
+
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Estado del Tratamiento</p>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(treatment.estado_pago || 'pendiente')}`}>
-                    <i className={`fas ${getStatusIcon(treatment.estado_pago || 'pendiente')} mr-1`}></i>
-                    {getStatusText(treatment.estado_pago || 'pendiente')}
-                  </span>
+                  <p className={cn(GLASS_FIELD_LABEL, 'text-slate-700 dark:text-slate-300')}>
+                    Estado del Tratamiento
+                  </p>
+                  <StatusBadge status={paymentStatus} />
                 </div>
+
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Total de Tratamientos</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <p className={cn(GLASS_FIELD_LABEL, 'text-slate-700 dark:text-slate-300')}>
+                    Total de Tratamientos
+                  </p>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                    <Info className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                     {(treatment.tratamientos_realizados?.length || 0) + (treatment.tratamientos_inventario?.length || 0)} procedimientos
                   </p>
                 </div>
               </div>
-            </div>
 
-            {/* Treatments List */}
-            <div className="mb-6">
-              <h3 className="text-md font-medium text-gray-900 dark:text-white mb-3">
-                Procedimientos Realizados
-              </h3>
-              
-              {/* Always show treatments, regardless of historical mode */}
-              {treatment.tratamientos_realizados && treatment.tratamientos_realizados.length > 0 || treatment.tratamientos_inventario && treatment.tratamientos_inventario.length > 0 ? (
-                <div className="space-y-3">
-                  {treatment.tratamientos_realizados?.map((item) => (
-                    <div key={item.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center mb-2">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-gray-900 dark:text-white">
+              {/* Treatments List */}
+              <div className="mb-6">
+                <h3 className={cn(GLASS_HEADING, 'mb-3 text-base text-slate-900 dark:text-white')}>
+                  Procedimientos Realizados
+                </h3>
+
+                {/* Always show treatments, regardless of historical mode */}
+                {treatment.tratamientos_realizados && treatment.tratamientos_realizados.length > 0 || treatment.tratamientos_inventario && treatment.tratamientos_inventario.length > 0 ? (
+                  <div className="space-y-3">
+                    {treatment.tratamientos_realizados?.map((item) => (
+                      <div key={item.id} className={cn(GLASS_INSET, 'p-4')}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <h4 className="font-semibold text-slate-900 dark:text-white">
                                 {item.nombre_tratamiento}
                               </h4>
                               {(item.notas || item.tratamiento?.notas) && (
-                                <i 
-                                  className="fas fa-sticky-note text-amber-500 text-sm cursor-help" 
+                                <span
+                                  className="inline-flex"
                                   title={`Notas: ${item.notas || item.tratamiento?.notas}`}
-                                ></i>
+                                >
+                                  <StickyNote
+                                    className="h-4 w-4 cursor-help text-amber-500"
+                                    aria-hidden="true"
+                                  />
+                                </span>
                               )}
-                            </div>
-                            <span className="ml-2 px-2 py-1 bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200 text-xs rounded-full">
-                              {item.codigo_tratamiento}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-500 dark:text-gray-400">Cantidad:</span>
-                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                                {item.cantidad}
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
+                                {item.codigo_tratamiento}
                               </span>
                             </div>
-                            <div>
-                              <span className="text-gray-500 dark:text-gray-400">Precio Unitario:</span>
-                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                                {formatCurrency(item.precio_original, item.moneda || 'HNL' as Currency)}
-                              </span>
+
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Cantidad:</span>
+                                <span className="ml-2 font-medium text-slate-900 dark:text-white">
+                                  {item.cantidad}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Precio Unitario:</span>
+                                <span className="ml-2 font-medium text-slate-900 dark:text-white">
+                                  {formatCurrency(item.precio_original, item.moneda || 'HNL' as Currency)}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          {/* Doctor Information */}
-                          {item.doctor_name && (
-                            <div className="mt-3 text-sm">
-                              <span className="text-gray-500 dark:text-gray-400">Tratado por:</span>
-                              <span className="ml-2 font-medium text-teal-600 dark:text-teal-400">
-                                {item.doctor_name}
-                              </span>
-                            </div>
-                          )}
-                          {item.notas && (
-                            <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-700 rounded text-sm">
-                              <span className="text-gray-500 dark:text-gray-400">Notas del procedimiento:</span>
-                              <p className="mt-1 text-gray-700 dark:text-gray-300">
-                                {item.notas}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right ml-4">
-                          <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {formatCurrency(item.precio_final, item.moneda || 'HNL' as Currency)}
-                          </p>
-                          {item.precio_final !== item.precio_original && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 line-through">
-                              {formatCurrency(item.precio_original, item.moneda || 'HNL' as Currency)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {/* Inventory (insumos) items used */}
-                  {treatment.tratamientos_inventario?.map((item) => (
-                    <div key={`inv-${item.id}`} className="border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center mb-2">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-gray-900 dark:text-white">
-                                {item.nombre}
-                              </h4>
-                              <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-xs rounded-full">
-                                Inventario
-                              </span>
-                            </div>
-                            {item.codigo && (
-                              <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 text-xs rounded-full">
-                                {item.codigo}
-                              </span>
+
+                            {/* Doctor Information */}
+                            {item.doctor_name && (
+                              <div className="mt-3 text-sm">
+                                <span className="text-slate-500 dark:text-slate-400">Tratado por:</span>
+                                <span className="ml-2 font-medium text-emerald-600 dark:text-emerald-400">
+                                  {item.doctor_name}
+                                </span>
+                              </div>
+                            )}
+
+                            {item.notas && (
+                              <div className="mt-3 rounded-lg border border-slate-200/80 bg-white/60 p-2 text-sm dark:border-slate-800 dark:bg-slate-900/40">
+                                <span className="text-slate-500 dark:text-slate-400">
+                                  Notas del procedimiento:
+                                </span>
+                                <p className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-300">
+                                  {item.notas}
+                                </p>
+                              </div>
                             )}
                           </div>
-                          {item.imagen_url && (
-                            <div className="mb-3">
-                              <img
-                                src={item.imagen_url}
-                                alt={item.nombre}
-                                className="w-20 h-20 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
-                                onError={(e) => (e.currentTarget.style.display = 'none')}
-                              />
-                            </div>
-                          )}
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-500 dark:text-gray-400">Cantidad:</span>
-                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                                {item.cantidad}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500 dark:text-gray-400">Precio Unitario:</span>
-                              <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                                {formatCurrency(item.precio, item.moneda || 'HNL' as Currency)}
-                              </span>
-                            </div>
-                          </div>
-                          {item.notas && (
-                            <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-700 rounded text-sm">
-                              <span className="text-gray-500 dark:text-gray-400">Notas:</span>
-                              <p className="mt-1 text-gray-700 dark:text-gray-300">
-                                {item.notas}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right ml-4">
-                          <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {formatCurrency(item.precio, item.moneda || 'HNL' as Currency)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 dark:text-gray-400">
-                  No hay procedimientos registrados
-                </p>
-              )}
-            </div>
 
-            {/* Financial Summary */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <h3 className="text-md font-medium text-gray-900 dark:text-white mb-3">
-                Resumen Financiero
-              </h3>
-              
-              {/* Check if financial summary should be hidden due to historical mode */}
-              {!bypassHistoricalMode && recordCategoryInfo?.isHistorical ? (
-                <div className="text-center py-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <i className="fas fa-dollar-sign text-2xl text-amber-600 dark:text-amber-400 mb-2"></i>
-                  <p className="text-amber-700 dark:text-amber-300">
-                    Información financiera oculta por modo histórico
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(treatment.total_original, treatment.moneda || 'HNL' as Currency)}
-                      </span>
-                    </div>
-                    {treatment.total_descuento > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">
-                          Descuento ({treatment.tipo_descuento === 'porcentaje' ? `${treatment.valor_descuento}%` : treatment.tipo_descuento}):
-                        </span>
-                        <span className="font-medium text-red-600 dark:text-red-400">
-                          -{formatCurrency(treatment.total_descuento, treatment.moneda || 'HNL' as Currency)}
-                        </span>
+                          <div className="ml-4 shrink-0 text-right">
+                            <p className="text-lg font-semibold text-slate-900 dark:text-white">
+                              {formatCurrency(item.precio_final, item.moneda || 'HNL' as Currency)}
+                            </p>
+                            {item.precio_final !== item.precio_original && (
+                              <p className="text-sm text-slate-500 line-through dark:text-slate-400">
+                                {formatCurrency(item.precio_original, item.moneda || 'HNL' as Currency)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    <div className="flex justify-between text-lg font-semibold border-t border-gray-300 dark:border-gray-600 pt-2 mt-2">
-                      <span className="text-gray-900 dark:text-white">Total Final:</span>
-                      <span className="text-teal-600 dark:text-teal-400">
-                        {formatCurrency(treatment.total_final, treatment.moneda || 'HNL' as Currency)}
-                      </span>
-                    </div>
+                    ))}
+
+                    {/* Inventory (insumos) items used */}
+                    {treatment.tratamientos_inventario?.map((item) => (
+                      <div
+                        key={`inv-${item.id}`}
+                        className={cn(
+                          GLASS_INSET,
+                          'p-4 border-amber-200/80 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20',
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <h4 className="font-semibold text-slate-900 dark:text-white">
+                                {item.nombre}
+                              </h4>
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                                Inventario
+                              </span>
+                              {item.codigo && (
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                  {item.codigo}
+                                </span>
+                              )}
+                            </div>
+
+                            {item.imagen_url && (
+                              <div className="mb-3">
+                                <img
+                                  src={item.imagen_url}
+                                  alt={item.nombre}
+                                  className="h-20 w-20 rounded-lg border border-slate-200/80 object-cover dark:border-slate-800"
+                                  onError={(e) => (e.currentTarget.style.display = 'none')}
+                                />
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Cantidad:</span>
+                                <span className="ml-2 font-medium text-slate-900 dark:text-white">
+                                  {item.cantidad}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Precio Unitario:</span>
+                                <span className="ml-2 font-medium text-slate-900 dark:text-white">
+                                  {formatCurrency(item.precio, item.moneda || 'HNL' as Currency)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {item.notas && (
+                              <div className="mt-3 rounded-lg border border-amber-200/70 bg-white/60 p-2 text-sm dark:border-amber-900/40 dark:bg-amber-950/10">
+                                <span className="text-slate-500 dark:text-slate-400">Notas:</span>
+                                <p className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-300">
+                                  {item.notas}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="ml-4 shrink-0 text-right">
+                            <p className="text-lg font-semibold text-slate-900 dark:text-white">
+                              {formatCurrency(item.precio, item.moneda || 'HNL' as Currency)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    No hay procedimientos registrados
+                  </p>
+                )}
+              </div>
+
+              {/* Doctor Notes */}
+              {treatment.notas_doctor && (
+                <div className={cn('mt-2 border-t pt-4', GLASS_DIVIDER)}>
+                  <h3 className={cn(GLASS_HEADING, 'mb-3 flex items-center gap-2 text-base text-slate-900 dark:text-white')}>
+                    <StickyNote className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    Notas del Doctor
+                  </h3>
+                  <div className="rounded-lg border border-sky-200/80 bg-sky-50/70 p-4 dark:border-sky-900/50 dark:bg-sky-950/20">
+                    <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-300">
+                      {treatment.notas_doctor}
+                    </p>
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Doctor Notes */}
-            {treatment.notas_doctor && (
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-                <h3 className="text-md font-medium text-gray-900 dark:text-white mb-3">
-                  Notas del Doctor
-                </h3>
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {treatment.notas_doctor}
-                  </p>
+        {/* Financial Summary, Timeline and Signature */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          {/* Total Final */}
+          <div className={cn(GLASS_PANEL, 'p-6')}>
+            <h3 className={cn(GLASS_HEADING, 'mb-4 flex items-center gap-2 text-slate-900 dark:text-white')}>
+              <Coins className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              Total Final
+            </h3>
+
+            {/* Check if financial summary should be hidden due to historical mode */}
+            {!bypassHistoricalMode && recordCategoryInfo?.isHistorical ? (
+              <div className="rounded-lg border border-amber-200/80 bg-amber-50/80 p-6 text-center dark:border-amber-800/60 dark:bg-amber-950/20">
+                <AlertTriangle
+                  className="mx-auto mb-2 h-7 w-7 text-amber-600 dark:text-amber-400"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  Información financiera oculta por modo histórico
+                </p>
+              </div>
+            ) : (
+              <div className={cn(GLASS_INSET, 'space-y-2 p-4')}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">Subtotal:</span>
+                  <span className="font-medium text-slate-900 dark:text-white">
+                    {formatCurrency(treatment.total_original, treatment.moneda || 'HNL' as Currency)}
+                  </span>
+                </div>
+
+                {treatment.total_descuento > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Descuento ({treatment.tipo_descuento === 'porcentaje' ? `${treatment.valor_descuento}%` : treatment.tipo_descuento}):
+                    </span>
+                    <span className="font-medium text-rose-600 dark:text-rose-400">
+                      -{formatCurrency(treatment.total_descuento, treatment.moneda || 'HNL' as Currency)}
+                    </span>
+                  </div>
+                )}
+
+                <div
+                  className={cn(
+                    GLASS_SUMMARY,
+                    'mt-2 flex items-center justify-between border-emerald-200/80 bg-emerald-50/80 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-400',
+                  )}
+                >
+                  <span>Total Final:</span>
+                  <span className="text-base font-bold">
+                    {formatCurrency(treatment.total_final, treatment.moneda || 'HNL' as Currency)}
+                  </span>
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Treatment Timeline */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-              <h3 className="text-md font-medium text-gray-900 dark:text-white mb-3">
-                Línea de Tiempo del Tratamiento
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Tratamiento Creado</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatDateForDisplay(treatment.creado_en)}
-                    </p>
-                  </div>
+          {/* Treatment Timeline */}
+          <div className={cn(GLASS_PANEL, 'p-6')}>
+            <h3 className={cn(GLASS_HEADING, 'mb-4 flex items-center gap-2 text-slate-900 dark:text-white')}>
+              <Clock3 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              Línea de Tiempo del Tratamiento
+            </h3>
+
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <span
+                  className="mt-1.5 h-3 w-3 shrink-0 rounded-full bg-emerald-500"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    Tratamiento Creado
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {formatDateForDisplay(treatment.creado_en)}
+                  </p>
                 </div>
-                {treatment.actualizado_en !== treatment.creado_en && (
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">Última Actualización</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {formatDateForDisplay(treatment.actualizado_en)}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-center">
-                  <div className={`w-3 h-3 rounded-full mr-3 ${
-                    (treatment.estado_pago || 'pendiente') === 'pagado' ? 'bg-green-500' : 
-                    (treatment.estado_pago || 'pendiente') === 'parcialmente_pagado' ? 'bg-yellow-500' : 
-                    'bg-red-500'
-                  }`}></div>
+              </div>
+
+              {treatment.actualizado_en !== treatment.creado_en && (
+                <div className="flex items-start gap-3">
+                  <span
+                    className="mt-1.5 h-3 w-3 shrink-0 rounded-full bg-blue-500"
+                    aria-hidden="true"
+                  />
                   <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {(treatment.estado_pago || 'pendiente') === 'pagado' ? 'Tratamiento Pagado' : 
-                       (treatment.estado_pago || 'pendiente') === 'parcialmente_pagado' ? 'Tratamiento Parcialmente Pagado' : 
-                       'Tratamiento Pendiente de Pago'}
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">
+                      Última Actualización
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       {formatDateForDisplay(treatment.actualizado_en)}
                     </p>
                   </div>
                 </div>
+              )}
+
+              <div className="flex items-start gap-3">
+                <span
+                  className={cn('mt-1.5 h-3 w-3 shrink-0 rounded-full', PAYMENT_DOT_CLASSES[paymentTone])}
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-white">
+                    <PaymentIcon
+                      className={cn('h-4 w-4 shrink-0', PAYMENT_ICON_CLASSES[paymentTone])}
+                      aria-hidden="true"
+                    />
+                    {PAYMENT_TIMELINE_LABEL[paymentTone]}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {formatDateForDisplay(treatment.actualizado_en)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Patient Signature */}
+          <div className="md:col-span-2">
+            <div className={cn(GLASS_PANEL, 'p-6')}>
+              <h3 className={cn(GLASS_HEADING, 'mb-4 flex items-center gap-2 text-slate-900 dark:text-white')}>
+                <PenLine className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                Firma del Paciente
+              </h3>
+
+              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center min-h-[240px]">
+                {treatment.firma_paciente_url ? (
+                  <SignatureDisplay
+                    signatureUrl={treatment.firma_paciente_url}
+                    label="Firma del Paciente"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <PenLine className="mb-3 h-10 w-10 text-slate-500" aria-hidden="true" />
+                    <p className="text-sm text-slate-400">
+                      No hay firma registrada
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Signatures Section */}
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Patient Signature */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Firma del Paciente
-          </h3>
-          {treatment.firma_paciente_url ? (
-            <SignatureDisplay 
-              signatureUrl={treatment.firma_paciente_url} 
-              label="Firma del Paciente" 
-            />
-          ) : (
-            <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-              <i className="fas fa-signature text-4xl text-gray-400 dark:text-gray-500 mb-2"></i>
-              <p className="text-gray-500 dark:text-gray-400">
-                No hay firma registrada
-              </p>
-            </div>
-          )}
-        </div>
-
-        </div>
-    </div>
     </>
   );
 }

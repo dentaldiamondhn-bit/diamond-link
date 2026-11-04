@@ -7,10 +7,12 @@ import { formatPhoneDisplay, createWhatsAppUrl } from '../../utils/phoneUtils';
 import { SimpleTimezoneFix } from '@/services/simpleTimezoneFix';
 import { getRecordCategoryInfoSync } from '../../utils/recordCategoryUtils';
 import type { CompletedTreatment } from '../../services/completedTreatmentService';
+import { cn } from '@/lib/utils';
 import StatusBadge from './StatusBadge';
 import { calculatePendingBalance } from '@/lib/treatments/completedTreatmentMetrics';
 import { paymentStatusFor } from '@/lib/treatments/completedTreatmentSort';
 import TreatmentActions from './TreatmentActions';
+import { GLASS_INSET, GLASS_PANEL } from './glassTheme';
 import {
   collectTreatmentNames,
   patientDoctor,
@@ -35,10 +37,10 @@ export default function TreatmentTable({
   footer?: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/70">
+    <div className={cn(GLASS_PANEL, 'overflow-hidden')}>
       <div className="custom-scrollbar overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200/80 dark:divide-slate-800/70">
-          <thead className="bg-slate-50/80 dark:bg-slate-800/40">
+          <thead className="bg-slate-50/80 dark:bg-slate-950/40">
             <tr>
               <th scope="col" className={`${HEADING} text-left`}>
                 Paciente
@@ -64,7 +66,7 @@ export default function TreatmentTable({
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+          <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
             {treatments.map((treatment) => {
               const patientType = resolvePatientType(treatment);
               const recordCategoryInfo = treatment.fecha_cita
@@ -82,7 +84,7 @@ export default function TreatmentTable({
               return (
                 <tr
                   key={treatment.id}
-                  className="align-top transition-colors duration-150 hover:bg-slate-50/80 dark:hover:bg-slate-800/30"
+                  className="align-top transition-colors duration-150 hover:bg-slate-100/70 dark:hover:bg-slate-800/50"
                 >
                   <td className="px-6 py-5">
                     <p className="font-semibold text-slate-900 dark:text-white">
@@ -90,7 +92,12 @@ export default function TreatmentTable({
                     </p>
 
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800/70 dark:text-slate-300">
+                      <span
+                        className={cn(
+                          GLASS_INSET,
+                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-slate-600 dark:text-slate-300',
+                        )}
+                      >
                         <IdCard className="h-3 w-3" aria-hidden="true" />
                         {patientIdentity(treatment)}
                       </span>
@@ -100,7 +107,7 @@ export default function TreatmentTable({
                           href={createWhatsAppUrl(phone, treatment.paciente?.codigopais)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg bg-teal-500/10 px-2 py-0.5 text-xs font-medium text-teal-700 transition-colors hover:bg-teal-500/20 dark:text-teal-300"
+                          className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-300"
                         >
                           <Phone className="h-3 w-3" aria-hidden="true" />
                           {formatPhoneDisplay(phone, treatment.paciente?.codigopais)}
@@ -133,7 +140,7 @@ export default function TreatmentTable({
                   <td className="px-6 py-5 text-sm text-slate-700 dark:text-slate-200">
                     <span className="inline-flex items-center gap-2">
                       <Stethoscope
-                        className="h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400"
+                        className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
                         aria-hidden="true"
                       />
                       {patientDoctor(treatment)}
@@ -146,7 +153,10 @@ export default function TreatmentTable({
                         {names.map((name, index) => (
                           <span
                             key={`${name}-${index}`}
-                            className="inline-flex max-w-full items-center rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80 dark:text-slate-200"
+                            className={cn(
+                              GLASS_INSET,
+                              'inline-flex max-w-full items-center px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm dark:text-slate-200',
+                            )}
                           >
                             {name}
                           </span>

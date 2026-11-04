@@ -6,10 +6,10 @@ import { CreditCard, Eye, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ACTION_BASE =
-  'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-slate-500 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-slate-400 dark:focus-visible:ring-offset-slate-900';
+  'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-slate-500 backdrop-blur-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-slate-400 dark:focus-visible:ring-offset-slate-900';
 
 const NEUTRAL_HOVER =
-  'hover:border-slate-200 hover:bg-slate-50 hover:text-teal-600 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-teal-300';
+  'hover:border-slate-200 hover:bg-slate-50 hover:text-emerald-600 dark:hover:border-slate-700/60 dark:hover:bg-slate-800/80 dark:hover:text-emerald-300';
 
 const DANGER_HOVER =
   'hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-500/40 dark:hover:bg-rose-500/10 dark:hover:text-rose-300';

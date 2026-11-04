@@ -5,6 +5,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   CalendarDays,
+  ChevronDown,
   LayoutGrid,
   List,
   RotateCcw,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DoctorFilterOption } from '@/lib/treatments/completedTreatmentFilters';
+import { GLASS_INSET, GLASS_PANEL } from './glassTheme';
 
 export type TreatmentSortKey =
   | 'paciente'
@@ -31,8 +33,21 @@ const SORT_OPTIONS: { value: TreatmentSortKey; label: string }[] = [
   { value: 'estado', label: 'Estado' },
 ];
 
-const FIELD_CLASSES =
-  'h-11 rounded-xl border border-slate-200/80 bg-white/80 px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-500';
+const FIELD_CLASSES = cn(
+  GLASS_INSET,
+  'h-11 w-full px-3 text-sm shadow-sm outline-none focus:ring-1',
+);
+
+const CARET_CLASSES =
+  'pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500';
+
+const SEGMENT_BASE =
+  'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40';
+
+const SEGMENT_ACTIVE = 'bg-slate-50 text-slate-900 shadow-sm dark:bg-slate-700/80 dark:text-white';
+
+const SEGMENT_IDLE =
+  'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white';
 
 export default function TreatmentFiltersBar({
   searchTerm,
@@ -82,7 +97,7 @@ export default function TreatmentFiltersBar({
   const SortIcon = sortOrder === 'asc' ? ArrowUpNarrowWide : ArrowDownWideNarrow;
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/70 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/60">
+    <div className={GLASS_PANEL}>
       <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:p-5">
         <div className="relative min-w-0 flex-1">
           <Search
@@ -95,7 +110,7 @@ export default function TreatmentFiltersBar({
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Buscar por nombre, identidad, teléfono o tratamiento..."
             aria-label="Buscar tratamientos"
-            className={cn(FIELD_CLASSES, 'w-full pl-11')}
+            className={cn(FIELD_CLASSES, 'pl-11')}
           />
         </div>
 
@@ -103,18 +118,21 @@ export default function TreatmentFiltersBar({
           <label className="sr-only" htmlFor="tratamientos-sort">
             Ordenar por
           </label>
-          <select
-            id="tratamientos-sort"
-            value={sortBy}
-            onChange={(event) => onSortByChange(event.target.value as TreatmentSortKey)}
-            className={cn(FIELD_CLASSES, 'cursor-pointer pr-8')}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="tratamientos-sort"
+              value={sortBy}
+              onChange={(event) => onSortByChange(event.target.value as TreatmentSortKey)}
+              className={cn(FIELD_CLASSES, 'cursor-pointer appearance-none pr-9')}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className={CARET_CLASSES} aria-hidden="true" />
+          </div>
 
           <button
             type="button"
@@ -123,22 +141,20 @@ export default function TreatmentFiltersBar({
             aria-label={`Orden ${sortOrder === 'asc' ? 'ascendente' : 'descendente'}`}
             className={cn(
               FIELD_CLASSES,
-              'inline-flex h-11 w-11 items-center justify-center px-0 text-slate-500 hover:border-teal-400 hover:text-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/25 dark:text-slate-400 dark:hover:text-teal-300',
+              'inline-flex w-11 items-center justify-center px-0 text-slate-500 hover:border-emerald-500/60 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-300',
             )}
           >
             <SortIcon className="h-4 w-4" aria-hidden="true" />
           </button>
 
-          <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-950/50">
             <button
               type="button"
               onClick={() => onViewModeChange('grid')}
               aria-pressed={viewMode === 'grid'}
               className={cn(
-                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40',
-                viewMode === 'grid'
-                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
+                SEGMENT_BASE,
+                viewMode === 'grid' ? SEGMENT_ACTIVE : SEGMENT_IDLE,
               )}
             >
               <LayoutGrid className="h-4 w-4" aria-hidden="true" />
@@ -149,10 +165,8 @@ export default function TreatmentFiltersBar({
               onClick={() => onViewModeChange('list')}
               aria-pressed={viewMode === 'list'}
               className={cn(
-                'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40',
-                viewMode === 'list'
-                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
+                SEGMENT_BASE,
+                viewMode === 'list' ? SEGMENT_ACTIVE : SEGMENT_IDLE,
               )}
             >
               <List className="h-4 w-4" aria-hidden="true" />
@@ -171,19 +185,22 @@ export default function TreatmentFiltersBar({
             <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
             Doctor
           </label>
-          <select
-            id="doctor-filter"
-            value={doctorFilter}
-            onChange={(event) => onDoctorChange(event.target.value)}
-            className={cn(FIELD_CLASSES, 'min-w-[14rem] cursor-pointer')}
-          >
-            <option value="">Todos los doctores</option>
-            {doctorOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label} ({option.count})
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="doctor-filter"
+              value={doctorFilter}
+              onChange={(event) => onDoctorChange(event.target.value)}
+              className={cn(FIELD_CLASSES, 'min-w-[14rem] cursor-pointer appearance-none pr-9')}
+            >
+              <option value="">Todos los doctores</option>
+              {doctorOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} ({option.count})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className={CARET_CLASSES} aria-hidden="true" />
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -232,7 +249,7 @@ export default function TreatmentFiltersBar({
             <button
               type="button"
               onClick={onClearFilters}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-teal-300 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:text-teal-300"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 text-sm font-medium text-slate-600 backdrop-blur-sm transition-colors hover:border-emerald-400 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 dark:border-slate-700/60 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               Limpiar filtros

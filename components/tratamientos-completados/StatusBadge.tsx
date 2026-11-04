@@ -11,11 +11,11 @@ import type { PaymentStatus } from '@/lib/treatments/completedTreatmentSort';
 
 const TONE_STYLES: Record<PaymentStatusTone, string> = {
   pagado:
-    'bg-emerald-500/10 text-emerald-700 ring-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300',
+    'bg-emerald-500/10 text-emerald-700 ring-emerald-500/25 shadow-[0_0_14px_-3px_rgba(16,185,129,0.55)] dark:bg-emerald-500/15 dark:text-emerald-300',
   parcialmente_pagado:
-    'bg-sky-500/10 text-sky-700 ring-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300',
+    'bg-sky-500/10 text-sky-700 ring-sky-500/25 shadow-[0_0_14px_-3px_rgba(14,165,233,0.55)] dark:bg-sky-500/15 dark:text-sky-300',
   pendiente:
-    'bg-amber-500/10 text-amber-700 ring-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300',
+    'bg-amber-500/10 text-amber-700 ring-amber-500/25 shadow-[0_0_14px_-3px_rgba(245,158,11,0.55)] dark:bg-amber-500/15 dark:text-amber-300',
 };
 
 const TONE_ICONS: Record<PaymentStatusTone, LucideIcon> = {
@@ -24,7 +24,8 @@ const TONE_ICONS: Record<PaymentStatusTone, LucideIcon> = {
   pendiente: Clock3,
 };
 
-const ON_GRADIENT_STYLES = 'bg-white/20 text-white ring-white/30';
+const ON_GRADIENT_STYLES =
+  'bg-white/20 text-white ring-white/30 shadow-[0_0_14px_-3px_rgba(255,255,255,0.45)]';
 
 export default function StatusBadge({
   status,

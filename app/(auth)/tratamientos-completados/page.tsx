@@ -28,12 +28,17 @@ import HistoricalBadge from '../../../components/HistoricalBadge';
 import HistoricalBanner from '../../../components/HistoricalBanner';
 import { usePagePreferences } from '@/hooks/useUserPreferences';
 import { useTheme } from '@/contexts/ThemeContext';
-import AnimatedRubish from '../../../components/AnimatedRubish';
 import { supabase } from '@/lib/supabase';
 import TreatmentCard from '../../../components/tratamientos-completados/TreatmentCard';
 import TreatmentFiltersBar from '../../../components/tratamientos-completados/TreatmentFiltersBar';
 import TreatmentTable from '../../../components/tratamientos-completados/TreatmentTable';
 import TreatmentPagination from '../../../components/tratamientos-completados/TreatmentPagination';
+import PaymentManagementModal from '../../../components/tratamientos-completados/PaymentManagementModal';
+import AdvancePaymentModal from '../../../components/tratamientos-completados/AdvancePaymentModal';
+import DeletePaymentModal from '../../../components/tratamientos-completados/DeletePaymentModal';
+import DeleteTreatmentModal from '../../../components/tratamientos-completados/DeleteTreatmentModal';
+import { BTN_PRIMARY, BTN_SECONDARY, GLASS_PANEL } from '../../../components/tratamientos-completados/glassTheme';
+import { cn } from '@/lib/utils';
 import { paymentStatusFor, comparePaymentStatus } from '../../../src/lib/treatments/completedTreatmentSort';
 import {
   buildDoctorOptions,
@@ -707,6 +712,35 @@ function TratamientosCompletadosPageContent() {
     }
   };
 
+  const closeDeletePaymentModal = () => {
+    setShowDeleteModal(false);
+    setPaymentToDelete(null);
+    setDeleteSuccess(false);
+    setDeleteError(null);
+  };
+
+  const confirmDeletePayment = async () => {
+    if (!paymentToDelete || !selectedTreatment) return;
+
+    setDeleteError(null);
+    try {
+      await PaymentService.deletePayment(paymentToDelete.id);
+      const summary = await PaymentService.getPaymentSummary(selectedTreatment.id);
+      setPaymentSummary(summary);
+      await loadCompletedTreatments();
+      await loadAdvancePayments();
+      setDeleteSuccess(true);
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      setDeleteError((error as Error).message);
+    }
+  };
+
+  const retryDeletePayment = () => {
+    setDeleteError(null);
+    setDeleteSuccess(false);
+  };
+
   // Delete completed treatment function
   const openDeleteTreatmentModal = (treatment: any) => {
     setTreatmentToDelete({
@@ -862,19 +896,19 @@ function TratamientosCompletadosPageContent() {
       {/* Top Action Bar — only for a selected patient */}
       {newTreatmentUrl && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/70">
+          <div className={cn(GLASS_PANEL, 'flex flex-wrap items-center justify-between gap-3 p-4')}>
             {/* Left side - Nuevo Tratamiento / Pago Adelantado */}
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => handleCreateTreatment()}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-teal-500 hover:to-cyan-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50"
+                className={BTN_PRIMARY}
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 Crear Nuevo Tratamiento
               </button>
               <button
                 onClick={openAdvancePaymentModal}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-700 backdrop-blur-sm transition-all hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 dark:text-indigo-300"
                 title="Registrar un pago adelantado: el monto queda como Saldo Positivo disponible para el paciente, aunque aún no tenga tratamiento registrado"
               >
                 <HandCoins className="h-4 w-4" aria-hidden="true" />
@@ -887,7 +921,7 @@ function TratamientosCompletadosPageContent() {
               onClick={() => {
                 router.push(`/menu-navegacion?id=${encodeURIComponent(pacienteId!)}`);
               }}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/80 px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300 dark:hover:text-white"
+              className={BTN_SECONDARY}
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Volver
@@ -900,16 +934,16 @@ function TratamientosCompletadosPageContent() {
       <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Patient-specific header */}
         {pacienteId && completedTreatments.length > 0 && (
-          <div className="mb-5 rounded-2xl border border-teal-200/80 bg-teal-50/80 p-4 backdrop-blur-xl dark:border-teal-900/60 dark:bg-teal-900/15">
+          <div className={cn(GLASS_PANEL, 'mb-5 border-emerald-500/30 p-4 dark:border-emerald-800/40')}>
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-300">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
                 <UserRound className="h-5 w-5" aria-hidden="true" />
               </span>
               <div>
-                <h2 className="text-lg font-semibold text-teal-900 dark:text-teal-100">
+                <h2 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
                   Tratamientos del Paciente
                 </h2>
-                <p className="text-sm text-teal-700/80 dark:text-teal-300/80">
+                <p className="text-sm text-emerald-700/80 dark:text-emerald-300/80">
                   Paciente ID: {pacienteId}
                 </p>
               </div>
@@ -974,7 +1008,7 @@ function TratamientosCompletadosPageContent() {
               {advancePayments.map(({ payment, remaining }) => (
                 <div
                   key={payment.id}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-indigo-200/70 bg-indigo-50/70 p-4 backdrop-blur-xl dark:border-indigo-900/50 dark:bg-indigo-900/15"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-indigo-500/25 bg-indigo-500/5 p-4 backdrop-blur-xl dark:border-indigo-800/40 dark:bg-indigo-950/20"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
@@ -1043,7 +1077,7 @@ function TratamientosCompletadosPageContent() {
         )}
 
         {currentTreatments.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-6 py-14 text-center shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/70">
+          <div className={cn(GLASS_PANEL, 'px-6 py-14 text-center')}>
             <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800/70 dark:text-slate-500">
               <ClipboardCheck className="h-8 w-8" aria-hidden="true" />
             </span>
@@ -1095,630 +1129,78 @@ function TratamientosCompletadosPageContent() {
       </main>
 
       {/* Payment Management Modal */}
-      {showPaymentModal && selectedTreatment && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-                      Gestión de Pagos - Tratamiento
-                    </h3>
-
-                    {/* Treatment Summary */}
-                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Paciente:</p>
-                          <p className="font-medium text-gray-900 dark:text-white">{selectedTreatment.paciente?.nombre_completo}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Total del Tratamiento:</p>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {(() => {
-                              // Try multiple sources to get the total
-                              if (selectedTreatment.total_final) {
-                                return formatCurrency(selectedTreatment.total_final, selectedTreatment.moneda || 'HNL');
-                              }
-                              
-                              // Calculate from treatment items if available
-                              if (selectedTreatment.tratamientos_realizados?.length > 0) {
-                                const calculatedTotal = selectedTreatment.tratamientos_realizados.reduce(
-                                  (sum, tr) => sum + ((tr.precio_final || 0) * (tr.cantidad || 0)), 
-                                  0
-                                );
-                                if (calculatedTotal > 0) {
-                                  return formatCurrency(calculatedTotal, selectedTreatment.moneda || 'HNL');
-                                }
-                              }
-                              
-                              // Use payment summary total if available
-                              if (paymentSummary?.total_tratamiento) {
-                                return formatCurrency(paymentSummary.total_tratamiento, paymentSummary.moneda_principal || 'HNL');
-                              }
-                              
-                              return 'No definido';
-                            })()}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {loadingPayments ? (
-                        <div className="text-center py-4">
-                          <i className="fas fa-spinner fa-spin text-teal-600 text-2xl"></i>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Cargando información de pagos...</p>
-                        </div>
-                      ) : paymentSummary ? (
-                        <div className="mt-4 space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Monto Pagado:</span>
-                            <span className="font-medium text-green-600 dark:text-green-400">
-                              {formatCurrency(paymentSummary.monto_pagado, paymentSummary.moneda_principal)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Saldo Pendiente:</span>
-                            <span className={`font-medium ${paymentSummary.saldo_pendiente > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                              {formatCurrency(paymentSummary.saldo_pendiente, paymentSummary.moneda_principal)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Estado del Pago:</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${PaymentService.getPaymentStatusBadge(paymentSummary.estado_pago)}`}>
-                              {PaymentService.getPaymentStatusText(paymentSummary.estado_pago)}
-                            </span>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* Saldo Positivo (Available Credit) */}
-                    {paymentSummary?.credito_disponible && selectedTreatment?.paciente_id && (() => {
-                      const treatmentCurrency = selectedTreatment.moneda || 'HNL';
-                      const availableInCurrency = treatmentCurrency === 'USD'
-                        ? paymentSummary.credito_disponible.disponible_usd
-                        : paymentSummary.credito_disponible.disponible_hnl;
-
-                      if (availableInCurrency <= 0) return null;
-
-                      return (
-                        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-lg mb-4 border border-emerald-200 dark:border-emerald-700">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-medium text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
-                              <i className="fas fa-coins"></i>
-                              Saldo Positivo Disponible
-                            </h4>
-                            <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                              {formatCurrency(availableInCurrency, treatmentCurrency)}
-                            </span>
-                          </div>
-                          <p className="text-sm text-emerald-700 dark:text-emerald-300 mb-3">
-                            Este paciente tiene credito disponible de sobre-pagos anteriores. Puede aplicarlo a este tratamiento.
-                          </p>
-                          {!applyCredit ? (
-                            <button
-                              onClick={() => {
-                                setApplyCredit(true);
-                                setCreditAmount(String(Math.min(availableInCurrency, paymentSummary.saldo_pendiente || 0)));
-                              }}
-                              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
-                              disabled={paymentSummary.saldo_pendiente <= 0}
-                            >
-                              <i className="fas fa-hand-holding-usd mr-2"></i>
-                              Aplicar Saldo Positivo
-                            </button>
-                          ) : (
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-3">
-                                <label className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
-                                  Monto a aplicar:
-                                </label>
-                                <input
-                                  type="number"
-                                  value={creditAmount}
-                                  onChange={(e) => setCreditAmount(e.target.value)}
-                                  className="w-32 px-3 py-1.5 border border-emerald-300 dark:border-emerald-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                                  min="0"
-                                  max={Math.min(availableInCurrency, paymentSummary.saldo_pendiente || 0)}
-                                  step="0.01"
-                                />
-                                <span className="text-sm text-emerald-600 dark:text-emerald-400">
-                                  / {formatCurrency(availableInCurrency, treatmentCurrency)}
-                                </span>
-                              </div>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={applyCreditPayment}
-                                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium disabled:opacity-50"
-                                  disabled={applyingCredit || !creditAmount || parseFloat(creditAmount) <= 0}
-                                >
-                                  {applyingCredit ? (
-                                    <><i className="fas fa-spinner fa-spin mr-2"></i>Aplicando...</>
-                                  ) : (
-                                    <><i className="fas fa-check mr-2"></i>Confirmar</>
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => { setApplyCredit(false); setCreditAmount(''); }}
-                                  className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 text-sm"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Add New Payment Form */}
-                    {(!paymentSummary || paymentSummary.saldo_pendiente > 0) && (
-                      <div className="p-4 rounded-lg mb-4 bg-blue-50 dark:bg-blue-900/20">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                          Agregar Nuevo Pago
-                        </h4>
-                        
-                        {!paymentSummary && (
-                          <div className="mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded">
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                              Cargando información de pago...
-                            </p>
-                          </div>
-                        )}
-                        
-                        {paymentSummary && paymentSummary.saldo_pendiente <= 0 && selectedTreatment?.total_final > 0 && (
-                          <div className="mb-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
-                            <p className="text-sm text-green-800 dark:text-green-200">
-                              Este tratamiento ya está completamente pagado.
-                            </p>
-                          </div>
-                        )}
-                        
-                        
-                        {paymentSummary && paymentSummary.saldo_pendiente > 0 && selectedTreatment?.total_final > 0 && (
-                          <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded">
-                            <p className="text-sm text-blue-800 dark:text-blue-200">
-                              Saldo pendiente: {formatCurrency(paymentSummary.saldo_pendiente, paymentSummary.moneda_principal)}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {/* Currency conversion warning */}
-                        {newPayment.moneda && selectedTreatment?.moneda && newPayment.moneda !== selectedTreatment.moneda && (
-                          <div className="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded">
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
-                              <i className="fas fa-exchange-alt mr-2"></i>
-                              Conversión automática: {newPayment.moneda} → {selectedTreatment.moneda}
-                            </p>
-                            {conversionInfo && (
-                              <div className="mt-2 space-y-1">
-                                <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                                  {formatCurrency(parseFloat(newPayment.monto_pago || '0'), newPayment.moneda)} → {formatCurrency(conversionInfo.convertedAmount, selectedTreatment.moneda)}
-                                  <span className="ml-1 text-yellow-600 dark:text-yellow-400">
-                                    ({conversionInfo.exchangeRate.toFixed(4)})
-                                  </span>
-                                </p>
-                                <p className="text-xs text-yellow-600 dark:text-yellow-300">
-                                  El pago será convertido automáticamente a la moneda del tratamiento
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto</label>
-                            <input 
-                              type="number" 
-                              value={newPayment.monto_pago} 
-                              onChange={(e) => handlePaymentAmountChange(e.target.value)} 
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" 
-                              placeholder="0.00" 
-                              min="0" 
-                              max={paymentSummary?.saldo_pendiente || 0} 
-                              step="0.01"
-                              disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Moneda</label>
-                            <select 
-                              value={newPayment.moneda || 'HNL'} 
-                              onChange={(e) => handlePaymentCurrencyChange((e.target.value || 'HNL') as Currency)} 
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
-                            >
-                              <option value="HNL">HNL</option>
-                              <option value="USD">USD</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método de Pago</label>
-                            <select
-                              value={newPayment.metodo_pago}
-                              onChange={(e) => setNewPayment(prev => ({ ...prev, metodo_pago: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
-                            >
-                              {PaymentService.getPaymentMethods().map(method => (
-                                <option key={method} value={method}>
-                                  {PaymentService.formatPaymentMethod(method)}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas (Opcional)</label>
-                            <input
-                              type="text"
-                              value={newPayment.notas_pago}
-                              onChange={(e) => setNewPayment(prev => ({ ...prev, notas_pago: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              placeholder="Notas del pago"
-                              disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
-                            />
-                          </div>
-                        </div>
-                        <button
-                          onClick={addPayment}
-                          className="mt-3 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                          disabled={!paymentSummary || paymentSummary.saldo_pendiente <= 0}
-                        >
-                          <i className="fas fa-plus mr-2"></i>Agregar Pago
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Payment History */}
-                    {paymentSummary && paymentSummary.pagos.length > 0 && (
-                      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-3">Historial de Pagos</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {paymentSummary.pagos.map((payment) => (
-                            <div key={payment.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
-                              <div className="flex-1">
-                                <div className="flex items-center">
-                                  <span className="font-medium text-gray-900 dark:text-white">
-                                    {formatCurrency(payment.monto_pago, payment.moneda)}
-                                  </span>
-                                  <span className="ml-2 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-500 text-gray-700 dark:text-gray-200">
-                                    {payment.moneda}
-                                  </span>
-                                  {payment.monto_convertido && payment.moneda_conversion && payment.moneda_conversion !== payment.moneda && (
-                                    <>
-                                      <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                        → {formatCurrency(payment.monto_convertido, payment.moneda_conversion)}
-                                      </span>
-                                      <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">
-                                        ({payment.tasa_conversion?.toFixed(4)})
-                                      </span>
-                                    </>
-                                  )}
-                                  <span className="ml-2 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-500 text-gray-700 dark:text-gray-200">
-                                    {PaymentService.formatPaymentMethod(payment.metodo_pago)}
-                                  </span>
-                                </div>
-                                <div className="text-sm text-gray-500 dark:text-gray-300">
-                                  {SimpleTimezoneFix.formatDateForConsultationAge(payment.fecha_pago)}
-                                  {payment.notas_pago && ` - ${payment.notas_pago}`}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => deletePayment(payment.id)}
-                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm"
-                              >
-                                <div className="w-4 h-4 flex items-center justify-center">
-                                  <AnimatedRubish />
-                                </div>
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  onClick={closePaymentModal}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-600 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <PaymentManagementModal
+        open={showPaymentModal && Boolean(selectedTreatment)}
+        onClose={closePaymentModal}
+        treatment={selectedTreatment}
+        paymentSummary={paymentSummary}
+        loadingPayments={loadingPayments}
+        newPayment={newPayment}
+        conversionInfo={conversionInfo}
+        applyCredit={applyCredit}
+        creditAmount={creditAmount}
+        applyingCredit={applyingCredit}
+        onStartApplyCredit={() => {
+          const treatmentCurrency = selectedTreatment?.moneda || 'HNL';
+          const availableInCurrency =
+            treatmentCurrency === 'USD'
+              ? paymentSummary?.credito_disponible?.disponible_usd || 0
+              : paymentSummary?.credito_disponible?.disponible_hnl || 0;
+          setApplyCredit(true);
+          setCreditAmount(
+            String(Math.min(availableInCurrency, paymentSummary?.saldo_pendiente || 0))
+          );
+        }}
+        onCreditAmountChange={setCreditAmount}
+        onApplyCredit={applyCreditPayment}
+        onCancelCredit={() => {
+          setApplyCredit(false);
+          setCreditAmount('');
+        }}
+        onAddPayment={addPayment}
+        onDeletePayment={deletePayment}
+        onPaymentAmountChange={handlePaymentAmountChange}
+        onPaymentCurrencyChange={handlePaymentCurrencyChange}
+        onPaymentMethodChange={(value) =>
+          setNewPayment((previous) => ({ ...previous, metodo_pago: value }))
+        }
+        onPaymentNotesChange={(value) =>
+          setNewPayment((previous) => ({ ...previous, notas_pago: value }))
+        }
+      />
 
       {/* Pago Adelantado Modal (per patient, works without a treatment) */}
-      {showAdvanceModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
-                      Pago Adelantado
-                    </h3>
-
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 p-4 rounded-lg mb-4">
-                      <p className="text-sm font-medium text-indigo-800 dark:text-indigo-200">
-                        <i className="fas fa-user mr-2"></i>
-                        {advancePatientName ? advancePatientName : `Paciente #${pacienteId}`}
-                      </p>
-                      <p className="mt-2 text-sm text-indigo-700 dark:text-indigo-300">
-                        El monto se registra como efectivo recibido hoy y queda como Saldo Positivo (crédito) disponible para el paciente, aunque aún no tenga tratamiento completado.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto</label>
-                        <input
-                          type="number"
-                          value={advancePayment.monto_pago}
-                          onChange={(e) => setAdvancePayment(prev => ({ ...prev, monto_pago: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          placeholder="0.00"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Moneda</label>
-                        <select
-                          value={advancePayment.moneda}
-                          onChange={(e) => setAdvancePayment(prev => ({ ...prev, moneda: e.target.value as Currency }))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          <option value="HNL">HNL</option>
-                          <option value="USD">USD</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método de Pago</label>
-                        <select
-                          value={advancePayment.metodo_pago}
-                          onChange={(e) => setAdvancePayment(prev => ({ ...prev, metodo_pago: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          {PaymentService.getPaymentMethods().filter(method => method !== 'saldo_positivo').map(method => (
-                            <option key={method} value={method}>
-                              {PaymentService.formatPaymentMethod(method)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas (Opcional)</label>
-                        <input
-                          type="text"
-                          value={advancePayment.notas_pago}
-                          onChange={(e) => setAdvancePayment(prev => ({ ...prev, notas_pago: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          placeholder="Notas del pago"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  onClick={submitAdvancePayment}
-                  className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  disabled={savingAdvance || !advancePayment.monto_pago}
-                >
-                  {savingAdvance ? (
-                    <><i className="fas fa-spinner fa-spin mr-2"></i>Registrando...</>
-                  ) : (
-                    <><i className="fas fa-hand-holding-usd mr-2"></i>Registrar Pago Adelantado</>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeAdvanceModal}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-600 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AdvancePaymentModal
+        open={showAdvanceModal}
+        onClose={closeAdvanceModal}
+        patientName={advancePatientName}
+        patientId={pacienteId}
+        value={advancePayment}
+        onChange={setAdvancePayment}
+        saving={savingAdvance}
+        onSubmit={submitAdvancePayment}
+      />
 
       {/* Payment Delete Confirmation Modal */}
-      {showDeleteModal && paymentToDelete && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full sm:mx-0 sm:h-10 sm:w-10 ${
-                    deleteSuccess ? 'bg-green-100' : deleteError ? 'bg-red-100' : 'bg-red-100'
-                  }`}>
-                    <i className={`fas ${deleteSuccess ? 'fa-check-circle text-green-600' : deleteError ? 'fa-times-circle text-red-600' : 'fa-exclamation-triangle text-red-600'}`}></i>
-                  </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                      {deleteSuccess ? 'Pago Eliminado' : deleteError ? 'Error al Eliminar' : 'Eliminar Pago'}
-                    </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {deleteSuccess 
-                          ? `El pago de ${formatCurrency(paymentToDelete.amount, paymentToDelete.currency as Currency)} (${PaymentService.formatPaymentMethod(paymentToDelete.method)}) ha sido eliminado exitosamente.`
-                          : deleteError
-                          ? `Error: ${deleteError}`
-                          : `¿Está seguro de que desea eliminar el pago de ${formatCurrency(paymentToDelete.amount, paymentToDelete.currency as Currency)} (${PaymentService.formatPaymentMethod(paymentToDelete.method)})? Esta acción no se puede deshacer.`
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                {!deleteSuccess ? (
-                  <>
-                    <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm" onClick={async () => {
-                      setDeleteError(null);
-                      try {
-                        await PaymentService.deletePayment(paymentToDelete.id);
-                        const summary = await PaymentService.getPaymentSummary(selectedTreatment.id);
-                        setPaymentSummary(summary);
-                        
-                        // Refresh the treatments list to update payment status badges
-                        await loadCompletedTreatments();
-      await loadAdvancePayments();
-                        
-                        setDeleteSuccess(true);
-                      } catch (error) {
-                        console.error('Error deleting payment:', error);
-                        setDeleteError((error as Error).message);
-                      }
-                    }}>Eliminar</button>
-                    <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={() => {
-                      setShowDeleteModal(false);
-                      setPaymentToDelete(null);
-                      setDeleteSuccess(false);
-                      setDeleteError(null);
-                    }}>Cancelar</button>
-                  </>
-                ) : (
-                  <>
-                    <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-white hover:bg-green-700 sm:w-auto sm:text-sm" onClick={() => {
-                      setShowDeleteModal(false);
-                      setPaymentToDelete(null);
-                      setDeleteSuccess(false);
-                      setDeleteError(null);
-                    }}>
-                      <i className="fas fa-check mr-2"></i>Cerrar
-                    </button>
-                    {deleteError && (
-                      <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={() => {
-                        setDeleteError(null);
-                        setDeleteSuccess(false);
-                      }}>
-                        <i className="fas fa-redo mr-2"></i>Reintentar
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeletePaymentModal
+        open={showDeleteModal}
+        onClose={closeDeletePaymentModal}
+        payment={paymentToDelete}
+        success={deleteSuccess}
+        error={deleteError}
+        onConfirm={confirmDeletePayment}
+        onRetry={retryDeletePayment}
+      />
 
       {/* Delete Treatment Confirmation Modal */}
-      {treatmentToDelete && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 sm:mx-0 sm:h-10 sm:w-10">
-                    <i className={`fas ${isDeleting ? 'fa-spinner fa-spin' : 'fa-exclamation-triangle'} text-red-600 dark:text-red-400`}></i>
-                  </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                      {isDeleting ? 'Eliminando Tratamiento...' : 'Eliminar Tratamiento Completado'}
-                    </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {isDeleting 
-                          ? 'Por favor espere mientras se elimina el tratamiento y todos sus datos relacionados...'
-                          : `¿Está seguro de que desea eliminar el tratamiento completado de ${treatmentToDelete.patientName}?`
-                        }
-                      </p>
-                      {!isDeleting && (
-                        <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
-                          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
-                            <i className="fas fa-exclamation-triangle mr-1"></i>
-                            Esta acción eliminará permanentemente:
-                          </p>
-                          <ul className="text-xs text-amber-700 dark:text-amber-300 mt-1 ml-4 list-disc">
-                            <li>El tratamiento completado ({treatmentToDelete.treatmentCount} items)</li>
-                            <li>Todos los items de tratamiento asociados</li>
-                            <li>Los pagos relacionados (si existen)</li>
-                            <li>La firma digital del paciente (si existe)</li>
-                            <li>Se ajustará el contador de veces_realizado en los tratamientos originales</li>
-                          </ul>
-                          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium mt-2">
-                            Esta acción no se puede deshacer.
-                          </p>
-                        </div>
-                      )}
-                      {deleteError && (
-                        <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                          <p className="text-sm text-red-800 dark:text-red-200">
-                            <i className="fas fa-exclamation-circle mr-1"></i>
-                            Error: {deleteError}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                {!isDeleting ? (
-                  <>
-                    <button 
-                      type="button" 
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm" 
-                      onClick={deleteCompletedTreatment}
-                      disabled={isDeleting}
-                    >
-                      <div className="w-4 h-4 mr-2 flex items-center justify-center">
-                        <AnimatedRubish />
-                      </div>
-                      Eliminar Tratamiento
-                    </button>
-                    <button 
-                      type="button" 
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" 
-                      onClick={closeDeleteTreatmentModal}
-                    >
-                      Cancelar
-                    </button>
-                  </>
-                ) : (
-                  <div className="w-full text-center">
-                    <div className="inline-flex items-center text-red-600 dark:text-red-400">
-                      <i className="fas fa-spinner fa-spin mr-2"></i>
-                      Eliminando tratamiento...
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteTreatmentModal
+        open={Boolean(treatmentToDelete)}
+        onClose={closeDeleteTreatmentModal}
+        treatment={treatmentToDelete}
+        deleting={isDeleting}
+        error={deleteError}
+        onConfirm={deleteCompletedTreatment}
+      />
     </>
   );
 }

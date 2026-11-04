@@ -12,8 +12,10 @@ import { calculatePendingBalance, getTreatmentItemCount } from '@/lib/treatments
 import { paymentStatusFor } from '@/lib/treatments/completedTreatmentSort';
 import TreatmentActions from './TreatmentActions';
 import { patientDoctor, patientIdentity, resolvePatientType } from './treatmentView';
+import { GLASS_INSET, GLASS_PANEL } from './glassTheme';
+import { cn } from '@/lib/utils';
 
-const META_ICON = 'h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400';
+const META_ICON = 'h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400';
 
 export default function TreatmentCard({
   treatment,
@@ -55,11 +57,16 @@ export default function TreatmentCard({
   const total = treatment.total_final || subtotal - descuento;
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900/70">
+    <article
+      className={cn(
+        GLASS_PANEL,
+        'group flex flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl',
+      )}
+    >
       <header
         className={`bg-gradient-to-r p-5 ${
           patientType?.colors.header ||
-          'from-teal-600 to-cyan-600 dark:from-teal-700 dark:to-cyan-800'
+          'from-emerald-600 to-cyan-600 dark:from-emerald-700 dark:to-cyan-800'
         }`}
       >
         <div className="flex items-start justify-between gap-3">
@@ -112,7 +119,7 @@ export default function TreatmentCard({
                 href={createWhatsAppUrl(phone, treatment.paciente?.codigopais)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="truncate font-medium text-teal-700 underline-offset-2 hover:underline dark:text-teal-300"
+                className="truncate font-medium text-emerald-700 underline-offset-2 hover:underline dark:text-emerald-300"
               >
                 {formatPhoneDisplay(phone, treatment.paciente?.codigopais)}
               </a>
@@ -129,7 +136,10 @@ export default function TreatmentCard({
             {treatment.tratamientos_realizados?.map((item) => (
               <li
                 key={item.id}
-                className="flex items-start justify-between gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/40"
+                className={cn(
+                  GLASS_INSET,
+                  'flex items-start justify-between gap-3 px-3 py-2 dark:bg-slate-950/50',
+                )}
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm text-slate-700 dark:text-slate-200">
@@ -138,11 +148,11 @@ export default function TreatmentCard({
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {item.codigo_tratamiento}
                   </p>
-                  <p className="mt-0.5 text-xs text-teal-600 dark:text-teal-400">
+                  <p className="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">
                     Tratado por: {item.doctor_name || 'No especificado'}
                   </p>
                 </div>
-                <span className="whitespace-nowrap text-sm font-semibold text-teal-700 dark:text-teal-300">
+                <span className="whitespace-nowrap text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                   {formatCurrency(item.precio_final * item.cantidad, item.moneda || currency)}
                 </span>
               </li>
@@ -151,7 +161,7 @@ export default function TreatmentCard({
             {treatment.tratamientos_inventario?.map((item) => (
               <li
                 key={`inv-${item.id}`}
-                className="flex items-start justify-between gap-3 rounded-xl border border-amber-200/70 bg-amber-50/70 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-900/20"
+                className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2 dark:border-amber-800/40 dark:bg-amber-950/20"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm text-slate-700 dark:text-slate-200">
@@ -162,7 +172,7 @@ export default function TreatmentCard({
                     <span className="text-amber-600 dark:text-amber-400">(Inventario)</span>
                   </p>
                 </div>
-                <span className="whitespace-nowrap text-sm font-semibold text-teal-700 dark:text-teal-300">
+                <span className="whitespace-nowrap text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                   {formatCurrency(item.precio * item.cantidad, item.moneda || currency)}
                 </span>
               </li>
@@ -193,7 +203,7 @@ export default function TreatmentCard({
                 <span className="text-base font-semibold text-slate-900 dark:text-white">
                   Total:
                 </span>
-                <span className="text-base font-bold text-teal-700 dark:text-teal-300">
+                <span className="text-base font-bold text-emerald-700 dark:text-emerald-300">
                   {formatCurrency(total, currency)}
                 </span>
               </div>

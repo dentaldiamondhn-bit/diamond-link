@@ -3,17 +3,19 @@
 import React from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GLASS_INSET, GLASS_PANEL } from './glassTheme';
 
 const PAGE_BUTTON =
-  'h-9 min-w-9 rounded-xl border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40';
+  'h-9 min-w-9 rounded-xl border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40';
 
 const PAGE_BUTTON_IDLE =
-  'border-slate-200/80 bg-white/80 text-slate-600 hover:border-teal-300 hover:text-teal-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:text-teal-300';
+  'border-slate-200/80 bg-white/80 text-slate-600 hover:border-emerald-400 hover:text-emerald-700 dark:border-slate-700/60 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:text-emerald-300';
 
-const PAGE_BUTTON_ACTIVE = 'border-teal-600 bg-teal-600 text-white shadow-sm';
+const PAGE_BUTTON_ACTIVE =
+  'border-emerald-600 bg-emerald-600 text-white shadow-lg shadow-emerald-950/50';
 
 const ARROW_BUTTON =
-  'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white/80 text-slate-500 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-400 dark:hover:border-teal-700 dark:hover:text-teal-300';
+  'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white/80 text-slate-500 backdrop-blur-sm transition-colors hover:border-emerald-400 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700/60 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-emerald-700 dark:hover:text-emerald-300';
 
 export default function TreatmentPagination({
   totalTreatments,
@@ -43,8 +45,8 @@ export default function TreatmentPagination({
       className={cn(
         'flex flex-col items-center justify-between gap-4 px-4 py-3 lg:flex-row',
         variant === 'attached'
-          ? 'border-t border-slate-200/80 dark:border-slate-800'
-          : 'rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/70',
+          ? 'border-t border-slate-200/80 dark:border-slate-800/80'
+          : GLASS_PANEL,
       )}
     >
       <p className="flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
@@ -74,7 +76,10 @@ export default function TreatmentPagination({
               id="records-per-page"
               value={recordsPerPage}
               onChange={(event) => onRecordsPerPageChange(Number(event.target.value))}
-              className="h-10 w-20 cursor-pointer appearance-none rounded-xl border border-slate-200/80 bg-white/80 py-0 pl-4 pr-8 text-sm font-medium leading-none text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 dark:border-slate-800 dark:bg-slate-900/80 dark:text-white"
+              className={cn(
+                GLASS_INSET,
+                'h-10 w-20 cursor-pointer appearance-none py-0 pl-4 pr-8 text-sm font-medium leading-none shadow-sm',
+              )}
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
