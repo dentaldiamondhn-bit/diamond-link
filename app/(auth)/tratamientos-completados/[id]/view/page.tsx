@@ -656,27 +656,26 @@ export default function TratamientoCompletadoViewPage({ params }: { params: Prom
 
           {/* Patient Signature */}
           <div className="md:col-span-2">
-            <div className={cn(GLASS_PANEL, 'p-6')}>
+            <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-5 shadow-xl backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-900/60">
               <h3 className={cn(GLASS_HEADING, 'mb-4 flex items-center gap-2 text-slate-900 dark:text-white')}>
                 <PenLine className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                 Firma del Paciente
               </h3>
 
-              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center min-h-[240px]">
-                {treatment.firma_paciente_url ? (
-                  <SignatureDisplay
-                    signatureUrl={treatment.firma_paciente_url}
-                    label="Firma del Paciente"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <PenLine className="mb-3 h-10 w-10 text-slate-500" aria-hidden="true" />
-                    <p className="text-sm text-slate-400">
-                      No hay firma registrada
-                    </p>
-                  </div>
-                )}
-              </div>
+              {treatment.firma_paciente_url ? (
+                <SignatureDisplay
+                  variant="preview"
+                  signatureUrl={treatment.firma_paciente_url}
+                  label="Firma del Paciente"
+                />
+              ) : (
+                <div className="flex min-h-[200px] flex-col items-center justify-center text-center">
+                  <PenLine className="mb-3 h-10 w-10 text-slate-500" aria-hidden="true" />
+                  <p className="text-sm text-slate-400">
+                    No hay firma registrada
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

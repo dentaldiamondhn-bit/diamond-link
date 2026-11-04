@@ -6,12 +6,15 @@ import { useTheme } from '@/contexts/ThemeContext';
 interface SignatureDisplayProps {
   signatureUrl: string | null;
   label?: string;
+  variant?: 'default' | 'preview';
 }
 
-const SignatureDisplay: React.FC<SignatureDisplayProps> = ({ 
-  signatureUrl, 
-  label = "Firma Digital Existente" 
+const SignatureDisplay: React.FC<SignatureDisplayProps> = ({
+  signatureUrl,
+  label = "Firma Digital Existente",
+  variant = 'default'
 }) => {
+  const isPreview = variant === 'preview';
   const { resolvedTheme } = useTheme();
   const [needsInversion, setNeedsInversion] = useState(false);
   
@@ -27,8 +30,8 @@ const SignatureDisplay: React.FC<SignatureDisplayProps> = ({
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
         ctx.drawImage(img, 0, 0);
         
         // Sample pixels to determine dominant signature color
@@ -60,11 +63,17 @@ const SignatureDisplay: React.FC<SignatureDisplayProps> = ({
         const lightRatio = lightPixels / totalPixels;
         const isLightSignature = lightRatio > 0.5;
         
-        // Determine if inversion is needed based on signature color and theme
-        const shouldInvert = 
-          (resolvedTheme === 'light' && isLightSignature) ||  // Light theme + light signature = need dark
-          (resolvedTheme === 'dark' && !isLightSignature);   // Dark theme + dark signature = need light
-        
+        if (totalPixels === 0) {
+          setNeedsInversion(false);
+          return;
+        }
+
+        // Dark theme: invert light/cream captures so the stroke renders white on dark.
+        // Light theme: invert dark captures so the stroke renders black on light.
+        const shouldInvert =
+          (resolvedTheme === 'dark' && isLightSignature) ||
+          (resolvedTheme === 'light' && !isLightSignature);
+
         setNeedsInversion(shouldInvert);
       };
       
@@ -89,6 +98,26 @@ const SignatureDisplay: React.FC<SignatureDisplayProps> = ({
             No hay firma digital registrada
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (isPreview) {
+    return (
+      <div className="flex w-full flex-col items-center">
+        <img
+          src={signatureUrl}
+          alt={label}
+          className="max-h-[200px] w-auto max-w-full object-contain"
+          style={{
+            filter: needsInversion
+              ? 'invert(1) hue-rotate(180deg) brightness(1.25) contrast(1.25)'
+              : 'none'
+          }}
+        />
+        <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400">
+          Firma digital registrada • Solo visualización
+        </p>
       </div>
     );
   }
