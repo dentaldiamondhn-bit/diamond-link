@@ -386,8 +386,11 @@ export async function openWhatsAppConversation(
   } catch {
     /* fall through */
   }
-  // 3) Last resort: a new tab. Never navigate the current document here.
-  window.open(httpsUrl, '_blank', 'noopener,noreferrer')
+  // 3) Last resort: hand the https URL to the system browser (`_system`), never
+  //    to the WebView. Opening it inside the WebView makes wa.me redirect to
+  //    whatsapp://send/..., which the WebView tries to load itself and fails
+  //    with "Webpage not available at whatsapp://send/...".
+  window.open(httpsUrl, '_system')
 }
 
 export function smsDeepLink(phone: string, body?: string): string {

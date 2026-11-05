@@ -1257,9 +1257,9 @@ function OdontogramPilotPageContent() {
       <div data-rr-block className="odontogram-container">
         {/* Patient Info + Action Buttons */}
         <div className="mx-auto max-w-5xl w-full px-5 mt-0">
-          <div className="flex gap-4 items-start">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start">
             {/* Patient Info Card */}
-            <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 flex items-end gap-3">
+            <div className="min-w-0 flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-wrap items-end gap-3">
               <div className="form-group flex-1 min-w-[180px]">
                 <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Nombre completo:</label>
                 <input
@@ -1276,13 +1276,13 @@ function OdontogramPilotPageContent() {
                   type="text"
                   value={patient?.numero_identidad || ''}
                   disabled
-                  className="w-[160px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
+                  className="w-full min-w-0 sm:w-[160px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
                 />
               </div>
               
-              <div className="min-w-[280px] shrink-0">
+              <div className="min-w-0 basis-full sm:basis-[280px] sm:shrink-0">
                 <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Fecha del Odontograma:</label>
-                <div className="flex items-center gap-x-2 gap-y-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="date"
                     value={fechaOdontograma}
@@ -1291,7 +1291,7 @@ function OdontogramPilotPageContent() {
                         setFechaOdontograma(e.target.value);
                       }
                     }}
-                    className="min-w-[180px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    className="w-full min-w-0 sm:w-auto sm:min-w-[180px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
                   <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
                     <input
@@ -1307,18 +1307,18 @@ function OdontogramPilotPageContent() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col gap-2 shrink-0 pt-0">
+            <div className="flex w-full shrink-0 flex-col gap-2 pt-0 md:w-auto">
               <button
                 onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
               >
-                <i className="fas fa-bars"></i> Menu
+                <i className="fas fa-bars" aria-hidden="true"></i> Menu
               </button>
               <button
                 onClick={() => router.push(`/notas-linea-de-tiempo?id=${pacienteId}`)}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center gap-2"
+                className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
               >
-                <i className="fas fa-sticky-note"></i> Notas
+                <i className="fas fa-sticky-note" aria-hidden="true"></i> Notas
               </button>
             </div>
           </div>
@@ -1450,9 +1450,9 @@ function OdontogramPilotPageContent() {
         </div>
 
         {/* Mordidas + State Selector + Historial + Gingivitis */}
-        <div className="flex items-start gap-4" style={{ margin: '20px auto', maxWidth: '1600px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-full items-start" style={{ margin: '20px auto', maxWidth: '1600px' }}>
           {/* Mordidas Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-shrink-0 max-w-[288px]">
+          <div className="relative z-0 w-full min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Mordida
             </h3>
@@ -1489,7 +1489,7 @@ function OdontogramPilotPageContent() {
           </div>
 
           {/* State Selector */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-1 min-w-0">
+          <div className="relative z-10 w-full min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Seleccionar Estado
             </h3>
@@ -1584,7 +1584,7 @@ function OdontogramPilotPageContent() {
           </div>
           
           {/* Historial de Odontogramas */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 flex-shrink-0" style={{ minWidth: '247px', maxWidth: '268px' }}>
+          <div className="relative z-0 w-full min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center flex-1">
                 Historial de Odontogramas
@@ -1644,7 +1644,7 @@ function OdontogramPilotPageContent() {
           </div>
 
           {/* Gingivitis / Periodontitis */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 flex-shrink-0 max-w-[288px]">
+          <div className="relative z-0 w-full min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
               Gingivitis / Periodontitis
             </h3>
@@ -1688,7 +1688,7 @@ function OdontogramPilotPageContent() {
                           ));
                         }}
                         placeholder="Especifique la ubicación..."
-                        className="ml-8 mt-1 w-[calc(100%-2rem)] px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        className="ml-8 mt-1 w-[calc(100%_-_2rem)] px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
                       />
                     )}
                   </div>
