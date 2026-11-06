@@ -1,14 +1,22 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PatientService } from '@/services/patientService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { OlearyService } from '@/services/oLearyService';
-
-const getActiveOdontogram = async (patientId: string) => {
-  return await OdontogramPilotService.getActiveOdontogram(patientId);
-};
+import {
+  buscarRegistroPorId,
+  buscarRegistroPorVersion,
+  construirHistorialOleary,
+  construirHistorialRegular,
+  detectarTipoPorHistorial,
+  obtenerRegistroActual,
+  obtenerTipoOdontograma,
+  type EntradaHistorialOdontograma,
+  type RegistroOdontograma,
+  type TipoOdontograma,
+} from '@/lib/odontogram/odontogramLayout';
 
 const getOdontogramHistory = async (patientId: string) => {
   const history = await OdontogramPilotService.getOdontogramHistory(patientId);
@@ -306,10 +314,9 @@ function OdontogramPilotPageContent() {
     return `${day} de ${month} ${year}`;
   };
 
-  const [tipoOdontograma, setTipoOdontograma] = useState<'adulto' | 'nino' | 'oleary_adulto'>('adulto');
+  const [tipoOdontograma, setTipoOdontograma] = useState<TipoOdontograma>('adulto');
   const [estadoSeleccionado, setEstadoSeleccionado] = useState('sano');
   const [dientesData, setDientesData] = useState<Record<number, ToothData>>({});
-  const [userSelectedMode, setUserSelectedMode] = useState(false);
    const [historialCambios, setHistorialCambios] = useState<HistorialCambio[]>([]);
   const [notasGenerales, setNotasGenerales] = useState('');
   const [fechaOdontograma, setFechaOdontograma] = useState('');
@@ -319,11 +326,15 @@ function OdontogramPilotPageContent() {
   const [loading, setLoading] = useState(true);
   const [versionLoading, setVersionLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cargandoLayout, setCargandoLayout] = useState(false);
+  const [tipoRegistroActual, setTipoRegistroActual] = useState<TipoOdontograma | null>(null);
+  const layoutRequestRef = useRef(0);
+  const versionRequestRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
 
 
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
-  const [odontogramasGuardados, setOdontogramasGuardados] = useState<any[]>([]);
+  const [odontogramasGuardados, setOdontogramasGuardados] = useState<EntradaHistorialOdontograma[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -410,15 +421,109 @@ function OdontogramPilotPageContent() {
   useEffect(() => {
     setEstadoSeleccionado('sano');
     setSearchTerm('');
-    setUserSelectedMode(false); // Reset flag after handling
   }, [tipoOdontograma]);
 
+  const aplicarLayoutOdontograma = (
+    tipo: TipoOdontograma,
+    historialRegular: RegistroOdontograma[],
+    historialOleary: RegistroOdontograma[],
+    registroForzado?: RegistroOdontograma
+  ) => {
+    if (tipo === 'oleary_adulto') {
+      setOdontogramasGuardados(construirHistorialOleary(historialOleary));
+    } else {
+      setOdontogramasGuardados(construirHistorialRegular(historialRegular, tipo));
+    }
+
+    let actual = registroForzado;
+    if (!actual) {
+      actual = tipo === 'oleary_adulto'
+        ? historialOleary[0]
+        : obtenerRegistroActual(historialRegular, tipo);
+    }
+
+    setHistorialCambios([]);
+
+    if (actual) {
+      setCurrentOdontogram(actual);
+      setTipoRegistroActual(tipo);
+      setSelectedVersion(actual.version);
+      if (tipo === 'oleary_adulto') {
+        loadOlearyData(actual);
+      } else {
+        loadOdontogramData(actual);
+      }
+    } else {
+      setCurrentOdontogram(null);
+      setTipoRegistroActual(null);
+      setSelectedVersion(null);
+      initializeEmptyOdontogram(tipo);
+      setFechaOdontograma(new Date().toISOString().split('T')[0]);
+    }
+  };
+
+  const cargarLayoutOdontograma = async (tipo: TipoOdontograma) => {
+    if (!pacienteId) return;
+
+    const requestId = ++layoutRequestRef.current;
+    setCargandoLayout(true);
+
+    try {
+      if (tipo === 'oleary_adulto') {
+        const history = await OlearyService.getOdontogramHistory(pacienteId);
+        if (requestId !== layoutRequestRef.current) return;
+        aplicarLayoutOdontograma(tipo, [], history.map(h => h.oleary));
+      } else {
+        const history = await getOdontogramHistory(pacienteId);
+        if (requestId !== layoutRequestRef.current) return;
+        aplicarLayoutOdontograma(tipo, history, []);
+      }
+    } catch (err) {
+      console.error('Error cargando el odontograma del tipo seleccionado:', err);
+      if (requestId === layoutRequestRef.current) {
+        setTipoOdontograma(tipoOdontograma);
+      }
+    } finally {
+      if (requestId === layoutRequestRef.current) {
+        setCargandoLayout(false);
+      }
+    }
+  };
+
+  const cargarHistorialPorTipo = async (tipo: TipoOdontograma) => {
+    if (!pacienteId) return;
+
+    try {
+      if (tipo === 'oleary_adulto') {
+        const history = await OlearyService.getOdontogramHistory(pacienteId);
+        setOdontogramasGuardados(construirHistorialOleary(history.map(h => h.oleary)));
+      } else {
+        const history = await getOdontogramHistory(pacienteId);
+        setOdontogramasGuardados(construirHistorialRegular(history, tipo));
+      }
+    } catch (err) {
+      console.error('Error al cargar el historial de odontogramas:', err);
+    }
+  };
+
+  const cambiarTipoOdontograma = async (tipo: TipoOdontograma) => {
+    if (tipo === tipoOdontograma || cargandoLayout) return;
+
+    setTipoOdontograma(tipo);
+    setHistorialCambios([]);
+    await cargarLayoutOdontograma(tipo);
+  };
+
   const loadPatientAndOdontogramData = async () => {
+    const requestId = ++layoutRequestRef.current;
+    setCargandoLayout(false);
+
     try {
       setLoading(true);
       setError(null);
 
       const patientData = await PatientService.getPatientById(pacienteId!);
+      if (requestId !== layoutRequestRef.current) return;
       if (!patientData) {
         setError('Paciente no encontrado');
         setLoading(false);
@@ -426,87 +531,53 @@ function OdontogramPilotPageContent() {
       }
       setPatient(patientData);
 
-      // Load different data based on odontogram type
-      if (tipoOdontograma === 'oleary_adulto') {
-        // Load O'Leary data
-        const history = await OlearyService.getOdontogramHistory(pacienteId!);
-        setOdontogramasGuardados(history.map(h => ({
-          id: h.oleary.id,
-          nombre: `Versión ${h.oleary.version}${h.es_version_actual ? ' (Actual)' : ''}`,
-          fecha: h.oleary.datos_odontograma.fecha || h.oleary.fecha_creacion,
-          version: h.oleary.version,
-          esActual: h.es_version_actual,
-          tipo: 'oleary_adulto'
-        })));
+      const [historialRegular, historialOleary] = await Promise.all([
+        getOdontogramHistory(pacienteId!),
+        OlearyService.getOdontogramHistory(pacienteId!).catch(err => {
+          console.error('Error al cargar el historial de O\'Leary:', err);
+          return [];
+        })
+      ]);
+      if (requestId !== layoutRequestRef.current) return;
+      const registrosOleary = historialOleary.map(h => h.oleary);
 
-        if (versionParam && editParam === 'true') {
-          const oleary = await OlearyService.getOdontogramById(versionParam);
-          if (oleary) {
-            setCurrentOdontogram(oleary);
-            setSelectedVersion(oleary.version);
-            loadOlearyData(oleary);
-          }
-        } else if (!editParam) {
-          const oleary = await OlearyService.getActiveOdontogram(pacienteId!);
-          if (oleary) {
-            setCurrentOdontogram(oleary);
-            setSelectedVersion(oleary.version);
-            loadOlearyData(oleary);
-          } else {
-            initializeEmptyOdontogram();
-            setFechaOdontograma(new Date().toISOString());
-          }
-        }
-      } else {
-        // Load regular odontogram data
-        const history = await getOdontogramHistory(pacienteId!);
-        setOdontogramasGuardados(history.map(h => ({
-          id: h.id,
-          nombre: `Versión ${h.version}${h.activo ? ' (Actual)' : ''}`,
-          fecha: (h.datos_odontograma as any)?.fecha || h.fecha_creacion,
-          version: h.version,
-          esActual: h.activo,
-          tipo: (h.datos_odontograma as any)?.tipo || 'adulto'
-        })));
+      const versionEditada = versionParam && editParam === 'true' ? versionParam : null;
+      const versionNumerica = versionEditada ? parseInt(versionEditada, 10) : NaN;
+      const registroEditado = versionEditada
+        ? (buscarRegistroPorId(historialRegular, registrosOleary, versionEditada)
+          ?? buscarRegistroPorVersion(historialRegular, registrosOleary, versionNumerica))
+        : undefined;
 
-        if (versionParam && editParam === 'true') {
-          const odontogram = await OdontogramPilotService.getOdontogramByVersion(pacienteId!, parseInt(versionParam));
-          if (odontogram) {
-            setCurrentOdontogram(odontogram);
-            setSelectedVersion(parseInt(versionParam));
-            loadOdontogramData(odontogram);
-          }
-        } else if (!editParam) {
-          const odontogram = await getActiveOdontogram(pacienteId!);
-          if (odontogram) {
-            setCurrentOdontogram(odontogram);
-            setSelectedVersion(odontogram.version);
-            loadOdontogramData(odontogram);
-          } else {
-            initializeEmptyOdontogram();
-            setFechaOdontograma(new Date().toISOString());
-          }
-        }
-      }
+      const tipoDetectado: TipoOdontograma | null = registroEditado
+        ? (registrosOleary.some(registro => registro.id === registroEditado.id)
+            ? 'oleary_adulto'
+            : obtenerTipoOdontograma(registroEditado.datos_odontograma))
+        : detectarTipoPorHistorial(historialRegular, registrosOleary);
+
+      const tipo: TipoOdontograma = tipoDetectado ?? 'adulto';
+      setTipoOdontograma(tipo);
+      aplicarLayoutOdontograma(tipo, historialRegular, registrosOleary, registroEditado);
     } catch (err) {
+      if (requestId !== layoutRequestRef.current) return;
       console.error('Error loading patient and odontogram data:', err);
       setError('Error al cargar datos del paciente');
     } finally {
-      setLoading(false);
+      if (requestId === layoutRequestRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const loadOlearyData = (oleary: any) => {
     const datos: Record<number, ToothData> = {};
     const olearyData = oleary.datos_odontograma;
-    const defaultCuadrantes = crearDienteCuadrantes();
-    
+
     // Initialize all 32 adult teeth for O'Leary mode
     const allAdultTeeth = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28, 48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
     
     // Set all teeth to default sano state first
     allAdultTeeth.forEach(num => {
-      datos[num] = { cuadrantes: { ...defaultCuadrantes } };
+      datos[num] = crearDienteOleary();
     });
     
     // Override with actual O'Leary data
@@ -521,6 +592,8 @@ function OdontogramPilotPageContent() {
     setDientesData(datos);
     setNotasGenerales(oleary.notas || '');
     setFechaOdontograma(olearyData.fecha);
+    setMordidas(olearyData.mordidas || []);
+    setGingivitis(olearyData.gingivitis || []);
     setProspectoOrto(olearyData.prospecto_orto !== undefined ? !!olearyData.prospecto_orto : false);
   };
 
@@ -539,11 +612,6 @@ function OdontogramPilotPageContent() {
     
     if (odontogram.notas) {
       notasData = odontogram.notas;
-    }
-    
-    if (odontogramData && odontogramData.tipo) {
-      console.log('Setting tipoOdontograma from loaded data:', odontogramData.tipo);
-      setTipoOdontograma(odontogramData.tipo);
     }
     
     if (odontogramData && odontogramData.fecha) {
@@ -611,16 +679,16 @@ function OdontogramPilotPageContent() {
     setNotasGenerales(notasData || '');
   };
 
-  const initializeEmptyOdontogram = () => {
+  const initializeEmptyOdontogram = (tipo: TipoOdontograma) => {
     const datos: Record<number, ToothData> = {};
     const defaultCuadrantes = crearDienteCuadrantes();
     
-    if (tipoOdontograma === 'adulto' || tipoOdontograma === 'oleary_adulto') {
+    if (tipo === 'adulto' || tipo === 'oleary_adulto') {
       const upperTeeth = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
       const lowerTeeth = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
       
       [...upperTeeth, ...lowerTeeth].forEach(num => {
-        if (tipoOdontograma === 'oleary_adulto') {
+        if (tipo === 'oleary_adulto') {
           // O'Leary mode: no central section
           datos[num] = { cuadrantes: { ...defaultCuadrantes } };
         } else {
@@ -860,38 +928,56 @@ function OdontogramPilotPageContent() {
        };
     };
 
-  const cargarVersionOdontograma = async (odontogramId: string, version: number) => {
+  const cargarVersionOdontograma = async (odontogramId: string, version: number, tipo: TipoOdontograma) => {
+      if (!odontogramId) return;
+
+      const requestId = ++versionRequestRef.current;
+
       try {
         setVersionLoading(true);
         setError(null);
 
-        if (tipoOdontograma === 'oleary_adulto') {
+        if (tipo === 'oleary_adulto') {
           // Handle O'Leary mode
           const oleary = await OlearyService.getOdontogramById(odontogramId);
+          if (requestId !== versionRequestRef.current) return;
           if (oleary) {
             setCurrentOdontogram(oleary);
+            setTipoRegistroActual('oleary_adulto');
             setSelectedVersion(version);
+            setHistorialCambios([]);
             loadOlearyData(oleary);
           }
         } else {
           // Handle regular odontogram mode
           const odontogram = await getOdontogramById(odontogramId);
+          if (requestId !== versionRequestRef.current) return;
           if (odontogram) {
             setCurrentOdontogram(odontogram);
+            setTipoRegistroActual(obtenerTipoOdontograma(odontogram.datos_odontograma));
             setSelectedVersion(version);
+            setHistorialCambios([]);
             loadOdontogramData(odontogram);
           }
         }
       } catch (err) {
+        if (requestId !== versionRequestRef.current) return;
         console.error('Error loading odontogram version:', err);
         setError('Error al cargar la versión del odontograma');
       } finally {
-        setVersionLoading(false);
+        if (requestId === versionRequestRef.current) {
+          setVersionLoading(false);
+        }
       }
     };
 
   const guardarOdontogramaActual = async () => {
     if (!pacienteId) return;
+    if (cargandoLayout) return;
+    if (currentOdontogram && tipoRegistroActual && tipoRegistroActual !== tipoOdontograma) {
+      console.error('Se bloqueó el guardado: el odontograma cargado no corresponde al tipo seleccionado');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -910,15 +996,15 @@ function OdontogramPilotPageContent() {
             loadOlearyData(updatedOleary);
           }
         } else {
-          await OlearyService.createOdontogram(pacienteId, olearyData as any, notasGenerales);
+          const createdOleary = await OlearyService.createOdontogram(pacienteId, olearyData as any, notasGenerales);
           
-          const activeOleary = await OlearyService.getActiveOdontogram(pacienteId);
-          if (activeOleary) {
-            setCurrentOdontogram(activeOleary);
-            loadOlearyData(activeOleary);
-            setSelectedVersion(activeOleary.version);
-          }
+          setCurrentOdontogram(createdOleary);
+          setSelectedVersion(createdOleary.version);
+          loadOlearyData(createdOleary);
         }
+
+        setTipoRegistroActual('oleary_adulto');
+        await cargarHistorialPorTipo(tipoOdontograma);
       } else {
         // Handle regular odontogram mode
         const odontogramData = buildOdontogramData();
@@ -926,9 +1012,7 @@ function OdontogramPilotPageContent() {
         if (currentOdontogram) {
           await updateOdontogram(currentOdontogram.id, odontogramData as any, notasGenerales);
           
-          const updatedOdontogram = currentOdontogram.activo
-            ? await getActiveOdontogram(pacienteId!)
-            : await getOdontogramById(currentOdontogram.id);
+          const updatedOdontogram = await getOdontogramById(currentOdontogram.id);
 
           if (updatedOdontogram) {
             setCurrentOdontogram(updatedOdontogram);
@@ -936,15 +1020,15 @@ function OdontogramPilotPageContent() {
             loadOdontogramData(updatedOdontogram);
           }
         } else {
-          await createOdontogram(pacienteId, odontogramData as any, notasGenerales);
+          const createdOdontogram = await createOdontogram(pacienteId, odontogramData as any, notasGenerales);
           
-          const activeOdontogram = await getActiveOdontogram(pacienteId);
-          if (activeOdontogram) {
-            setCurrentOdontogram(activeOdontogram);
-            loadOdontogramData(activeOdontogram);
-            setSelectedVersion(activeOdontogram.version);
-          }
+          setCurrentOdontogram(createdOdontogram);
+          setSelectedVersion(createdOdontogram.version);
+          loadOdontogramData(createdOdontogram);
         }
+
+        setTipoRegistroActual(tipoOdontograma);
+        await cargarHistorialPorTipo(tipoOdontograma);
       }
 
     } catch (err) {
@@ -957,6 +1041,7 @@ function OdontogramPilotPageContent() {
 
   const guardarNuevoOdontograma = async () => {
     if (!pacienteId) return;
+    if (cargandoLayout) return;
 
     try {
       setSaving(true);
@@ -965,45 +1050,25 @@ function OdontogramPilotPageContent() {
       if (tipoOdontograma === 'oleary_adulto') {
         // Handle O'Leary mode
         const olearyData = buildOdontogramData();
-        await OlearyService.createNewVersion(pacienteId, olearyData as any, notasGenerales);
+        const createdOleary = await OlearyService.createNewVersion(pacienteId, olearyData as any, notasGenerales);
 
-        const history = await OlearyService.getOdontogramHistory(pacienteId);
-        setOdontogramasGuardados(history.map(h => ({
-          id: h.oleary.id,
-          nombre: `Versión ${h.oleary.version}${h.es_version_actual ? ' (Actual)' : ''}`,
-          fecha: h.oleary.datos_odontograma.fecha || h.oleary.fecha_creacion,
-          version: h.oleary.version,
-          esActual: h.es_version_actual,
-          tipo: 'oleary_adulto'
-        })));
+        setCurrentOdontogram(createdOleary);
+        setTipoRegistroActual('oleary_adulto');
+        setSelectedVersion(createdOleary.version);
+        loadOlearyData(createdOleary);
 
-        const activeOleary = await OlearyService.getActiveOdontogram(pacienteId);
-        if (activeOleary) {
-          setCurrentOdontogram(activeOleary);
-          loadOlearyData(activeOleary);
-          setSelectedVersion(activeOleary.version);
-        }
+        await cargarHistorialPorTipo(tipoOdontograma);
       } else {
         // Handle regular odontogram mode
         const odontogramData = buildOdontogramData();
-        await createOdontogram(pacienteId, odontogramData as any, notasGenerales);
+        const createdOdontogram = await createOdontogram(pacienteId, odontogramData as any, notasGenerales);
 
-        const history = await getOdontogramHistory(pacienteId);
-        setOdontogramasGuardados(history.map(h => ({
-          id: h.id,
-          nombre: `Versión ${h.version}${h.activo ? ' (Actual)' : ''}`,
-          fecha: (h.datos_odontograma as any)?.fecha || h.fecha_creacion,
-          version: h.version,
-          esActual: h.activo,
-          tipo: (h.datos_odontograma as any)?.tipo || 'adulto'
-        })));
+        setCurrentOdontogram(createdOdontogram);
+        setTipoRegistroActual(tipoOdontograma);
+        setSelectedVersion(createdOdontogram.version);
+        loadOdontogramData(createdOdontogram);
 
-        const activeOdontogram = await getActiveOdontogram(pacienteId);
-        if (activeOdontogram) {
-          setCurrentOdontogram(activeOdontogram);
-          loadOdontogramData(activeOdontogram);
-          setSelectedVersion(activeOdontogram.version);
-        }
+        await cargarHistorialPorTipo(tipoOdontograma);
       }
     } catch (err) {
       console.error('Error creating new odontogram version:', err);
@@ -1353,11 +1418,9 @@ function OdontogramPilotPageContent() {
           <div className="flex justify-center mb-4">
             <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
               <button
-                onClick={() => {
-                  setTipoOdontograma('adulto');
-                  setUserSelectedMode(true);
-                }}
-                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl ${
+                onClick={() => cambiarTipoOdontograma('adulto')}
+                disabled={saving || cargandoLayout}
+                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
                   tipoOdontograma === 'adulto'
                     ? 'border-teal-400/30 bg-teal-600/80 text-white backdrop-blur-sm'
                     : 'border-slate-200/70 bg-slate-100/60 text-slate-700 hover:bg-slate-200/70 dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60'
@@ -1366,11 +1429,9 @@ function OdontogramPilotPageContent() {
                 Adulto
               </button>
               <button
-                onClick={() => {
-                  setTipoOdontograma('nino');
-                  setUserSelectedMode(true);
-                }}
-                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl ${
+                onClick={() => cambiarTipoOdontograma('nino')}
+                disabled={saving || cargandoLayout}
+                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
                   tipoOdontograma === 'nino'
                     ? 'border-teal-400/30 bg-teal-600/80 text-white backdrop-blur-sm'
                     : 'border-slate-200/70 bg-slate-100/60 text-slate-700 hover:bg-slate-200/70 dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60'
@@ -1379,11 +1440,9 @@ function OdontogramPilotPageContent() {
                 Niño
               </button>
               <button
-                onClick={() => {
-                  setTipoOdontograma('oleary_adulto');
-                  setUserSelectedMode(true);
-                }}
-                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl ${
+                onClick={() => cambiarTipoOdontograma('oleary_adulto')}
+                disabled={saving || cargandoLayout}
+                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
                   tipoOdontograma === 'oleary_adulto'
                     ? 'border-purple-400/30 bg-purple-600/80 text-white backdrop-blur-sm'
                     : 'border-slate-200/70 bg-slate-100/60 text-slate-700 hover:bg-slate-200/70 dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60'
@@ -1635,7 +1694,7 @@ function OdontogramPilotPageContent() {
                             : 'bg-teal-600/40 border-teal-400/40'
                           : 'bg-white/40 border-white/5 hover:bg-white/10 dark:bg-slate-900/50'
                       }`}
-                      onClick={() => cargarVersionOdontograma(odo.id, odo.version)}
+                      onClick={() => cargarVersionOdontograma(odo.id, odo.version, odo.tipo)}
                     >
                       <div className={`font-medium ${
                         isSelected ? (isOleary ? 'text-purple-300' : 'text-teal-300') : 'text-slate-200'
@@ -1652,14 +1711,14 @@ function OdontogramPilotPageContent() {
             </div>
             <button
               onClick={guardarOdontogramaActual}
-              disabled={saving}
+              disabled={saving || cargandoLayout || !currentOdontogram}
               className="w-full mb-2 rounded-lg border border-teal-400/30 bg-teal-600/80 px-6 py-2 font-medium text-white shadow-lg shadow-teal-500/10 backdrop-blur-sm transition-colors hover:bg-teal-500/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className="fas fa-save" aria-hidden="true"></i> {saving ? 'Guardando...' : 'Actualizar Versión'}
             </button>
             <button
               onClick={guardarNuevoOdontograma}
-              disabled={saving}
+              disabled={saving || cargandoLayout}
               className="w-full rounded-lg border border-indigo-400/30 bg-indigo-600/80 px-6 py-2 font-medium text-white shadow-lg shadow-indigo-500/10 backdrop-blur-sm transition-colors hover:bg-indigo-500/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className="fas fa-copy"></i> Nueva Versión
