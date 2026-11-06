@@ -1120,7 +1120,11 @@ function OdontogramPilotPageContent() {
            flex-direction: column;
            align-items: center;
            gap: 15px;
-           padding: 16px;
+           width: 100%;
+           max-width: 100%;
+           min-width: 0;
+           box-sizing: border-box;
+           padding: 16px 16px 24px;
          }
          
          @media (min-width: 640px) {
@@ -1157,6 +1161,10 @@ function OdontogramPilotPageContent() {
             fill: #e2e8f0;
           }
         }
+
+        .dark .quadrant-label {
+          fill: #e2e8f0;
+        }
         
          .center-circle {
            font-size: 14px;
@@ -1171,13 +1179,18 @@ function OdontogramPilotPageContent() {
               fill: #e2e8f0;
             }
           }
+
+          .dark .center-circle {
+            fill: #e2e8f0;
+          }
           
           .odontogram-arch {
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 20px;
-            background: white;
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.25);
             border-radius: 12px;
             width: 100%;
           }
@@ -1202,8 +1215,14 @@ function OdontogramPilotPageContent() {
           
           @media (prefers-color-scheme: dark) {
             .odontogram-arch {
-              background: rgba(30, 41, 59, 0.8);
+              background: rgba(2, 6, 23, 0.45);
+              border-color: rgba(255, 255, 255, 0.06);
             }
+          }
+
+          .dark .odontogram-arch {
+            background: rgba(2, 6, 23, 0.45);
+            border-color: rgba(255, 255, 255, 0.06);
           }
           
           .teeth-row {
@@ -1254,34 +1273,38 @@ function OdontogramPilotPageContent() {
           }
         `}</style>
 
-      <div data-rr-block className="odontogram-container">
+      <div data-rr-block className="odontogram-container relative isolate h-auto w-full max-w-full box-border overflow-x-hidden pb-6 bg-slate-100 dark:bg-slate-950">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-teal-500 opacity-20 blur-3xl" />
+          <div className="absolute -bottom-32 -right-24 h-80 w-80 rounded-full bg-indigo-500 opacity-20 blur-3xl" />
+        </div>
         {/* Patient Info + Action Buttons */}
         <div className="mx-auto max-w-5xl w-full px-5 mt-0">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start">
-            {/* Patient Info Card */}
-            <div className="min-w-0 flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-wrap items-end gap-3">
+          <div className="flex w-full min-w-0 max-w-full flex-col gap-4 rounded-2xl border border-slate-200/70 bg-white/60 p-4 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60 md:flex-row md:items-center md:justify-between">
+            {/* Patient metadata */}
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4">
               <div className="form-group flex-1 min-w-[180px]">
-                <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Nombre completo:</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-100 mb-2">Nombre completo:</label>
                 <input
                   type="text"
                   value={patient?.nombre_completo || ''}
                   disabled
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
+                  className="w-full rounded-lg border border-slate-200/70 bg-white/70 px-4 py-2 text-slate-900 backdrop-blur-sm disabled:bg-slate-100/60 disabled:text-slate-500 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-100 dark:disabled:bg-slate-900/60 dark:disabled:text-slate-400"
                 />
               </div>
               
               <div className="form-group shrink-0">
-                <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Identidad:</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-100 mb-2">Identidad:</label>
                 <input
                   type="text"
                   value={patient?.numero_identidad || ''}
                   disabled
-                  className="w-full min-w-0 sm:w-[160px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-400"
+                  className="w-full min-w-0 sm:w-[160px] rounded-lg border border-slate-200/70 bg-white/70 px-4 py-2 text-slate-900 backdrop-blur-sm disabled:bg-slate-100/60 disabled:text-slate-500 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-100 dark:disabled:bg-slate-900/60 dark:disabled:text-slate-400"
                 />
               </div>
               
               <div className="min-w-0 basis-full sm:basis-[280px] sm:shrink-0">
-                <label className="block text-sm font-medium text-black dark:text-gray-100 mb-2">Fecha del Odontograma:</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-100 mb-2">Fecha del Odontograma:</label>
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="date"
@@ -1291,32 +1314,32 @@ function OdontogramPilotPageContent() {
                         setFechaOdontograma(e.target.value);
                       }
                     }}
-                    className="w-full min-w-0 sm:w-auto sm:min-w-[180px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    className="w-full min-w-0 sm:w-auto sm:min-w-[180px] rounded-lg border border-slate-200/70 bg-white/70 px-4 py-2 text-slate-900 backdrop-blur-sm focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/20 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-100"
                   />
                   <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={prospectoOrto}
                       onChange={(e) => setProspectoOrto(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                      className="h-4 w-4 rounded border-white/20 bg-slate-950/50 accent-teal-500 text-teal-500 focus:ring-teal-400/40"
                     />
-                    <span className="text-sm font-medium text-black dark:text-gray-100">Prospecto para Orto</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-100">Prospecto para Orto</span>
                   </label>
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex w-full shrink-0 flex-col gap-2 pt-0 md:w-auto">
+            <div className="flex shrink-0 items-center gap-2 self-end md:self-auto">
               <button
                 onClick={() => router.push(`/menu-navegacion?id=${pacienteId}`)}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-blue-400/30 bg-blue-600/80 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-blue-500/10 backdrop-blur-sm transition-colors hover:bg-blue-500/90"
               >
                 <i className="fas fa-bars" aria-hidden="true"></i> Menu
               </button>
               <button
                 onClick={() => router.push(`/notas-linea-de-tiempo?id=${pacienteId}`)}
-                className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-purple-400/30 bg-purple-600/80 px-3 py-1.5 text-sm font-medium text-white shadow-lg shadow-purple-500/10 backdrop-blur-sm transition-colors hover:bg-purple-500/90"
               >
                 <i className="fas fa-sticky-note" aria-hidden="true"></i> Notas
               </button>
@@ -1325,7 +1348,7 @@ function OdontogramPilotPageContent() {
         </div>
 
         {/* Main Odontogram - Grid Layout (pilot with circular teeth) */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full odontogram-main-container" style={{ maxWidth: '1600px' }}>
+        <div className="odontogram-main-container w-full min-w-0 max-w-full rounded-2xl border border-slate-200/70 bg-white/60 p-6 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60" style={{ maxWidth: '1600px' }}>
           {/* Tipo de odontograma buttons */}
           <div className="flex justify-center mb-4">
             <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
@@ -1334,10 +1357,10 @@ function OdontogramPilotPageContent() {
                   setTipoOdontograma('adulto');
                   setUserSelectedMode(true);
                 }}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl ${
                   tipoOdontograma === 'adulto'
-                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    ? 'border-teal-400/30 bg-teal-600/80 text-white backdrop-blur-sm'
+                    : 'border-slate-200/70 bg-slate-100/60 text-slate-700 hover:bg-slate-200/70 dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60'
                 }`}
               >
                 Adulto
@@ -1347,10 +1370,10 @@ function OdontogramPilotPageContent() {
                   setTipoOdontograma('nino');
                   setUserSelectedMode(true);
                 }}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl ${
                   tipoOdontograma === 'nino'
-                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    ? 'border-teal-400/30 bg-teal-600/80 text-white backdrop-blur-sm'
+                    : 'border-slate-200/70 bg-slate-100/60 text-slate-700 hover:bg-slate-200/70 dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60'
                 }`}
               >
                 Niño
@@ -1360,10 +1383,10 @@ function OdontogramPilotPageContent() {
                   setTipoOdontograma('oleary_adulto');
                   setUserSelectedMode(true);
                 }}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                className={`rounded-lg border px-4 py-2 font-medium shadow-lg transition-all duration-200 hover:shadow-xl ${
                   tipoOdontograma === 'oleary_adulto'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    ? 'border-purple-400/30 bg-purple-600/80 text-white backdrop-blur-sm'
+                    : 'border-slate-200/70 bg-slate-100/60 text-slate-700 hover:bg-slate-200/70 dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60'
                 }`}
               >
                 O'Leary Adulto
@@ -1439,7 +1462,7 @@ function OdontogramPilotPageContent() {
               {(tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS)
                 .filter(estado => getContadorEstados()[estado.key] > 0)
                 .map(estado => (
-                  <div key={estado.key} className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                  <div key={estado.key} className="inline-flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-slate-700 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-100">
                     <span className="w-3 h-3 rounded-full inline-block" style={{ background: estado.color }} />
                     <span className="text-xs font-semibold">{estado.label}</span>
                     <span className="text-xs font-semibold">{getContadorEstados()[estado.key]}</span>
@@ -1452,8 +1475,8 @@ function OdontogramPilotPageContent() {
         {/* Mordidas + State Selector + Historial + Gingivitis */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-full items-start" style={{ margin: '20px auto', maxWidth: '1600px' }}>
           {/* Mordidas Section */}
-          <div className="relative z-0 w-full min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+          <div className="relative z-0 w-full min-w-0 max-w-full rounded-2xl border border-slate-200/70 bg-white/60 p-4 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60 sm:p-6">
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 text-center mb-4">
               Mordida
             </h3>
             <div className="space-y-3">
@@ -1466,7 +1489,7 @@ function OdontogramPilotPageContent() {
               ].map(item => (
                 <label
                   key={item.key}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
                 >
                   <input
                     type="checkbox"
@@ -1478,9 +1501,9 @@ function OdontogramPilotPageContent() {
                         setMordidas(prev => prev.filter(k => k !== item.key));
                       }
                     }}
-                    className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    className="h-4 w-4 rounded border-white/20 bg-slate-950/50 accent-teal-500 text-teal-500 focus:ring-teal-400/40"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300 select-none">
+                  <span className="text-sm text-slate-700 dark:text-slate-200 select-none">
                     {item.label}
                   </span>
                 </label>
@@ -1489,8 +1512,8 @@ function OdontogramPilotPageContent() {
           </div>
 
           {/* State Selector */}
-          <div className="relative z-10 w-full min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+          <div className="relative z-10 w-full min-w-0 max-w-full rounded-2xl border border-slate-200/70 bg-white/60 p-4 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60 sm:p-6">
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 text-center mb-4">
               Seleccionar Estado
             </h3>
             
@@ -1507,16 +1530,16 @@ function OdontogramPilotPageContent() {
                 onFocus={() => setShowDropdown(true)}
                 onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                 onKeyDown={handleKeyDown}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full rounded-lg border border-slate-200/70 bg-white/70 px-4 py-2 text-slate-900 placeholder-slate-400 backdrop-blur-sm focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-400/20 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-100"
               />
               
               {showDropdown && filteredEstados.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 rounded-lg border border-slate-200/70 bg-white/90 shadow-lg backdrop-blur-md max-h-60 overflow-y-auto dark:border-white/10 dark:bg-slate-900/80 dark:shadow-xl">
                    {filteredEstados.map((estado, index) => (
                      <div
                        key={estado.key}
-                       className={`px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center justify-between ${
-                         index === highlightedIndex ? 'bg-gray-100 dark:bg-gray-600' : ''
+                       className={`px-4 py-2 cursor-pointer hover:bg-slate-100/70 dark:hover:bg-white/10 flex items-center justify-between ${
+                         index === highlightedIndex ? 'bg-slate-100/70 dark:bg-white/10' : ''
                        }`}
                        onClick={() => handleEstadoSelect(estado.key)}
                        onMouseEnter={() => setHighlightedIndex(index)}
@@ -1528,8 +1551,8 @@ function OdontogramPilotPageContent() {
                         ></span>
                         {estado.label}
                         {estado.label.toLowerCase() === searchTerm.toLowerCase() && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                            <i className="fas fa-check"></i>
+                          <span className="ml-2 text-xs text-slate-400">
+                            <i className="fas fa-check" aria-hidden="true"></i>
                           </span>
                         )}
                       </span>
@@ -1542,7 +1565,7 @@ function OdontogramPilotPageContent() {
             <select
               value={estadoSeleccionado}
               onChange={(e) => setEstadoSeleccionado(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full rounded-lg border border-slate-200/70 bg-white/70 px-4 py-2 text-slate-900 backdrop-blur-sm focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-400/20 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-100"
             >
               {(tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS).slice().sort((a, b) => a.label.localeCompare(b.label)).map(estado => (
                 <option key={estado.key} value={estado.key}>
@@ -1552,15 +1575,15 @@ function OdontogramPilotPageContent() {
             </select>
             
             <div className="mt-4">
-              <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <div className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                 Estado seleccionado:
               </div>
-              <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-slate-200/70 bg-slate-100/60 backdrop-blur-sm dark:border-white/5 dark:bg-slate-950/40">
                 <span
-                  className="w-5 h-5 rounded border border-gray-300 dark:border-gray-500"
+                  className="w-5 h-5 rounded border border-slate-300 dark:border-slate-500"
                   style={{ backgroundColor: (tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS).find(e => e.key === estadoSeleccionado)?.color || '#FFFFFF' }}
                 ></span>
-                <span className="text-sm text-gray-900 dark:text-gray-100">
+                <span className="text-sm text-slate-800 dark:text-slate-100">
                   {(tipoOdontograma === 'oleary_adulto' ? ESTADOS_OLEARY : ESTADOS).find(e => e.key === estadoSeleccionado)?.label || 'Sano'}
                 </span>
               </div>
@@ -1569,14 +1592,14 @@ function OdontogramPilotPageContent() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={limpiarTodo}
-                className="flex-1 px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200 text-sm"
+                className="flex-1 rounded-lg border border-slate-200/70 bg-slate-100/60 px-3 py-2 text-sm text-slate-700 backdrop-blur-sm transition-colors hover:bg-slate-200/70 dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-700/60"
               >
                 Limpiar Todo
               </button>
               <button
                 onClick={retrocederCambio}
                 disabled={historialCambios.length === 0}
-                className="flex-1 px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-lg border border-slate-200/70 bg-slate-100/60 px-3 py-2 text-sm text-slate-700 backdrop-blur-sm transition-colors hover:bg-slate-200/70 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-700/60"
               >
                 Deshacer
               </button>
@@ -1584,20 +1607,20 @@ function OdontogramPilotPageContent() {
           </div>
           
           {/* Historial de Odontogramas */}
-          <div className="relative z-0 w-full min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4">
+          <div className="relative z-0 w-full min-w-0 max-w-full rounded-2xl border border-slate-200/70 bg-white/60 p-4 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center flex-1">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 text-center flex-1">
                 Historial de Odontogramas
               </h3>
               {versionLoading && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                <div className="text-xs text-slate-400 ml-2">
                   Cargando versión...
                 </div>
               )}
             </div>
-            <div className="max-h-40 overflow-y-auto mb-2 bg-gray-50 dark:bg-gray-700 rounded-md p-2 text-sm">
+            <div className="max-h-40 overflow-y-auto mb-2 rounded-md border border-slate-200/70 bg-slate-100/60 p-2 text-sm backdrop-blur-sm dark:border-white/5 dark:bg-slate-950/40">
               {odontogramasGuardados.length === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400 m-0">No hay odontogramas guardados</p>
+                <p className="text-center text-slate-500 dark:text-slate-400 m-0">No hay odontogramas guardados</p>
               ) : (
                 odontogramasGuardados.map((odo, index) => {
                   const isOleary = odo.tipo === 'oleary_adulto';
@@ -1605,21 +1628,21 @@ function OdontogramPilotPageContent() {
                   return (
                     <div
                       key={index}
-                      className={`mb-1 p-1 rounded cursor-pointer border ${
+                      className={`mb-1 p-1 rounded cursor-pointer border backdrop-blur-sm ${
                         isSelected
                           ? isOleary
-                            ? 'bg-purple-800 border-pink-500'
-                            : 'bg-green-800 border-teal-500'
-                          : 'bg-gray-600 dark:bg-gray-600 border-transparent hover:bg-gray-700'
+                            ? 'bg-purple-600/40 border-purple-400/40'
+                            : 'bg-teal-600/40 border-teal-400/40'
+                          : 'bg-white/40 border-white/5 hover:bg-white/10 dark:bg-slate-900/50'
                       }`}
                       onClick={() => cargarVersionOdontograma(odo.id, odo.version)}
                     >
                       <div className={`font-medium ${
-                        isSelected ? (isOleary ? 'text-pink-400' : 'text-teal-400') : 'text-gray-100'
+                        isSelected ? (isOleary ? 'text-purple-300' : 'text-teal-300') : 'text-slate-200'
                       }`}>
                         {odo.nombre}
                       </div>
-                      <div className="text-xs text-gray-300">
+                      <div className="text-xs text-slate-400">
                         {formatDateSpanish(odo.fecha)}
                       </div>
                     </div>
@@ -1630,22 +1653,22 @@ function OdontogramPilotPageContent() {
             <button
               onClick={guardarOdontogramaActual}
               disabled={saving}
-              className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full mb-2"
+              className="w-full mb-2 rounded-lg border border-teal-400/30 bg-teal-600/80 px-6 py-2 font-medium text-white shadow-lg shadow-teal-500/10 backdrop-blur-sm transition-colors hover:bg-teal-500/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <i className="fas fa-save"></i> {saving ? 'Guardando...' : 'Actualizar Versión'}
+              <i className="fas fa-save" aria-hidden="true"></i> {saving ? 'Guardando...' : 'Actualizar Versión'}
             </button>
             <button
               onClick={guardarNuevoOdontograma}
               disabled={saving}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed w-full"
+              className="w-full rounded-lg border border-indigo-400/30 bg-indigo-600/80 px-6 py-2 font-medium text-white shadow-lg shadow-indigo-500/10 backdrop-blur-sm transition-colors hover:bg-indigo-500/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className="fas fa-copy"></i> Nueva Versión
             </button>
           </div>
 
           {/* Gingivitis / Periodontitis */}
-          <div className="relative z-0 w-full min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center mb-4">
+          <div className="relative z-0 w-full min-w-0 max-w-full rounded-2xl border border-slate-200/70 bg-white/60 p-4 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60 sm:p-6">
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 text-center mb-4">
               Gingivitis / Periodontitis
             </h3>
             <div className="space-y-3">
@@ -1659,7 +1682,7 @@ function OdontogramPilotPageContent() {
                 const isChecked = !!entry;
                 return (
                   <div key={item.key}>
-                    <label className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <label className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors">
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -1670,9 +1693,9 @@ function OdontogramPilotPageContent() {
                             setGingivitis(prev => prev.filter(g => g.tipo !== item.key));
                           }
                         }}
-                        className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                        className="h-4 w-4 rounded border-white/20 bg-slate-950/50 accent-teal-500 text-teal-500 focus:ring-teal-400/40"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300 select-none">
+                      <span className="text-sm text-slate-700 dark:text-slate-200 select-none">
                         {item.label}
                       </span>
                     </label>
@@ -1688,7 +1711,7 @@ function OdontogramPilotPageContent() {
                           ));
                         }}
                         placeholder="Especifique la ubicación..."
-                        className="ml-8 mt-1 w-[calc(100%_-_2rem)] px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        className="ml-8 mt-1 w-[calc(100%_-_2rem)] rounded-md border border-slate-200/70 bg-white/70 px-2 py-1 text-sm text-slate-900 backdrop-blur-sm focus:border-teal-400/50 focus:outline-none focus:ring-1 focus:ring-teal-400/20 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-100"
                       />
                     )}
                   </div>
@@ -1699,27 +1722,17 @@ function OdontogramPilotPageContent() {
         </div>
 
         {/* General Notes - Same size and position as teeth layout */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-full notas-generales-container" style={{ maxWidth: '1600px', margin: '20px auto' }}>
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+        <div className="notas-generales-container w-full min-w-0 max-w-full rounded-2xl border border-slate-200/70 bg-white/60 p-6 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60" style={{ maxWidth: '1600px', margin: '20px auto' }}>
+          <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-4">
             Notas Generales
           </h3>
           <textarea
             value={notasGenerales}
             onChange={(e) => setNotasGenerales(e.target.value)}
             rows={4}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+            className="w-full resize-none rounded-lg border border-slate-200/70 bg-white/70 px-4 py-2 text-slate-900 backdrop-blur-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-teal-400/20 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-100"
             placeholder="Escriba notas generales sobre el odontograma..."
           />
-        </div>
-
-        {/* Left Sidebar with controls */}
-        <div className="main-container" style={{ width: '100%', maxWidth: '1200px' }}>
-          <div className="left-sidebar" style={{ width: '300px' }}>
-          </div>
-
-          {/* Main Content Area (right side) */}
-          <div className="main-content" style={{ flex: 1 }}>
-          </div>
         </div>
 
         {/* Popup for notes */}
@@ -1730,7 +1743,7 @@ function OdontogramPilotPageContent() {
                 Nota para diente {popupState.toothNumber}
                 <button
                   onClick={() => setPopupState({ ...popupState, show: false })}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="text-slate-400 hover:text-slate-200 dark:text-slate-300 dark:hover:text-white"
                 >
                   <i className="fas fa-times"></i>
                 </button>
@@ -1955,16 +1968,18 @@ function OdontogramPilotPageContent() {
 
         @media (prefers-color-scheme: dark) {
           .popup-content {
-            background: rgba(30, 41, 59, 0.95);
+            background: rgba(15, 23, 42, 0.85);
             border-color: rgba(255,255,255,0.1);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
           }
         }
 
         .dark .popup-content {
-          background: rgba(30, 41, 59, 0.95);
+          background: rgba(15, 23, 42, 0.85);
           border-color: rgba(255,255,255,0.1);
           box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(12px);
         }
 
         .popup-title {
@@ -2016,25 +2031,25 @@ function OdontogramPilotPageContent() {
 
         @media (prefers-color-scheme: dark) {
           .popup-textarea {
-            border-color: #4b5563;
-            background: rgba(17, 24, 39, 0.8);
+            border-color: rgba(255, 255, 255, 0.1);
+            background: rgba(2, 6, 23, 0.5);
             color: #f3f4f6;
           }
           .popup-textarea:focus {
-            background: rgba(17, 24, 39, 0.9);
-            border-color: #10b981;
+            background: rgba(2, 6, 23, 0.7);
+            border-color: rgba(45, 212, 191, 0.5);
           }
         }
 
         .dark .popup-textarea {
-          border-color: #4b5563;
-          background: rgba(17, 24, 39, 0.8);
+          border-color: rgba(255, 255, 255, 0.1);
+          background: rgba(2, 6, 23, 0.5);
           color: #f3f4f6;
         }
 
         .dark .popup-textarea:focus {
-          background: rgba(17, 24, 39, 0.9);
-          border-color: #10b981;
+          background: rgba(2, 6, 23, 0.7);
+          border-color: rgba(45, 212, 191, 0.5);
         }
 
         .popup-buttons {
@@ -2299,21 +2314,6 @@ function OdontogramPilotPageContent() {
 
         /* Tablet styles */
         @media (max-width: 1024px) {
-          .main-container {
-            flex-direction: column;
-            max-width: 100%;
-            padding: 0 15px;
-          }
-          
-          .left-sidebar {
-            width: 100%;
-            order: 2;
-          }
-          
-          .main-content {
-            order: 1;
-          }
-          
           .odontogram-arch {
             padding: 15px;
             max-width: 100%;
@@ -2342,11 +2342,6 @@ function OdontogramPilotPageContent() {
         @media (max-width: 768px) {
           .form-group {
             min-width: 100%;
-          }
-          
-          .main-container {
-            padding: 0 10px;
-            gap: 15px;
           }
           
           .teeth-row {
@@ -2379,66 +2374,6 @@ function OdontogramPilotPageContent() {
           .odontogram-arch {
             padding: 8px;
           }
-          
-          .main-container {
-            padding: 0 8px;
-          }
-        }
-
-        .main-container {
-          display: flex;
-          gap: 20px;
-          margin: 20px auto;
-          max-width: 1400px;
-          padding: 0 20px;
-        }
-        
-        @media (max-width: 1024px) {
-          .main-container {
-            max-width: 100%;
-            padding: 0 15px;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .main-container {
-            padding: 0 10px;
-            gap: 15px;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .main-container {
-            padding: 0 8px;
-            gap: 10px;
-          }
-        }
-
-        .left-sidebar {
-          width: 300px;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-        
-        @media (max-width: 1024px) {
-          .left-sidebar {
-            width: 100%;
-            gap: 15px;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .left-sidebar {
-            gap: 12px;
-          }
-        }
-
-        .main-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
         }
 
         .card {
