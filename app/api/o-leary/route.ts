@@ -17,8 +17,10 @@ export async function GET(request: Request) {
       const activeOdontogram = await OlearyService.getActiveOdontogram(pacienteId);
       return NextResponse.json(activeOdontogram);
     } else if (action === 'stats' && pacienteId) {
-      // Get plaque index statistics for a patient
-      const stats = await OlearyService.getPlaqueIndexStats(pacienteId);
+      // Get plaque index statistics for a patient (optionally for one O'Leary layout)
+      const tipoParam = searchParams.get('tipo');
+      const tipo = tipoParam === 'oleary_adulto' || tipoParam === 'oleary_nino' ? tipoParam : undefined;
+      const stats = await OlearyService.getPlaqueIndexStats(pacienteId, tipo);
       return NextResponse.json(stats);
     } else if (odontogramId) {
       // Get specific O'Leary odontogram by ID

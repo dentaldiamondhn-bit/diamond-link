@@ -1,4 +1,8 @@
 import { supabase } from '../lib/supabase';
+import {
+  obtenerTipoLayoutOleary,
+  type TipoOdontogramaOleary,
+} from '../lib/odontogram/odontogramLayout';
 
 // O'Leary-specific types
 export interface CuadranteOleary {
@@ -14,7 +18,7 @@ export interface DienteOlearyData {
 }
 
 export interface OlearyData {
-  tipo: 'oleary_adulto';
+  tipo: TipoOdontogramaOleary;
   dientes: Record<number, DienteOlearyData>;
   fecha: string;
 }
@@ -226,14 +230,35 @@ export class OlearyService {
     }
   }
 
+  // Get the newest O'Leary odontogram of a given layout for a patient
+  static async getLatestOdontogramByTipo(
+    pacienteId: string,
+    tipo: TipoOdontogramaOleary
+  ): Promise<Oleary | null> {
+    try {
+      const history = await this.getOdontogramHistory(pacienteId);
+      const registros = history
+        .map((entrada) => entrada.oleary)
+        .filter((registro) => obtenerTipoLayoutOleary(registro) === tipo)
+        .sort((a, b) => b.version - a.version);
+
+      return registros[0] ?? null;
+    } catch (error) {
+      console.error('Error getting latest O\'Leary odontogram by layout:', error);
+      return null;
+    }
+  }
+
   // Get plaque index statistics for a patient
-  static async getPlaqueIndexStats(pacienteId: string): Promise<{
+  static async getPlaqueIndexStats(pacienteId: string, tipo?: TipoOdontogramaOleary): Promise<{
     totalSurfaces: number;
     plaqueSurfaces: number;
     plaquePercentage: number;
   }> {
     try {
-      const activeOdontogram = await this.getActiveOdontogram(pacienteId);
+      const activeOdontogram = tipo
+        ? await this.getLatestOdontogramByTipo(pacienteId, tipo)
+        : await this.getActiveOdontogram(pacienteId);
       if (!activeOdontogram) {
         return { totalSurfaces: 0, plaqueSurfaces: 0, plaquePercentage: 0 };
       }

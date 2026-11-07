@@ -7,6 +7,12 @@ import { SimpleTimezoneFix } from './simpleTimezoneFix';
 import { formatCurrency } from '../utils/currencyUtils';
 import { OrthodonticVersion, formatVersionDisplay } from '../utils/versionUtils';
 import {
+  esLayoutDenticionAdulta,
+  esLayoutOleary,
+  etiquetaTipoOdontograma,
+  type TipoOdontograma,
+} from '../lib/odontogram/odontogramLayout';
+import {
   translateMordida,
   translateAparato,
   translateRadiografias,
@@ -1110,9 +1116,9 @@ export class ExportService {
     if (!odontogram || !odontogram.datos_odontograma) return '';
 
     const datos = odontogram.datos_odontograma;
-    const tipo = (datos.tipo as 'adulto' | 'nino' | 'oleary_adulto') || 'adulto';
-    const isOleary = tipo === 'oleary_adulto';
-    const isAdulto = tipo === 'adulto' || tipo === 'oleary_adulto';
+    const tipo = (datos.tipo as TipoOdontograma) || 'adulto';
+    const isOleary = esLayoutOleary(tipo);
+    const isAdulto = esLayoutDenticionAdulta(tipo);
 
     const teethQuadrants = isAdulto ? ODONT_ADULT_QUADRANTS : ODONT_CHILD_QUADRANTS;
     const upperTeeth = [...teethQuadrants.upperRight, ...teethQuadrants.upperLeft];
@@ -1178,7 +1184,7 @@ export class ExportService {
       ? new Date(fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
       : '';
 
-    const tipoLabel = tipo === 'adulto' ? 'Adulto' : tipo === 'nino' ? 'Niño' : "O'Leary Adulto";
+    const tipoLabel = etiquetaTipoOdontograma(tipo);
 
     const notaToothCount = [...upperTeeth, ...lowerTeeth].filter(num => this.getOdontTooth(datos, num).nota).length;
 

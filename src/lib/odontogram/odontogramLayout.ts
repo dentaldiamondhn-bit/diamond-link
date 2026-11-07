@@ -1,6 +1,33 @@
-export type TipoOdontograma = 'adulto' | 'nino' | 'oleary_adulto';
+export type TipoOdontograma = 'adulto' | 'nino' | 'oleary_adulto' | 'oleary_nino';
 
-export type TipoOdontogramaRegular = Exclude<TipoOdontograma, 'oleary_adulto'>;
+export type TipoOdontogramaRegular = 'adulto' | 'nino';
+
+export type TipoOdontogramaOleary = 'oleary_adulto' | 'oleary_nino';
+
+export function esLayoutOleary(tipo: TipoOdontograma): tipo is TipoOdontogramaOleary {
+  return tipo === 'oleary_adulto' || tipo === 'oleary_nino';
+}
+
+export function esLayoutRegular(tipo: TipoOdontograma): tipo is TipoOdontogramaRegular {
+  return tipo === 'adulto' || tipo === 'nino';
+}
+
+export function esLayoutDenticionAdulta(tipo: TipoOdontograma): tipo is 'adulto' | 'oleary_adulto' {
+  return tipo === 'adulto' || tipo === 'oleary_adulto';
+}
+
+export function etiquetaTipoOdontograma(tipo: TipoOdontograma): string {
+  switch (tipo) {
+    case 'adulto':
+      return 'Adulto';
+    case 'nino':
+      return 'Niño';
+    case 'oleary_adulto':
+      return "O'Leary Adulto";
+    case 'oleary_nino':
+      return "O'Leary Niño";
+  }
+}
 
 export const ESTADOS_APLICAN_TODA_LA_PIEZA: string[] = [
   'ausente',
@@ -36,7 +63,7 @@ export interface EntradaHistorialOdontograma {
 }
 
 function esTipoOdontogramaValido(tipo: unknown): tipo is TipoOdontograma {
-  return tipo === 'adulto' || tipo === 'nino' || tipo === 'oleary_adulto';
+  return tipo === 'adulto' || tipo === 'nino' || tipo === 'oleary_adulto' || tipo === 'oleary_nino';
 }
 
 export function obtenerTipoOdontograma(
@@ -46,11 +73,22 @@ export function obtenerTipoOdontograma(
   return esTipoOdontogramaValido(tipo) ? tipo : 'adulto';
 }
 
+export function obtenerTipoLayoutOleary(registro: RegistroOdontograma): TipoOdontogramaOleary {
+  return registro.datos_odontograma?.tipo === 'oleary_nino' ? 'oleary_nino' : 'oleary_adulto';
+}
+
 export function filtrarRegistrosPorTipo(
   historial: RegistroOdontograma[],
   tipo: TipoOdontogramaRegular,
 ): RegistroOdontograma[] {
   return historial.filter((registro) => obtenerTipoOdontograma(registro.datos_odontograma) === tipo);
+}
+
+export function filtrarRegistrosOlearyPorTipo(
+  historial: RegistroOdontograma[],
+  tipo: TipoOdontogramaOleary,
+): RegistroOdontograma[] {
+  return historial.filter((registro) => obtenerTipoLayoutOleary(registro) === tipo);
 }
 
 function ordenarPorVersionDesc(historial: RegistroOdontograma[]): RegistroOdontograma[] {
@@ -62,6 +100,13 @@ export function obtenerRegistroActual(
   tipo: TipoOdontogramaRegular,
 ): RegistroOdontograma | undefined {
   return ordenarPorVersionDesc(filtrarRegistrosPorTipo(historial, tipo))[0];
+}
+
+export function obtenerRegistroActualOleary(
+  historial: RegistroOdontograma[],
+  tipo: TipoOdontogramaOleary,
+): RegistroOdontograma | undefined {
+  return ordenarPorVersionDesc(filtrarRegistrosOlearyPorTipo(historial, tipo))[0];
 }
 
 export function buscarRegistroPorId(
@@ -76,11 +121,20 @@ export function buscarRegistroPorVersion(
   historialRegular: RegistroOdontograma[],
   historialOleary: RegistroOdontograma[],
   version: number,
+  tipoPreferido?: TipoOdontograma | null,
 ): RegistroOdontograma | undefined {
   if (!Number.isFinite(version)) {
     return undefined;
   }
-  return [...historialRegular, ...historialOleary].find((registro) => registro.version === version);
+
+  const buscarEn = (historial: RegistroOdontograma[]) =>
+    historial.find((registro) => registro.version === version);
+
+  const preferidoEsOleary = tipoPreferido ? esLayoutOleary(tipoPreferido) : false;
+  const primero = preferidoEsOleary ? historialOleary : historialRegular;
+  const segundo = preferidoEsOleary ? historialRegular : historialOleary;
+
+  return buscarEn(primero) ?? buscarEn(segundo);
 }
 
 function construirEntrada(
@@ -109,9 +163,10 @@ export function construirHistorialRegular(
 
 export function construirHistorialOleary(
   registrosOleary: RegistroOdontograma[],
+  tipo: TipoOdontogramaOleary,
 ): EntradaHistorialOdontograma[] {
-  return ordenarPorVersionDesc(registrosOleary).map((registro, index) =>
-    construirEntrada(registro, 'oleary_adulto', index === 0),
+  return ordenarPorVersionDesc(filtrarRegistrosOlearyPorTipo(registrosOleary, tipo)).map((registro, index) =>
+    construirEntrada(registro, tipo, index === 0),
   );
 }
 
@@ -133,7 +188,7 @@ export function detectarTipoPorHistorial(
       fecha: fechaComoNumero(registro.fecha_creacion),
     })),
     ...oleary.map((registro) => ({
-      tipo: 'oleary_adulto' as TipoOdontograma,
+      tipo: obtenerTipoLayoutOleary(registro),
       fecha: fechaComoNumero(registro.fecha_creacion),
     })),
   ];

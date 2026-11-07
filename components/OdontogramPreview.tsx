@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { Odontogram } from '@/types/odontogram';
+import {
+  esLayoutDenticionAdulta,
+  esLayoutOleary,
+  etiquetaTipoOdontograma,
+  type TipoOdontograma,
+} from '@/lib/odontogram/odontogramLayout';
 
 const CUADRANTES = ['mesial', 'distal', 'buccal', 'lingual'] as const;
 type Cuadrante = typeof CUADRANTES[number];
@@ -248,9 +254,9 @@ export default function OdontogramPreview({ pacienteId }: OdontogramPreviewProps
   }
 
   const datos = odontogram.datos_odontograma;
-  const tipo = (datos.tipo as 'adulto' | 'nino' | 'oleary_adulto') || 'adulto';
-  const isOleary = tipo === 'oleary_adulto';
-  const isAdulto = tipo === 'adulto' || tipo === 'oleary_adulto';
+  const tipo = (datos.tipo as TipoOdontograma) || 'adulto';
+  const isOleary = esLayoutOleary(tipo);
+  const isAdulto = esLayoutDenticionAdulta(tipo);
 
   const teethQuadrants = isAdulto ? ADULT_TEETH_QUADRANTS : CHILD_TEETH_QUADRANTS;
   const upperTeeth = [...teethQuadrants.upperRight, ...teethQuadrants.upperLeft];
@@ -333,7 +339,7 @@ export default function OdontogramPreview({ pacienteId }: OdontogramPreviewProps
           Versión {odontogram.version}
         </span>
         <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-          {tipo === 'adulto' ? 'Adulto' : tipo === 'nino' ? 'Niño' : "O'Leary Adulto"}
+          {etiquetaTipoOdontograma(tipo)}
         </span>
         {odontogram.activo && (
           <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
