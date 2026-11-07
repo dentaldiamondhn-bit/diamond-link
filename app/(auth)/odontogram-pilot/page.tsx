@@ -1096,11 +1096,17 @@ function OdontogramPilotPageContent() {
       allTeethNumbers = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65, 85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
     }
     
-    // Count each tooth exactly once
+    // Count each tooth exactly once for regular; per quadrant for O'Leary
     allTeethNumbers.forEach(numero => {
       const tooth = dientesData[numero];
       if (!tooth) {
-        contador['sano'] = (contador['sano'] || 0) + 1;
+        if (esLayoutOleary(tipoOdontograma)) {
+          // O'Leary: missing tooth = 4 sano surfaces
+          contador['sano'] = (contador['sano'] || 0) + 4;
+        } else {
+          // Regular: missing tooth = 1 sano tooth
+          contador['sano'] = (contador['sano'] || 0) + 1;
+        }
         return;
       }
 
@@ -1108,13 +1114,22 @@ function OdontogramPilotPageContent() {
       const allStatuses: string[] = [];
 
       if (esLayoutOleary(tipoOdontograma)) {
-        // O'Leary mode: no central section, check only quadrants
-        if (tooth.estado !== undefined) {
-          allStatuses.push(tooth.estado || 'sano');
+// O'Leary mode: no central section, check only quadrants
+      if (tooth.estado !== undefined) {
+        allStatuses.push(tooth.estado || 'sano');
+      } else {
+        const quadrantValues = Object.values(tooth.cuadrantes || {}).filter((q) => typeof q === 'string');
+        allStatuses.push(...quadrantValues);
+      }
+      
+      // O'Leary: count each quadrant/surface separately
+      allStatuses.forEach(status => {
+        if (status !== 'sano') {
+          contador[status] = (contador[status] || 0) + 1;
         } else {
-          const quadrantValues = Object.values(tooth.cuadrantes || {}).filter((q) => typeof q === 'string');
-          allStatuses.push(...quadrantValues);
+          contador['sano'] = (contador['sano'] || 0) + 1;
         }
+      });
       } else {
         // Regular mode: check central AND all quadrants
         if (tooth.estado !== undefined) {
@@ -1126,16 +1141,16 @@ function OdontogramPilotPageContent() {
           const quadrantValues = Object.values(tooth.cuadrantes || {}).filter((q) => typeof q === 'string');
           allStatuses.push(...quadrantValues);
         }
-      }
 
-      // Count each unique non-sano status found on this tooth
-      const uniqueNonSano = new Set(allStatuses.filter(s => s !== 'sano'));
-      if (uniqueNonSano.size === 0) {
-        contador['sano'] = (contador['sano'] || 0) + 1;
-      } else {
-        uniqueNonSano.forEach(status => {
-          contador[status] = (contador[status] || 0) + 1;
-        });
+        // Count each unique non-sano status found on this tooth
+        const uniqueNonSano = new Set(allStatuses.filter(s => s !== 'sano'));
+        if (uniqueNonSano.size === 0) {
+          contador['sano'] = (contador['sano'] || 0) + 1;
+        } else {
+          uniqueNonSano.forEach(status => {
+            contador[status] = (contador[status] || 0) + 1;
+          });
+        }
       }
     });
     
