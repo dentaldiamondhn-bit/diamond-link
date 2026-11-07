@@ -9,7 +9,6 @@ import {
   HandCoins,
   Plus,
   Trash2,
-  UserRound,
   Wallet,
 } from 'lucide-react';
 import { formatCurrency, Currency } from '../../../utils/currencyUtils';
@@ -893,9 +892,10 @@ function TratamientosCompletadosPageContent() {
         />
       )}
       
-      {/* Top Action Bar — only for a selected patient */}
-      {newTreatmentUrl && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      {/* Main Content */}
+      <main className="flex w-full max-w-7xl mx-auto flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
+        {/* Top Action Bar — only for a selected patient */}
+        {newTreatmentUrl && (
           <div className={cn(GLASS_PANEL, 'flex flex-wrap items-center justify-between gap-3 p-4')}>
             {/* Left side - Nuevo Tratamiento / Pago Adelantado */}
             <div className="flex flex-wrap items-center gap-2">
@@ -927,58 +927,34 @@ function TratamientosCompletadosPageContent() {
               Volver
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Patient-specific header */}
-        {pacienteId && completedTreatments.length > 0 && (
-          <div className={cn(GLASS_PANEL, 'mb-5 border-emerald-500/30 p-4 dark:border-emerald-800/40')}>
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <div>
-                <h2 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
-                  Tratamientos del Paciente
-                </h2>
-                <p className="text-sm text-emerald-700/80 dark:text-emerald-300/80">
-                  Paciente ID: {pacienteId}
-                </p>
-              </div>
-            </div>
-          </div>
         )}
 
-        <div className="mt-4">
-          <TreatmentFiltersBar
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            doctorFilter={doctorFilter}
-            onDoctorChange={handleDoctorFilterChange}
-            doctorOptions={doctorOptions}
-            dateFrom={dateFrom}
-            onDateFromChange={setDateFrom}
-            dateTo={dateTo}
-            onDateToChange={setDateTo}
-            dateRangeInvalid={!dateRangeIsValid}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            sortBy={sortBy}
-            onSortByChange={(value) => setSortBy(value)}
-            sortOrder={sortOrder}
-            onToggleSortOrder={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            visibleCount={filteredTreatments.length}
-            totalCount={completedTreatments.length}
-            hasActiveFilters={hasActiveFilters}
-            onClearFilters={clearFilters}
-            colorScheme={resolvedTheme}
-          />
-        </div>
+        <TreatmentFiltersBar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          doctorFilter={doctorFilter}
+          onDoctorChange={handleDoctorFilterChange}
+          doctorOptions={doctorOptions}
+          dateFrom={dateFrom}
+          onDateFromChange={setDateFrom}
+          dateTo={dateTo}
+          onDateToChange={setDateTo}
+          dateRangeInvalid={!dateRangeIsValid}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          sortBy={sortBy}
+          onSortByChange={(value) => setSortBy(value)}
+          sortOrder={sortOrder}
+          onToggleSortOrder={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+          visibleCount={filteredTreatments.length}
+          totalCount={completedTreatments.length}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={clearFilters}
+          colorScheme={resolvedTheme}
+        />
         {/* Advance payments (no treatment) — visual record that money was received */}
         {pacienteId && advancePayments.length > 0 && (
-          <div className="mb-6">
+          <div>
             <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
                 <HandCoins className="h-5 w-5 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
@@ -1050,7 +1026,7 @@ function TratamientosCompletadosPageContent() {
 
         {/* Total Positive Balance (Saldo Positivo Total) - from all sources */}
         {pacienteId && (totalPositiveBalance.HNL > 0 || totalPositiveBalance.USD > 0) && (
-          <div className="mb-6">
+          <div>
             <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
                 <Wallet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -1105,7 +1081,7 @@ function TratamientosCompletadosPageContent() {
                 </div>
 
                 {totalTreatments > 0 ? (
-                  <div className="mt-6">
+                  <div>
                     <TreatmentPagination {...paginationProps} variant="standalone" />
                   </div>
                 ) : null}
