@@ -2,6 +2,23 @@ export type TipoOdontograma = 'adulto' | 'nino' | 'oleary_adulto';
 
 export type TipoOdontogramaRegular = Exclude<TipoOdontograma, 'oleary_adulto'>;
 
+export const ESTADOS_APLICAN_TODA_LA_PIEZA: string[] = [
+  'ausente',
+  'corona',
+  'extraccionind',
+  'erupcion',
+  'implante',
+  'protesis',
+  'raiz',
+];
+
+export const ESTADOS_APLICAN_TODA_LA_PIEZA_OLEARY: string[] = ['ausente'];
+
+export function aplicaATodaLaPieza(estado: string, esOleary: boolean): boolean {
+  const estados = esOleary ? ESTADOS_APLICAN_TODA_LA_PIEZA_OLEARY : ESTADOS_APLICAN_TODA_LA_PIEZA;
+  return estados.includes(estado);
+}
+
 export interface RegistroOdontograma {
   id?: string;
   version: number;

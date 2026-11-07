@@ -6,6 +6,7 @@ import { PatientService } from '@/services/patientService';
 import { OdontogramPilotService } from '@/services/odontogramPilotService';
 import { OlearyService } from '@/services/oLearyService';
 import {
+  aplicaATodaLaPieza,
   buscarRegistroPorId,
   buscarRegistroPorVersion,
   construirHistorialOleary,
@@ -38,17 +39,6 @@ const updateOdontogram = async (id: string, datosOdontograma: any, notas: string
 // Dental quadrant names (matching tooth surfaces)
 const CUADRANTES = ['mesial', 'distal', 'buccal', 'lingual'] as const;
 type Cuadrante = typeof CUADRANTES[number];
-
-// Statuses that apply to all tooth sections at once
-const ALL_SECTION_STATUSES = [
-  'ausente',
-  'corona', 
-  'extraccionind',
-  'erupcion',
-  'implante',
-  'protesis',
-  'raiz'
-] as const;
 
 interface HistorialCambio {
   numero: number;
@@ -101,8 +91,6 @@ const ESTADOS_OLEARY = [
   { key: "ausente", label: "Ausente", color: "#000000" }
 ];
 
-const ALL_SECTION_STATUSES_OLEARY = ['placa', 'ausente'];
-
 // Tooth positions in FDI notation for adults (permanent teeth)
 const ADULT_TEETH_QUADRANTS = {
   upperRight: [18, 17, 16, 15, 14, 13, 12, 11], // UR: 8 to 1 (distal to midline)
@@ -145,8 +133,7 @@ function CircularTooth({ numero, cuadrantes, central, nota, estadoSeleccionado, 
   const handleQuadrantClick = (cuadrante: Cuadrante) => (e: React.MouseEvent) => {
     e.stopPropagation();
     // Check if this status should apply to all sections
-    const currentAllSectionStatuses = isOlearyMode ? ALL_SECTION_STATUSES_OLEARY : ALL_SECTION_STATUSES;
-    if (currentAllSectionStatuses.includes(estadoSeleccionado as any)) {
+    if (aplicaATodaLaPieza(estadoSeleccionado, isOlearyMode)) {
       // Apply to all sections
       onAllSectionsChange(numero, estadoSeleccionado);
     } else {
@@ -158,8 +145,7 @@ function CircularTooth({ numero, cuadrantes, central, nota, estadoSeleccionado, 
   const handleCenterClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     // Check if this status should apply to all sections
-    const currentAllSectionStatuses = isOlearyMode ? ALL_SECTION_STATUSES_OLEARY : ALL_SECTION_STATUSES;
-    if (currentAllSectionStatuses.includes(estadoSeleccionado as any)) {
+    if (aplicaATodaLaPieza(estadoSeleccionado, isOlearyMode)) {
       // Apply to all sections
       onAllSectionsChange(numero, estadoSeleccionado);
     } else {
@@ -750,7 +736,8 @@ function OdontogramPilotPageContent() {
 
   const handleAllSectionsChange = (numero: number, nuevoEstado: string) => {
     const toothData = dientesData[numero] || { cuadrantes: crearDienteCuadrantes() };
-    
+    const esOleary = tipoOdontograma === 'oleary_adulto';
+
     // Record changes for all sections
     const cambios = [];
     
@@ -762,10 +749,12 @@ function OdontogramPilotPageContent() {
       }
     });
     
-    // Record change for center
-    const estadoAnteriorCentral = toothData.central || 'sano';
-    if (estadoAnteriorCentral !== nuevoEstado) {
-      cambios.push({ numero, cuadrante: 'central', estadoAnterior: estadoAnteriorCentral, estadoNuevo: nuevoEstado });
+    // Record change for center (O'Leary teeth have no center section)
+    if (!esOleary) {
+      const estadoAnteriorCentral = toothData.central || 'sano';
+      if (estadoAnteriorCentral !== nuevoEstado) {
+        cambios.push({ numero, cuadrante: 'central', estadoAnterior: estadoAnteriorCentral, estadoNuevo: nuevoEstado });
+      }
     }
     
     // Add all changes to history
@@ -782,7 +771,7 @@ function OdontogramPilotPageContent() {
           ...toothData.cuadrantes,
           ...Object.fromEntries(CUADRANTES.map(c => [c, nuevoEstado]))
         },
-        central: nuevoEstado
+        ...(esOleary ? {} : { central: nuevoEstado })
       }
     }));
   };

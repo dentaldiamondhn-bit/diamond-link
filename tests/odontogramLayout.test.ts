@@ -1,6 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  aplicaATodaLaPieza,
   buscarRegistroPorId,
   buscarRegistroPorVersion,
   construirHistorialOleary,
@@ -38,6 +39,32 @@ describe('obtenerTipoOdontograma', () => {
 
   test('falls back to adulto for a non-string layout', () => {
     assert.equal(obtenerTipoOdontograma({ tipo: 123 }), 'adulto');
+  });
+});
+
+describe('aplicaATodaLaPieza', () => {
+  test('aplica Ausente a toda la pieza en el layout O\'Leary', () => {
+    assert.equal(aplicaATodaLaPieza('ausente', true), true);
+  });
+
+  test('aplica Placa solo a un cuadrante en el layout O\'Leary', () => {
+    assert.equal(aplicaATodaLaPieza('placa', true), false);
+  });
+
+  test('aplica Sano solo a un cuadrante en el layout O\'Leary', () => {
+    assert.equal(aplicaATodaLaPieza('sano', true), false);
+  });
+
+  test('aplica Cariado solo a un cuadrante en los layouts regulares', () => {
+    assert.equal(aplicaATodaLaPieza('cariado', false), false);
+  });
+
+  test('aplica Ausente a toda la pieza en los layouts regulares', () => {
+    assert.equal(aplicaATodaLaPieza('ausente', false), true);
+  });
+
+  test('aplica Corona a toda la pieza en los layouts regulares', () => {
+    assert.equal(aplicaATodaLaPieza('corona', false), true);
   });
 });
 
