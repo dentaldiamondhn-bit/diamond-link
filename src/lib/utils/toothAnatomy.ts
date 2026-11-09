@@ -12,106 +12,6 @@ export type ToothClass =
 
 export type ToothView = 'buccal' | 'oral';
 
-export interface RootSpec {
-  offset: number;
-  width: number;
-  length: number;
-  curve: number;
-  views: ToothView[];
-}
-
-export interface ToothTemplate {
-  class: ToothClass;
-  crownHalfWidth: number;
-  crownHeight: number;
-  incisalRatio: number;
-  roots: RootSpec[];
-  lowerRoots?: RootSpec[];
-}
-
-const TEMPLATES: Record<ToothClass, ToothTemplate> = {
-  'central-incisor': {
-    class: 'central-incisor',
-    crownHalfWidth: 42,
-    crownHeight: 62,
-    incisalRatio: 0.56,
-    roots: [{ offset: 0, width: 18, length: 88, curve: 0, views: ['buccal', 'oral'] }],
-  },
-  'lateral-incisor': {
-    class: 'lateral-incisor',
-    crownHalfWidth: 36,
-    crownHeight: 55,
-    incisalRatio: 0.48,
-    roots: [{ offset: 0, width: 16, length: 82, curve: 0, views: ['buccal', 'oral'] }],
-  },
-  canine: {
-    class: 'canine',
-    crownHalfWidth: 44,
-    crownHeight: 68,
-    incisalRatio: 0.2,
-    roots: [{ offset: 0, width: 19, length: 100, curve: 0, views: ['buccal', 'oral'] }],
-  },
-  'first-premolar': {
-    class: 'first-premolar',
-    crownHalfWidth: 46,
-    crownHeight: 52,
-    incisalRatio: 0.68,
-    roots: [{ offset: 0, width: 18, length: 80, curve: 7, views: ['buccal', 'oral'] }],
-  },
-  'second-premolar': {
-    class: 'second-premolar',
-    crownHalfWidth: 48,
-    crownHeight: 54,
-    incisalRatio: 0.72,
-    roots: [{ offset: 0, width: 19, length: 84, curve: 4, views: ['buccal', 'oral'] }],
-  },
-  'first-molar': {
-    class: 'first-molar',
-    crownHalfWidth: 52,
-    crownHeight: 54,
-    incisalRatio: 0.84,
-    roots: [
-      { offset: -21, width: 20, length: 74, curve: -8, views: ['buccal'] },
-      { offset: 21, width: 20, length: 74, curve: 8, views: ['buccal'] },
-      { offset: 0, width: 24, length: 88, curve: 0, views: ['oral'] },
-    ],
-    lowerRoots: [
-      { offset: -19, width: 22, length: 68, curve: -7, views: ['buccal', 'oral'] },
-      { offset: 19, width: 22, length: 68, curve: 7, views: ['buccal', 'oral'] },
-    ],
-  },
-  'second-molar': {
-    class: 'second-molar',
-    crownHalfWidth: 50,
-    crownHeight: 52,
-    incisalRatio: 0.84,
-    roots: [
-      { offset: -20, width: 19, length: 70, curve: -8, views: ['buccal'] },
-      { offset: 20, width: 19, length: 70, curve: 8, views: ['buccal'] },
-      { offset: 0, width: 23, length: 82, curve: 0, views: ['oral'] },
-    ],
-    lowerRoots: [
-      { offset: -18, width: 21, length: 64, curve: -7, views: ['buccal', 'oral'] },
-      { offset: 18, width: 21, length: 64, curve: 7, views: ['buccal', 'oral'] },
-    ],
-  },
-  'third-molar': {
-    class: 'third-molar',
-    crownHalfWidth: 44,
-    crownHeight: 46,
-    incisalRatio: 0.78,
-    roots: [
-      { offset: -17, width: 16, length: 60, curve: -6, views: ['buccal', 'oral'] },
-      { offset: 17, width: 16, length: 60, curve: 6, views: ['buccal', 'oral'] },
-      { offset: 0, width: 19, length: 66, curve: 0, views: ['oral'] },
-    ],
-    lowerRoots: [
-      { offset: -16, width: 17, length: 54, curve: -5, views: ['buccal', 'oral'] },
-      { offset: 16, width: 17, length: 54, curve: 5, views: ['buccal', 'oral'] },
-    ],
-  },
-};
-
 const TOOTH_CLASS_BY_FDI: Partial<Record<FDIToothNumber, ToothClass>> = {
   11: 'central-incisor', 21: 'central-incisor', 31: 'central-incisor', 41: 'central-incisor',
   12: 'lateral-incisor', 22: 'lateral-incisor', 32: 'lateral-incisor', 42: 'lateral-incisor',
@@ -127,59 +27,293 @@ export function getToothClass(tooth: FDIToothNumber): ToothClass {
   return TOOTH_CLASS_BY_FDI[tooth] ?? 'central-incisor';
 }
 
-export function getToothTemplate(tooth: FDIToothNumber): ToothTemplate {
-  return TEMPLATES[getToothClass(tooth)];
-}
-
 export function isUpperTooth(tooth: FDIToothNumber): boolean {
   return tooth >= 11 && tooth <= 28;
 }
 
-export function buildCrownPath(template: ToothTemplate): string {
-  const w = template.crownHalfWidth;
-  const h = template.crownHeight;
-  const iw = w * template.incisalRatio;
-  const neck = w * 0.99;
+export function isLeftTooth(tooth: FDIToothNumber): boolean {
+  return (tooth >= 21 && tooth <= 28) || (tooth >= 31 && tooth <= 38);
+}
 
+export interface ToothDimensions {
+  crownHalfWidth: number;
+  crownHeight: number;
+  rootLength: number;
+  rootWidth: number;
+}
+
+const DIMENSIONS: Record<ToothClass, ToothDimensions> = {
+  'central-incisor': { crownHalfWidth: 40, crownHeight: 58, rootLength: 92, rootWidth: 16 },
+  'lateral-incisor': { crownHalfWidth: 34, crownHeight: 52, rootLength: 86, rootWidth: 15 },
+  canine: { crownHalfWidth: 38, crownHeight: 66, rootLength: 110, rootWidth: 18 },
+  'first-premolar': { crownHalfWidth: 42, crownHeight: 50, rootLength: 82, rootWidth: 17 },
+  'second-premolar': { crownHalfWidth: 44, crownHeight: 52, rootLength: 84, rootWidth: 18 },
+  'first-molar': { crownHalfWidth: 56, crownHeight: 52, rootLength: 76, rootWidth: 20 },
+  'second-molar': { crownHalfWidth: 52, crownHeight: 50, rootLength: 72, rootWidth: 19 },
+  'third-molar': { crownHalfWidth: 46, crownHeight: 46, rootLength: 64, rootWidth: 17 },
+};
+
+export function getToothDimensions(tooth: FDIToothNumber): ToothDimensions {
+  return DIMENSIONS[getToothClass(tooth)];
+}
+
+// ── Crown path builders ──────────────────────────────────────────────────────
+
+export function buildCrownPath(tooth: FDIToothNumber): string {
+  const cls = getToothClass(tooth);
+  const d = getToothDimensions(tooth);
+  const w = d.crownHalfWidth;
+  const h = d.crownHeight;
+
+
+  switch (cls) {
+    case 'central-incisor':
+    case 'lateral-incisor': {
+      // Flat incisal edge with rounded mesial/distal corners
+      const iw = w * 0.92;
+      const neck = w * 0.98;
+      const edgeDip = cls === 'central-incisor' ? 1.5 : 2.5;
+      return [
+        `M ${-w} 0`,
+        `C ${-neck} ${h * 0.28} ${-w * 0.92} ${h * 0.72} ${-iw} ${h - edgeDip}`,
+        `L ${-iw * 0.3} ${h}`,
+        `L ${iw * 0.3} ${h}`,
+        `C ${iw * 0.92} ${h * 0.72} ${neck} ${h * 0.28} ${w} 0`,
+        'Z',
+      ].join(' ');
+    }
+
+    case 'canine': {
+      // Pointed cusp crown
+      const tip = w * 0.08;
+      const neck = w * 0.96;
+      return [
+        `M ${-w} 0`,
+        `C ${-neck} ${h * 0.25} ${-w * 0.7} ${h * 0.6} ${-tip} ${h}`,
+        `L 0 ${h + 4}`,
+        `L ${tip} ${h}`,
+        `C ${w * 0.7} ${h * 0.6} ${neck} ${h * 0.25} ${w} 0`,
+        'Z',
+      ].join(' ');
+    }
+
+    case 'first-premolar':
+    case 'second-premolar': {
+      // Bicuspid crown with two cusps
+      const cuspW = w * 0.38;
+      const neck = w * 0.97;
+      const buccalCusp = h;
+      const palatalCusp = h - 6;
+      return [
+        `M ${-w} 0`,
+        `C ${-neck} ${h * 0.25} ${-w * 0.85} ${h * 0.55} ${-cuspW} ${buccalCusp}`,
+        `L 0 ${palatalCusp}`,
+        `L ${cuspW} ${buccalCusp}`,
+        `C ${w * 0.85} ${h * 0.55} ${neck} ${h * 0.25} ${w} 0`,
+        'Z',
+      ].join(' ');
+    }
+
+    case 'first-molar':
+    case 'second-molar':
+    case 'third-molar': {
+      // Wide multi-cusp crown (4 cusps) with occlusal table
+      const cuspW = w * 0.35;
+      const neck = w * 0.98;
+      const buccalCuspH = h;
+      const palatalCuspH = h - 3;
+      const centralFossa = h - 10;
+      return [
+        `M ${-w} 0`,
+        `C ${-neck} ${h * 0.22} ${-w * 0.9} ${h * 0.5} ${-cuspW * 1.6} ${buccalCuspH}`,
+        `L ${-cuspW * 0.5} ${centralFossa}`,
+        `L 0 ${palatalCuspH}`,
+        `L ${cuspW * 0.5} ${centralFossa}`,
+        `L ${cuspW * 1.6} ${buccalCuspH}`,
+        `C ${w * 0.9} ${h * 0.5} ${neck} ${h * 0.22} ${w} 0`,
+        'Z',
+      ].join(' ');
+    }
+
+    default: {
+      const iw = w * 0.9;
+      return [
+        `M ${-w} 0`,
+        `C ${-w * 0.95} ${h * 0.3} ${-w * 0.9} ${h * 0.7} ${-iw * 0.5} ${h}`,
+        `L ${iw * 0.5} ${h}`,
+        `C ${w * 0.9} ${h * 0.7} ${w * 0.95} ${h * 0.3} ${w} 0`,
+        'Z',
+      ].join(' ');
+    }
+  }
+}
+
+// ── Root path builders ───────────────────────────────────────────────────────
+
+export function buildRootPaths(tooth: FDIToothNumber, view: ToothView): string[] {
+  const cls = getToothClass(tooth);
+  const d = getToothDimensions(tooth);
+  const w = d.rootWidth;
+  const len = d.rootLength;
+
+  switch (cls) {
+    case 'central-incisor':
+    case 'lateral-incisor':
+      return [singleRoot(0, w, len, 0)];
+
+    case 'canine':
+      return [singleRoot(0, w + 2, len + 14, 0)];
+
+    case 'first-premolar':
+    case 'second-premolar':
+      return bifurcatedRoots(w, len);
+
+    case 'first-molar':
+    case 'second-molar':
+    case 'third-molar':
+      if (isUpperTooth(tooth)) {
+        return trifurcatedRoots(w, len, view);
+      }
+      return bifurcatedMolarRoots(w, len);
+
+    default:
+      return [singleRoot(0, w, len, 0)];
+  }
+}
+
+function singleRoot(offset: number, width: number, length: number, curve: number): string {
+  const tipX = offset + curve;
+  const ctrlX = offset + curve * 0.3;
+  const w = width;
   return [
-    `M ${(-w).toFixed(1)} 0`,
-    `C ${(-neck).toFixed(1)} ${(h * 0.26).toFixed(1)} ${(-w * 0.82).toFixed(1)} ${(h * 0.68).toFixed(1)} ${(-iw).toFixed(1)} ${h.toFixed(1)}`,
-    `L ${iw.toFixed(1)} ${h.toFixed(1)}`,
-    `C ${(w * 0.82).toFixed(1)} ${(h * 0.68).toFixed(1)} ${neck.toFixed(1)} ${(h * 0.26).toFixed(1)} ${w.toFixed(1)} 0`,
+    `M ${offset - w} 0`,
+    `C ${offset - w * 0.85} ${-length * 0.3} ${ctrlX - w * 0.4} ${-length * 0.75} ${tipX} ${-length}`,
+    `C ${ctrlX + w * 0.4} ${-length * 0.75} ${offset + w * 0.85} ${-length * 0.3} ${offset + w} 0`,
     'Z',
   ].join(' ');
 }
 
-export function buildRootPath(root: RootSpec): string {
-  const tipX = root.offset + root.curve;
-  const ctrlX = root.offset + root.curve * 0.35;
-  const len = root.length;
-
-  return [
-    `M ${(root.offset - root.width).toFixed(1)} 0`,
-    `C ${(root.offset - root.width * 0.97).toFixed(1)} ${(-len * 0.34).toFixed(1)} ${(ctrlX - root.width * 0.52).toFixed(1)} ${(-len * 0.78).toFixed(1)} ${tipX.toFixed(1)} ${(-len).toFixed(1)}`,
-    `C ${(ctrlX + root.width * 0.52).toFixed(1)} ${(-len * 0.78).toFixed(1)} ${(root.offset + root.width * 0.97).toFixed(1)} ${(-len * 0.34).toFixed(1)} ${(root.offset + root.width).toFixed(1)} 0`,
+function bifurcatedRoots(width: number, length: number): string[] {
+  const w = width;
+  const halfLen = length * 0.55;
+  const tipOffset = width * 1.6;
+  // Trunk
+  const trunk = [
+    `M ${-w * 1.3} 0`,
+    `C ${-w * 1.1} ${-halfLen * 0.4} ${-w * 0.6} ${-halfLen * 0.8} ${-w * 0.3} ${-halfLen}`,
+    `L ${w * 0.3} ${-halfLen}`,
+    `C ${w * 0.6} ${-halfLen * 0.8} ${w * 1.1} ${-halfLen * 0.4} ${w * 1.3} 0`,
     'Z',
   ].join(' ');
+  // Left root
+  const leftRoot = [
+    `M ${-w * 0.3} ${-halfLen}`,
+    `C ${-tipOffset * 0.6} ${-halfLen - (length - halfLen) * 0.4} ${-tipOffset} ${-halfLen - (length - halfLen) * 0.8} ${-tipOffset} ${-length}`,
+    `C ${-tipOffset * 0.4} ${-halfLen - (length - halfLen) * 0.8} ${-w * 0.1} ${-halfLen - (length - halfLen) * 0.4} ${w * 0.1} ${-halfLen}`,
+    'Z',
+  ].join(' ');
+  // Right root
+  const rightRoot = [
+    `M ${w * 0.3} ${-halfLen}`,
+    `C ${tipOffset * 0.6} ${-halfLen - (length - halfLen) * 0.4} ${tipOffset} ${-halfLen - (length - halfLen) * 0.8} ${tipOffset} ${-length}`,
+    `C ${tipOffset * 0.4} ${-halfLen - (length - halfLen) * 0.8} ${w * 0.1} ${-halfLen - (length - halfLen) * 0.4} ${-w * 0.1} ${-halfLen}`,
+    'Z',
+  ].join(' ');
+  return [trunk, leftRoot, rightRoot];
+}
+
+function bifurcatedMolarRoots(width: number, length: number): string[] {
+  const w = width;
+  const trunkLen = length * 0.35;
+  const rootLen = length - trunkLen;
+  const spread = w * 2.2;
+  // Trunk
+  const trunk = [
+    `M ${-w * 1.6} 0`,
+    `C ${-w * 1.4} ${-trunkLen * 0.4} ${-w * 0.8} ${-trunkLen * 0.8} ${-w * 0.4} ${-trunkLen}`,
+    `L ${w * 0.4} ${-trunkLen}`,
+    `C ${w * 0.8} ${-trunkLen * 0.8} ${w * 1.4} ${-trunkLen * 0.4} ${w * 1.6} 0`,
+    'Z',
+  ].join(' ');
+  // Mesial root
+  const mesial = [
+    `M ${-w * 0.4} ${-trunkLen}`,
+    `C ${-spread * 0.5} ${-trunkLen - rootLen * 0.35} ${-spread} ${-trunkLen - rootLen * 0.75} ${-spread} ${-length}`,
+    `C ${-spread * 0.6} ${-trunkLen - rootLen * 0.75} ${-w * 0.1} ${-trunkLen - rootLen * 0.35} ${w * 0.1} ${-trunkLen}`,
+    'Z',
+  ].join(' ');
+  // Distal root
+  const distal = [
+    `M ${w * 0.4} ${-trunkLen}`,
+    `C ${spread * 0.5} ${-trunkLen - rootLen * 0.35} ${spread} ${-trunkLen - rootLen * 0.75} ${spread} ${-length}`,
+    `C ${spread * 0.6} ${-trunkLen - rootLen * 0.75} ${w * 0.1} ${-trunkLen - rootLen * 0.35} ${-w * 0.1} ${-trunkLen}`,
+    'Z',
+  ].join(' ');
+  return [trunk, mesial, distal];
+}
+
+function trifurcatedRoots(width: number, length: number, view: ToothView): string[] {
+  const w = width;
+  const trunkLen = length * 0.28;
+  const rootLen = length - trunkLen;
+  const isOral = view === 'oral';
+
+  if (isOral) {
+    // Palatal root (single, prominent) for oral view
+    return [singleRoot(0, w * 1.4, length, 0)];
+  }
+
+  // Buccal view: MB and DB roots with furcation notch
+  const spread = w * 1.9;
+  const trunk = [
+    `M ${-w * 1.8} 0`,
+    `C ${-w * 1.5} ${-trunkLen * 0.4} ${-w * 0.9} ${-trunkLen * 0.85} ${-w * 0.4} ${-trunkLen}`,
+    `L ${w * 0.4} ${-trunkLen}`,
+    `C ${w * 0.9} ${-trunkLen * 0.85} ${w * 1.5} ${-trunkLen * 0.4} ${w * 1.8} 0`,
+    'Z',
+  ].join(' ');
+  // Mesial root
+  const mesial = [
+    `M ${-w * 0.4} ${-trunkLen}`,
+    `C ${-spread * 0.45} ${-trunkLen - rootLen * 0.3} ${-spread} ${-trunkLen - rootLen * 0.7} ${-spread} ${-length}`,
+    `C ${-spread * 0.5} ${-trunkLen - rootLen * 0.7} ${-w * 0.1} ${-trunkLen - rootLen * 0.3} ${w * 0.1} ${-trunkLen}`,
+    'Z',
+  ].join(' ');
+  // Distal root
+  const distal = [
+    `M ${w * 0.4} ${-trunkLen}`,
+    `C ${spread * 0.45} ${-trunkLen - rootLen * 0.3} ${spread} ${-trunkLen - rootLen * 0.7} ${spread} ${-length}`,
+    `C ${spread * 0.5} ${-trunkLen - rootLen * 0.7} ${w * 0.1} ${-trunkLen - rootLen * 0.3} ${-w * 0.1} ${-trunkLen}`,
+    'Z',
+  ].join(' ');
+  return [trunk, mesial, distal];
+}
+
+// ── Public API (kept compatible with existing callers) ────────────────────────
+
+export function getCrownPath(tooth: FDIToothNumber): string {
+  return buildCrownPath(tooth);
 }
 
 export function getRootPaths(tooth: FDIToothNumber, view: ToothView): string[] {
-  const template = getToothTemplate(tooth);
-  const roots = !isUpperTooth(tooth) && template.lowerRoots ? template.lowerRoots : template.roots;
-  return roots
-    .filter(root => root.views.includes(view))
-    .map(root => buildRootPath(root));
-}
-
-export function getCrownPath(tooth: FDIToothNumber): string {
-  return buildCrownPath(getToothTemplate(tooth));
+  return buildRootPaths(tooth, view);
 }
 
 export function getToothSpread(tooth: FDIToothNumber): number {
-  return getToothTemplate(tooth).crownHalfWidth * 0.78;
+  return getToothDimensions(tooth).crownHalfWidth * 0.78;
 }
 
 export function getToothRootLength(tooth: FDIToothNumber): number {
-  const roots = getToothTemplate(tooth).roots;
-  return roots.reduce((max, root) => Math.max(max, root.length), 0);
+  return getToothDimensions(tooth).rootLength;
+}
+
+export function getToothTemplate(tooth: FDIToothNumber) {
+  const d = getToothDimensions(tooth);
+  return {
+    class: getToothClass(tooth),
+    crownHalfWidth: d.crownHalfWidth,
+    crownHeight: d.crownHeight,
+    incisalRatio: 0.8,
+    roots: [{ offset: 0, width: d.rootWidth, length: d.rootLength, curve: 0, views: ['buccal' as ToothView, 'oral' as ToothView] }],
+  };
 }
