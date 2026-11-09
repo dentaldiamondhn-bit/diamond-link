@@ -63,8 +63,11 @@ export function buildChartDataFromStudy(study: any): ChartData {
     const mobility = readNumber(m.movilidad);
     if (mobility > 0) chartData[`mobility_${tooth}`] = mobility;
 
-    if (m.sangrado) chartData[`bop_${tooth}_b`] = '1';
-    if (m.placa) chartData[`pi_${tooth}_b`] = '1';
+    const applicable = [...VESTIBULAR_SURFACES, ...palatinoSurfaces];
+    applicable.forEach(surface => {
+      chartData[`bop_${tooth}_${surface}`] = m.sangrado ? '1' : '0';
+      chartData[`pi_${tooth}_${surface}`] = m.placa ? '1' : '0';
+    });
   });
 
   return chartData;

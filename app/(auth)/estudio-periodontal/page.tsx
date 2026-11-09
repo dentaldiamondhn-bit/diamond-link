@@ -11,13 +11,20 @@ import {
 import { ChartData, CHART_TEMPLATE, ALL_TEETH, FDIToothNumber, ActiveIndices } from '@/lib/types';
 import { buildChartDataFromStudy } from '@/lib/utils/studyToChart';
 import {
+  AnalysisModal,
+  CalibrationModal,
+  ClassificationModal,
+  IntervalModal,
   JawChart,
-  PeriodontalTable,
-  RemoteControlPanel,
-  SummaryMetrics,
-} from '@/components/chart';
-import { Button, Switch, Select, SelectOption, SelectValue, Input } from '@/components/ui';
-import { Plus, ChevronLeft, Save, Download, Upload, Trash2, Eye, Edit, Clock } from 'lucide-react';
+  LeftActionPanel,
+  QrModal,
+  RightClinicalPanel,
+  SummaryModal,
+  ThreeDModal,
+} from '@/components/periodontal';
+import type { ClinicalModalKey } from '@/components/periodontal';
+import { Button, Switch, Select, SelectValue, Input } from '@/components/ui';
+import { Plus, ChevronLeft, Save, Trash2, Eye, Edit } from 'lucide-react';
 
 function EstudioPeriodontalContent() {
   const router = useRouter();
@@ -32,20 +39,22 @@ function EstudioPeriodontalContent() {
   const [activeTab, setActiveTab] = useState<'chart' | 'saved'>('chart');
   const [readOnly, setReadOnly] = useState(false);
   const [showGraphicalChart, setShowGraphicalChart] = useState(true);
+  const [openModal, setOpenModal] = useState<ClinicalModalKey | null>(null);
+  const importInputRef = React.useRef<HTMLInputElement>(null);
 
   const pacienteId = searchParams.get('paciente_id');
 
   const {
     chartData,
-    viewStatus,
     isGmInverted,
-    activeIndices,
     activeRemoteControl,
     isOverlayMode,
     reset,
     initializeFromPatient,
     loadFromApiData,
     updateField,
+    setChartData,
+    collectDataAsJson,
   } = useChartStore();
 
   const { overlayData, setOverlayData, clearOverlay } = useOverlayStore();
@@ -152,8 +161,39 @@ function EstudioPeriodontalContent() {
     updateField(field, value);
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleExportJson = () => {
+    const data = collectDataAsJson();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `estudio-periodontal-${chartData.patient_number || 'paciente'}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportJson = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = loadEvent => {
+      try {
+        const parsed = JSON.parse(String(loadEvent.target?.result ?? '{}'));
+        setChartData(parsed);
+        setReadOnly(false);
+      } catch {
+        alert('El archivo seleccionado no contiene un JSON válido.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
+  const handleFormSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     
     const currentState = useChartStore.getState();
     const patientId = pacienteId || currentState.chartData.patient_number;
@@ -383,33 +423,48 @@ function EstudioPeriodontalContent() {
       </div>
 
       {showGraphicalChart && (
-        <div className="mb-6 space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="mb-6">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Estado Periodontal</h2>
             {isOverlayMode && (
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+              <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
                 Comparativa activa - edición bloqueada
               </span>
             )}
           </div>
-          <RemoteControlPanel />
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <JawChart
-              data={chartData}
-              viewStatus={viewStatus}
-              isGmInverted={isGmInverted}
-              activeIndices={activeIndices}
-              activeRemoteControl={activeRemoteControl}
-              overlayData={overlayData}
+
+          <div className="flex items-start gap-4">
+            <LeftActionPanel
+              onSave={handleFormSubmit}
+              onExport={handleExportJson}
+              onImport={() => importInputRef.current?.click()}
+              disabled={readOnly}
             />
+
+            <div className="min-w-0 flex-1" style={{ maxWidth: '1100px' }}>
+              <JawChart
+                data={chartData}
+                isGmInverted={isGmInverted}
+                activeRemoteControl={activeRemoteControl}
+                overlayData={overlayData}
+                readOnly={readOnly}
+              />
+            </div>
+
+            <RightClinicalPanel onOpenModal={setOpenModal} />
           </div>
-          <SummaryMetrics data={chartData} />
+
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImportJson}
+            className="hidden"
+          />
         </div>
       )}
 
       <div className="space-y-6">
-        <PeriodontalTable readOnly={readOnly} />
-
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Datos del Estudio</h3>
           <div className="space-y-4">
@@ -570,6 +625,20 @@ function EstudioPeriodontalContent() {
       </div>
       </>
       )}
+
+      <SummaryModal open={openModal === 'summary'} onOpenChange={open => !open && setOpenModal(null)} />
+      <AnalysisModal open={openModal === 'analysis'} onOpenChange={open => !open && setOpenModal(null)} />
+      <ClassificationModal
+        open={openModal === 'classification'}
+        onOpenChange={open => !open && setOpenModal(null)}
+      />
+      <IntervalModal open={openModal === 'interval'} onOpenChange={open => !open && setOpenModal(null)} />
+      <ThreeDModal open={openModal === 'three-d'} onOpenChange={open => !open && setOpenModal(null)} />
+      <QrModal open={openModal === 'qr'} onOpenChange={open => !open && setOpenModal(null)} />
+      <CalibrationModal
+        open={openModal === 'calibration'}
+        onOpenChange={open => !open && setOpenModal(null)}
+      />
     </div>
   );
 }

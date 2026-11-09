@@ -11,11 +11,17 @@ import {
   CHART_TEMPLATE,
   ALL_TEETH,
   calculateAL,
-  calculatePlaqueIndex,
-  calculateBopIndex,
   DEFAULT_ACTIVE_INDICES,
 } from '@/lib/types';
 import { buildChartDataFromStudy } from '@/lib/utils/studyToChart';
+import {
+  calculateChartStatistics,
+  ChartIndexSummary,
+  EMPTY_INDEX_SUMMARY,
+  isToothPresent,
+} from '@/lib/utils/periodontalAnalysis';
+import { getApplicableSurfaces } from '@/lib/utils/chartGeometry';
+import { getTableSiteSurfaces } from '@/lib/constants/surfaces';
 
 interface ChartState {
   chartData: ChartData;
@@ -45,7 +51,7 @@ interface ChartState {
   setOverlayMode: (enabled: boolean) => void;
   calculateAllAL: () => void;
   calculateAL: () => void;
-  calculateIndices: () => void;
+  calculateIndices: () => ChartIndexSummary;
   collectDataAsJson: () => ChartData;
   reset: () => void;
   markDirty: (dirty: boolean) => void;
@@ -54,6 +60,13 @@ interface ChartState {
   prepareApiPayload: () => any;
   handleToothSurfaceClick: (tooth: number, surfaceId: string, type: 'bop' | 'pi', value: boolean) => void;
   toggleToothIndex: (tooth: number, type: 'bop' | 'pi') => void;
+  updateToothSurface: (tooth: number, surface: SurfaceId, field: string, value: any) => void;
+  toggleBop: (tooth: number, surface: SurfaceId) => void;
+  togglePlaque: (tooth: number, surface: SurfaceId) => void;
+  toggleToothPresence: (tooth: number) => void;
+  cycleImplantStatus: (tooth: number) => void;
+  setFurcation: (tooth: number, site: string, grade: number) => void;
+  setMobility: (tooth: number, grade: number) => void;
 }
 
 const INDEX_SURFACES: SurfaceId[] = ['mb', 'b', 'db', 'mp', 'p', 'dp', 'ml', 'l', 'dl'];
@@ -96,7 +109,7 @@ const initialState: ChartState = {
   setOverlayMode: () => {},
   calculateAllAL: () => {},
   calculateAL: () => {},
-  calculateIndices: () => {},
+  calculateIndices: () => EMPTY_INDEX_SUMMARY,
   collectDataAsJson: () => CHART_TEMPLATE,
   reset: () => {},
   markDirty: () => {},
@@ -105,6 +118,13 @@ const initialState: ChartState = {
   prepareApiPayload: () => ({}),
   handleToothSurfaceClick: () => {},
   toggleToothIndex: () => {},
+  updateToothSurface: () => {},
+  toggleBop: () => {},
+  togglePlaque: () => {},
+  toggleToothPresence: () => {},
+  cycleImplantStatus: () => {},
+  setFurcation: () => {},
+  setMobility: () => {},
 };
 
 export const useChartStore = create<ChartState>()(
@@ -233,13 +253,21 @@ export const useChartStore = create<ChartState>()(
 
     calculateAL: () => get().calculateAllAL(),
 
-    calculateIndices: () => set((state) => {
-      const plaqueIndex = calculatePlaqueIndex(state.chartData, ALL_TEETH);
-      const bopIndex = calculateBopIndex(state.chartData, ALL_TEETH);
+    calculateIndices: () => {
+      const stats = calculateChartStatistics(get().chartData);
 
-      state.chartData.indice_placa = plaqueIndex;
-      state.chartData.indice_sangrado = bopIndex;
-    }),
+      set((state) => {
+        state.chartData.indice_placa = Number(stats.plaquePercent.toFixed(1));
+        state.chartData.indice_sangrado = Number(stats.bopPercent.toFixed(1));
+      });
+
+      return {
+        bopPercent: stats.bopPercent,
+        plaquePercent: stats.plaquePercent,
+        meanPd: stats.meanPd,
+        meanAl: stats.meanAl,
+      };
+    },
 
     collectDataAsJson: () => {
       const state = get();
@@ -266,8 +294,8 @@ export const useChartStore = create<ChartState>()(
         surfaces.forEach(surf => {
           initialChartData[`pd_${tooth}_${surf}`] = 0;
           initialChartData[`gm_${tooth}_${surf}`] = 0;
-          initialChartData[`bop_${tooth}_${surf}`] = 0;
-          initialChartData[`pi_${tooth}_${surf}`] = 0;
+          initialChartData[`bop_${tooth}_${surf}`] = '0';
+          initialChartData[`pi_${tooth}_${surf}`] = '0';
         });
         initialChartData[`mobility_${tooth}`] = 0;
         initialChartData[`implant_${tooth}`] = 0;
@@ -357,23 +385,43 @@ export const useChartStore = create<ChartState>()(
         return parsed >= 0 && parsed <= 20 ? parsed : null;
       };
 
-      const mediciones = state.toothMeasurements.map(tm => ({
-        diente: tm.diente,
-        vestibular: {
-          mesial: tm.vestibular.mesial === '' ? null : toNumber(tm.vestibular.mesial),
-          medio: tm.vestibular.medio === '' ? null : toNumber(tm.vestibular.medio),
-          distal: tm.vestibular.distal === '' ? null : toNumber(tm.vestibular.distal),
-        },
-        palatino: {
-          mesial: tm.palatino.mesial === '' ? null : toNumber(tm.palatino.mesial),
-          medio: tm.palatino.medio === '' ? null : toNumber(tm.palatino.medio),
-          distal: tm.palatino.distal === '' ? null : toNumber(tm.palatino.distal),
-        },
-        movilidad: parseInt(tm.movilidad) || 0,
-        sangrado: tm.sangrado,
-        placa: tm.placa,
-        observaciones: tm.observaciones,
-      }));
+      const mediciones = ALL_TEETH.filter(tooth =>
+        isToothPresent(chart, tooth as FDIToothNumber),
+      ).map(tooth => {
+        const { vestibular, palatino } = getTableSiteSurfaces(tooth);
+        const vestibularValues = [vestibular[0], vestibular[1], vestibular[2]];
+        const palatinoValues = [palatino[0], palatino[1], palatino[2]];
+
+        const siteValue = (surface: SurfaceId) => {
+          const raw = chart[`pd_${tooth}_${surface}`];
+          if (raw === undefined || raw === null || raw === '') return null;
+          return toNumber(raw);
+        };
+
+        const anyFlag = (prefix: string) =>
+          getApplicableSurfaces(tooth).some(surface => {
+            const value = chart[`${prefix}_${tooth}_${surface}`];
+            return value === '1' || value === 1 || value === true;
+          });
+
+        return {
+          diente: String(tooth),
+          vestibular: {
+            mesial: siteValue(vestibularValues[0]),
+            medio: siteValue(vestibularValues[1]),
+            distal: siteValue(vestibularValues[2]),
+          },
+          palatino: {
+            mesial: siteValue(palatinoValues[0]),
+            medio: siteValue(palatinoValues[1]),
+            distal: siteValue(palatinoValues[2]),
+          },
+          movilidad: parseInt(String(chart[`mobility_${tooth}`])) || 0,
+          sangrado: anyFlag('bop'),
+          placa: anyFlag('pi'),
+          observaciones: chart[`note_${tooth}`] || '',
+        };
+      });
 
       const indicePlaca = parseFloat(String(chart.indice_placa));
       const indiceSangrado = parseFloat(String(chart.indice_sangrado));
@@ -398,7 +446,7 @@ export const useChartStore = create<ChartState>()(
 
     handleToothSurfaceClick: (tooth: number, surfaceId: string, type: 'bop' | 'pi', value: boolean) => {
       set((state) => {
-        INDEX_SURFACES.forEach(surface => {
+        getApplicableSurfaces(tooth as FDIToothNumber).forEach(surface => {
           state.chartData[`${type}_${tooth}_${surface}`] = value ? '1' : '0';
         });
         state.isDirty = true;
@@ -422,6 +470,85 @@ export const useChartStore = create<ChartState>()(
         return value === '1' || value === 1;
       });
       get().handleToothSurfaceClick(tooth, 'b', type, !current);
+    },
+
+    updateToothSurface: (tooth: number, surface: SurfaceId, field: string, value: any) => {
+      get().updateField(`${field}_${tooth}_${surface}`, value);
+    },
+
+    toggleBop: (tooth: number, surface: SurfaceId) => {
+      const key = `bop_${tooth}_${surface}`;
+      const current = get().chartData[key] === '1' || get().chartData[key] === 1;
+
+      set((state) => {
+        state.chartData[key] = current ? '0' : '1';
+        state.isDirty = true;
+      });
+
+      get().calculateIndices();
+    },
+
+    togglePlaque: (tooth: number, surface: SurfaceId) => {
+      const key = `pi_${tooth}_${surface}`;
+      const current = get().chartData[key] === '1' || get().chartData[key] === 1;
+
+      set((state) => {
+        state.chartData[key] = current ? '0' : '1';
+        state.isDirty = true;
+      });
+
+      get().calculateIndices();
+    },
+
+    toggleToothPresence: (tooth: number) => {
+      const key = `tooth_${tooth}`;
+      const present = isToothPresent(get().chartData, tooth as FDIToothNumber);
+
+      set((state) => {
+        state.chartData[key] = present ? '0' : '1';
+
+        if (present) {
+          INDEX_SURFACES.forEach(surface => {
+            state.chartData[`pd_${tooth}_${surface}`] = 0;
+            state.chartData[`gm_${tooth}_${surface}`] = 0;
+            state.chartData[`al_${tooth}_${surface}`] = 0;
+            state.chartData[`bop_${tooth}_${surface}`] = '0';
+            state.chartData[`pi_${tooth}_${surface}`] = '0';
+          });
+          state.chartData[`mobility_${tooth}`] = 0;
+          state.chartData[`implant_${tooth}`] = 0;
+          state.chartData[`note_${tooth}`] = '';
+        }
+
+        state.isDirty = true;
+      });
+
+      get().calculateAllAL();
+      get().calculateIndices();
+    },
+
+    cycleImplantStatus: (tooth: number) => {
+      const current = parseInt(get().chartData[`implant_${tooth}`], 10) || 0;
+      const next = (current + 1) % 4;
+
+      set((state) => {
+        state.chartData[`implant_${tooth}`] = next;
+        state.isDirty = true;
+      });
+    },
+
+    setFurcation: (tooth: number, site: string, grade: number) => {
+      set((state) => {
+        state.chartData[`furcation_${tooth}_${site}`] = grade;
+        state.isDirty = true;
+      });
+    },
+
+    setMobility: (tooth: number, grade: number) => {
+      set((state) => {
+        state.chartData[`mobility_${tooth}`] = grade;
+        state.isDirty = true;
+      });
     },
   }))
 );
