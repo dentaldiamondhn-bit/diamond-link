@@ -6,7 +6,7 @@ import type { LocalContact, MedicalHistory } from '@/lib/contacts/db';
 import { updateMedicalHistory } from '@/lib/contacts/syncEngine';
 import { meaningfulMedicalTags } from '@/lib/contacts/patientLink';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/button';
 

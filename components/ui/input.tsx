@@ -1,12 +1,14 @@
-import * as React from 'react';
+'use client';
+
+import React from 'react';
 import { cn } from '@/lib/utils';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, error, ...props }, ref) => {
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type = 'text', error, ...props }, ref) => {
     return (
       <div className="w-full">
         <input
@@ -26,6 +28,5 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     );
   }
 );
-Input.displayName = 'Input';
 
-export { Input };
+Input.displayName = 'Input';

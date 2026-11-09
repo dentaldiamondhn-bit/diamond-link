@@ -7,9 +7,9 @@ import type { LocalContact, LocalLabel, PhoneType } from '@/lib/contacts/db';
 import { fullName, newLocalId } from '@/lib/contacts/db';
 import { createLocalContact, updateLocalContact } from '@/lib/contacts/syncEngine';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Select } from '@/components/ui/Select';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { ContactAvatar } from './ContactAvatar';
 

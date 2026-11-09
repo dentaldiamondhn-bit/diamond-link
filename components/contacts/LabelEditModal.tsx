@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import type { LocalLabel } from '@/lib/contacts/db';
 import { LABEL_COLORS } from '@/lib/contacts/db';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 interface LabelEditModalProps {

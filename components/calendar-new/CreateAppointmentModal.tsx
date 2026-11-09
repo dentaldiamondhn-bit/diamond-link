@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, CalendarPlus, MessageCircle, Search, UserRound, Users, X, Trash2 } from 'lucide-react';
-import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Select } from '@/components/ui/Select';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Modal, ModalContent, ModalHeader, ModalTitle, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { PROCEDURES, PROCEDURE_COLORS, NO_PROCEDURE_COLOR } from '@/lib/types-calendar';
 import {
   clinicDateKey,
