@@ -2449,3 +2449,56 @@ public/
 
 *Generated from REA reverse-engineering analysis of periodontalchart-online.com*
 *Specification Version: 1.0 | Date: 2024*
+---
+
+## 18. Exact SVG Tooth Vector Definitions
+
+### Source of truth: background images, not SVG paths
+
+The reference application (`https://www.periodontalchart-online.com/?lang=es`) does **not** use inline SVG tooth outlines. Inspection of its DOM shows that each SVG placeholder canvas is empty:
+
+```html
+<div class="svg-placeholder" id="upper-svg-placeholder-01">
+  <svg width="100%" height="100%" viewBox="0 0 790 162"></svg>
+</div>
+```
+
+The tooth silhouettes are rendered as **JPEG background images** on the container `div`:
+
+```html
+<div class="background-image" src="img/jpg/ok-teeth-01.jpg">
+  <div class="svg-placeholder" id="upper-svg-placeholder-01">
+    <svg ...></svg>
+  </div>
+  ...
+</div>
+```
+
+The four background images are:
+
+| View | Background image | File in repo |
+|---|---|---|
+| `upper-svg-placeholder-01` (Vestibular Superior) | `img/jpg/ok-teeth-01.jpg` | `public/img/jpg/ok-teeth-01.jpg` |
+| `upper-svg-placeholder-02` (Palatino Superior) | `img/jpg/ok-teeth-02.jpg` | `public/img/jpg/ok-teeth-02.jpg` |
+| `lower-svg-placeholder-01` (Lingual Inferior) | `img/jpg/uk-teeth-01.jpg` | `public/img/jpg/uk-teeth-01.jpg` |
+| `lower-svg-placeholder-02` (Vestibular Inferior) | `img/jpg/uk-teeth-02.jpg` | `public/img/jpg/uk-teeth-02.jpg` |
+
+Image dimensions: 3248 × 652/653 px. Reference SVG viewBox: 790 × 162. The images are scaled to fill the container via CSS `background-size: 100% 100%`.
+
+### Reference coordinate system
+
+The reference app uses a different coordinate system than our implementation:
+
+- **ViewBox**: `0 0 790 162` (vs. our `0 0 1800 240`)
+- **Zero (CEJ) lines**: `upper-01: 106`, `upper-02: 53`, `lower-01: 108`, `lower-02: 61`
+- **X coordinates**: per-tooth, per-surface (e.g. tooth 11: `db: 345, mb: 377, dp: 344, mp: 375`)
+
+Our implementation keeps its own viewBox (`1800 × 240`) and coordinate system but uses the reference background images scaled to fit, which produces visually identical tooth silhouettes.
+
+### Implementation notes
+
+- `SvgPlaceholder.tsx` sets the background image on the container `div` and overlays the SVG canvas on top with `position: absolute; inset: 0`.
+- No `ToothOutlineSvg` component is used — the background image provides the tooth outlines.
+- The CEJ zero-reference line (`stroke="#ef4444"`, `strokeWidth="1.5"`) is drawn at `config.zeroLineY` in our coordinate system.
+- Grid lines are rendered at 1 mm intervals (`POLYGON_SCALE = 6.45` units/mm) across the full canvas height.
+- Surface interaction (BOP/PI click targets) is handled by `ToothSurfaceSvg.tsx` which renders transparent hit rectangles inside the SVG overlay.

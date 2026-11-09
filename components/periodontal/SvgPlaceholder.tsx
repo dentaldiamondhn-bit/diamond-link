@@ -4,8 +4,6 @@ import React from 'react';
 import { ChartData } from '@/lib/types';
 import {
   ChartViewId,
-  getGridLines,
-  getToothCenterX,
   getViewConfig,
   getViewTeeth,
   SVG_VIEWBOX_HEIGHT,
@@ -13,7 +11,6 @@ import {
 } from '@/lib/utils/chartGeometry';
 import { PerioPolygon } from './PerioPolygon';
 import { ToothSurfaceSvg } from './ToothSurfaceSvg';
-import { ToothOutlineSvg } from './ToothOutlineSvg';
 import { FurcationMarker } from './FurcationMarker';
 import { ImplantMarker } from './ImplantMarker';
 import { MissingToothDiagonal } from './MissingToothDiagonal';
@@ -28,6 +25,13 @@ interface SvgPlaceholderProps {
   overlayData?: ChartData | null;
 }
 
+const BACKGROUND_IMAGES: Record<ChartViewId, string> = {
+  'upper-svg-placeholder-01': '/img/jpg/ok-teeth-01.jpg',
+  'upper-svg-placeholder-02': '/img/jpg/ok-teeth-02.jpg',
+  'lower-svg-placeholder-01': '/img/jpg/uk-teeth-01.jpg',
+  'lower-svg-placeholder-02': '/img/jpg/uk-teeth-02.jpg',
+};
+
 const GRID_STROKE = '#4b5563';
 const ZERO_STROKE = '#ef4444';
 
@@ -40,120 +44,124 @@ export function SvgPlaceholder({
 }: SvgPlaceholderProps) {
   const config = getViewConfig(id);
   const teeth = getViewTeeth(id);
-  const gridLines = getGridLines();
 
   const highlightThreshold =
     activeRemoteControl === '5mm' ? 5 : activeRemoteControl === '6mmplus' ? 6 : null;
   const highlightColor = activeRemoteControl === '5mm' ? '#fbbf24' : '#ef4444';
 
+  const backgroundImage = BACKGROUND_IMAGES[id];
+
   return (
     <div id={id} className="w-full">
-      <svg
-        viewBox={`0 0 ${SVG_VIEWBOX_WIDTH} ${SVG_VIEWBOX_HEIGHT}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="w-full h-auto block"
-        style={{ aspectRatio: `${SVG_VIEWBOX_WIDTH} / ${SVG_VIEWBOX_HEIGHT}` }}
+      <div
+        className="relative w-full overflow-hidden rounded"
+        style={{
+          backgroundImage: `url(${backgroundImage})`,
+          backgroundSize: '100% 100%',
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
+          aspectRatio: `${SVG_VIEWBOX_WIDTH} / ${SVG_VIEWBOX_HEIGHT}`,
+        }}
       >
-        <defs>
-          <linearGradient id={`al-gradient-${id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#000080" stopOpacity="0.35" />
-          </linearGradient>
-        </defs>
+        <svg
+          viewBox={`0 0 ${SVG_VIEWBOX_WIDTH} ${SVG_VIEWBOX_HEIGHT}`}
+          preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full"
+          style={{ display: 'block' }}
+        >
+          <defs>
+            <linearGradient id={`al-gradient-${id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="#000080" stopOpacity="0.35" />
+            </linearGradient>
+          </defs>
 
-        {gridLines.map(y => (
+          {Array.from({ length: 16 }, (_, i) => {
+            const y = (i + 1) * (SVG_VIEWBOX_HEIGHT / 16);
+            return (
+              <line
+                key={`grid-${y}`}
+                x1={0}
+                y1={y}
+                x2={SVG_VIEWBOX_WIDTH}
+                y2={y}
+                stroke={GRID_STROKE}
+                strokeWidth={0.5}
+                strokeOpacity={0.35}
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+
           <line
-            key={`grid-${y}`}
             x1={0}
-            y1={y}
+            y1={config.zeroLineY}
             x2={SVG_VIEWBOX_WIDTH}
-            y2={y}
-            stroke={GRID_STROKE}
-            strokeWidth={0.5}
+            y2={config.zeroLineY}
+            stroke={ZERO_STROKE}
+            strokeWidth={1.5}
             vectorEffect="non-scaling-stroke"
           />
-        ))}
 
-        <line
-          x1={0}
-          y1={config.zeroLineY}
-          x2={SVG_VIEWBOX_WIDTH}
-          y2={config.zeroLineY}
-          stroke={ZERO_STROKE}
-          strokeWidth={1.5}
-          vectorEffect="non-scaling-stroke"
-        />
+          {teeth.slice(1).map((tooth, index) => (
+            <InterProximalPolygon
+              key={`inter-${teeth[index]}-${tooth}`}
+              tooth={tooth}
+              prevTooth={teeth[index]}
+              viewId={id}
+              data={data}
+              isGmInverted={isGmInverted}
+            />
+          ))}
 
-        {teeth.map(tooth => (
-          <ToothOutlineSvg
-            key={`outline-${tooth}`}
-            tooth={tooth}
-            view={config.kind}
-            x={getToothCenterX(tooth, id)}
-            y={config.zeroLineY}
-            rootDirection={config.rootDirection}
-            data={data}
-          />
-        ))}
-
-        {teeth.slice(1).map((tooth, index) => (
-          <InterProximalPolygon
-            key={`inter-${teeth[index]}-${tooth}`}
-            tooth={tooth}
-            prevTooth={teeth[index]}
-            viewId={id}
-            data={data}
-            isGmInverted={isGmInverted}
-          />
-        ))}
-
-        {teeth.map(tooth => (
-          <PerioPolygon
-            key={`perio-${tooth}`}
-            tooth={tooth}
-            viewId={id}
-            data={data}
-            isGmInverted={isGmInverted}
-            overlayData={overlayData}
-          />
-        ))}
-
-        {highlightThreshold !== null &&
-          teeth.map(tooth => (
-            <PdHighlighter
-              key={`pd-high-${tooth}`}
+          {teeth.map(tooth => (
+            <PerioPolygon
+              key={`perio-${tooth}`}
               tooth={tooth}
               viewId={id}
               data={data}
               isGmInverted={isGmInverted}
-              threshold={highlightThreshold}
-              color={highlightColor}
+              overlayData={overlayData}
             />
           ))}
 
-        {teeth.map(tooth => (
-          <FurcationMarker key={`furc-${tooth}`} tooth={tooth} viewId={id} data={data} />
-        ))}
+          {highlightThreshold !== null &&
+            teeth.map(tooth => (
+              <PdHighlighter
+                key={`pd-high-${tooth}`}
+                tooth={tooth}
+                viewId={id}
+                data={data}
+                isGmInverted={isGmInverted}
+                threshold={highlightThreshold}
+                color={highlightColor}
+              />
+            ))}
 
-        {teeth.map(tooth => (
-          <ImplantMarker key={`impl-${tooth}`} tooth={tooth} viewId={id} data={data} />
-        ))}
+          {teeth.map(tooth => (
+            <FurcationMarker key={`furc-${tooth}`} tooth={tooth} viewId={id} data={data} />
+          ))}
 
-        {teeth.map(tooth => (
-          <MissingToothDiagonal key={`missing-${tooth}`} tooth={tooth} viewId={id} data={data} />
-        ))}
+          {teeth.map(tooth => (
+            <ImplantMarker key={`impl-${tooth}`} tooth={tooth} viewId={id} data={data} />
+          ))}
 
-        {teeth.map(tooth => (
-          <ToothSurfaceSvg
-            key={`surface-${tooth}`}
-            tooth={tooth}
-            viewId={id}
-            data={data}
-            isGmInverted={isGmInverted}
-            activeRemoteControl={activeRemoteControl}
-          />
-        ))}
-      </svg>
+          {teeth.map(tooth => (
+            <MissingToothDiagonal key={`missing-${tooth}`} tooth={tooth} viewId={id} data={data} />
+          ))}
+
+          {teeth.map(tooth => (
+            <ToothSurfaceSvg
+              key={`surface-${tooth}`}
+              tooth={tooth}
+              viewId={id}
+              data={data}
+              isGmInverted={isGmInverted}
+              activeRemoteControl={activeRemoteControl}
+            />
+          ))}
+        </svg>
+      </div>
     </div>
   );
 }
