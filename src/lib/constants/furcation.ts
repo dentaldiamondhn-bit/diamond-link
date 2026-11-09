@@ -1,0 +1,53 @@
+import { FurcationSite, FDIToothNumber } from '@/lib/types/clinical';
+
+// Furcation chart coordinates per SVG placeholder
+export const FURCATION_CHART_COORDINATES: Record<string, Record<string, { x: number; y: number }>> = {
+  'upper-svg-placeholder-01': {
+    'furcation_18_b': { x: 120, y: 80 },
+    'furcation_17_b': { x: 230, y: 80 },
+    'furcation_16_b': { x: 340, y: 80 },
+    'furcation_15_b': { x: 450, y: 80 },
+    'furcation_14_b': { x: 560, y: 80 },
+    'furcation_26_b': { x: 1000, y: 80 },
+    'furcation_27_b': { x: 1110, y: 80 },
+    'furcation_28_b': { x: 1220, y: 80 },
+  },
+  'upper-svg-placeholder-02': {
+    'furcation_18_dp': { x: 200, y: 120 },
+    'furcation_18_mp': { x: 80, y: 120 },
+    'furcation_17_dp': { x: 310, y: 120 },
+    'furcation_17_mp': { x: 190, y: 120 },
+    'furcation_16_dp': { x: 420, y: 120 },
+    'furcation_16_mp': { x: 300, y: 120 },
+    'furcation_15_dp': { x: 530, y: 120 },
+    'furcation_15_mp': { x: 410, y: 120 },
+    'furcation_14_dp': { x: 640, y: 120 },
+    'furcation_14_mp': { x: 520, y: 120 },
+    'furcation_24_dp': { x: 860, y: 120 },
+    'furcation_24_mp': { x: 740, y: 120 },
+    'furcation_25_dp': { x: 970, y: 120 },
+    'furcation_25_mp': { x: 850, y: 120 },
+    'furcation_26_dp': { x: 1080, y: 120 },
+    'furcation_26_mp': { x: 960, y: 120 },
+    'furcation_27_dp': { x: 1190, y: 120 },
+    'furcation_27_mp': { x: 1070, y: 120 },
+    'furcation_28_dp': { x: 1300, y: 120 },
+    'furcation_28_mp': { x: 1180, y: 120 },
+  },
+  'lower-svg-placeholder-01': {
+    'furcation_48_l': { x: 120, y: 280 },
+    'furcation_47_l': { x: 230, y: 280 },
+    'furcation_46_l': { x: 340, y: 280 },
+    'furcation_36_l': { x: 1000, y: 280 },
+    'furcation_37_l': { x: 1110, y: 280 },
+    'furcation_38_l': { x: 1220, y: 280 },
+  },
+  'lower-svg-placeholder-02': {
+    'furcation_48_b': { x: 120, y: 80 },
+    'furcation_47_b': { x: 230, y: 80 },
+    'furcation_46_b': { x: 340, y: 80 },
+    'furcation_36_b': { x: 1000, y: 80 },
+    'furcation_37_b': { x: 1110, y: 80 },
+    'furcation_38_b': { x: 1220, y: 80 },
+  },
+};
