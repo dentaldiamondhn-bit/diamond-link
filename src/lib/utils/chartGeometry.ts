@@ -31,28 +31,28 @@ export const CHART_VIEWS: Record<ChartViewId, ChartViewConfig> = {
     label: 'Vestibular Superior',
     kind: 'buccal',
     rootDirection: -1,
-    zeroLineY: 140,
+    zeroLineY: 157,
   },
   'upper-svg-placeholder-02': {
     id: 'upper-svg-placeholder-02',
     label: 'Palatino Superior',
     kind: 'oral',
     rootDirection: -1,
-    zeroLineY: 140,
+    zeroLineY: 78,
   },
   'lower-svg-placeholder-01': {
     id: 'lower-svg-placeholder-01',
     label: 'Lingual Inferior',
     kind: 'oral',
     rootDirection: 1,
-    zeroLineY: 110,
+    zeroLineY: 160,
   },
   'lower-svg-placeholder-02': {
     id: 'lower-svg-placeholder-02',
     label: 'Vestibular Inferior',
     kind: 'buccal',
     rootDirection: 1,
-    zeroLineY: 110,
+    zeroLineY: 90,
   },
 };
 

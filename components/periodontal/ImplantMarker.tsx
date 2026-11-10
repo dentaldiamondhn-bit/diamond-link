@@ -4,7 +4,7 @@ import React from 'react';
 import { ChartData, FDIToothNumber } from '@/lib/types';
 import { ChartViewId, getSurfaceX, getViewConfig } from '@/lib/utils/chartGeometry';
 import { readNumber } from '@/lib/utils/periodontalAnalysis';
-import { getToothRootLength, getToothTemplate } from '@/lib/utils/toothAnatomy';
+import { getToothTemplate, getToothRootLength } from '@/lib/utils/toothAnatomy';
 
 interface ImplantMarkerProps {
   tooth: FDIToothNumber;
@@ -13,7 +13,7 @@ interface ImplantMarkerProps {
 }
 
 const STATUS_COLORS: Record<number, string> = {
-  1: '#9ca3af',
+  1: '#6b7280',
   2: '#ef4444',
   3: '#22c55e',
 };
@@ -28,27 +28,31 @@ export function ImplantMarker({ tooth, viewId, data }: ImplantMarkerProps) {
   const x = getSurfaceX(tooth, surface);
 
   const template = getToothTemplate(tooth);
-  const width = template.crownHalfWidth * 0.35;
-  const length = getToothRootLength(tooth) * 0.55;
-  const startY = zeroLineY + rootDirection * template.crownHeight * 0.05;
+  const width = template.crownHalfWidth * 0.32;
+  const length = getToothRootLength(tooth) * 0.85;
+  const startY = zeroLineY;
   const endY = startY + rootDirection * length;
 
-  const threads = 6;
+  const threads = 8;
   const threadStep = length / threads;
+
+  const minY = Math.min(startY, endY);
 
   return (
     <g>
+      {/* Implant body */}
       <rect
         x={x - width / 2}
-        y={Math.min(startY, endY)}
+        y={minY}
         width={width}
         height={Math.abs(endY - startY)}
-        rx={width / 3}
+        rx={width / 4}
         fill="#e5e7eb"
         stroke={color}
         strokeWidth={1.5}
         vectorEffect="non-scaling-stroke"
       />
+      {/* Screw threads */}
       {Array.from({ length: threads }).map((_, index) => {
         const y = startY + rootDirection * (index + 0.5) * threadStep;
         return (
@@ -64,13 +68,26 @@ export function ImplantMarker({ tooth, viewId, data }: ImplantMarkerProps) {
           />
         );
       })}
+      {/* Apex */}
       <circle
         cx={x}
         cy={endY}
-        r={width / 2.4}
+        r={width / 2.2}
         fill={color}
         stroke="#111827"
         strokeWidth={0.8}
+        vectorEffect="non-scaling-stroke"
+      />
+      {/* Abutment at CEJ */}
+      <rect
+        x={x - width / 1.5}
+        y={minY - 2}
+        width={width * 1.33}
+        height={4}
+        rx={1}
+        fill={color}
+        stroke="#111827"
+        strokeWidth={0.6}
         vectorEffect="non-scaling-stroke"
       />
       <title>{`Implante ${tooth} estado ${status}`}</title>
