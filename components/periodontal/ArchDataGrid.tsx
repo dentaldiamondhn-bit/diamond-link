@@ -8,6 +8,7 @@ import { useChartStore } from '@/lib/store/useChartStore';
 
 interface ArchDataGridProps {
   arch: 'upper' | 'lower';
+  siteGroup: 'vestibular' | 'palatal' | 'lingual';
   readOnly?: boolean;
 }
 
@@ -27,21 +28,23 @@ interface RowDef {
   perSite: boolean;
 }
 
-const UPPER_ROWS: RowDef[] = [
+const ROWS: RowDef[] = [
   { kind: 'mobility', label: 'Movilidad', perSite: false },
   { kind: 'implant', label: 'Implante', perSite: false },
   { kind: 'furcation', label: 'Furcación', perSite: false },
-  { kind: 'bop', label: 'Sangrado al sondaje', perSite: false },
-  { kind: 'plaque', label: 'Placa', perSite: false },
+  { kind: 'bop', label: 'Sangrado al sondaje', perSite: true },
+  { kind: 'plaque', label: 'Placa', perSite: true },
   { kind: 'gm', label: 'Margen gingival', perSite: true },
   { kind: 'pd', label: 'Profundidad de sondaje', perSite: true },
   { kind: 'al', label: 'Nivel de inserción', perSite: true },
 ];
 
-const LOWER_ROWS: RowDef[] = [...UPPER_ROWS].reverse();
-
-const SUB_LABELS_UPPER = ['VM', 'VMe', 'VD', 'PM', 'PMe', 'PD'];
-const SUB_LABELS_LOWER = ['VM', 'VMe', 'VD', 'LM', 'LMe', 'LD'];
+const SUB_LABELS: Record<string, string[]> = {
+  'upper-vestibular': ['VM', 'VMe', 'VD'],
+  'upper-palatal': ['PM', 'PMe', 'PD'],
+  'lower-vestibular': ['VM', 'VMe', 'VD'],
+  'lower-lingual': ['LM', 'LMe', 'LD'],
+};
 
 const MOBILITY_OPTIONS = ['0', '1', '2', '3'];
 const IMPLANT_OPTIONS = ['0', '1', '2', '3'];
@@ -56,7 +59,7 @@ const headerCellClass =
 const labelCellClass =
   'sticky left-0 z-10 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-2 py-1 text-left text-[11px] font-medium whitespace-nowrap text-gray-700 dark:text-gray-200';
 
-export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
+export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGridProps) {
   const chartData = useChartStore(state => state.chartData);
   const updateField = useChartStore(state => state.updateField);
   const toggleBop = useChartStore(state => state.toggleBop);
@@ -69,21 +72,25 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
 
   const disabled = readOnly || isOverlayMode;
   const teeth = arch === 'upper' ? UPPER_TEETH : LOWER_TEETH;
-  const rows = arch === 'upper' ? UPPER_ROWS : LOWER_ROWS;
-  const subLabels = arch === 'upper' ? SUB_LABELS_UPPER : SUB_LABELS_LOWER;
+  const rows = ROWS;
+  const key = `${arch}-${siteGroup}`;
+  const subLabels = SUB_LABELS[key] ?? ['S1', 'S2', 'S3'];
 
   const sitesFor = (tooth: FDIToothNumber): SurfaceId[] => {
     const applicable = getApplicableSurfaces(tooth);
-    return [applicable[0], applicable[1], applicable[2], applicable[3], applicable[4], applicable[5]];
+    if (siteGroup === 'vestibular') return [applicable[0], applicable[1], applicable[2]];
+    if (siteGroup === 'palatal') return [applicable[3], applicable[4], applicable[5]];
+    // lingual (lower only)
+    return [applicable[3], applicable[4], applicable[5]];
   };
 
   const renderNumberCell = (tooth: FDIToothNumber, surface: SurfaceId, field: 'pd' | 'gm' | 'al') => {
-    const key = `${field}_${tooth}_${surface}`;
+    const cellKey = `${field}_${tooth}_${surface}`;
 
     if (field === 'al') {
       const value = getToothAl(chartData, tooth, surface);
       return (
-        <td key={key} className="border border-gray-200 dark:border-gray-600 p-0 text-center">
+        <td key={cellKey} className="border border-gray-200 dark:border-gray-600 p-0 text-center">
           <span className="block px-1 py-0.5 text-xs text-gray-500 dark:text-gray-400">
             {value ? value.toFixed(1) : '–'}
           </span>
@@ -91,11 +98,11 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
       );
     }
 
-    const raw = chartData[key];
+    const raw = chartData[cellKey];
     const value = raw === undefined || raw === null ? '' : String(raw);
 
     return (
-      <td key={key} className="border border-gray-200 dark:border-gray-600 p-0">
+      <td key={cellKey} className="border border-gray-200 dark:border-gray-600 p-0">
         <input
           type="number"
           inputMode="decimal"
@@ -105,15 +112,15 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
           className={cellClass}
           value={value}
           disabled={disabled}
-          onChange={event => updateField(key, event.target.value === '' ? '' : event.target.value)}
+          onChange={event => updateField(cellKey, event.target.value === '' ? '' : event.target.value)}
         />
       </td>
     );
   };
 
   const renderIndexCell = (tooth: FDIToothNumber, type: 'bop' | 'pi', surface: SurfaceId) => {
-    const key = `${type}_${tooth}_${surface}`;
-    const isActive = readFlag(chartData[key]);
+    const cellKey = `${type}_${tooth}_${surface}`;
+    const isActive = readFlag(chartData[cellKey]);
 
     const colorClass = isActive
       ? type === 'bop'
@@ -122,7 +129,7 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
       : 'bg-gray-100 text-gray-400 dark:bg-gray-900 dark:text-gray-500';
 
     return (
-      <td key={key} className="border border-gray-200 dark:border-gray-600 p-0">
+      <td key={cellKey} className="border border-gray-200 dark:border-gray-600 p-0">
         <button
           type="button"
           className={`w-full py-0.5 text-[10px] font-bold transition-colors disabled:cursor-not-allowed ${colorClass}`}
@@ -142,7 +149,7 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
     current: string,
     onChange: (value: string) => void,
   ) => (
-    <td key={`select-${tooth}-${options.join('-')}`} colSpan={6} className="border border-gray-200 dark:border-gray-600 p-0">
+    <td key={`select-${tooth}`} colSpan={3} className="border border-gray-200 dark:border-gray-600 p-0">
       <select
         className={cellClass}
         value={current}
@@ -162,6 +169,12 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
     teeth.map(tooth => {
       if (row.perSite) {
         const sites = sitesFor(tooth);
+        if (row.kind === 'bop') {
+          return sites.map(surface => renderIndexCell(tooth, 'bop', surface));
+        }
+        if (row.kind === 'plaque') {
+          return sites.map(surface => renderIndexCell(tooth, 'pi', surface));
+        }
         return sites.map(surface => renderNumberCell(tooth, surface, row.kind as 'pd' | 'gm' | 'al'));
       }
 
@@ -175,7 +188,7 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
           );
         case 'implant':
           return (
-            <td key={`implant-${tooth}`} colSpan={6} className="border border-gray-200 dark:border-gray-600 p-0">
+            <td key={`implant-${tooth}`} colSpan={3} className="border border-gray-200 dark:border-gray-600 p-0">
               <button
                 type="button"
                 className={`w-full py-0.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
@@ -208,10 +221,6 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
             String(chartData[`furcation_${tooth}_b`] ?? 'no-evaluado'),
             value => setFurcation(tooth, 'b', FURCATION_OPTIONS.indexOf(value) - 1),
           );
-        case 'bop':
-          return sitesFor(tooth).map(surface => renderIndexCell(tooth, 'bop', surface));
-        case 'plaque':
-          return sitesFor(tooth).map(surface => renderIndexCell(tooth, 'pi', surface));
         default:
           return null;
       }
@@ -228,7 +237,7 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
             {teeth.map((tooth, index) => (
               <th
                 key={`tooth-${tooth}`}
-                colSpan={6}
+                colSpan={3}
                 className={`${headerCellClass} ${index === 7 ? 'border-l-2 border-l-teal-500' : ''}`}
               >
                 <button

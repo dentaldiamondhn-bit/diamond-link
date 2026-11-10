@@ -38,9 +38,10 @@ export function JawChart({
         </div>
       )}
 
-      {/* Upper Arch */}
-      <ArchDataGrid arch="upper" readOnly={readOnly} />
+      {/* 1. Upper Grid (Vestibular Superior) */}
+      <ArchDataGrid arch="upper" siteGroup="vestibular" readOnly={readOnly} />
 
+      {/* 2. SVG Canvas: Maxilar Superior - Vestibular */}
       <div className={labelClass}>Maxilar Superior - Vestibular</div>
       <div className="w-full">
         <SvgPlaceholder
@@ -52,6 +53,7 @@ export function JawChart({
         />
       </div>
 
+      {/* 3. SVG Canvas: Maxilar Superior - Palatino */}
       <div className={labelClass}>Maxilar Superior - Palatino</div>
       <div className="w-full">
         <SvgPlaceholder
@@ -63,10 +65,16 @@ export function JawChart({
         />
       </div>
 
-      {/* Middle Summary Metrics Bar */}
+      {/* 4. Upper Grid (Palatino Superior) */}
+      <ArchDataGrid arch="upper" siteGroup="palatal" readOnly={readOnly} />
+
+      {/* 5. Summary Metrics Bar (Central Divider) */}
       <SummaryMetricsBar data={data} />
 
-      {/* Lower Arch */}
+      {/* 6. Lower Grid (Lingual Inferior) */}
+      <ArchDataGrid arch="lower" siteGroup="lingual" readOnly={readOnly} />
+
+      {/* 7. SVG Canvas: Mandibular Inferior - Lingual */}
       <div className={labelClass}>Mandibular Inferior - Lingual</div>
       <div className="w-full">
         <SvgPlaceholder
@@ -78,6 +86,7 @@ export function JawChart({
         />
       </div>
 
+      {/* 8. SVG Canvas: Mandibular Inferior - Vestibular */}
       <div className={labelClass}>Mandibular Inferior - Vestibular</div>
       <div className="w-full">
         <SvgPlaceholder
@@ -89,7 +98,8 @@ export function JawChart({
         />
       </div>
 
-      <ArchDataGrid arch="lower" readOnly={readOnly} />
+      {/* 9. Lower Grid (Vestibular Inferior) */}
+      <ArchDataGrid arch="lower" siteGroup="vestibular" readOnly={readOnly} />
 
       <SummaryMetrics data={data} />
     </div>
