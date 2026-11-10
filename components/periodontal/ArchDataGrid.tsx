@@ -59,7 +59,8 @@ const labelCellClass =
 export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
   const chartData = useChartStore(state => state.chartData);
   const updateField = useChartStore(state => state.updateField);
-  const toggleToothIndex = useChartStore(state => state.toggleToothIndex);
+  const toggleBop = useChartStore(state => state.toggleBop);
+  const togglePlaque = useChartStore(state => state.togglePlaque);
   const toggleToothPresence = useChartStore(state => state.toggleToothPresence);
   const setFurcation = useChartStore(state => state.setFurcation);
   const setMobility = useChartStore(state => state.setMobility);
@@ -110,38 +111,26 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
     );
   };
 
-  const renderIndexCell = (tooth: FDIToothNumber, type: 'bop' | 'pi') => {
-    const sites = getApplicableSurfaces(tooth);
-    const positives = sites.filter(surface => readFlag(chartData[`${type}_${tooth}_${surface}`])).length;
-    const state = positives === 0 ? 'none' : positives === sites.length ? 'all' : 'some';
+  const renderIndexCell = (tooth: FDIToothNumber, type: 'bop' | 'pi', surface: SurfaceId) => {
+    const key = `${type}_${tooth}_${surface}`;
+    const isActive = readFlag(chartData[key]);
 
-    const colorClass =
-      state === 'all'
-        ? type === 'bop'
-          ? 'bg-red-500 text-white'
-          : 'bg-blue-500 text-white'
-        : state === 'some'
-          ? type === 'bop'
-            ? 'bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-100'
-            : 'bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100'
-          : 'bg-gray-100 text-gray-400 dark:bg-gray-900 dark:text-gray-500';
+    const colorClass = isActive
+      ? type === 'bop'
+        ? 'bg-red-500 text-white'
+        : 'bg-blue-500 text-white'
+      : 'bg-gray-100 text-gray-400 dark:bg-gray-900 dark:text-gray-500';
 
     return (
-      <td key={`${type}-${tooth}`} colSpan={6} className="border border-gray-200 dark:border-gray-600 p-0">
+      <td key={key} className="border border-gray-200 dark:border-gray-600 p-0">
         <button
           type="button"
-          className={`w-full py-0.5 text-xs font-semibold transition-colors ${colorClass} disabled:cursor-not-allowed`}
+          className={`w-full py-0.5 text-[10px] font-bold transition-colors disabled:cursor-not-allowed ${colorClass}`}
           disabled={disabled}
-          onClick={() => toggleToothIndex(tooth, type)}
-          title={
-            state === 'all'
-              ? 'Quitar sangrado al sondaje'
-              : state === 'some'
-                ? 'Marcar todo el diente'
-                : 'Marcar todo el diente'
-          }
+          onClick={() => (type === 'bop' ? toggleBop(tooth, surface) : togglePlaque(tooth, surface))}
+          title={isActive ? 'Quitar' : 'Marcar'}
         >
-          {state === 'all' ? '●' : state === 'some' ? '◐' : '○'}
+          {isActive ? '●' : '○'}
         </button>
       </td>
     );
@@ -185,11 +174,32 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
             value => setMobility(tooth, parseInt(value, 10) || 0),
           );
         case 'implant':
-          return renderSelectCell(
-            tooth,
-            IMPLANT_OPTIONS,
-            String(chartData[`implant_${tooth}`] ?? '0'),
-            () => cycleImplantStatus(tooth),
+          return (
+            <td key={`implant-${tooth}`} colSpan={6} className="border border-gray-200 dark:border-gray-600 p-0">
+              <button
+                type="button"
+                className={`w-full py-0.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+                  String(chartData[`implant_${tooth}`] ?? '0') === '0'
+                    ? 'bg-gray-100 text-gray-500 dark:bg-gray-900 dark:text-gray-400'
+                    : String(chartData[`implant_${tooth}`] ?? '0') === '1'
+                      ? 'bg-gray-400 text-white'
+                      : String(chartData[`implant_${tooth}`] ?? '0') === '2'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-green-500 text-white'
+                }`}
+                disabled={disabled}
+                onClick={() => cycleImplantStatus(tooth)}
+                title="Ciclar estado de implante"
+              >
+                {String(chartData[`implant_${tooth}`] ?? '0') === '0'
+                  ? '○'
+                  : String(chartData[`implant_${tooth}`] ?? '0') === '1'
+                    ? '●'
+                    : String(chartData[`implant_${tooth}`] ?? '0') === '2'
+                      ? '⚠'
+                      : '✓'}
+              </button>
+            </td>
           );
         case 'furcation':
           return renderSelectCell(
@@ -199,9 +209,9 @@ export function ArchDataGrid({ arch, readOnly = false }: ArchDataGridProps) {
             value => setFurcation(tooth, 'b', FURCATION_OPTIONS.indexOf(value) - 1),
           );
         case 'bop':
-          return renderIndexCell(tooth, 'bop');
+          return sitesFor(tooth).map(surface => renderIndexCell(tooth, 'bop', surface));
         case 'plaque':
-          return renderIndexCell(tooth, 'pi');
+          return sitesFor(tooth).map(surface => renderIndexCell(tooth, 'pi', surface));
         default:
           return null;
       }

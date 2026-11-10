@@ -28,9 +28,9 @@ export function ImplantMarker({ tooth, viewId, data }: ImplantMarkerProps) {
   const x = getSurfaceX(tooth, surface);
 
   const template = getToothTemplate(tooth);
-  const width = template.crownHalfWidth * 0.5;
-  const length = getToothRootLength(tooth) * 0.62;
-  const startY = zeroLineY + rootDirection * template.crownHeight * 0.25;
+  const width = template.crownHalfWidth * 0.35;
+  const length = getToothRootLength(tooth) * 0.55;
+  const startY = zeroLineY + rootDirection * template.crownHeight * 0.05;
   const endY = startY + rootDirection * length;
 
   const threads = 6;

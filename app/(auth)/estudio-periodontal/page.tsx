@@ -422,6 +422,51 @@ function EstudioPeriodontalContent() {
         </div>
       </div>
 
+      <div className="mb-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Datos del Estudio</h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente</label>
+                        {patientLoading ? (
+                          <div className="animate-pulse h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        ) : patient ? (
+                          <div className="h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700">
+                            <p className="font-medium">{patient.nombre_completo}</p>
+                            <p className="text-sm text-gray-500">ID: {patient.paciente_id}</p>
+                          </div>
+                        ) : (
+                          <Input
+                            placeholder="Seleccione un paciente"
+                            disabled
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+                        <Input
+                          type="date"
+                          value={chartData.date}
+                          onChange={(e) => handleInputChange('date', e.target.value)}
+                          disabled={readOnly}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Odontólogo</label>
+                      <Input
+                        value={chartData.clinician}
+                        onChange={(e) => handleInputChange('clinician', e.target.value)}
+                        disabled={readOnly}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+      </div>
+
       {showGraphicalChart && (
         <div className="mb-6">
           <div className="mb-4 flex items-center justify-between">
@@ -465,48 +510,6 @@ function EstudioPeriodontalContent() {
       )}
 
       <div className="space-y-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Datos del Estudio</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente</label>
-                {patientLoading ? (
-                  <div className="animate-pulse h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                ) : patient ? (
-                  <div className="h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700">
-                    <p className="font-medium">{patient.nombre_completo}</p>
-                    <p className="text-sm text-gray-500">ID: {patient.paciente_id}</p>
-                  </div>
-                ) : (
-                  <Input
-                    placeholder="Seleccione un paciente"
-                    disabled
-                  />
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
-                <Input
-                  type="date"
-                  value={chartData.date}
-                  onChange={(e) => handleInputChange('date', e.target.value)}
-                  disabled={readOnly}
-                  className="w-full"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Odontólogo</label>
-              <Input
-                value={chartData.clinician}
-                onChange={(e) => handleInputChange('clinician', e.target.value)}
-                disabled={readOnly}
-                className="w-full"
-              />
-            </div>
-          </div>
-        </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Parámetros Periodontales</h3>

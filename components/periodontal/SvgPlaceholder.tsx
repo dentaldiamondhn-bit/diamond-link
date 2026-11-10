@@ -33,7 +33,7 @@ const BACKGROUND_IMAGES: Record<ChartViewId, string> = {
 };
 
 const GRID_STROKE = '#4b5563';
-const ZERO_STROKE = '#ef4444';
+const ZERO_STROKE = '#f59e0b';
 
 export function SvgPlaceholder({
   id,
