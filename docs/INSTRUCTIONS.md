@@ -2502,3 +2502,42 @@ Our implementation keeps its own viewBox (`1800 × 240`) and coordinate system b
 - The CEJ zero-reference line (`stroke="#ef4444"`, `strokeWidth="1.5"`) is drawn at `config.zeroLineY` in our coordinate system.
 - Grid lines are rendered at 1 mm intervals (`POLYGON_SCALE = 6.45` units/mm) across the full canvas height.
 - Surface interaction (BOP/PI click targets) is handled by `ToothSurfaceSvg.tsx` which renders transparent hit rectangles inside the SVG overlay.
+
+---
+
+## Reverse-Engineered Implant SVG Definitions
+
+### Source of truth: PNG images, not SVG paths
+
+The reference application (`https://www.periodontalchart-online.com/?lang=es`) does **not** use inline SVG for implant rendering. Inspection of its DOM reveals that implants are rendered as **PNG image overlays** positioned absolutely over the SVG canvas:
+
+```html
+<img class="implant-marker" id="implant_18_b" src="img/implants/1/18b.png" style="display: none;" />
+```
+
+The image path follows the pattern `img/implants/{status}/{toothNumber}{site}.png` where:
+- **status**: 1 = active (gray), 2 = warning/peri-implantitis (red), 3 = healthy (green), 4 = additional state
+- **toothNumber**: FDI number (11-48)
+- **site**: `b` (buccal) or `p` (palatal) for upper teeth; `b` (buccal) or `l` (lingual) for lower teeth
+
+### Implementation in Dental Diamond Link
+
+Since we use SVG-based rendering (not PNG overlays), our implementation uses:
+
+1. **Root masking**: A solid rectangle (`fill="white"` in light mode, `fill="gray-800"` in dark mode) is drawn over the natural root area of the background image for implant teeth, hiding the natural root silhouette.
+
+2. **Implant screw vector**: A threaded cylinder SVG path is rendered starting from the amber CEJ baseline and extending down the root canal slot. The screw is solid-filled based on implant status:
+   - `1` (Active): Gray (`#6b7280`)
+   - `2` (Warning/Peri-implantitis): Red (`#ef4444`)
+   - `3` (Healthy): Green (`#22c55e`)
+
+3. **Conditional rendering**: The natural root outline is hidden (via the mask rect) when `implant > 0`, and only the implant screw cylinder is visible.
+
+### Implant status cycle
+- `0`: No implant (natural root visible)
+- `1`: Active implant (gray screw)
+- `2`: Warning/peri-implantitis (red screw)
+- `3`: Healthy integrated implant (green screw)
+
+### ImplantMarker component location
+`components/periodontal/ImplantMarker.tsx` — renders the threaded screw vector starting from the amber CEJ baseline (`zeroLineY`) and extending down the root canal slot (`rootDirection * rootLength`).
