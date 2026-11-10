@@ -35,36 +35,66 @@ export function JawChart({
         </div>
       )}
 
-      {/* Upper Arch Assembly */}
+      {/* Upper Arch */}
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
+        Maxilar Superior
+      </div>
       <ArchDataGrid arch="upper" readOnly={readOnly} />
 
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
+        Vestibular Superior
+      </div>
       <div className="w-full">
-        {(['upper-svg-placeholder-01', 'upper-svg-placeholder-02'] as const).map(viewId => (
-          <div key={viewId} className="w-full">
-            <SvgPlaceholder
-              id={viewId}
-              data={data}
-              isGmInverted={isGmInverted}
-              activeRemoteControl={activeRemoteControl}
-              overlayData={overlayData}
-            />
-          </div>
-        ))}
+        <SvgPlaceholder
+          id="upper-svg-placeholder-01"
+          data={data}
+          isGmInverted={isGmInverted}
+          activeRemoteControl={activeRemoteControl}
+          overlayData={overlayData}
+        />
       </div>
 
-      {/* Lower Arch Assembly — crowns face upper crowns in center */}
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
+        Palatino Superior
+      </div>
       <div className="w-full">
-        {(['lower-svg-placeholder-01', 'lower-svg-placeholder-02'] as const).map(viewId => (
-          <div key={viewId} className="w-full">
-            <SvgPlaceholder
-              id={viewId}
-              data={data}
-              isGmInverted={isGmInverted}
-              activeRemoteControl={activeRemoteControl}
-              overlayData={overlayData}
-            />
-          </div>
-        ))}
+        <SvgPlaceholder
+          id="upper-svg-placeholder-02"
+          data={data}
+          isGmInverted={isGmInverted}
+          activeRemoteControl={activeRemoteControl}
+          overlayData={overlayData}
+        />
+      </div>
+
+      {/* Lower Arch */}
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
+        Mandibular Inferior
+      </div>
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
+        Lingual Inferior
+      </div>
+      <div className="w-full">
+        <SvgPlaceholder
+          id="lower-svg-placeholder-01"
+          data={data}
+          isGmInverted={isGmInverted}
+          activeRemoteControl={activeRemoteControl}
+          overlayData={overlayData}
+        />
+      </div>
+
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
+        Vestibular Inferior
+      </div>
+      <div className="w-full">
+        <SvgPlaceholder
+          id="lower-svg-placeholder-02"
+          data={data}
+          isGmInverted={isGmInverted}
+          activeRemoteControl={activeRemoteControl}
+          overlayData={overlayData}
+        />
       </div>
 
       <ArchDataGrid arch="lower" readOnly={readOnly} />

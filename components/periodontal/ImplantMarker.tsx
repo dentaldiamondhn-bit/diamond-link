@@ -40,16 +40,16 @@ export function ImplantMarker({ tooth, viewId, data }: ImplantMarkerProps) {
 
   return (
     <g>
-      {/* Implant body */}
+      {/* Implant body - solid fill by status */}
       <rect
         x={x - width / 2}
         y={minY}
         width={width}
         height={Math.abs(endY - startY)}
         rx={width / 4}
-        fill="#e5e7eb"
-        stroke={color}
-        strokeWidth={1.5}
+        fill={color}
+        stroke="#111827"
+        strokeWidth={0.8}
         vectorEffect="non-scaling-stroke"
       />
       {/* Screw threads */}
@@ -58,12 +58,13 @@ export function ImplantMarker({ tooth, viewId, data }: ImplantMarkerProps) {
         return (
           <line
             key={`thread-${index}`}
-            x1={x - width / 2}
+            x1={x - width / 2 + 1}
             y1={y}
-            x2={x + width / 2}
+            x2={x + width / 2 - 1}
             y2={y}
-            stroke={color}
-            strokeWidth={1.2}
+            stroke="#111827"
+            strokeWidth={1}
+            strokeOpacity={0.6}
             vectorEffect="non-scaling-stroke"
           />
         );

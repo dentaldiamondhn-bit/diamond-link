@@ -4,11 +4,14 @@ import React from 'react';
 import { ChartData } from '@/lib/types';
 import {
   ChartViewId,
+  getSurfaceX,
   getViewConfig,
   getViewTeeth,
   SVG_VIEWBOX_HEIGHT,
   SVG_VIEWBOX_WIDTH,
 } from '@/lib/utils/chartGeometry';
+import { getToothTemplate, getToothRootLength } from '@/lib/utils/toothAnatomy';
+import { readNumber } from '@/lib/utils/periodontalAnalysis';
 import { PerioPolygon } from './PerioPolygon';
 import { ToothSurfaceSvg } from './ToothSurfaceSvg';
 import { FurcationMarker } from './FurcationMarker';
@@ -141,6 +144,30 @@ export function SvgPlaceholder({
           {teeth.map(tooth => (
             <FurcationMarker key={`furc-${tooth}`} tooth={tooth} viewId={id} data={data} />
           ))}
+
+          {teeth.map(tooth => {
+            const status = readNumber(data[`implant_${tooth}`]);
+            if (!status || status < 1) return null;
+            const { rootDirection, zeroLineY } = getViewConfig(id);
+            const template = getToothTemplate(tooth);
+            const surface = (getViewConfig(id).kind === 'buccal' ? 'b' : id.startsWith('upper') ? 'p' : 'l') as 'b' | 'p' | 'l';
+            const x = getSurfaceX(tooth, surface);
+            const width = template.crownHalfWidth * 0.45;
+            const length = getToothRootLength(tooth) * 0.9;
+            const minY = Math.min(zeroLineY, zeroLineY + rootDirection * length);
+            const maxY = Math.max(zeroLineY, zeroLineY + rootDirection * length);
+            return (
+              <rect
+                key={`implant-mask-${tooth}`}
+                x={x - width}
+                y={minY}
+                width={width * 2}
+                height={maxY - minY}
+                className="fill-white dark:fill-gray-800"
+                stroke="none"
+              />
+            );
+          })}
 
           {teeth.map(tooth => (
             <ImplantMarker key={`impl-${tooth}`} tooth={tooth} viewId={id} data={data} />
