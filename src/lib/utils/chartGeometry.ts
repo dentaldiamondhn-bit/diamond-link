@@ -37,14 +37,14 @@ export const CHART_VIEWS: Record<ChartViewId, ChartViewConfig> = {
     id: 'upper-svg-placeholder-02',
     label: 'Palatino Superior',
     kind: 'oral',
-    rootDirection: -1,
+    rootDirection: 1,
     zeroLineY: 78,
   },
   'lower-svg-placeholder-01': {
     id: 'lower-svg-placeholder-01',
     label: 'Lingual Inferior',
     kind: 'oral',
-    rootDirection: 1,
+    rootDirection: -1,
     zeroLineY: 160,
   },
   'lower-svg-placeholder-02': {

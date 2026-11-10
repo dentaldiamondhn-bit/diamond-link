@@ -6,6 +6,7 @@ import {
   ChartViewId,
   getGmY,
   getSurfaceX,
+  getViewConfig,
   getViewSurfacesOrdered,
   POLYGON_SCALE,
 } from '@/lib/utils/chartGeometry';
@@ -67,7 +68,7 @@ export function ToothSurfaceSvg({
         const half = step / 2;
         const gm = readNumber(data[`gm_${tooth}_${surface}`]);
         const gmY = getGmY(viewId, gm, isGmInverted);
-        const rootDirection = viewId.startsWith('upper') ? -1 : 1;
+        const rootDirection = getViewConfig(viewId).rootDirection;
 
         const bop = readFlag(data[`bop_${tooth}_${surface}`]);
         const plaque = readFlag(data[`pi_${tooth}_${surface}`]);
