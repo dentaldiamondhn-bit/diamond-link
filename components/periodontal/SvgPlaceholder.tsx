@@ -152,8 +152,8 @@ export function SvgPlaceholder({
             const template = getToothTemplate(tooth);
             const surface = (getViewConfig(id).kind === 'buccal' ? 'b' : id.startsWith('upper') ? 'p' : 'l') as 'b' | 'p' | 'l';
             const x = getSurfaceX(tooth, surface);
-            const width = template.crownHalfWidth * 0.45;
-            const length = getToothRootLength(tooth) * 0.9;
+            const width = template.crownHalfWidth * 0.55;
+            const length = getToothRootLength(tooth) * 0.95;
             const minY = Math.min(zeroLineY, zeroLineY + rootDirection * length);
             const maxY = Math.max(zeroLineY, zeroLineY + rootDirection * length);
             return (
@@ -162,7 +162,7 @@ export function SvgPlaceholder({
                 x={x - width}
                 y={minY}
                 width={width * 2}
-                height={maxY - minY}
+                height={maxY - minY + 4}
                 className="fill-white dark:fill-gray-800"
                 stroke="none"
               />

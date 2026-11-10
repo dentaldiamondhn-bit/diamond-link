@@ -11,6 +11,7 @@ export { RightClinicalPanel } from './RightClinicalPanel';
 export type { ClinicalModalKey } from './RightClinicalPanel';
 export { SvgPlaceholder } from './SvgPlaceholder';
 export { SummaryMetrics } from './SummaryMetrics';
+export { SummaryMetricsBar } from './SummaryMetricsBar';
 export { ToothSurfaceSvg } from './ToothSurfaceSvg';
 export { AnalysisModal } from './modals/AnalysisModal';
 export { CalibrationModal } from './modals/CalibrationModal';

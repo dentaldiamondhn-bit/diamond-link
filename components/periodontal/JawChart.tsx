@@ -5,6 +5,7 @@ import { ChartData } from '@/lib/types';
 import { SvgPlaceholder } from './SvgPlaceholder';
 import { ArchDataGrid } from './ArchDataGrid';
 import { SummaryMetrics } from './SummaryMetrics';
+import { SummaryMetricsBar } from './SummaryMetricsBar';
 import { calculateRiskAssessment } from '@/lib/utils/periodontalAnalysis';
 
 interface JawChartProps {
@@ -25,6 +26,8 @@ export function JawChart({
   const risk = calculateRiskAssessment(data);
   const showRisk = activeRemoteControl === 'pra';
 
+  const labelClass = 'text-xs font-bold uppercase tracking-wider text-gray-400 mb-1';
+
   return (
     <div className="flex w-full flex-col gap-0">
       <SummaryMetrics data={data} />
@@ -36,14 +39,9 @@ export function JawChart({
       )}
 
       {/* Upper Arch */}
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
-        Maxilar Superior
-      </div>
       <ArchDataGrid arch="upper" readOnly={readOnly} />
 
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
-        Vestibular Superior
-      </div>
+      <div className={labelClass}>Maxilar Superior - Vestibular</div>
       <div className="w-full">
         <SvgPlaceholder
           id="upper-svg-placeholder-01"
@@ -54,9 +52,7 @@ export function JawChart({
         />
       </div>
 
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
-        Palatino Superior
-      </div>
+      <div className={labelClass}>Maxilar Superior - Palatino</div>
       <div className="w-full">
         <SvgPlaceholder
           id="upper-svg-placeholder-02"
@@ -67,13 +63,11 @@ export function JawChart({
         />
       </div>
 
+      {/* Middle Summary Metrics Bar */}
+      <SummaryMetricsBar data={data} />
+
       {/* Lower Arch */}
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
-        Mandibular Inferior
-      </div>
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
-        Lingual Inferior
-      </div>
+      <div className={labelClass}>Mandibular Inferior - Lingual</div>
       <div className="w-full">
         <SvgPlaceholder
           id="lower-svg-placeholder-01"
@@ -84,9 +78,7 @@ export function JawChart({
         />
       </div>
 
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-400 my-1 px-1">
-        Vestibular Inferior
-      </div>
+      <div className={labelClass}>Mandibular Inferior - Vestibular</div>
       <div className="w-full">
         <SvgPlaceholder
           id="lower-svg-placeholder-02"
