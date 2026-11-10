@@ -108,6 +108,7 @@ export function ToothOutlineSvg({ tooth, viewId, data, x, y }: ToothOutlineSvgPr
             d={getImplantScrewPath(
               0,
               rootWidth,
+              rootDirection,
             )}
             fill={implantColor}
             stroke="#111827"
