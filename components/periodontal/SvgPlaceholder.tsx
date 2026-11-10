@@ -5,6 +5,7 @@ import { ChartData } from '@/lib/types';
 import {
   ChartViewId,
   getSurfaceX,
+  getToothCenterX,
   getViewConfig,
   getViewTeeth,
   SVG_VIEWBOX_HEIGHT,
@@ -12,7 +13,7 @@ import {
 } from '@/lib/utils/chartGeometry';
 import { ToothOutlineSvg } from './ToothOutlineSvg';
 import { readNumber } from '@/lib/utils/periodontalAnalysis';
-import { getToothCenterX } from '@/lib/utils/chartGeometry';
+import { getToothTemplate, getToothRootLength } from '@/lib/utils/toothAnatomy';
 import { PerioPolygon } from './PerioPolygon';
 import { ToothSurfaceSvg } from './ToothSurfaceSvg';
 import { FurcationMarker } from './FurcationMarker';
