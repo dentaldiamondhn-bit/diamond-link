@@ -10,8 +10,9 @@ import {
   SVG_VIEWBOX_HEIGHT,
   SVG_VIEWBOX_WIDTH,
 } from '@/lib/utils/chartGeometry';
-import { getToothTemplate, getToothRootLength } from '@/lib/utils/toothAnatomy';
+import { ToothOutlineSvg } from './ToothOutlineSvg';
 import { readNumber } from '@/lib/utils/periodontalAnalysis';
+import { getToothCenterX } from '@/lib/utils/chartGeometry';
 import { PerioPolygon } from './PerioPolygon';
 import { ToothSurfaceSvg } from './ToothSurfaceSvg';
 import { FurcationMarker } from './FurcationMarker';
@@ -105,6 +106,22 @@ export function SvgPlaceholder({
             strokeWidth={1.5}
             vectorEffect="non-scaling-stroke"
           />
+
+          {/* Tooth outlines - crown + root or implant */}
+          {teeth.map(tooth => {
+            const { zeroLineY } = getViewConfig(id);
+            const x = getToothCenterX(tooth, id);
+            return (
+              <ToothOutlineSvg
+                key={`outline-${tooth}`}
+                tooth={tooth}
+                viewId={id}
+                data={data}
+                x={x}
+                y={zeroLineY}
+              />
+            );
+          })}
 
           {teeth.slice(1).map((tooth, index) => (
             <InterProximalPolygon
