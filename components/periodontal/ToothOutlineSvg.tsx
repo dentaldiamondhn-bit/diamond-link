@@ -5,6 +5,7 @@ import { ChartData, FDIToothNumber } from '@/lib/types';
 import { ChartViewId, getViewConfig } from '@/lib/utils/chartGeometry';
 import { getCrownPath, getRootPaths, getToothDimensions } from '@/lib/utils/toothAnatomy';
 import { isToothPresent, readNumber } from '@/lib/utils/periodontalAnalysis';
+import { getImplantScrewSvg } from '@/lib/periodontal/implantVector';
 
 interface ToothOutlineSvgProps {
   tooth: FDIToothNumber;
@@ -12,51 +13,6 @@ interface ToothOutlineSvgProps {
   data: ChartData;
   x: number;
   y: number;
-}
-
-const IMPLANT_COLORS: Record<number, string> = {
-  1: '#6b7280',
-  2: '#ef4444',
-  3: '#22c55e',
-};
-
-function getImplantScrewPath(rootLength: number, rootWidth: number, rootDirection: -1 | 1): string {
-  const w = rootWidth * 0.6;
-  const len = rootLength * 0.9;
-  const tipY = rootDirection * len;
-
-  return [
-    `M ${-w} 0`,
-    `L ${-w} ${tipY * 0.15}`,
-    `L ${-w * 0.85} ${tipY * 0.15}`,
-    `L ${-w * 0.85} ${tipY * 0.3}`,
-    `L ${-w} ${tipY * 0.3}`,
-    `L ${-w} ${tipY * 0.45}`,
-    `L ${-w * 0.85} ${tipY * 0.45}`,
-    `L ${-w * 0.85} ${tipY * 0.6}`,
-    `L ${-w} ${tipY * 0.6}`,
-    `L ${-w} ${tipY * 0.75}`,
-    `L ${-w * 0.85} ${tipY * 0.75}`,
-    `L ${-w * 0.85} ${tipY * 0.9}`,
-    `L ${-w} ${tipY * 0.9}`,
-    `L ${-w} ${tipY}`,
-    `L 0 ${tipY + rootDirection * 4}`,
-    `L ${w} ${tipY}`,
-    `L ${w} ${tipY * 0.9}`,
-    `L ${w * 0.85} ${tipY * 0.9}`,
-    `L ${w * 0.85} ${tipY * 0.75}`,
-    `L ${w} ${tipY * 0.75}`,
-    `L ${w} ${tipY * 0.6}`,
-    `L ${w * 0.85} ${tipY * 0.6}`,
-    `L ${w * 0.85} ${tipY * 0.45}`,
-    `L ${w} ${tipY * 0.45}`,
-    `L ${w} ${tipY * 0.3}`,
-    `L ${w * 0.85} ${tipY * 0.3}`,
-    `L ${w * 0.85} ${tipY * 0.15}`,
-    `L ${w} ${tipY * 0.15}`,
-    `L ${w} 0`,
-    'Z',
-  ].join(' ');
 }
 
 export function ToothOutlineSvg({ tooth, viewId, data, x, y }: ToothOutlineSvgProps) {
@@ -70,12 +26,9 @@ export function ToothOutlineSvg({ tooth, viewId, data, x, y }: ToothOutlineSvgPr
 
   const crownPath = getCrownPath(tooth);
   const rootPaths = getRootPaths(tooth, config.kind);
-  const template = getToothDimensions(tooth);
-  const rootWidth = template.rootWidth;
-
+  const dims = getToothDimensions(tooth);
   const flip = rootDirection === 1 ? -1 : 1;
-
-  const implantColor = IMPLANT_COLORS[implantStatus] ?? IMPLANT_COLORS[1];
+  const isUpper = viewId.startsWith('upper');
 
   return (
     <g transform={`translate(${x} ${y}) scale(1 ${flip})`}>
@@ -89,8 +42,8 @@ export function ToothOutlineSvg({ tooth, viewId, data, x, y }: ToothOutlineSvgPr
         strokeLinejoin="round"
       />
 
-      {/* Natural root or implant */}
-      {!hasImplant ? (
+      {/* Root: only when no implant */}
+      {!hasImplant &&
         rootPaths.map((path, index) => (
           <path
             key={`root-${index}`}
@@ -101,22 +54,18 @@ export function ToothOutlineSvg({ tooth, viewId, data, x, y }: ToothOutlineSvgPr
             vectorEffect="non-scaling-stroke"
             strokeLinejoin="round"
           />
-        ))
-      ) : (
-        <g id={`implant-screw-${tooth}`}>
-          <path
-            d={getImplantScrewPath(
-              0,
-              rootWidth,
-              rootDirection,
-            )}
-            fill={implantColor}
-            stroke="#111827"
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-          />
-        </g>
-      )}
+        ))}
+
+      {/* Implant screw: replaces root when implant > 0 */}
+      {hasImplant &&
+        getImplantScrewSvg(
+          0,
+          0,
+          dims.rootWidth * 0.9,
+          dims.rootLength * 0.9,
+          isUpper,
+          implantStatus,
+        )}
     </g>
   );
 }
