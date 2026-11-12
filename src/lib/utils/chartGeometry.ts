@@ -1,9 +1,12 @@
 import { FDIToothNumber, SurfaceId } from '@/lib/types/clinical';
 import { getToothSpread, isUpperTooth } from '@/lib/utils/toothAnatomy';
 
-export const POLYGON_SCALE = 6.45;
 export const SVG_VIEWBOX_WIDTH = 1800;
-export const SVG_VIEWBOX_HEIGHT = 240;
+// The background JPGs (3248x652) must render without vertical distortion, so
+// the canvas keeps the 1800-unit width of the uniform tooth grid and takes
+// the height matching the JPG's natural aspect ratio. This also makes app
+// units isotropic with the JPG, so teeth render at their true proportions.
+export const SVG_VIEWBOX_HEIGHT = (SVG_VIEWBOX_WIDTH / 3248) * 652; // ≈ 361.33
 export const TOOTH_PITCH = 110;
 export const TOOTH_CENTER_OFFSET = 65;
 export const MAX_PROBING_DEPTH = 12;
@@ -25,6 +28,7 @@ export interface ChartViewConfig {
 }
 
 const SITE_VIEWBOX_HEIGHT = 162;
+const SITE_MM_SCALE = 6.45; // site units per mm (js/renderer/chart_renderer.js)
 const SITE_CEJ_Y: Record<ChartViewId, number> = {
   'upper-svg-placeholder-01': 106,
   'upper-svg-placeholder-02': 53,
@@ -32,6 +36,10 @@ const SITE_CEJ_Y: Record<ChartViewId, number> = {
   'lower-svg-placeholder-02': 61,
 };
 const CEJ_SCALE = SVG_VIEWBOX_HEIGHT / SITE_VIEWBOX_HEIGHT;
+
+// App-space units per mm: the site's mm scale mapped onto our canvas, so
+// polygons, furcation offsets and the mm grid share one consistent scale.
+export const POLYGON_SCALE = SITE_MM_SCALE * CEJ_SCALE;
 
 export const CHART_VIEWS: Record<ChartViewId, ChartViewConfig> = {
   'upper-svg-placeholder-01': {
@@ -172,16 +180,13 @@ export function formatPoints(points: ChartPoint[]): string {
 }
 
 // The site's chart renderer draws 16 horizontal mm lines at 1 mm intervals
-// (6.45 site units) from the zero (CEJ) line into the root area of each view,
-// plus the zero line itself (js/renderer/chart_renderer.js:567-577).
-// SITE_MM_STEP is that 1 mm step expressed in our 1800x240 space.
-export const SITE_MM_STEP = POLYGON_SCALE * CEJ_SCALE;
-
+// from the zero (CEJ) line into the root area of each view, plus the zero
+// line itself (js/renderer/chart_renderer.js:567-577).
 export function getMmLineYs(viewId: ChartViewId): number[] {
   const { rootDirection, zeroLineY } = CHART_VIEWS[viewId];
   const ys: number[] = [];
   for (let i = 1; i <= 16; i++) {
-    ys.push(Number((zeroLineY + i * SITE_MM_STEP * rootDirection).toFixed(2)));
+    ys.push(Number((zeroLineY + i * POLYGON_SCALE * rootDirection).toFixed(2)));
   }
   return ys;
 }

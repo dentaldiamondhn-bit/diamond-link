@@ -42,15 +42,19 @@ export interface ToothDimensions {
   rootWidth: number;
 }
 
+// Vertical dimensions (crownHeight, rootLength) are app units for the
+// current canvas height (≈361.33 units = the background JPG's natural
+// aspect at the 1800-unit width; originally tuned for the 240-unit canvas
+// and rescaled by 361.33/240). Horizontal dimensions are tooth widths.
 const DIMENSIONS: Record<ToothClass, ToothDimensions> = {
-  'central-incisor': { crownHalfWidth: 40, crownHeight: 58, rootLength: 92, rootWidth: 16 },
-  'lateral-incisor': { crownHalfWidth: 34, crownHeight: 52, rootLength: 86, rootWidth: 15 },
-  canine: { crownHalfWidth: 38, crownHeight: 66, rootLength: 110, rootWidth: 18 },
-  'first-premolar': { crownHalfWidth: 42, crownHeight: 50, rootLength: 82, rootWidth: 17 },
-  'second-premolar': { crownHalfWidth: 44, crownHeight: 52, rootLength: 84, rootWidth: 18 },
-  'first-molar': { crownHalfWidth: 56, crownHeight: 52, rootLength: 76, rootWidth: 20 },
-  'second-molar': { crownHalfWidth: 52, crownHeight: 50, rootLength: 72, rootWidth: 19 },
-  'third-molar': { crownHalfWidth: 46, crownHeight: 46, rootLength: 64, rootWidth: 17 },
+  'central-incisor': { crownHalfWidth: 40, crownHeight: 87.3, rootLength: 138.5, rootWidth: 16 },
+  'lateral-incisor': { crownHalfWidth: 34, crownHeight: 78.3, rootLength: 129.5, rootWidth: 15 },
+  canine: { crownHalfWidth: 38, crownHeight: 99.4, rootLength: 165.6, rootWidth: 18 },
+  'first-premolar': { crownHalfWidth: 42, crownHeight: 75.3, rootLength: 123.5, rootWidth: 17 },
+  'second-premolar': { crownHalfWidth: 44, crownHeight: 78.3, rootLength: 126.5, rootWidth: 18 },
+  'first-molar': { crownHalfWidth: 56, crownHeight: 78.3, rootLength: 114.4, rootWidth: 20 },
+  'second-molar': { crownHalfWidth: 52, crownHeight: 75.3, rootLength: 108.4, rootWidth: 19 },
+  'third-molar': { crownHalfWidth: 46, crownHeight: 69.3, rootLength: 96.4, rootWidth: 17 },
 };
 
 export function getToothDimensions(tooth: FDIToothNumber): ToothDimensions {

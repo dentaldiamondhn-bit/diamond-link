@@ -183,9 +183,10 @@ check(
   JSON.stringify(rootDirections) === JSON.stringify([-1, 1, -1, 1]),
   `chartGeometry rootDirections must be -1/1/-1/1 (01 views roots up, 02 views roots down), got ${JSON.stringify(rootDirections)}`
 );
-check(geometrySrc.includes('SITE_MM_STEP = POLYGON_SCALE * CEJ_SCALE'), 'chartGeometry must derive the 1 mm line step from the site scale');
+check(geometrySrc.includes('SVG_VIEWBOX_HEIGHT = (SVG_VIEWBOX_WIDTH / 3248) * 652'), 'canvas height must match the background JPG aspect so teeth render unsquashed');
+check(geometrySrc.includes('POLYGON_SCALE = SITE_MM_SCALE * CEJ_SCALE'), 'chartGeometry must scale the site mm scale (6.45 units/mm) into app units');
 check(geometrySrc.includes('i <= 16'), 'chartGeometry must emit 16 mm lines like the site');
 check(geometrySrc.includes('rootDirection'), 'chartGeometry mm lines must extend into the root area only');
 
-console.log(failures === 0 ? 'PASS: raster crowns only, 5 render layers (implant behind mm lines), site mm grid in root area only, exact site implant PNGs (192 assets), exact crown hitboxes, CEJ alignment' : `${failures} failure(s)`);
+console.log(failures === 0 ? 'PASS: raster crowns only, unsquashed JPG-aspect canvas, 5 render layers (implant behind mm lines), site mm grid in root area only, exact site implant PNGs (192 assets), exact crown hitboxes, CEJ alignment' : `${failures} failure(s)`);
 process.exit(failures === 0 ? 0 : 1);
