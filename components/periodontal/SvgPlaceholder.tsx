@@ -4,20 +4,17 @@ import React from 'react';
 import { ChartData } from '@/lib/types';
 import {
   ChartViewId,
-  getSurfaceX,
-  getToothCenterX,
+  getMmLineYs,
   getViewConfig,
   getViewTeeth,
   SVG_VIEWBOX_HEIGHT,
   SVG_VIEWBOX_WIDTH,
 } from '@/lib/utils/chartGeometry';
-import { ToothOutlineSvg } from './ToothOutlineSvg';
-import { readNumber } from '@/lib/utils/periodontalAnalysis';
-import { getToothTemplate, getToothRootLength } from '@/lib/utils/toothAnatomy';
+import { ImplantOverlay } from './ImplantOverlay';
 import { PerioPolygon } from './PerioPolygon';
 import { ToothSurfaceSvg } from './ToothSurfaceSvg';
+import { ToothSurfaceMarkers } from './ToothSurfaceMarkers';
 import { FurcationMarker } from './FurcationMarker';
-import { ImplantMarker } from './ImplantMarker';
 import { MissingToothDiagonal } from './MissingToothDiagonal';
 import { InterProximalPolygon } from './InterProximalPolygon';
 import { PdHighlighter } from './PdHighlighter';
@@ -37,7 +34,6 @@ const BACKGROUND_IMAGES: Record<ChartViewId, string> = {
   'lower-svg-placeholder-02': '/img/jpg/uk-teeth-02.jpg',
 };
 
-const GRID_STROKE = '#4b5563';
 const ZERO_STROKE = '#f59e0b';
 
 export function SvgPlaceholder({
@@ -60,43 +56,47 @@ export function SvgPlaceholder({
     <div id={id} className="w-full">
       <div
         className="relative w-full overflow-hidden rounded"
-        style={{
-          backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: '100% 100%',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
-          aspectRatio: `${SVG_VIEWBOX_WIDTH} / ${SVG_VIEWBOX_HEIGHT}`,
-        }}
+        style={{ aspectRatio: `${SVG_VIEWBOX_WIDTH} / ${SVG_VIEWBOX_HEIGHT}` }}
       >
+        <div
+          className="absolute inset-0 z-[1]"
+          style={{
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: '100% 100%',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+          }}
+        />
+
+        {/* z-2: implant PNGs render behind the mm grid, like the site
+            (site: .implant-marker z-index 3 < .svg-placeholder z-index 5). */}
+        <div className="pointer-events-none absolute inset-0 z-[2]">
+          {teeth.map(tooth => (
+            <ImplantOverlay key={`implant-overlay-${tooth}`} tooth={tooth} viewId={id} data={data} />
+          ))}
+        </div>
+
+        {/* z-3: zero (CEJ) line plus 16 mm lines at 1 mm intervals extending
+            from the CEJ into the root area only, exactly like the site's
+            chart renderer (stroke #000, width 1.25). */}
         <svg
           viewBox={`0 0 ${SVG_VIEWBOX_WIDTH} ${SVG_VIEWBOX_HEIGHT}`}
           preserveAspectRatio="none"
-          className="absolute inset-0 h-full w-full"
+          className="pointer-events-none absolute inset-0 z-[3] h-full w-full"
           style={{ display: 'block' }}
         >
-          <defs>
-            <linearGradient id={`al-gradient-${id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.55" />
-              <stop offset="100%" stopColor="#000080" stopOpacity="0.35" />
-            </linearGradient>
-          </defs>
-
-          {Array.from({ length: 16 }, (_, i) => {
-            const y = (i + 1) * (SVG_VIEWBOX_HEIGHT / 16);
-            return (
-              <line
-                key={`grid-${y}`}
-                x1={0}
-                y1={y}
-                x2={SVG_VIEWBOX_WIDTH}
-                y2={y}
-                stroke={GRID_STROKE}
-                strokeWidth={0.5}
-                strokeOpacity={0.35}
-                vectorEffect="non-scaling-stroke"
-              />
-            );
-          })}
+          {getMmLineYs(id).map(y => (
+            <line
+              key={`grid-${y}`}
+              x1={0}
+              y1={y}
+              x2={SVG_VIEWBOX_WIDTH}
+              y2={y}
+              stroke="#000"
+              strokeWidth={1.25}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
 
           <line
             x1={0}
@@ -107,22 +107,20 @@ export function SvgPlaceholder({
             strokeWidth={1.5}
             vectorEffect="non-scaling-stroke"
           />
+        </svg>
 
-          {/* Tooth outlines - crown + root or implant */}
-          {teeth.map(tooth => {
-            const { zeroLineY } = getViewConfig(id);
-            const x = getToothCenterX(tooth, id);
-            return (
-              <ToothOutlineSvg
-                key={`outline-${tooth}`}
-                tooth={tooth}
-                viewId={id}
-                data={data}
-                x={x}
-                y={zeroLineY}
-              />
-            );
-          })}
+        <svg
+          viewBox={`0 0 ${SVG_VIEWBOX_WIDTH} ${SVG_VIEWBOX_HEIGHT}`}
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 z-[4] h-full w-full"
+          style={{ display: 'block' }}
+        >
+          <defs>
+            <linearGradient id={`al-gradient-${id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="#000080" stopOpacity="0.35" />
+            </linearGradient>
+          </defs>
 
           {teeth.slice(1).map((tooth, index) => (
             <InterProximalPolygon
@@ -163,45 +161,33 @@ export function SvgPlaceholder({
             <FurcationMarker key={`furc-${tooth}`} tooth={tooth} viewId={id} data={data} />
           ))}
 
-          {teeth.map(tooth => {
-            const status = readNumber(data[`implant_${tooth}`]);
-            if (!status || status < 1) return null;
-            const { rootDirection, zeroLineY } = getViewConfig(id);
-            const template = getToothTemplate(tooth);
-            const surface = (getViewConfig(id).kind === 'buccal' ? 'b' : id.startsWith('upper') ? 'p' : 'l') as 'b' | 'p' | 'l';
-            const x = getSurfaceX(tooth, surface);
-            const width = template.crownHalfWidth * 0.55;
-            const length = getToothRootLength(tooth) * 0.95;
-            const minY = Math.min(zeroLineY, zeroLineY + rootDirection * length);
-            const maxY = Math.max(zeroLineY, zeroLineY + rootDirection * length);
-            return (
-              <rect
-                key={`implant-mask-${tooth}`}
-                x={x - width}
-                y={minY}
-                width={width * 2}
-                height={maxY - minY + 4}
-                className="fill-white dark:fill-gray-800"
-                stroke="none"
-              />
-            );
-          })}
-
-          {teeth.map(tooth => (
-            <ImplantMarker key={`impl-${tooth}`} tooth={tooth} viewId={id} data={data} />
-          ))}
-
           {teeth.map(tooth => (
             <MissingToothDiagonal key={`missing-${tooth}`} tooth={tooth} viewId={id} data={data} />
           ))}
 
+          {teeth.map(tooth => (
+            <ToothSurfaceMarkers
+              key={`surface-marker-${tooth}`}
+              tooth={tooth}
+              viewId={id}
+              data={data}
+              isGmInverted={isGmInverted}
+            />
+          ))}
+        </svg>
+
+        <svg
+          viewBox={`0 0 ${SVG_VIEWBOX_WIDTH} ${SVG_VIEWBOX_HEIGHT}`}
+          preserveAspectRatio="none"
+          className="absolute inset-0 z-[5] h-full w-full"
+          style={{ display: 'block' }}
+        >
           {teeth.map(tooth => (
             <ToothSurfaceSvg
               key={`surface-${tooth}`}
               tooth={tooth}
               viewId={id}
               data={data}
-              isGmInverted={isGmInverted}
               activeRemoteControl={activeRemoteControl}
             />
           ))}

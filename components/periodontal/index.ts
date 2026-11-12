@@ -1,6 +1,6 @@
 export { ArchDataGrid } from './ArchDataGrid';
 export { FurcationMarker } from './FurcationMarker';
-export { ImplantMarker } from './ImplantMarker';
+export { ImplantOverlay } from './ImplantOverlay';
 export { InterProximalPolygon } from './InterProximalPolygon';
 export { JawChart } from './JawChart';
 export { LeftActionPanel } from './LeftActionPanel';
@@ -12,6 +12,7 @@ export type { ClinicalModalKey } from './RightClinicalPanel';
 export { SvgPlaceholder } from './SvgPlaceholder';
 export { SummaryMetrics } from './SummaryMetrics';
 export { SummaryMetricsBar } from './SummaryMetricsBar';
+export { ToothSurfaceMarkers } from './ToothSurfaceMarkers';
 export { ToothSurfaceSvg } from './ToothSurfaceSvg';
 export { AnalysisModal } from './modals/AnalysisModal';
 export { CalibrationModal } from './modals/CalibrationModal';
@@ -20,4 +21,4 @@ export { IntervalModal } from './modals/IntervalModal';
 export { QrModal } from './modals/QrModal';
 export { SummaryModal } from './modals/SummaryModal';
 export { ThreeDModal } from './modals/ThreeDModal';
-export { ToothOutlineSvg } from './ToothOutlineSvg';
+

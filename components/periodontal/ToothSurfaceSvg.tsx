@@ -4,20 +4,19 @@ import React from 'react';
 import { ChartData, FDIToothNumber, SurfaceId } from '@/lib/types';
 import {
   ChartViewId,
-  getGmY,
-  getSurfaceX,
+  getToothCenterX,
   getViewConfig,
   getViewSurfacesOrdered,
-  POLYGON_SCALE,
 } from '@/lib/utils/chartGeometry';
-import { isToothPresent, readFlag, readNumber } from '@/lib/utils/periodontalAnalysis';
+import { isToothPresent } from '@/lib/utils/periodontalAnalysis';
+import { getToothDimensions } from '@/lib/utils/toothAnatomy';
+import { getSiteCrownTransform, getSiteToothCrown } from '@/lib/periodontal/toothSvgPaths';
 import { useChartStore } from '@/lib/store/useChartStore';
 
 interface ToothSurfaceSvgProps {
   tooth: FDIToothNumber;
   viewId: ChartViewId;
   data: ChartData;
-  isGmInverted: boolean;
   activeRemoteControl: string;
 }
 
@@ -33,16 +32,16 @@ const SURFACE_LABELS: Record<SurfaceId, string> = {
   dl: 'Distolingual',
 };
 
-const BOP_COLOR = '#ef4444';
-const PLAQUE_COLOR = '#3b82f6';
-const MARKER_HEIGHT = 1.3 * POLYGON_SCALE;
-const HIT_HEIGHT = 4.5 * POLYGON_SCALE;
+function toSiteSurfaceKey(surface: SurfaceId): 'm' | 'b' | 'd' | 'p' | 'l' {
+  if (surface === 'mb' || surface === 'mp' || surface === 'ml') return 'm';
+  if (surface === 'db' || surface === 'dp' || surface === 'dl') return 'd';
+  return surface;
+}
 
 export function ToothSurfaceSvg({
   tooth,
   viewId,
   data,
-  isGmInverted,
   activeRemoteControl,
 }: ToothSurfaceSvgProps) {
   const toggleBop = useChartStore(state => state.toggleBop);
@@ -51,9 +50,20 @@ export function ToothSurfaceSvg({
 
   if (!isToothPresent(data, tooth)) return null;
 
+  const config = getViewConfig(viewId);
+  const { rootDirection } = config;
   const surfaces = getViewSurfacesOrdered(tooth, viewId);
-  const xs = surfaces.map(surface => getSurfaceX(tooth, surface));
-  const step = xs.length > 1 ? (xs[xs.length - 1] - xs[0]) / (xs.length - 1) : 20;
+  const dims = getToothDimensions(tooth);
+  const crown = getSiteToothCrown(tooth);
+  const crownTransform = getSiteCrownTransform(tooth, dims.crownHalfWidth * 2, dims.crownHeight);
+  const toothX = getToothCenterX(tooth, viewId);
+  const toothY = config.zeroLineY;
+  const flip = rootDirection === 1 ? -1 : 1;
+
+  const getSurfacePath = (surface: SurfaceId): string | undefined => {
+    const key = toSiteSurfaceKey(surface);
+    return (crown.surfaces as Readonly<Record<string, string>>)[key];
+  };
 
   const handleClick = (surface: SurfaceId) => {
     if (isOverlayMode) return;
@@ -62,47 +72,27 @@ export function ToothSurfaceSvg({
   };
 
   return (
-    <g>
-      {surfaces.map((surface, index) => {
-        const x = xs[index];
-        const half = step / 2;
-        const gm = readNumber(data[`gm_${tooth}_${surface}`]);
-        const gmY = getGmY(viewId, gm, isGmInverted);
-        const rootDirection = getViewConfig(viewId).rootDirection;
+    <g transform={`translate(${toothX} ${toothY}) scale(1 ${flip})`}>
+      <g transform={crownTransform}>
+        {surfaces.map(surface => {
+          const d = getSurfacePath(surface);
+          if (!d) return null;
 
-        const bop = readFlag(data[`bop_${tooth}_${surface}`]);
-        const plaque = readFlag(data[`pi_${tooth}_${surface}`]);
-
-        const markerY = rootDirection === -1 ? gmY - MARKER_HEIGHT : gmY;
-        const hitY = rootDirection === -1 ? gmY - HIT_HEIGHT : gmY;
-
-        const fill = bop ? BOP_COLOR : plaque ? PLAQUE_COLOR : 'transparent';
-
-        return (
-          <g key={`${tooth}-${viewId}-${surface}`}>
-            <rect
-              x={x - half}
-              y={hitY}
-              width={step}
-              height={HIT_HEIGHT}
+          return (
+            <path
+              key={`${tooth}-${viewId}-${surface}`}
+              d={d}
               fill="transparent"
+              stroke="none"
+              pointerEvents="all"
               className="cursor-pointer"
               onClick={() => handleClick(surface)}
             >
               <title>{`${tooth} ${SURFACE_LABELS[surface]}`}</title>
-            </rect>
-            <rect
-              x={x - half}
-              y={markerY}
-              width={step}
-              height={MARKER_HEIGHT}
-              fill={fill}
-              fillOpacity={fill === 'transparent' ? 0 : 0.85}
-              pointerEvents="none"
-            />
-          </g>
-        );
-      })}
+            </path>
+          );
+        })}
+      </g>
     </g>
   );
 }

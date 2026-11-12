@@ -79,7 +79,7 @@ periodontal-chart/
 │   │   │   ├── ToothSurfaceSvg.tsx
 │   │   │   ├── PerioPolygon.tsx
 │   │   │   ├── FurcationMarker.tsx
-│   │   │   ├── ImplantMarker.tsx
+│   │   │   ├── ImplantOverlay.tsx
 │   │   │   ├── MissingToothDiagonal.tsx
 │   │   │   ├── InterProximalPolygon.tsx
 │   │   │   ├── RemoteControlPanel.tsx
@@ -1140,10 +1140,7 @@ export function SvgPlaceholder({ id, jaw, view, teeth }: SvgPlaceholderProps) {
           <FurcationMarker key={tooth} tooth={tooth} svgId={id} data={data} />
         ))}
         
-        {/* Implant markers */}
-        {teeth.map(tooth => (
-          <ImplantMarker key={tooth} tooth={tooth} svgId={id} data={data} />
-        ))}
+        {/* Implants render in the absolute ImplantOverlay layer outside this SVG */}
         
         {/* Missing tooth diagonals */}
         {teeth.map(tooth => (
@@ -1251,9 +1248,10 @@ export const POLYGON_ZERO_LINES: Record<string, number> = {
 };
 
 export const IMPLANT_COORDINATES: Record<string, { x: number; y: number }> = {
-  'implant_18_b': { x: 50, y: 20 },
-  'implant_18_p': { x: 50, y: 180 },
-  // ... all implant positions
+  'implant_18_b': { x: 26, y: 57 },
+  'implant_18_p': { x: 26, y: 105 },
+  // ... all 64 implant positions (y constant per view: 57 upper-buccal,
+  // 105-106 upper-palatal, 54 lower-lingual, 112 lower-buccal)
 };
 
 export const FURCATION_COORDINATES: Record<string, { x: number; y: number }> = {
@@ -2262,7 +2260,7 @@ NEXT_PUBLIC_AUTO_SAVE_INTERVAL="30000"
 - [ ] SVG coordinate system implementation
 - [ ] PerioPolygon component with dynamic calculations
 - [ ] ToothSurfaceSvg for BOP/PI coloring
-- [ ] FurcationMarker and ImplantMarker
+- [ ] FurcationMarker and ImplantOverlay
 - [ ] MissingToothDiagonal
 - [ ] InterProximalPolygon
 
@@ -2347,7 +2345,7 @@ test('Complete periodontal chart workflow', async ({ page }) => {
 
 ### Key Behavioral Differences to Preserve
 
-1. **Tooth Presence Controls Implant Visibility**: Implant markers only render when `tooth_X === '1'` AND `implant_X > 0`. The implant status (`implant_X`) is preserved even when tooth is toggled off.
+1. **Implant Visibility**: `ImplantOverlay` renders whenever `implant_X > 0`, independent of tooth presence. `MissingToothDiagonal` is hidden when an implant is present. The implant status (`implant_X`) is preserved even when the tooth is toggled off.
 
 2. **AL Calculation**: `AL = PD - GM` (default) or `AL = PD + GM` (when GM inverted). Recalculated on every PD/GM change and on load if missing.
 
@@ -2453,9 +2451,9 @@ public/
 
 ## 18. Exact SVG Tooth Vector Definitions
 
-### Source of truth: background images, not SVG paths
+### Source of truth: background images for roots, inline SVG for crown surfaces
 
-The reference application (`https://www.periodontalchart-online.com/?lang=es`) does **not** use inline SVG tooth outlines. Inspection of its DOM shows that each SVG placeholder canvas is empty:
+The reference application (`https://www.periodontalchart-online.com/?lang=es`) main chart does **not** use inline SVG tooth outlines; the natural roots and crowns are raster JPEGs. However, the site **does** expose exact inline SVG crown-surface paths in its surface editor (`#upper-svg`, `#lower-svg`) and in `#Ebene_1`. Those paths are documented in §19 and are the source for `src/lib/periodontal/toothSvgPaths.ts`. The chart SVG placeholder itself is empty:
 
 ```html
 <div class="svg-placeholder" id="upper-svg-placeholder-01">
@@ -2497,41 +2495,46 @@ Our implementation keeps its own viewBox (`1800 × 240`) and coordinate system b
 
 ### Implementation notes
 
-- `SvgPlaceholder.tsx` sets the background image on the container `div` and overlays the SVG canvas on top with `position: absolute; inset: 0`.
-- No `ToothOutlineSvg` component is used — the background image provides the tooth outlines.
-- The CEJ zero-reference line (`stroke="#ef4444"`, `strokeWidth="1.5"`) is drawn at `config.zeroLineY` in our coordinate system.
-- Grid lines are rendered at 1 mm intervals (`POLYGON_SCALE = 6.45` units/mm) across the full canvas height.
-- Surface interaction (BOP/PI click targets) is handled by `ToothSurfaceSvg.tsx` which renders transparent hit rectangles inside the SVG overlay.
+- `SvgPlaceholder.tsx` renders five explicit layers: JPG background (`z-1`), implant overlay (`z-2`), mm-line grid/CEJ (`z-3`), polygons/markers (`z-4`), and invisible interaction hitboxes (`z-5`). The implant overlay sits **below** the mm lines exactly like the site (`.implant-marker` z-index 3 < `.svg-placeholder` z-index 5), so the black mm lines cross over the implant PNGs.
+- `ToothOutlineSvg` is **not mounted**. The JPG already contains the high-fidelity crowns and roots; drawing vector crowns caused double wireframes.
+- `ImplantOverlay.tsx` renders the site's **actual PNG assets** (`public/img/implants/…`, copied from periodontalchart-online.com) for each `implant > 0` tooth, centered on the site's exact per-tooth anchor coordinates. Direction, length and width are baked into the PNGs per view (`b` buccal / `p` palatino / `l` lingual), so upper-01/01-views point up and palatino/02-views point down exactly like the reference site.
+- The CEJ zero-reference line (`stroke="#f59e0b"`, `strokeWidth="1.5"`) is drawn at `config.zeroLineY`, which is the site CEJ value (`106/53/108/61`) scaled by `240/162`.
+- The mm grid reproduces the site's chart renderer (`js/renderer/chart_renderer.js:567-577`) exactly: 16 horizontal lines at 1 mm intervals (`SITE_MM_STEP = POLYGON_SCALE × CEJ_SCALE ≈ 9.56` app units) starting at the CEJ and extending **into the root area only** — `upper-01`/`lower-01` upward (`rootDirection -1`), `upper-02`/`lower-02` downward (`rootDirection 1`); `stroke="#000"`, `strokeWidth 1.25`, full canvas width. No lines are drawn in the crown area. The last line(s) are clipped at the canvas edge exactly as on the site (e.g. `lower-02`'s 16th line falls past the bottom edge).
+- `ToothSurfaceSvg.tsx` renders only invisible exact crown-surface hit paths. `ToothSurfaceMarkers.tsx` renders the visible BOP/PI markers in layer 4.
 
 ---
 
-## Reverse-Engineered Implant SVG Definitions
+## Reverse-Engineered Implant Rendering (PNG overlays)
 
-### Source of truth: PNG images, not SVG paths
+### Source of truth: per-tooth PNG chart overlays
 
-The reference application (`https://www.periodontalchart-online.com/?lang=es`) does **not** use inline SVG for implant rendering. Inspection of its DOM reveals that implants are rendered as **PNG image overlays** positioned absolutely over the SVG canvas:
+The reference application (`https://www.periodontalchart-online.com/?lang=es`) renders implants in the **main chart** as **per-tooth PNG image overlays** positioned absolutely over the chart canvas (verified live with Puppeteer). The chart overlay markup is:
 
 ```html
 <img class="implant-marker" id="implant_18_b" src="img/implants/1/18b.png" style="display: none;" />
 ```
 
-The image path follows the pattern `img/implants/{status}/{toothNumber}{site}.png` where:
-- **status**: 1 = active (gray), 2 = warning/peri-implantitis (red), 3 = healthy (green), 4 = additional state
+The image path follows the pattern `img/implants/{status}/{quadrant}/{toothNumber}{site}.png` where:
+- **status folder**: `""` = status 1 (gray), `r/` = status 2 (red/peri-implantitis), `g/` = status 3 (green/healthy)
+- **quadrant**: FDI quadrant `1`–`4`
 - **toothNumber**: FDI number (11-48)
-- **site**: `b` (buccal) or `p` (palatal) for upper teeth; `b` (buccal) or `l` (lingual) for lower teeth
+- **site**: `b` (buccal/vestibular) or `p` (palatal) for upper teeth; `b` (buccal/vestibular) or `l` (lingual) for lower teeth
+
+Each PNG is a complete implant drawing — abutment/crown silhouette plus threaded screw — pre-oriented, pre-lengthened and pre-colored for its exact tooth and view (e.g. `1/11b.png` is 62×137 with the screw pointing up; `1/11p.png` is 62×119 with the screw pointing down). The gray variants are RGBA; the red/green variants are opaque RGB on white and get a 4px top/bottom fade mask (`mask-image: linear-gradient(to bottom, transparent, black 4px, black calc(100% - 4px), transparent)`).
+
+Anchors live in the site's `js/coordinates/implant_coordinates.js` (`implant_<tooth>_<site>` keys, 790×162 per-view space; y is constant per view: `57` upper-buccal, `105–106` upper-palatal, `54` lower-lingual, `112` lower-buccal). The site positions each marker with `position: absolute`, `transform: translate(-50%, -50%)` (the coordinate is the image **center**), natural pixel size, `z-index: 3`, `pointer-events: none`.
 
 ### Implementation in Dental Diamond Link
 
-Since we use SVG-based rendering (not PNG overlays), our implementation uses:
+The app copies the site's rendering exactly:
 
-1. **Root masking**: A solid rectangle (`fill="white"` in light mode, `fill="gray-800"` in dark mode) is drawn over the natural root area of the background image for implant teeth, hiding the natural root silhouette.
+1. **Assets**: all 192 PNGs (`64 teeth-views × 3 status folders`) are copied byte-for-byte into `public/img/implants/`.
+2. **Data tables**: `components/periodontal/ImplantOverlay.tsx` contains `SITE_IMPLANT_COORDS` (the site's 64 anchor coordinates, verbatim) and `IMPLANT_PNG_SIZES` (the 64 natural pixel sizes).
+3. **Coordinate mapping**: the site displays the 3248×652 JPG inside a 787×162.5 placeholder in an 806.67×166.56 box at `(-9, 0)` with `object-fit: contain` → displayed at 806.67×161.93 with its top edge at `y = 2.32`. The app stretches that same JPG edge-to-edge over an `1800×240` viewBox, so site coordinates map with `x_ours = (x_site + 9) × 1800/806.67` and `y_ours = (y_site − 2.32) × 240/161.93`; PNG sizes scale by the same factors. This keeps the implant pixel-aligned with the drawn teeth it replaces.
+4. **Rendering**: `<img>` centered at the mapped anchor with `transform: translate(-50%, -50%)`, `z-index: 3`, `pointer-events: none`, sized to the mapped natural dimensions. Status `2`/`3` select the `r/`/`g/` folders and apply the site's 4px fade mask. The `02` views (Palatino Superior, Vestibular Inferior) use the mirrored PNGs whose screws point down; the `01` views use the up-pointing PNGs — direction is baked into the assets, exactly as on the site.
+5. **Conditional rendering**: The overlay renders whenever `implant_X > 0`, independent of tooth presence. `MissingToothDiagonal` is hidden when an implant is present, so an implant on an extracted tooth remains visible.
 
-2. **Implant screw vector**: A threaded cylinder SVG path is rendered starting from the amber CEJ baseline and extending down the root canal slot. The screw is solid-filled based on implant status:
-   - `1` (Active): Gray (`#6b7280`)
-   - `2` (Warning/Peri-implantitis): Red (`#ef4444`)
-   - `3` (Healthy): Green (`#22c55e`)
-
-3. **Conditional rendering**: The natural root outline is hidden (via the mask rect) when `implant > 0`, and only the implant screw cylinder is visible.
+The vector implant icon reproduction (`src/lib/periodontal/implantVector.tsx`) was removed: the chart now uses the site's own assets, and the app's input row (`ArchDataGrid`) renders implant status as text, so no vector icon is needed.
 
 ### Implant status cycle
 - `0`: No implant (natural root visible)
@@ -2539,5 +2542,184 @@ Since we use SVG-based rendering (not PNG overlays), our implementation uses:
 - `2`: Warning/peri-implantitis (red screw)
 - `3`: Healthy integrated implant (green screw)
 
-### ImplantMarker component location
-`components/periodontal/ImplantMarker.tsx` — renders the threaded screw vector starting from the amber CEJ baseline (`zeroLineY`) and extending down the root canal slot (`rootDirection * rootLength`).
+### Implant component locations
+- `public/img/implants/` — all 192 site PNG assets (gray + `r/` red + `g/` green, per quadrant, per view suffix).
+- `components/periodontal/ImplantOverlay.tsx` — site anchor coordinate table, PNG size table, JPG-faithful coordinate mapping, status folder/mask logic (layered at `z-2`, behind the mm-line grid).
+- `components/periodontal/SvgPlaceholder.tsx` — five layers: background (`z-1`), implant overlay (`z-2`), mm-line grid/CEJ (`z-3`), polygons/markers (`z-4`), invisible interaction hitboxes (`z-5`).
+
+---
+
+## 19. Reverse-Engineered Vector Assets (periodontalchart-online.com)
+
+**Source:** `https://www.periodontalchart-online.com/?lang=es`
+**Method:** live DOM inspection, downloaded JS/CSS, Puppeteer rendering, byte comparison of images.
+**Date:** 2026-11-11
+
+### 19.1 Asset inventory
+
+| Asset | Where the site uses it | Exact geometry | Repo implementation |
+|---|---|---|---|
+| `#upper-svg` | Surface editor row (upper arch) | Inline SVG, `viewBox="0 0 834 81"`, 64 paths | `src/lib/periodontal/toothSvgPaths.ts` |
+| `#lower-svg` | Surface editor row (lower arch) | Inline SVG, `viewBox="0 0 834 81"`, 64 paths | `src/lib/periodontal/toothSvgPaths.ts` |
+| `#Ebene_1` | Secondary surface diagram | Inline SVG, `viewBox="0 0 1000 300"`, 128 paths | Not used (duplicate of the two above) |
+| `ok-teeth-01/02.jpg`, `uk-teeth-01/02.jpg` | Main chart background (roots + crowns) | 3248 × 652/653 px rasters | `public/img/jpg/` (byte-identical) |
+| `img/implants/{status}/{q}/{tooth}{b,p,l}.png` | Main chart implant overlay | 192 PNGs; gray RGBA, red/green RGB-on-white | `public/img/implants/` (byte-identical), rendered by `components/periodontal/ImplantOverlay.tsx` |
+
+### 19.2 Exact crown-surface paths (`#upper-svg`, `#lower-svg`)
+
+The site's surface editor exposes the crown surfaces as 64 inline SVG paths:
+
+- `#upper-svg`: teeth **18–28**, left→right, four paths per tooth: `p`, `b`, `d`, `m`.
+- `#lower-svg`: teeth **48–38**, left→right, four paths per tooth: `l`, `b`, `d`, `m`.
+- Path IDs follow `surface-<FDI><surface>`, e.g. `surface-18p`, `surface-48l`.
+- The paths are **crown-only**. There are no root paths in either SVG. The natural roots exist only in the background JPGs.
+
+Extracted data lives in `src/lib/periodontal/toothSvgPaths.ts`:
+
+```ts
+export const SITE_CROWN_VIEWBOX = { width: 834, height: 81 } as const;
+
+export const SITE_TOOTH_CROWNS: Record<FDIToothNumber, SiteToothCrown> = {
+  11: {
+    arch: 'upper',
+    cej: 'bottom',
+    bbox: [368.4969, 7.0228, 417.6131, 51.9893],
+    surfaces: { p: `...`, b: `...`, d: `...`, m: `...` },
+  },
+  // ... 32 teeth total
+};
+```
+
+`SiteToothCrown` stores:
+
+- `arch`: `'upper' | 'lower'`
+- `cej`: `'bottom'` for upper, `'top'` for lower
+- `bbox`: the exact path bounding box in the 834 × 81 coordinate system
+- `surfaces`: the four exact `d` strings
+
+#### Mapping into the app's local tooth coordinates
+
+`getSiteCrownTransform(tooth, targetWidth, targetHeight)` maps the site bbox so that:
+
+- the site bbox center x maps to local `x = 0`
+- the site CEJ maps to local `y = 0`
+- the site incisal/occlusal edge maps to local `y = +targetHeight`
+- the site bbox width maps to `targetWidth`
+
+```ts
+const [x0, y0, x1, y1] = crown.bbox;
+const siteWidth = x1 - x0;
+const siteHeight = y1 - y0;
+const scaleX = targetWidth / siteWidth;
+const scaleY = targetHeight / siteHeight;
+const centerX = (x0 + x1) / 2;
+const cejY = crown.cej === 'top' ? y0 : y1;
+const flipY = crown.cej === 'top' ? 1 : -1;
+return `translate(${-centerX * scaleX} ${-cejY * scaleY * flipY}) scale(${scaleX} ${scaleY * flipY})`;
+```
+
+`ToothSurfaceSvg` (the invisible interaction layer) applies the existing outer transform:
+
+```tsx
+<g transform={`translate(${x} ${y}) scale(1 ${flip})`}>
+  <g transform={crownTransform}>
+    {surfaces.map(surface => <path d={d} fill="transparent" stroke="none" pointerEvents="all" ... />)}
+  </g>
+</g>
+```
+
+where `flip = rootDirection === 1 ? -1 : 1`. This yields:
+
+- **Upper views:** site CEJ bottom → app CEJ; crown extends toward the occlusal plane (down in local coords).
+- **Lower views:** site CEJ top → app CEJ; crown extends toward the occlusal plane (up in local coords after the outer flip).
+
+The site's left→right order is the same as the app's view order (`18…28` and `48…38`). Each tooth is centered on its own bbox, so no additional mirroring is required.
+
+### 19.3 `#Ebene_1` (secondary diagram)
+
+`#Ebene_1` is `viewBox="0 0 1000 300"` with 128 paths, IDs `site_<FDI><surface>` (e.g. `site_18p`, `site_48l`). The shapes are the same crown surfaces translated/mirrored into a 1000 × 300 layout. It contains **no roots**. The canonical source for `toothSvgPaths.ts` is `#upper-svg`/`#lower-svg` because those are the site's per-arch surface editor row; `#Ebene_1` is documented for completeness and is not duplicated in the app.
+
+### 19.4 Background JPGs (the only natural roots)
+
+The four chart background images are byte-identical to the app's copies (MD5 match):
+
+| View | Site file | App file | Dimensions |
+|---|---|---|---|
+| `upper-svg-placeholder-01` | `img/jpg/ok-teeth-01.jpg` | `public/img/jpg/ok-teeth-01.jpg` | 3248 × 652 |
+| `upper-svg-placeholder-02` | `img/jpg/ok-teeth-02.jpg` | `public/img/jpg/ok-teeth-02.jpg` | 3248 × 652 |
+| `lower-svg-placeholder-01` | `img/jpg/uk-teeth-01.jpg` | `public/img/jpg/uk-teeth-01.jpg` | 3248 × 653 |
+| `lower-svg-placeholder-02` | `img/jpg/uk-teeth-02.jpg` | `public/img/jpg/uk-teeth-02.jpg` | 3248 × 653 |
+
+Consequences:
+
+- The natural root geometry is **raster**, not vector. The app does not attempt to redraw it.
+- `ToothOutlineSvg` is **not mounted**: the JPG already contains the high-fidelity crowns and roots, and drawing vector crowns over it caused double wireframes.
+- For an implant tooth, `ImplantOverlay` draws the site's own implant PNG (including its crown silhouette) over the tooth position — the same assets and anchors as the site, so no masking or vector reproduction is needed.
+
+### 19.5 Implant PNGs (main chart overlay)
+
+Main chart overlay pattern (verified live with Puppeteer):
+
+```html
+<img class="implant-marker" id="implant_18_b" src="img/implants/1/18b.png" />
+```
+
+- `img/implants/{status}/{q}/{tooth}{b|p|l}.png` with status folders `""` (gray/1), `r/` (red/2), `g/` (green/3).
+- Each PNG is a complete implant (crown silhouette + threaded screw) pre-oriented per view: upper `b` PNGs point up, upper `p` PNGs point down, lower `l` PNGs point up, lower `b` PNGs point down. Example natural sizes: `1/18b.png` 60×137, `1/18p.png` 60×119, `3/38b.png` 80×131, `4/48b.png` 64×131; heights are constant per arch+suffix (137 upper-`b`, 119 upper-`p`, 131 lower-`b`, 133 lower-`l`).
+- Gray variants are RGBA (transparent around the screw); red/green variants are opaque RGB on white — on the site their white box visibly covers the chart gridlines within the image box, and `.implant-marker-colored` applies a 4px top/bottom fade.
+- Anchors from `js/coordinates/implant_coordinates.js`: `implant_<tooth>_<site>` → `{x, y}` in the 790×162 per-view space; y is constant per view (`57`/`105–106`/`54`/`112`). The marker is positioned `absolute` with `transform: translate(-50%, -50%)` (anchor = image center) at natural size, `z-index: 3`, `pointer-events: none`.
+- Site rendering geometry (live-computed): placeholder `787 × 162.5` (the `height: 325px` CSS rule is overridden at runtime); JPG box `806.67 × 166.56` at `(-9, 0)` with `object-fit: contain` → JPG displayed `806.67 × 161.93`, top edge at `y = 2.32`; SVG `viewBox="0 0 790 162"` scaled `× 0.9962`, vertically centered (`top ≈ 0.55`).
+- App mapping (`ImplantOverlay.tsx`): `x_ours = (x_site + 9) × 1800/806.671875`, `y_ours = (y_site − 2.32) × 240/161.93`; PNG sizes scale by the same factors (`× 2.2314` horizontally, `× 1.4821` vertically). Spot values: `implant_11_b` → center `(832.1, 81.1)`, size `138.3 × 203.1`; `implant_18_b` → center `(78.1, 81.1)`.
+- The app ships all 192 PNGs byte-identical in `public/img/implants/` and renders them at `z-2` (behind the mm-line grid at `z-3`, matching the site where `.implant-marker` z-index 3 paints below the `.svg-placeholder` z-index 5 SVG) with the site's centering, status folders and colored fade mask. No mask rectangle, no vector reproduction — direction/length/width come from the assets, exactly as on the site.
+
+### 19.6 Reference CSS and chart geometry
+
+```css
+.chart-placeholder { width: 787px; height: 162.5px; }  /* live-computed; source CSS says 325px but is overridden */
+.background-image {
+  height: 102.5%;
+  width: 102.5%;
+  object-fit: contain;
+  left: -9px;
+  z-index: 1;
+}
+.implant-marker { position: absolute; transform: translate(-50%, -50%); pointer-events: none; z-index: 3; }
+.implant-marker-colored {
+  mask-image: linear-gradient(transparent, black 4px, black calc(100% - 4px), transparent);
+  mask-repeat: no-repeat;
+}
+.svg-placeholder { z-index: 5; }
+```
+
+Reference chart geometry:
+
+| Property | Site | App |
+|---|---|---|
+| ViewBox | `0 0 790 162` | `0 0 1800 240` |
+| CEJ lines | `upper-01: 106`, `upper-02: 53`, `lower-01: 108`, `lower-02: 61` | site value × `240/162` (`157.04`, `78.52`, `160`, `90.37`) |
+| Tooth pitch | per-tooth coordinates | `110` |
+| First tooth center | per-tooth coordinates | `65` |
+| mm grid | zero line + 16 lines at `6.45` units (1 mm) from the CEJ into the root area (`stroke="#000"`, `stroke-width="1.25"`, full width; drawn in `chart_renderer.js:567-577`) | `getMmLineYs(viewId)`: same scheme with `SITE_MM_STEP ≈ 9.56` app units, `stroke="#000"`, `strokeWidth 1.25`; black lines layer at `z-3`, implants at `z-2` so the lines cross over the implant PNGs like on the site |
+
+Paint order on the site: JPG (`z-index: 1`) → implant PNGs (`z-index: 3`) → SVG with mm lines/polygons (`z-index: 5`). The app mirrors it: JPG (`z-1`) → implant overlay (`z-2`) → mm-line grid/CEJ SVG (`z-3`) → polygons/markers (`z-4`) → hitboxes (`z-5`).
+
+The site's main chart renders the background JPG plus PNG implant overlays; it does **not** overlay the crown-surface SVG on the chart. The app renders the same background JPG, the site's own PNG implant overlays, and uses the exact site crown geometry only as **invisible interaction hitboxes** in layer 5 — no vector outlines are drawn over the raster teeth. The roots remain the site's raster roots.
+
+### 19.7 Verification
+
+```bash
+npx tsc --noEmit
+npx eslint components/periodontal/SvgPlaceholder.tsx components/periodontal/ImplantOverlay.tsx components/periodontal/ToothSurfaceSvg.tsx components/periodontal/ToothSurfaceMarkers.tsx src/lib/periodontal/toothSvgPaths.ts src/lib/utils/toothAnatomy.ts src/lib/utils/chartGeometry.ts
+node scripts/verify-periodontal.cjs
+```
+
+The verification script checks:
+
+- all 32 teeth have four exact crown paths
+- each crown transform maps the site bbox to the target width/height with the CEJ at `y=0`
+- upper CEJ is `bottom`, lower CEJ is `top`
+- `toothAnatomy.ts` contains no procedural crown/root path builders
+- `ImplantOverlay` carries the site's 64 anchor coordinates (spot-checked against `implant_coordinates.js`) and 64 PNG sizes, references `/img/implants/`, centers with `translate(-50%, -50%)`, maps `p`/`l` suffixes per view, picks `r/`/`g/` folders by status, and applies the 4px colored fade mask
+- all 192 implant PNGs exist in `public/img/implants/` (gray + `r/` + `g/`) and every base PNG's IHDR dimensions match the size table
+- `SvgPlaceholder` keeps the five layers (`z-1` background, `z-2` implant overlay, `z-3` mm-line grid/CEJ, `z-4` polygons/markers, `z-5` hitboxes) with the implant layer **below** the mm-line layer, does not mount `ToothOutlineSvg`, draws the mm lines via `getMmLineYs` (black `#000`, width `1.25`, root area only), and keeps the amber zero line
+- `ToothSurfaceSvg` renders only invisible exact crown-surface hit paths; `ToothSurfaceMarkers` keeps BOP/PI markers non-interactive
