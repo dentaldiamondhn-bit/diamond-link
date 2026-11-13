@@ -15,7 +15,6 @@ const isPublicRoute = createRouteMatcher([
   '/tech-support/terminal',
   '/tech-support/(.*)',
   '/capacitor-demo',
-  '/chart-verify-temp',
 ]);
 
 // RFC 6764 discovery endpoints; redirect clients (DAVx5, iOS) straight to the
