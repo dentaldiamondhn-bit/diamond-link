@@ -6,11 +6,12 @@ import {
   ChartViewId,
   formatPoints,
   getGmY,
+  getMucY,
   getPdY,
   getSurfaceX,
   getViewSurfaces,
 } from '@/lib/utils/chartGeometry';
-import { isToothPresent, readNumber } from '@/lib/utils/periodontalAnalysis';
+import { isToothCharted, readNumber } from '@/lib/utils/periodontalAnalysis';
 
 interface InterProximalPolygonProps {
   tooth: FDIToothNumber;
@@ -20,6 +21,16 @@ interface InterProximalPolygonProps {
   isGmInverted: boolean;
 }
 
+// Site renderInterPolygons (js/renderer/chart_renderer.js): polygon fill
+// #000080 at opacity 0.5 plus continuous GM (red) and PD (blue) polylines
+// across the interdental space, stroke-width 3. The midline pairs
+// (11->21, 41->31) are skipped.
+const POLYGON_FILL = '#000080';
+const PD_STROKE = '#0000ff';
+const GM_STROKE = '#ff0000';
+const MUC_STROKE = '#D011A6';
+const STROKE_WIDTH = 3;
+
 export function InterProximalPolygon({
   tooth,
   prevTooth,
@@ -27,8 +38,14 @@ export function InterProximalPolygon({
   data,
   isGmInverted,
 }: InterProximalPolygonProps) {
-  if (!isToothPresent(data, tooth) || !isToothPresent(data, prevTooth)) return null;
-  if (readNumber(data[`implant_${tooth}`]) > 0 || readNumber(data[`implant_${prevTooth}`]) > 0) return null;
+  if ((prevTooth === 11 && tooth === 21) || (prevTooth === 41 && tooth === 31)) {
+    return null;
+  }
+  // Site gate (chart_renderer.js renderInterPolygons, 23.09.2026 note) is
+  // presence of BOTH teeth only — implanted teeth keep their connections so
+  // the GM/PD lines run continuously over the implant PNGs. Switched-off
+  // positions with an implant status stay charted in the app.
+  if (!isToothCharted(data, tooth) || !isToothCharted(data, prevTooth)) return null;
 
   const surfaces = getViewSurfaces(viewId);
 
@@ -52,28 +69,67 @@ export function InterProximalPolygon({
     const x = getSurfaceX(target, surface);
     const gm = readNumber(data[`gm_${target}_${surface}`]);
     const pd = readNumber(data[`pd_${target}_${surface}`]);
+    const muc = readNumber(data[`muc_${target}_${surface}`]);
     const gmY = getGmY(viewId, gm, isGmInverted);
-    return { gm: { x, y: gmY }, pd: { x, y: getPdY(viewId, gmY, pd) } };
+    return {
+      gm: { x, y: gmY },
+      pd: { x, y: getPdY(viewId, gmY, pd) },
+      muc: { x, y: getMucY(viewId, gmY, muc) },
+    };
   };
 
   const prevPoint = pointFor(prevTooth, prevSurface);
   const currPoint = pointFor(tooth, currSurface);
 
-  const hasMeasurement =
-    readNumber(data[`pd_${prevTooth}_${prevSurface}`]) > 0 ||
-    readNumber(data[`pd_${tooth}_${currSurface}`]) > 0;
-
-  if (!hasMeasurement) return null;
-
+  // The site renders the interdental space for every adjacent present pair,
+  // even with all-zero values — no data gate.
   const points = [prevPoint.gm, currPoint.gm, currPoint.pd, prevPoint.pd];
 
+  const hasMuc =
+    readNumber(data[`muc_${prevTooth}_${prevSurface}`]) > 0 ||
+    readNumber(data[`muc_${tooth}_${currSurface}`]) > 0;
+
   return (
-    <polygon
-      className="perio-interproximal"
-      points={formatPoints(points)}
-      fill="#000080"
-      fillOpacity={0.22}
-      stroke="none"
-    />
+    <g>
+      <polygon
+        className="inter-poly"
+        points={formatPoints(points)}
+        fill={POLYGON_FILL}
+        fillOpacity={0.5}
+        stroke="none"
+      />
+
+      <polyline
+        className="inter-pd"
+        points={formatPoints([prevPoint.pd, currPoint.pd])}
+        fill="none"
+        stroke={PD_STROKE}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+
+      {hasMuc && (
+        <polyline
+          className="inter-muc"
+          points={formatPoints([prevPoint.muc, currPoint.muc])}
+          fill="none"
+          stroke={MUC_STROKE}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
+
+      <polyline
+        className="inter-gm"
+        points={formatPoints([prevPoint.gm, currPoint.gm])}
+        fill="none"
+        stroke={GM_STROKE}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
   );
 }

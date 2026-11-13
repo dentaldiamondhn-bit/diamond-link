@@ -50,14 +50,40 @@ export function buildChartDataFromStudy(study: any): ChartData {
       m.palatino_distal ?? m.palatino?.distal,
     ];
 
+    // Gingival margin is signed: negative values mean recession, so they must
+    // survive the round trip instead of being reset to 0.
+    const vestibularGm = [
+      m.vestibular_gm_mesial ?? m.vestibularGm?.mesial,
+      m.vestibular_gm_medio ?? m.vestibularGm?.medio,
+      m.vestibular_gm_distal ?? m.vestibularGm?.distal,
+    ];
+    const palatinoGm = [
+      m.palatino_gm_mesial ?? m.palatinoGm?.mesial,
+      m.palatino_gm_medio ?? m.palatinoGm?.medio,
+      m.palatino_gm_distal ?? m.palatinoGm?.distal,
+    ];
+
+    const vestibularAl = [
+      m.vestibular_al_mesial ?? m.vestibularAl?.mesial,
+      m.vestibular_al_medio ?? m.vestibularAl?.medio,
+      m.vestibular_al_distal ?? m.vestibularAl?.distal,
+    ];
+    const palatinoAl = [
+      m.palatino_al_mesial ?? m.palatinoAl?.mesial,
+      m.palatino_al_medio ?? m.palatinoAl?.medio,
+      m.palatino_al_distal ?? m.palatinoAl?.distal,
+    ];
+
     VESTIBULAR_SURFACES.forEach((surface, i) => {
       chartData[`pd_${tooth}_${surface}`] = readNumber(vestibular[i]);
-      chartData[`gm_${tooth}_${surface}`] = 0;
+      chartData[`gm_${tooth}_${surface}`] = readNumber(vestibularGm[i]);
+      chartData[`al_${tooth}_${surface}`] = readNumber(vestibularAl[i]);
     });
 
     palatinoSurfaces.forEach((surface, i) => {
       chartData[`pd_${tooth}_${surface}`] = readNumber(palatino[i]);
-      chartData[`gm_${tooth}_${surface}`] = 0;
+      chartData[`gm_${tooth}_${surface}`] = readNumber(palatinoGm[i]);
+      chartData[`al_${tooth}_${surface}`] = readNumber(palatinoAl[i]);
     });
 
     const mobility = readNumber(m.movilidad);

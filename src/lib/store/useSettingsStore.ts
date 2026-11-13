@@ -3,7 +3,9 @@ import { immer } from 'zustand/middleware/immer';
 import { UserSettings, LanguageCode } from '@/lib/types';
 
 const DEFAULT_SETTINGS: UserSettings = {
-  isGmInverted: true,
+  // Matches the site's lang=es default (isGmInverted false) and the chart
+  // store's canonical flag.
+  isGmInverted: false,
   dateFormat: 'DD.MM.YYYY',
   language: 'es',
   autoSaveInterval: 30000,

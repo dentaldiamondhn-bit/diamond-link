@@ -173,7 +173,9 @@ export const CHART_TEMPLATE: ChartData = {
   reevaluation_note: '',
   clinician: '',
   viewStatus: 2,
-  isGmInverted: true,
+  // Matches the site's lang=es default (isGmInverted false) and the chart
+  // store's canonical flag, so AL = PD - GM everywhere.
+  isGmInverted: false,
   isMirrored: false,
   active_indices: {
     pockets: true,

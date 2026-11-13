@@ -87,7 +87,9 @@ const initialState: ChartState = {
   deletedRowsStack: [],
   
   viewStatus: 2,
-  isGmInverted: true,
+  // The site defaults isGmInverted to its locale check isUSA (js/script.js:300-305):
+  // false for lang=es, so a positive GM means recession and AL = PD - GM.
+  isGmInverted: false,
   isMirrored: false,
   activeIndices: DEFAULT_ACTIVE_INDICES,
   activeRemoteControl: 'pockets',
@@ -133,6 +135,12 @@ export const useChartStore = create<ChartState>()(
 
     setChartData: (newData) => set((state) => {
       Object.assign(state.chartData, newData);
+      // The store flag is the single source of truth for the GM sign; an
+      // imported chart may carry its own flag, so adopt it here.
+      if (typeof newData.isGmInverted === 'boolean') {
+        state.isGmInverted = newData.isGmInverted;
+      }
+      state.chartData.isGmInverted = state.isGmInverted;
       state.isDirty = true;
     }),
 
@@ -250,7 +258,6 @@ export const useChartStore = create<ChartState>()(
         });
       });
     }),
-
     calculateAL: () => get().calculateAllAL(),
 
     calculateIndices: () => {
@@ -318,6 +325,7 @@ export const useChartStore = create<ChartState>()(
           furcaciones: 'no-evaluado',
           observaciones_generales: '',
           plan_tratamiento: {},
+          isGmInverted: state.isGmInverted,
         };
         state.toothMeasurements = initialToothMeasurements.map(tm => ({
           ...tm,
@@ -332,57 +340,65 @@ export const useChartStore = create<ChartState>()(
       get().calculateAllAL();
     },
 
-    loadFromApiData: (apiData) => set((state) => {
-      if (!apiData) return;
+    loadFromApiData: (apiData) => {
+      set((state) => {
+        if (!apiData) return;
 
-      const loadedChartData: ChartData = {
-        ...buildChartDataFromStudy(apiData),
-        viewStatus: state.viewStatus,
-        isGmInverted: state.isGmInverted,
-        isMirrored: state.isMirrored,
-        active_indices: state.activeIndices,
-      };
+        const loadedChartData: ChartData = {
+          ...buildChartDataFromStudy(apiData),
+          viewStatus: state.viewStatus,
+          isGmInverted: state.isGmInverted,
+          isMirrored: state.isMirrored,
+          active_indices: state.activeIndices,
+        };
 
-      const mediciones = Array.isArray(apiData.mediciones)
-        ? apiData.mediciones
-        : Array.isArray(apiData.mediciones_periodontales)
-          ? apiData.mediciones_periodontales
-          : [];
+        const mediciones = Array.isArray(apiData.mediciones)
+          ? apiData.mediciones
+          : Array.isArray(apiData.mediciones_periodontales)
+            ? apiData.mediciones_periodontales
+            : [];
 
-      if (mediciones.length > 0) {
-        state.toothMeasurements = mediciones.map((m: any) => ({
-          diente: m.numero_diente || m.diente,
-          vestibular: {
-            mesial: m.vestibular_mesial?.toString() || m.vestibular?.mesial?.toString() || '',
-            medio: m.vestibular_medio?.toString() || m.vestibular?.medio?.toString() || '',
-            distal: m.vestibular_distal?.toString() || m.vestibular?.distal?.toString() || '',
-          },
-          palatino: {
-            mesial: m.palatino_mesial?.toString() || m.palatino?.mesial?.toString() || '',
-            medio: m.palatino_medio?.toString() || m.palatino?.medio?.toString() || '',
-            distal: m.palatino_distal?.toString() || m.palatino?.distal?.toString() || '',
-          },
-          movilidad: (m.movilidad || '0').toString(),
-          sangrado: m.sangrado || false,
-          placa: m.placa || false,
-          observaciones: m.observaciones_diente || m.observaciones || '',
-        }));
-      }
+        if (mediciones.length > 0) {
+          state.toothMeasurements = mediciones.map((m: any) => ({
+            diente: m.numero_diente || m.diente,
+            vestibular: {
+              mesial: m.vestibular_mesial?.toString() || m.vestibular?.mesial?.toString() || '',
+              medio: m.vestibular_medio?.toString() || m.vestibular?.medio?.toString() || '',
+              distal: m.vestibular_distal?.toString() || m.vestibular?.distal?.toString() || '',
+            },
+            palatino: {
+              mesial: m.palatino_mesial?.toString() || m.palatino?.mesial?.toString() || '',
+              medio: m.palatino_medio?.toString() || m.palatino?.medio?.toString() || '',
+              distal: m.palatino_distal?.toString() || m.palatino?.distal?.toString() || '',
+            },
+            movilidad: (m.movilidad || '0').toString(),
+            sangrado: m.sangrado || false,
+            placa: m.placa || false,
+            observaciones: m.observaciones_diente || m.observaciones || '',
+          }));
+        }
 
-      state.chartData = loadedChartData;
+        state.chartData = loadedChartData;
 
-      state.hasClinicalData = true;
-      state.isDirty = false;
-    }),
+        state.hasClinicalData = true;
+        state.isDirty = false;
+      });
+
+      // AL is derived from the loaded PD/GM values, so recompute it instead of
+      // trusting whatever the study happened to carry.
+      get().calculateAllAL();
+    },
 
     prepareApiPayload: () => {
       const state = get();
       const chart = state.chartData;
 
+      // Signed GM (-99..99) must survive the round trip, so the clamp keeps
+      // the sign and only bounds the magnitude.
       const toNumber = (value: unknown): number | null => {
         const parsed = parseFloat(String(value));
         if (!Number.isFinite(parsed)) return null;
-        return parsed >= 0 && parsed <= 20 ? parsed : null;
+        return parsed >= -99 && parsed <= 99 ? parsed : null;
       };
 
       const mediciones = ALL_TEETH.filter(tooth =>
@@ -392,8 +408,8 @@ export const useChartStore = create<ChartState>()(
         const vestibularValues = [vestibular[0], vestibular[1], vestibular[2]];
         const palatinoValues = [palatino[0], palatino[1], palatino[2]];
 
-        const siteValue = (surface: SurfaceId) => {
-          const raw = chart[`pd_${tooth}_${surface}`];
+        const siteValue = (surface: SurfaceId, prefix: 'pd' | 'gm' | 'al') => {
+          const raw = chart[`${prefix}_${tooth}_${surface}`];
           if (raw === undefined || raw === null || raw === '') return null;
           return toNumber(raw);
         };
@@ -407,14 +423,34 @@ export const useChartStore = create<ChartState>()(
         return {
           diente: String(tooth),
           vestibular: {
-            mesial: siteValue(vestibularValues[0]),
-            medio: siteValue(vestibularValues[1]),
-            distal: siteValue(vestibularValues[2]),
+            mesial: siteValue(vestibularValues[0], 'pd'),
+            medio: siteValue(vestibularValues[1], 'pd'),
+            distal: siteValue(vestibularValues[2], 'pd'),
           },
           palatino: {
-            mesial: siteValue(palatinoValues[0]),
-            medio: siteValue(palatinoValues[1]),
-            distal: siteValue(palatinoValues[2]),
+            mesial: siteValue(palatinoValues[0], 'pd'),
+            medio: siteValue(palatinoValues[1], 'pd'),
+            distal: siteValue(palatinoValues[2], 'pd'),
+          },
+          vestibularGm: {
+            mesial: siteValue(vestibularValues[0], 'gm'),
+            medio: siteValue(vestibularValues[1], 'gm'),
+            distal: siteValue(vestibularValues[2], 'gm'),
+          },
+          palatinoGm: {
+            mesial: siteValue(palatinoValues[0], 'gm'),
+            medio: siteValue(palatinoValues[1], 'gm'),
+            distal: siteValue(palatinoValues[2], 'gm'),
+          },
+          vestibularAl: {
+            mesial: siteValue(vestibularValues[0], 'al'),
+            medio: siteValue(vestibularValues[1], 'al'),
+            distal: siteValue(vestibularValues[2], 'al'),
+          },
+          palatinoAl: {
+            mesial: siteValue(palatinoValues[0], 'al'),
+            medio: siteValue(palatinoValues[1], 'al'),
+            distal: siteValue(palatinoValues[2], 'al'),
           },
           movilidad: parseInt(String(chart[`mobility_${tooth}`])) || 0,
           sangrado: anyFlag('bop'),

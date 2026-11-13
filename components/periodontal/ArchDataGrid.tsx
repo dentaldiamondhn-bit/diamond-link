@@ -3,7 +3,7 @@
 import React from 'react';
 import { FDIToothNumber, SurfaceId } from '@/lib/types';
 import { getApplicableSurfaces } from '@/lib/utils/chartGeometry';
-import { getToothAl, isToothPresent, readFlag } from '@/lib/utils/periodontalAnalysis';
+import { getToothAl, isToothPresent, readFlag, formatMeasurementInput } from '@/lib/utils/periodontalAnalysis';
 import { useChartStore } from '@/lib/store/useChartStore';
 
 interface ArchDataGridProps {
@@ -39,11 +39,13 @@ const ROWS: RowDef[] = [
   { kind: 'al', label: 'Nivel de inserción', perSite: true },
 ];
 
-const SUB_LABELS: Record<string, string[]> = {
-  'upper-vestibular': ['VM', 'VMe', 'VD'],
-  'upper-palatal': ['PM', 'PMe', 'PD'],
-  'lower-vestibular': ['VM', 'VMe', 'VD'],
-  'lower-lingual': ['LM', 'LMe', 'LD'],
+// Site data order (live DOM probe of periodontalchart-online.com): Q1/Q4
+// teeth (18-11, 48-41) list sites distal-first [db,b,mb]; Q2/Q3 teeth
+// (21-28, 31-38) list them mesial-first [mb,b,db]. Grid columns follow
+// that left-to-right anatomical order.
+const isDistalFirst = (tooth: FDIToothNumber): boolean => {
+  const quadrant = Math.floor(tooth / 10);
+  return quadrant === 1 || quadrant === 4;
 };
 
 const MOBILITY_OPTIONS = ['0', '1', '2', '3'];
@@ -73,15 +75,20 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
   const disabled = readOnly || isOverlayMode;
   const teeth = arch === 'upper' ? UPPER_TEETH : LOWER_TEETH;
   const rows = ROWS;
-  const key = `${arch}-${siteGroup}`;
-  const subLabels = SUB_LABELS[key] ?? ['S1', 'S2', 'S3'];
 
   const sitesFor = (tooth: FDIToothNumber): SurfaceId[] => {
     const applicable = getApplicableSurfaces(tooth);
-    if (siteGroup === 'vestibular') return [applicable[0], applicable[1], applicable[2]];
-    if (siteGroup === 'palatal') return [applicable[3], applicable[4], applicable[5]];
+    const sites =
+      siteGroup === 'vestibular' ? applicable.slice(0, 3) : applicable.slice(3, 6);
+    return isDistalFirst(tooth) ? sites.slice().reverse() : sites;
+  };
+
+  const subLabelsFor = (tooth: FDIToothNumber): string[] => {
+    const distalFirst = isDistalFirst(tooth);
+    if (siteGroup === 'vestibular') return distalFirst ? ['VD', 'VMe', 'VM'] : ['VM', 'VMe', 'VD'];
+    if (siteGroup === 'palatal') return distalFirst ? ['PD', 'PMe', 'PM'] : ['PM', 'PMe', 'PD'];
     // lingual (lower only)
-    return [applicable[3], applicable[4], applicable[5]];
+    return distalFirst ? ['LD', 'LMe', 'LM'] : ['LM', 'LMe', 'LD'];
   };
 
   const renderNumberCell = (tooth: FDIToothNumber, surface: SurfaceId, field: 'pd' | 'gm' | 'al') => {
@@ -98,21 +105,36 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
       );
     }
 
+    // Site input validation (js/script.js validateAndFormatInput): GM accepts
+    // -99..99 (data-validation-type="-99-99"), PD 0..99 ("0-99"). Both are
+    // integers, enforced by formatMeasurementInput.
     const raw = chartData[cellKey];
     const value = raw === undefined || raw === null ? '' : String(raw);
+
+    // The site uses type="text" inputs: a controlled type="number" input
+    // cannot hold the intermediate "-" state, so the minus sign is dropped
+    // before any digit can follow it. Formatting on every keystroke mirrors
+    // the site's own validateAndFormatInput behaviour.
+    const handleChange = (next: string) => {
+      updateField(cellKey, formatMeasurementInput(next, field));
+    };
+
+    const handleBlur = () => {
+      // The site resets an empty or lone "-" value to "0" on blur.
+      if (value === '' || value === '-') {
+        updateField(cellKey, '0');
+      }
+    };
 
     return (
       <td key={cellKey} className="border border-gray-200 dark:border-gray-600 p-0">
         <input
-          type="number"
-          inputMode="decimal"
-          step="0.5"
-          min="0"
-          max="20"
+          type="text"
           className={cellClass}
           value={value}
           disabled={disabled}
-          onChange={event => updateField(cellKey, event.target.value === '' ? '' : event.target.value)}
+          onChange={event => handleChange(event.target.value)}
+          onBlur={handleBlur}
         />
       </td>
     );
@@ -258,7 +280,7 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
           </tr>
           <tr>
             {teeth.map((tooth, toothIndex) =>
-              subLabels.map((label, subIndex) => (
+              subLabelsFor(tooth).map((label, subIndex) => (
                 <th
                   key={`sub-${tooth}-${label}`}
                   className={`${headerCellClass} ${toothIndex === 7 && subIndex === 0 ? 'border-l-2 border-l-teal-500' : ''}`}

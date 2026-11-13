@@ -68,8 +68,10 @@ export function SvgPlaceholder({
           }}
         />
 
-        {/* z-2: implant PNGs render behind the mm grid, like the site
-            (site: .implant-marker z-index 3 < .svg-placeholder z-index 5). */}
+        {/* z-2: implant PNGs are the bottom overlay layer, exactly like the
+            site (site: .implant-marker z-index 3 < .svg-placeholder z-index
+            5). The mm grid (z-3) and the GM/PD polygons (z-4) paint over
+            them so the lines stay visible. */}
         <div className="pointer-events-none absolute inset-0 z-[2]">
           {teeth.map(tooth => (
             <ImplantOverlay key={`implant-overlay-${tooth}`} tooth={tooth} viewId={id} data={data} />
@@ -78,7 +80,8 @@ export function SvgPlaceholder({
 
         {/* z-3: zero (CEJ) line plus 16 mm lines at 1 mm intervals extending
             from the CEJ into the root area only, exactly like the site's
-            chart renderer (stroke #000, width 1.25). */}
+            chart renderer (stroke #000, width 1.25). Painted over the
+            implant PNGs like on the site. */}
         <svg
           viewBox={`0 0 ${SVG_VIEWBOX_WIDTH} ${SVG_VIEWBOX_HEIGHT}`}
           preserveAspectRatio="none"

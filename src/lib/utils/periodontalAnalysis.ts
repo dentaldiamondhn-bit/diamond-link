@@ -57,6 +57,19 @@ export function isToothPresent(data: ChartData, tooth: FDIToothNumber): boolean 
   return value === '1' || value === 1 || value === true;
 }
 
+// The site's toggleToothContent hides the implant graphic for switched-off
+// positions but keeps the implant status saved (js/script.js, see the
+// 22.09.2026 note in data_renderer.js). Our chart keeps rendering the implant
+// PNG and the GM/PD polygons over it even when the tooth toggle is off, so
+// peri-implant probing values stay visible (app-specific requirement).
+export function isImplanted(data: ChartData, tooth: FDIToothNumber): boolean {
+  return readNumber(data[`implant_${tooth}`]) > 0;
+}
+
+export function isToothCharted(data: ChartData, tooth: FDIToothNumber): boolean {
+  return isToothPresent(data, tooth) || isImplanted(data, tooth);
+}
+
 export function readNumber(value: unknown): number {
   if (value === null || value === undefined || value === '') return 0;
   const parsed = typeof value === 'number' ? value : parseFloat(String(value));
@@ -67,13 +80,52 @@ export function readFlag(value: unknown): boolean {
   return value === '1' || value === 1 || value === true;
 }
 
-export function getToothAl(data: ChartData, tooth: FDIToothNumber, surface: string): number {
-  const stored = data[`al_${tooth}_${surface}`];
-  if (stored !== undefined && stored !== null && stored !== '') return readNumber(stored);
+export type MeasurementField = 'gm' | 'pd';
 
+// Site validation types (data-validation-type on the reference inputs,
+// js/script.js validateAndFormatInput). GM is signed on the site; PD is
+// signed here as well because the chart must accept a negative probing
+// depth. Set 'pd' back to '0-99' to match the reference exactly.
+export const MEASUREMENT_VALIDATION_TYPE: Record<MeasurementField, '-99-99' | '0-99'> = {
+  gm: '-99-99',
+  pd: '-99-99',
+};
+
+function onlyDigits(value: string): string {
+  return value.replace(/\D+/g, '');
+}
+
+function clampInt(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+// Mirrors the site's validateAndFormatInput: integers only, magnitude
+// clamped to 0..99, leading zeros dropped. For '-99-99' the minus sign is
+// preserved and a lone '-' is a legal intermediate state; for '0-99' the
+// minus is stripped.
+export function formatMeasurementInput(raw: string, field: MeasurementField): string {
+  if (MEASUREMENT_VALIDATION_TYPE[field] === '-99-99') {
+    const negative = raw.trim().startsWith('-');
+    const digits = onlyDigits(raw).slice(0, 2);
+    if (!digits) return negative ? '-' : '';
+    const magnitude = clampInt(parseInt(digits, 10), 0, 99);
+    return String(negative ? -magnitude : magnitude);
+  }
+
+  const digits = onlyDigits(raw).slice(0, 2);
+  if (!digits) return '';
+  return String(clampInt(parseInt(digits, 10), 0, 99));
+}
+
+// Site formula (js/script.js calculateSingleALForInput): AL = PD - GM with
+// the GM sign flipped in inverted mode. A GM field holding a lone '-' counts
+// as 0, like parseInt('-') || 0 on the site. AL is always derived from the
+// live PD/GM values, never read back from a stored al_* field, so a stale
+// value can never surface.
+export function getToothAl(data: ChartData, tooth: FDIToothNumber, surface: string): number {
   const pd = readNumber(data[`pd_${tooth}_${surface}`]);
   const gm = readNumber(data[`gm_${tooth}_${surface}`]);
-  const inverted = data.isGmInverted === undefined ? true : Boolean(data.isGmInverted);
+  const inverted = Boolean(data.isGmInverted);
   return inverted ? pd + gm : pd - gm;
 }
 

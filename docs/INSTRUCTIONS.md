@@ -538,7 +538,9 @@ interface ChartState {
 const initialState: ChartState = {
   data: CHART_TEMPLATE,
   viewStatus: 2,
-  isGmInverted: true,
+  // Site default for lang=es (js/script.js: isGmInverted = isUSA -> false):
+  // positive GM = recession, AL = PD - GM.
+  isGmInverted: false,
   isMirrored: false,
   active_indices: CHART_TEMPLATE.active_indices,
   hasClinicalData: false,
@@ -2495,11 +2497,11 @@ Our implementation keeps its own viewBox (`1800 × 361.33`) and coordinate syste
 
 ### Implementation notes
 
-- `SvgPlaceholder.tsx` renders five explicit layers: JPG background (`z-1`), implant overlay (`z-2`), mm-line grid/CEJ (`z-3`), polygons/markers (`z-4`), and invisible interaction hitboxes (`z-5`). The implant overlay sits **below** the mm lines exactly like the site (`.implant-marker` z-index 3 < `.svg-placeholder` z-index 5), so the black mm lines cross over the implant PNGs.
+- `SvgPlaceholder.tsx` renders five explicit layers: JPG background (`z-1`), mm-line grid/CEJ (`z-2`), implant overlay (`z-3`), polygons/markers (`z-4`), and invisible interaction hitboxes (`z-5`). The implant overlay sits **above** the mm grid but **below** the GM/PD polygons, so the pocket fill and red/blue lines stay visible over implant PNGs. (Deliberate deviation from the site, which paints its mm lines over the implant markers — `.implant-marker` z-index 3 < `.svg-placeholder` z-index 5.)
 - `ToothOutlineSvg` is **not mounted**. The JPG already contains the high-fidelity crowns and roots; drawing vector crowns caused double wireframes.
 - `ImplantOverlay.tsx` renders the site's **actual PNG assets** (`public/img/implants/…`, copied from periodontalchart-online.com) for each `implant > 0` tooth, centered on the site's exact per-tooth anchor coordinates. Direction, length and width are baked into the PNGs per view (`b` buccal / `p` palatino / `l` lingual), so upper-01/01-views point up and palatino/02-views point down exactly like the reference site.
-- The CEJ zero-reference line (`stroke="#f59e0b"`, `strokeWidth="1.5"`) is drawn at `config.zeroLineY`, which is the site CEJ value (`106/53/108/61`) scaled by `361.33/162` (≈ `236.43`, `118.21`, `240.89`, `136.06`).
-- The mm grid reproduces the site's chart renderer (`js/renderer/chart_renderer.js:567-577`) exactly: 16 horizontal lines at 1 mm intervals (`POLYGON_SCALE = SITE_MM_SCALE × CEJ_SCALE = 6.45 × 2.23043 ≈ 14.39` app units) starting at the CEJ and extending **into the root area only** — `upper-01`/`lower-01` upward (`rootDirection -1`), `upper-02`/`lower-02` downward (`rootDirection 1`); `stroke="#000"`, `strokeWidth 1.25`, full canvas width. No lines are drawn in the crown area. The last line(s) are clipped at the canvas edge exactly as on the site (e.g. `lower-02`'s 16th line falls past the bottom edge).
+- The CEJ zero-reference line (`stroke="#f59e0b"`, `strokeWidth="1.5"`) is drawn at `config.zeroLineY`, which maps the site CEJ values (`106/53/108/61`) through `siteSvgYToApp()` — the measured site CSS box model (see §19.5): ≈ `231.71`, `113.89`, `236.15`, `131.67`.
+- The mm grid reproduces the site's chart renderer (`js/renderer/chart_renderer.js:567-577`) exactly: 16 horizontal lines at 1 mm intervals (`POLYGON_SCALE = SITE_MM_SCALE × SITE_SVG_SCALE × SITE_DISPLAY_TO_APP = 6.45 × 787/790 × 1800/806.671875 ≈ 14.34` app units) starting at the CEJ and extending **into the root area only** — `upper-01`/`lower-01` upward (`rootDirection -1`), `upper-02`/`lower-02` downward (`rootDirection 1`); `stroke="#000"`, `strokeWidth 1.25`, full canvas width. No lines are drawn in the crown area. The last line(s) are clipped at the canvas edge exactly as on the site (e.g. `lower-02`'s 16th line falls past the bottom edge).
 - `ToothSurfaceSvg.tsx` renders only invisible exact crown-surface hit paths. `ToothSurfaceMarkers.tsx` renders the visible BOP/PI markers in layer 4.
 
 ---
@@ -2544,8 +2546,8 @@ The vector implant icon reproduction (`src/lib/periodontal/implantVector.tsx`) w
 
 ### Implant component locations
 - `public/img/implants/` — all 192 site PNG assets (gray + `r/` red + `g/` green, per quadrant, per view suffix).
-- `components/periodontal/ImplantOverlay.tsx` — site anchor coordinate table, PNG size table, JPG-faithful coordinate mapping, status folder/mask logic (layered at `z-2`, behind the mm-line grid).
-- `components/periodontal/SvgPlaceholder.tsx` — five layers: background (`z-1`), implant overlay (`z-2`), mm-line grid/CEJ (`z-3`), polygons/markers (`z-4`), invisible interaction hitboxes (`z-5`).
+- `components/periodontal/ImplantOverlay.tsx` — site anchor coordinate table, PNG size table, JPG-faithful coordinate mapping, status folder/mask logic (layered at `z-3`, above the mm grid, below the GM/PD polygons).
+- `components/periodontal/SvgPlaceholder.tsx` — five layers: background (`z-1`), mm-line grid/CEJ (`z-2`), implant overlay (`z-3`), polygons/markers (`z-4`), invisible interaction hitboxes (`z-5`).
 
 ---
 
@@ -2670,7 +2672,7 @@ Main chart overlay pattern (verified live with Puppeteer):
 - Anchors from `js/coordinates/implant_coordinates.js`: `implant_<tooth>_<site>` → `{x, y}` in the 790×162 per-view space; y is constant per view (`57`/`105–106`/`54`/`112`). The marker is positioned `absolute` with `transform: translate(-50%, -50%)` (anchor = image center) at natural size, `z-index: 3`, `pointer-events: none`.
 - Site rendering geometry (live-computed): placeholder `787 × 162.5` (the `height: 325px` CSS rule is overridden at runtime); JPG box `806.67 × 166.56` at `(-9, 0)` with `object-fit: contain` → JPG displayed `806.67 × 161.93`, top edge at `y = 2.32`; SVG `viewBox="0 0 790 162"` scaled `× 0.9962`, vertically centered (`top ≈ 0.55`).
 - App mapping (`ImplantOverlay.tsx`): `x_ours = (x_site + 9) × 1800/806.671875`, `y_ours = (y_site − 2.32) × 361.33/161.93`; PNG sizes scale by the same factors (`× 2.2314` both axes — the canvas height equals the JPG aspect, so implant scaling is exactly isotropic). Spot values: `implant_11_b` → center `(832.1, 122.0)`, size `138.3 × 305.7`; `implant_18_b` → center `(78.1, 122.0)`.
-- The app ships all 192 PNGs byte-identical in `public/img/implants/` and renders them at `z-2` (behind the mm-line grid at `z-3`, matching the site where `.implant-marker` z-index 3 paints below the `.svg-placeholder` z-index 5 SVG) with the site's centering, status folders and colored fade mask. No mask rectangle, no vector reproduction — direction/length/width come from the assets, exactly as on the site.
+- The app ships all 192 PNGs byte-identical in `public/img/implants/` and renders them at `z-3` (above the mm grid at `z-2`, below the GM/PD polygons at `z-4` so the lines and pocket fill stay visible over the PNGs — a deliberate deviation from the site, where `.implant-marker` z-index 3 paints below the `.svg-placeholder` z-index 5 SVG) with the site's centering, status folders and colored fade mask. No mask rectangle, no vector reproduction — direction/length/width come from the assets, exactly as on the site.
 
 ### 19.6 Reference CSS and chart geometry
 
@@ -2696,14 +2698,26 @@ Reference chart geometry:
 | Property | Site | App |
 |---|---|---|
 | ViewBox | `0 0 790 162` | `0 0 1800 361.33` (`(1800/3248) × 652` = JPG natural aspect, so the background renders unsquashed) |
-| CEJ lines | `upper-01: 106`, `upper-02: 53`, `lower-01: 108`, `lower-02: 61` | site value × `361.33/162` (`236.43`, `118.21`, `240.89`, `136.06`) |
-| Tooth pitch | per-tooth coordinates | `110` |
-| First tooth center | per-tooth coordinates | `65` |
-| mm grid | zero line + 16 lines at `6.45` units (1 mm) from the CEJ into the root area (`stroke="#000"`, `stroke-width="1.25"`, full width; drawn in `chart_renderer.js:567-577`) | `getMmLineYs(viewId)`: same scheme with `POLYGON_SCALE = 6.45 × CEJ_SCALE ≈ 14.39` app units, `stroke="#000"`, `strokeWidth 1.25`; black lines layer at `z-3`, implants at `z-2` so the lines cross over the implant PNGs like on the site |
+| CEJ lines | `upper-01: 106`, `upper-02: 53`, `lower-01: 108`, `lower-02: 61` (SVG y units) | `siteSvgYToApp(site value)` — measured box model (`231.71`, `113.89`, `236.15`, `131.67`); the site letterboxes its SVG (`xMidYMid meet`, 787/790 scale, 0.5576px letterbox in the 162.5px slot) and its JPG (806.67×166.56 element, `object-fit: contain`, 2.3160px letterbox), so the mapping is `(y × 787/790 + 0.5576 − 2.3160) × 1800/806.671875`. Live-verified: the site's own mm lines put SVG y=106 on screen 954.155 → app y = 231.71 |
+| Tooth pitch | per-tooth coordinates | `110` (uniform grid, hitboxes only; polygons use the site per-tooth x coordinates) |
+| First tooth center | per-tooth coordinates | `65` (uniform grid, hitboxes only; polygons use the site per-tooth x coordinates) |
+| mm grid | zero line + 16 lines at `6.45` units (1 mm) from the CEJ into the root area (`stroke="#000"`, `stroke-width="1.25"`, full width; drawn in `chart_renderer.js:567-577`) | `getMmLineYs(viewId)`: same scheme with `POLYGON_SCALE = 6.45 × 787/790 × 1800/806.671875 ≈ 14.34` app units, `stroke="#000"`, `strokeWidth 1.25`; black lines layer at `z-2` under the implant PNGs (`z-3`), per the app's requested paint order (see below) |
 
-Paint order on the site: JPG (`z-index: 1`) → implant PNGs (`z-index: 3`) → SVG with mm lines/polygons (`z-index: 5`). The app mirrors it: JPG (`z-1`) → implant overlay (`z-2`) → mm-line grid/CEJ SVG (`z-3`) → polygons/markers (`z-4`) → hitboxes (`z-5`).
+Paint order on the site: JPG (`z-index: 1`) → implant PNGs (`z-index: 3`) → SVG with mm lines/polygons (`z-index: 5`). The app follows the same layer stack but keeps the mm grid **below** the implants: JPG (`z-1`) → mm-line grid/CEJ SVG (`z-2`) → implant overlay (`z-3`) → GM/PD polygons/markers (`z-4`) → hitboxes (`z-5`). This keeps the pocket fill and red/blue lines visible over implant PNGs (a deliberate deviation requested for the app; on the site the mm lines cross over the implant markers).
 
 The site's main chart renders the background JPG plus PNG implant overlays; it does **not** overlay the crown-surface SVG on the chart. The app renders the same background JPG, the site's own PNG implant overlays, and uses the exact site crown geometry only as **invisible interaction hitboxes** in layer 5 — no vector outlines are drawn over the raster teeth. The roots remain the site's raster roots.
+
+### 19.6b GM/PD/AL polygons and the attachment-level calculation
+
+Source of truth: `js/renderer/chart_renderer.js` (`renderPerioPolygon`, `renderInterPolygons`) and `js/coordinates/polygon_coordinates.js` (`polygonZeroLines`, `xCoordMap`).
+
+- **X coordinates.** Per tooth and surface, hand-calibrated in site SVG space (e.g. tooth 11 `db: 345, mb: 377, dp: 344, mp: 375`; tooth 18 `db: 12`). Central surfaces are computed midpoints: `b = (db+mb)/2`, `p = (dp+mp)/2`, `l = (dl+ml)/2`. The app stores the full table as `SITE_X_COORDINATES` (chartGeometry.ts) and maps to canvas space with `siteSvgXToApp: (x × 787/790 + 9) × 1800/806.671875` (SVG displayed 787px wide, left edge 9px right of the JPG's). Live-verified: the tooth-11 GM line's SVG x=345 lands exactly on measured screen x=969.94.
+- **Y formulas.** `scale = 6.45` site units/mm, `zeroLineY = polygonZeroLines[svgId]` (106/53/108/61); upper-01/lower-01: `gmY = zero + adjustedGm×scale`, `pdY = gmY − pd×scale`, `mucY = gmY − muc×scale`; upper-02/lower-02: all signs flipped. `adjustedGm = isGmInverted ? −gm : gm`. **No clamping** — negative GM renders apical/coronal exactly as entered.
+- **Colors/strokes.** polygon fill `#000080` opacity `0.5`; PD polyline `blue` (`#0000ff`); GM polyline `red` (`#ff0000`); muc polyline `#D011A6`; all `stroke-width="3"` (≈3px on screen), solid — only the app's Neubefund overlay is dashed. Per-tooth stack: polygon → PD → muc (only when `active_indices.muc`) → GM. Interdental: same shapes plus continuous `inter-gm`/`inter-pd` polylines between adjacent present teeth; pairs `11→21` and `41→31` are skipped. Both renderers have **no all-zero data gate** — flat CEJ lines draw for every present tooth.
+- **AL (Nivel de inserción).** The site's AL inputs are `readonly`; the value auto-calculates on every PD/GM input (`js/script.js calculateSingleALForInput`) and when loading data without `al_` keys (`js/renderer/data_renderer.js`): `AL = PD − GM` (normal mode) or `AL = PD + GM` (GM-inverted mode, where the stored GM is the negated display value). The app mirrors this in `calculateAL` (types/clinical.ts) and `getToothAl` (periodontalAnalysis.ts), recomputing on every `pd_`/`gm_` field change.
+- **Input validation.** Site inputs are text fields: GM range `−99..99` (`data-validation-type="-99-99"`), PD `0..99` (`"0-99"`), integers only. The app's ArchDataGrid mirrors the ranges with number inputs (GM `min −99 max 99`, PD `min 0 max 99`, `step 1`). So **GM takes negative values (hyperplasia), PD does not** — matching the site exactly.
+- **Default convention.** `isGmInverted` defaults to the site's locale check (`isUSA`): `false` for lang=es, so positive GM = recession and `AL = PD − GM`. The app's store default is now `false` to match.
+- **Anatomical site order.** The site's per-tooth input DOM order is distal-first for Q1/Q4 (teeth 18-11, 48-41: `[db,b,mb]` / `[dp,p,mp]` / `[dl,l,ml]`) and mesial-first for Q2/Q3 (teeth 21-28, 31-38: `[mb,b,db]` / `[mp,p,dp]` / `[ml,l,dl]`) — live-verified. `ArchDataGrid` mirrors this: the vestibular/palatal/lingual column groups read `VD|VMe|VM` / `PD|PMe|PM` / `LD|LMe|LM` left-to-right for Q1/Q4 and `VM|VMe|VD` / `PM|PMe|PD` / `LM|LMe|LD` for Q2/Q3 (`sitesFor` reverses the surface order for Q1/Q4 teeth). The chart polylines are already anatomically ordered via `SITE_X_COORDINATES` (Q1: `db < b < mb` ascending, Q2: `mb < b < db`).
 
 ### 19.7 Verification
 
@@ -2722,5 +2736,10 @@ The verification script checks:
 - `ImplantOverlay` carries the site's 64 anchor coordinates (spot-checked against `implant_coordinates.js`) and 64 PNG sizes, references `/img/implants/`, centers with `translate(-50%, -50%)`, maps `p`/`l` suffixes per view, picks `r/`/`g/` folders by status, and applies the 4px colored fade mask
 - all 192 implant PNGs exist in `public/img/implants/` (gray + `r/` + `g/`) and every base PNG's IHDR dimensions match the size table
 - the canvas viewBox is `1800 × 361.33` — the background JPG's natural aspect — so teeth render unsquashed, and `POLYGON_SCALE` scales the site's 6.45 units/mm into app units
-- `SvgPlaceholder` keeps the five layers (`z-1` background, `z-2` implant overlay, `z-3` mm-line grid/CEJ, `z-4` polygons/markers, `z-5` hitboxes) with the implant layer **below** the mm-line layer, does not mount `ToothOutlineSvg`, draws the mm lines via `getMmLineYs` (black `#000`, width `1.25`, root area only), and keeps the amber zero line
+- the CEJ anchor uses the measured site box model (`siteSvgYToApp`): slot-level SVG letterbox `0.5576px` and JPG `object-fit: contain` letterbox `2.3160px`, giving zeroLineY ≈ `231.71`/`113.89`/`236.15`/`131.67` — live-verified against the site's own mm lines (SVG y=106 → screen 954.155 → app 231.71)
+- `SvgPlaceholder` keeps the five layers (`z-1` background, `z-2` mm-line grid/CEJ, `z-3` implant overlay, `z-4` polygons/markers, `z-5` hitboxes) with the implant layer **above** the mm grid and **below** the polygon layer (app paint order; the site paints mm lines over the implants), does not mount `ToothOutlineSvg`, draws the mm lines via `getMmLineYs` (black `#000`, width `1.25`, root area only), and keeps the amber zero line
 - `ToothSurfaceSvg` renders only invisible exact crown-surface hit paths; `ToothSurfaceMarkers` keeps BOP/PI markers non-interactive
+- `chartGeometry` carries the site `SITE_X_COORDINATES` for all 32 teeth (spot-checked against `polygon_coordinates.js`) and `siteSvgXToApp`/`siteSvgYToApp` reproduce the measured site transforms (x: `(x×787/790 + 9) × 1800/806.671875` → 345 → 786.97; y: slot letterbox `0.5576`, JPG letterbox `2.3160` → 106 → 231.71)
+- `PerioPolygon`/`InterProximalPolygon` use the site colors (`#0000ff` PD, `#ff0000` GM, `#D011A6` muc), `fill-opacity 0.5`, `stroke-width 3`, solid lines, no data gate, muc only when muc data exists, interdental GM/PD lines continuous, midline pairs skipped
+- `calculateAL`/`getToothAl` implement the site formula `AL = PD − GM` (inverted mode flips the GM sign), the store defaults `isGmInverted: false`, and ArchDataGrid applies the site input ranges (GM −99..99, PD 0..99, step 1)
+- ArchDataGrid orders its columns anatomically per quadrant (Q1/Q4 distal-first with `VD|VMe|VM`-style labels, Q2/Q3 mesial-first) matching the site's per-tooth DOM order, and `SvgPlaceholder` paints polygons (`z-4`) above implants (`z-3`) so the red/blue lines and pocket fill stay visible over implant PNGs

@@ -6,7 +6,7 @@ import { useChartStore } from '@/lib/store/useChartStore';
 import { calculateChartStatistics } from '@/lib/utils/periodontalAnalysis';
 import { getApplicableSurfaces } from '@/lib/utils/chartGeometry';
 import { ALL_TEETH } from '@/lib/constants/teeth';
-import { readNumber, isToothPresent } from '@/lib/utils/periodontalAnalysis';
+import { readNumber, isToothPresent, getToothAl } from '@/lib/utils/periodontalAnalysis';
 
 interface SummaryModalProps {
   open: boolean;
@@ -78,7 +78,7 @@ export function SummaryModal({ open, onOpenChange }: SummaryModalProps) {
                   </td>
                   {surfaces.map(surface => {
                     const pd = readNumber(chartData[`pd_${tooth}_${surface}`]);
-                    const al = readNumber(chartData[`al_${tooth}_${surface}`]);
+                    const al = getToothAl(chartData, tooth, surface);
                     return (
                       <td
                         key={surface}
