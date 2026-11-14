@@ -145,6 +145,12 @@ function PageHeaderTitle() {
           Presupuestos
         </h1>
       )}
+      {pathname === '/estudio-periodontal' && (
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+          <i className="fas fa-tooth mr-2 text-teal-600"></i>
+          Nuevo Estudio Periodontal
+        </h1>
+      )}
       {pathname === '/chat' && (
         <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
           <i className="fas fa-comments mr-2"></i>

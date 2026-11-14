@@ -23,7 +23,7 @@ import {
   ThreeDModal,
 } from '@/components/periodontal';
 import type { ClinicalModalKey } from '@/components/periodontal';
-import { Button, Switch, Select, SelectValue, Input } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
 import { Plus, ChevronLeft, Save, Trash2, Eye, Edit } from 'lucide-react';
 
 function EstudioPeriodontalContent() {
@@ -38,7 +38,6 @@ function EstudioPeriodontalContent() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'chart' | 'saved'>('chart');
   const [readOnly, setReadOnly] = useState(false);
-  const [showGraphicalChart, setShowGraphicalChart] = useState(true);
   const [openModal, setOpenModal] = useState<ClinicalModalKey | null>(null);
   const importInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -400,28 +399,6 @@ function EstudioPeriodontalContent() {
         </div>
       ) : (
       <>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {patient ? `Estudio Periodontal - ${patient.nombre_completo}` : 'Nuevo Estudio Periodontal'}
-          </h1>
-          {patient && (
-            <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-sm text-gray-600 dark:text-gray-400">
-              ID: {patient.paciente_id}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <Switch
-              checked={showGraphicalChart}
-              onCheckedChange={setShowGraphicalChart}
-            />
-            Mostrar Gráfico
-          </label>
-        </div>
-      </div>
-
       <div className="mb-6">
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Datos del Estudio</h3>
@@ -467,9 +444,8 @@ function EstudioPeriodontalContent() {
                 </div>
       </div>
 
-      {showGraphicalChart && (
-        <div className="mb-6">
-          <div className="mb-4 flex items-center justify-between">
+      <div className="mb-6">
+        <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Estado Periodontal</h2>
             {isOverlayMode && (
               <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
@@ -506,61 +482,9 @@ function EstudioPeriodontalContent() {
             onChange={handleImportJson}
             className="hidden"
           />
-        </div>
-      )}
+      </div>
 
       <div className="space-y-6">
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Parámetros Periodontales</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Índice de Placa</label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={chartData.indice_placa || ''}
-                onChange={(e) => handleInputChange('indice_placa', parseFloat(e.target.value) || 0)}
-                disabled={readOnly}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Índice de Sangrado</label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={chartData.indice_sangrado || ''}
-                onChange={(e) => handleInputChange('indice_sangrado', parseFloat(e.target.value) || 0)}
-                disabled={readOnly}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nivel Inserción Clínica</label>
-              <Input
-                value={chartData.nivel_insercion_clinica || ''}
-                onChange={(e) => handleInputChange('nivel_insercion_clinica', e.target.value)}
-                disabled={readOnly}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Furcaciones</label>
-              <Select
-                value={chartData.furcaciones || 'no-evaluado'}
-                onValueChange={(value) => handleInputChange('furcaciones', value)}
-                disabled={readOnly}
-              >
-                <SelectValue value="no-evaluado">No evaluado</SelectValue>
-                <SelectValue value="grado1">Grado I</SelectValue>
-                <SelectValue value="grado2">Grado II</SelectValue>
-                <SelectValue value="grado3">Grado III</SelectValue>
-              </Select>
-            </div>
-          </div>
-        </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Observaciones Generales</h3>

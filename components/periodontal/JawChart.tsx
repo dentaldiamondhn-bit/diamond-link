@@ -4,7 +4,6 @@ import React from 'react';
 import { ChartData } from '@/lib/types';
 import { SvgPlaceholder } from './SvgPlaceholder';
 import { ArchDataGrid } from './ArchDataGrid';
-import { SummaryMetrics } from './SummaryMetrics';
 import { SummaryMetricsBar } from './SummaryMetricsBar';
 import { calculateRiskAssessment } from '@/lib/utils/periodontalAnalysis';
 
@@ -30,8 +29,6 @@ export function JawChart({
 
   return (
     <div className="flex w-full flex-col gap-0">
-      <SummaryMetrics data={data} />
-
       {showRisk && (
         <div className="mb-1 rounded border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
           Evaluación de riesgo periodontal: {risk.level} (puntaje {risk.score})
@@ -55,7 +52,7 @@ export function JawChart({
 
       {/* 3. SVG Canvas: Maxilar Superior - Palatino */}
       <div className={labelClass}>Maxilar Superior - Palatino</div>
-      <div className="w-full">
+      <div className="mb-3 w-full">
         <SvgPlaceholder
           id="upper-svg-placeholder-02"
           data={data}
@@ -88,7 +85,7 @@ export function JawChart({
 
       {/* 8. SVG Canvas: Mandibular Inferior - Vestibular */}
       <div className={labelClass}>Mandibular Inferior - Vestibular</div>
-      <div className="w-full">
+      <div className="mb-3 w-full">
         <SvgPlaceholder
           id="lower-svg-placeholder-02"
           data={data}
@@ -100,8 +97,6 @@ export function JawChart({
 
       {/* 9. Lower Grid (Vestibular Inferior) */}
       <ArchDataGrid arch="lower" siteGroup="vestibular" readOnly={readOnly} />
-
-      <SummaryMetrics data={data} />
     </div>
   );
 }
