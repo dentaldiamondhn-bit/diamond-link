@@ -24,7 +24,7 @@ import {
 } from '@/components/periodontal';
 import type { ClinicalModalKey } from '@/components/periodontal';
 import { Button, Input } from '@/components/ui';
-import { Plus, ChevronLeft, Save, Trash2, Eye, Edit } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, Save, Trash2, Eye, Edit } from 'lucide-react';
 
 function EstudioPeriodontalContent() {
   const router = useRouter();
@@ -38,6 +38,7 @@ function EstudioPeriodontalContent() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'chart' | 'saved'>('chart');
   const [readOnly, setReadOnly] = useState(false);
+  const [datosCollapsed, setDatosCollapsed] = useState(false);
   const [openModal, setOpenModal] = useState<ClinicalModalKey | null>(null);
   const importInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -286,6 +287,9 @@ function EstudioPeriodontalContent() {
     }
   };
 
+  const compactLabelClass = 'block text-[11px] font-medium text-gray-400 mb-1';
+  const slimInputClass = 'h-8 text-xs px-2.5 py-1 w-full';
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
@@ -400,71 +404,91 @@ function EstudioPeriodontalContent() {
       ) : (
       <>
       <div className="mb-6">
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Datos del Estudio</h3>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente</label>
-                        {patientLoading ? (
-                          <div className="animate-pulse h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                        ) : patient ? (
-                          <div className="h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700">
-                            <p className="font-medium">{patient.nombre_completo}</p>
-                          </div>
-                        ) : (
-                          <Input
-                            placeholder="Seleccione un paciente"
-                            disabled
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
-                        <Input
-                          type="date"
-                          value={chartData.date}
-                          onChange={(e) => handleInputChange('date', e.target.value)}
-                          disabled={readOnly}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">DNI</label>
-                        <div className="h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700">
-                          <p className="font-medium">{patient?.numero_identidad || '–'}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
-                        <div className="h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700">
-                          <p className="font-medium">{patient?.telefono || '–'}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Odontólogo</label>
-                      <Input
-                        value={chartData.clinician}
-                        onChange={(e) => handleInputChange('clinician', e.target.value)}
-                        disabled={readOnly}
-                        className="w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Objetivo del Estudio</label>
-                      <Input
-                        value={chartData.objetivo_estudio || ''}
-                        onChange={(e) => handleInputChange('objetivo_estudio', e.target.value)}
-                        disabled={readOnly}
-                        placeholder="Objetivo del estudio..."
-                        className="w-full"
-                      />
-                    </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Datos del Estudio</h3>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">
+                {patient ? `${patient.nombre_completo}${chartData.date ? ` · ${chartData.date}` : ''}` : 'Sin paciente'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDatosCollapsed(value => !value)}
+                className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                title={datosCollapsed ? 'Mostrar datos del estudio' : 'Ocultar datos del estudio'}
+              >
+                {datosCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                {datosCollapsed ? 'Mostrar' : 'Ocultar'}
+              </button>
+            </div>
+          </div>
+
+          {!datosCollapsed && (
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div>
+                <label className={compactLabelClass}>Paciente</label>
+                {patientLoading ? (
+                  <div className="h-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+                ) : patient ? (
+                  <div className="flex h-8 items-center overflow-hidden rounded border border-gray-300 bg-gray-50 px-2.5 dark:border-gray-600 dark:bg-gray-700">
+                    <p
+                      className="min-w-0 truncate text-xs text-gray-900 dark:text-gray-100"
+                      title={patient.paciente_id ? `ID: ${patient.paciente_id}` : undefined}
+                    >
+                      <span className="font-semibold">{patient.nombre_completo}</span>
+                      {patient.paciente_id && (
+                        <span className="ml-1.5 text-[10px] text-gray-400">ID: {patient.paciente_id.slice(0, 8)}…</span>
+                      )}
+                    </p>
                   </div>
+                ) : (
+                  <Input placeholder="Seleccione un paciente" disabled className={slimInputClass} />
+                )}
+              </div>
+              <div>
+                <label className={compactLabelClass}>DNI</label>
+                <div className="flex h-8 items-center overflow-hidden rounded border border-gray-300 bg-gray-50 px-2.5 dark:border-gray-600 dark:bg-gray-700">
+                  <p className="truncate text-xs text-gray-900 dark:text-gray-100">{patient?.numero_identidad || '–'}</p>
                 </div>
+              </div>
+              <div>
+                <label className={compactLabelClass}>Teléfono</label>
+                <div className="flex h-8 items-center overflow-hidden rounded border border-gray-300 bg-gray-50 px-2.5 dark:border-gray-600 dark:bg-gray-700">
+                  <p className="truncate text-xs text-gray-900 dark:text-gray-100">{patient?.telefono || '–'}</p>
+                </div>
+              </div>
+              <div>
+                <label className={compactLabelClass}>Fecha</label>
+                <Input
+                  type="date"
+                  value={chartData.date}
+                  onChange={(e) => handleInputChange('date', e.target.value)}
+                  disabled={readOnly}
+                  className={slimInputClass}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className={compactLabelClass}>Odontólogo</label>
+                <Input
+                  value={chartData.clinician}
+                  onChange={(e) => handleInputChange('clinician', e.target.value)}
+                  disabled={readOnly}
+                  className={slimInputClass}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className={compactLabelClass}>Objetivo del Estudio</label>
+                <Input
+                  value={chartData.objetivo_estudio || ''}
+                  onChange={(e) => handleInputChange('objetivo_estudio', e.target.value)}
+                  disabled={readOnly}
+                  placeholder="Objetivo del estudio..."
+                  className={slimInputClass}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mb-6">
