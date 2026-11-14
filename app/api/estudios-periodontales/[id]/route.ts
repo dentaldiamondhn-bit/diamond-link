@@ -84,6 +84,7 @@ export async function PUT(
         nivel_insercion_clinica: body.nivel_insercion_clinica || null,
         furcaciones: body.furcaciones || 'no-evaluado',
         observaciones_generales: body.observaciones_generales || null,
+        objetivo_estudio: body.objetivo_estudio || null,
         plan_tratamiento: body.plan_tratamiento || {},
         actualizado_en: new Date().toISOString()
       })

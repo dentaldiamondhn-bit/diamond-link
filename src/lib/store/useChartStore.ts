@@ -326,6 +326,7 @@ export const useChartStore = create<ChartState>()(
           nivel_insercion_clinica: '',
           furcaciones: 'no-evaluado',
           observaciones_generales: '',
+          objetivo_estudio: '',
           plan_tratamiento: {},
           isGmInverted: state.isGmInverted,
         };
@@ -488,6 +489,7 @@ export const useChartStore = create<ChartState>()(
         nivel_insercion_clinica: chart.nivel_insercion_clinica || null,
         furcaciones,
         observaciones_generales: chart.observaciones_generales || null,
+        objetivo_estudio: chart.objetivo_estudio || null,
         plan_tratamiento: chart.plan_tratamiento || {},
         mediciones,
       };

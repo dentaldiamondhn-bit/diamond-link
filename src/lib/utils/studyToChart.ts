@@ -20,6 +20,7 @@ export function buildChartDataFromStudy(study: any): ChartData {
   chartData.nivel_insercion_clinica = study?.nivel_insercion_clinica || '';
   chartData.furcaciones = study?.furcaciones || 'no-evaluado';
   chartData.observaciones_generales = study?.observaciones_generales || '';
+  chartData.objetivo_estudio = study?.objetivo_estudio || '';
   chartData.plan_tratamiento = study?.plan_tratamiento || {};
   chartData.doctor_id = study?.doctor_id || '';
   chartData.clinician = study?.doctors?.name || study?.doctor || '';

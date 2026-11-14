@@ -1133,7 +1133,7 @@ function MenuNavegacionContent() {
       icon: 'fas fa-teeth-open',
       title: 'Estudios Periodontales',
       description: 'Registre y gestione los estudios periodontales, incluyendo índices de placa, sangrado y profundidad de bolsas.',
-      href: `/estudio-periodontal?id=${validPacienteId}`
+      href: `/estudio-periodontal?paciente_id=${validPacienteId}`
     }
   ];
 

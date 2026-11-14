@@ -431,12 +431,36 @@ function EstudioPeriodontalContent() {
                         />
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">DNI</label>
+                        <div className="h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700">
+                          <p className="font-medium">{patient?.numero_identidad || '–'}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono</label>
+                        <div className="h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700">
+                          <p className="font-medium">{patient?.telefono || '–'}</p>
+                        </div>
+                      </div>
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Odontólogo</label>
                       <Input
                         value={chartData.clinician}
                         onChange={(e) => handleInputChange('clinician', e.target.value)}
                         disabled={readOnly}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Objetivo del Estudio</label>
+                      <Input
+                        value={chartData.objetivo_estudio || ''}
+                        onChange={(e) => handleInputChange('objetivo_estudio', e.target.value)}
+                        disabled={readOnly}
+                        placeholder="Objetivo del estudio..."
                         className="w-full"
                       />
                     </div>
