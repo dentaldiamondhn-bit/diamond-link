@@ -411,7 +411,6 @@ function EstudioPeriodontalContent() {
                         ) : patient ? (
                           <div className="h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700">
                             <p className="font-medium">{patient.nombre_completo}</p>
-                            <p className="text-sm text-gray-500">ID: {patient.paciente_id}</p>
                           </div>
                         ) : (
                           <Input
