@@ -1,6 +1,16 @@
 import { ChartData, FDIToothNumber } from '@/lib/types/clinical';
 import { ALL_TEETH } from '@/lib/constants/teeth';
 import { getApplicableSurfaces } from '@/lib/utils/chartGeometry';
+import { getFurcationSitesForTooth } from '@/lib/constants/surfaces';
+
+// Furcation involvement of a tooth is the worst grade across its applicable
+// sites (the reference stores one grade per site: b, mp, dp, l).
+export function getMaxFurcationGrade(data: ChartData, tooth: FDIToothNumber): number {
+  return getFurcationSitesForTooth(tooth).reduce(
+    (max, site) => Math.max(max, readNumber(data[`furcation_${tooth}_${site}`])),
+    0,
+  );
+}
 
 export interface ChartStatistics {
   meanPd: number;
@@ -144,7 +154,7 @@ export function calculateChartStatistics(data: ChartData): ChartStatistics {
     else stats.teethMissing += 1;
     if (implant) stats.teethImplanted += 1;
 
-    if (readNumber(data[`furcation_${tooth}_b`]) >= 2) stats.furcationAdvanced += 1;
+    if (getMaxFurcationGrade(data, tooth) >= 2) stats.furcationAdvanced += 1;
     if (readNumber(data[`mobility_${tooth}`]) >= 2) stats.mobilityAdvanced += 1;
 
     if (!present) return;
@@ -329,7 +339,7 @@ export function classifyTooth(data: ChartData, tooth: FDIToothNumber): ToothClas
     if (readFlag(data[`bop_${tooth}_${surface}`])) bopSites += 1;
   });
 
-  const furcation = readNumber(data[`furcation_${tooth}_b`]);
+  const furcation = getMaxFurcationGrade(data, tooth);
   const mobility = readNumber(data[`mobility_${tooth}`]);
 
   let stage: 0 | 1 | 2 | 3 | 4 = 0;

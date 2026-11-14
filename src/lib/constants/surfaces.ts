@@ -36,10 +36,13 @@ export function getTableSiteSurfaces(tooth: FDIToothNumber): TableSiteSurfaces {
   };
 }
 
+// Furcation data-entry sites per the reference site's tooth table (34
+// buttons total): upper molars b/dp/mp, upper FIRST premolars dp/mp only
+// (15/25 are single-rooted and have no furcation entry), lower molars b/l.
 export const FURCATION_SITES_UPPER: Partial<Record<FDIToothNumber, FurcationSite[]>> = {
   18: ['b', 'dp', 'mp'], 17: ['b', 'dp', 'mp'], 16: ['b', 'dp', 'mp'],
-  15: ['dp', 'mp'], 14: ['dp', 'mp'], 13: [], 12: [], 11: [],
-  21: [], 22: [], 23: [], 24: ['dp', 'mp'], 25: ['dp', 'mp'],
+  15: [], 14: ['dp', 'mp'], 13: [], 12: [], 11: [],
+  21: [], 22: [], 23: [], 24: ['dp', 'mp'], 25: [],
   26: ['b', 'dp', 'mp'], 27: ['b', 'dp', 'mp'], 28: ['b', 'dp', 'mp'],
 };
 

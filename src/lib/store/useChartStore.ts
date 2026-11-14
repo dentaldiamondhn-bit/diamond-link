@@ -7,6 +7,7 @@ import {
   ActiveIndices,
   ViewStatus,
   SurfaceId,
+  FurcationSite,
   FDIToothNumber,
   CHART_TEMPLATE,
   ALL_TEETH,
@@ -19,6 +20,7 @@ import {
   ChartIndexSummary,
   EMPTY_INDEX_SUMMARY,
   isToothPresent,
+  readNumber,
 } from '@/lib/utils/periodontalAnalysis';
 import { getApplicableSurfaces } from '@/lib/utils/chartGeometry';
 import { getTableSiteSurfaces } from '@/lib/constants/surfaces';
@@ -420,6 +422,13 @@ export const useChartStore = create<ChartState>()(
             return value === '1' || value === 1 || value === true;
           });
 
+        // Furcation grades (0..3) persist per site; 0/unset ships as null so
+        // only real findings land in the DB.
+        const furcationValue = (site: FurcationSite): number | null => {
+          const grade = readNumber(chart[`furcation_${tooth}_${site}`]);
+          return grade >= 1 ? grade : null;
+        };
+
         return {
           diente: String(tooth),
           vestibular: {
@@ -455,6 +464,10 @@ export const useChartStore = create<ChartState>()(
           movilidad: parseInt(String(chart[`mobility_${tooth}`])) || 0,
           sangrado: anyFlag('bop'),
           placa: anyFlag('pi'),
+          furcacionB: furcationValue('b'),
+          furcacionMp: furcationValue('mp'),
+          furcacionDp: furcationValue('dp'),
+          furcacionL: furcationValue('l'),
           observaciones: chart[`note_${tooth}`] || '',
         };
       });

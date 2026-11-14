@@ -129,6 +129,10 @@ export async function PUT(
         movilidad: parseInt(measurement.movilidad) || 0,
         sangrado: measurement.sangrado || false,
         placa: measurement.placa || false,
+        furcacion_b: measurement.furcacionB ?? null,
+        furcacion_mp: measurement.furcacionMp ?? null,
+        furcacion_dp: measurement.furcacionDp ?? null,
+        furcacion_l: measurement.furcacionL ?? null,
         observaciones_diente: measurement.observaciones || null
       }));
 

@@ -89,6 +89,19 @@ export function buildChartDataFromStudy(study: any): ChartData {
     const mobility = readNumber(m.movilidad);
     if (mobility > 0) chartData[`mobility_${tooth}`] = mobility;
 
+    // Per-site furcation grades (furcacion_* columns, 0..3 or null) restore
+    // into the chart's furcation_<tooth>_<site> fields.
+    const furcationBySite: Array<[string, unknown]> = [
+      ['b', m.furcacion_b ?? m.furcacionB],
+      ['mp', m.furcacion_mp ?? m.furcacionMp],
+      ['dp', m.furcacion_dp ?? m.furcacionDp],
+      ['l', m.furcacion_l ?? m.furcacionL],
+    ];
+    furcationBySite.forEach(([site, value]) => {
+      const grade = readNumber(value);
+      if (grade > 0) chartData[`furcation_${tooth}_${site}`] = grade;
+    });
+
     const applicable = [...VESTIBULAR_SURFACES, ...palatinoSurfaces];
     applicable.forEach(surface => {
       chartData[`bop_${tooth}_${surface}`] = m.sangrado ? '1' : '0';

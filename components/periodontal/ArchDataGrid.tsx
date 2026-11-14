@@ -1,9 +1,11 @@
 'use client';
 
 import React from 'react';
-import { FDIToothNumber, SurfaceId } from '@/lib/types';
+import { FDIToothNumber, FurcationSite, SurfaceId } from '@/lib/types';
 import { getApplicableSurfaces } from '@/lib/utils/chartGeometry';
-import { getToothAl, isToothPresent, readFlag, formatMeasurementInput } from '@/lib/utils/periodontalAnalysis';
+import { getToothAl, isToothPresent, readFlag, formatMeasurementInput, readNumber } from '@/lib/utils/periodontalAnalysis';
+import { getFurcationSitesForTooth } from '@/lib/constants/surfaces';
+import { FurcationGlyph } from './FurcationGlyph';
 import { useChartStore } from '@/lib/store/useChartStore';
 
 interface ArchDataGridProps {
@@ -50,7 +52,18 @@ const isDistalFirst = (tooth: FDIToothNumber): boolean => {
 
 const MOBILITY_OPTIONS = ['0', '1', '2', '3'];
 const IMPLANT_OPTIONS = ['0', '1', '2', '3'];
-const FURCATION_OPTIONS = ['no-evaluado', 'grado1', 'grado2', 'grado3'];
+
+// Furcation selector (reference js/script.js toggleFurcationGrade): one
+// click-to-cycle button per applicable site, grades 0→1→2→3→0, empty box at
+// grade 0. Sites are grouped by grid: vestibular carries the buccal site,
+// the palatal grid the two palatal-root sites, the lingual grid 'l'.
+const FURCATION_SITE_LABELS: Record<FurcationSite, string> = {
+  b: 'vestibular',
+  mp: 'palatino mesial',
+  dp: 'palatino distal',
+  l: 'lingual',
+  p: 'palatino',
+};
 
 const cellClass =
   'w-full min-w-[34px] rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-1 py-0.5 text-center text-xs text-gray-900 dark:text-gray-100 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-60';
@@ -236,13 +249,56 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
               </button>
             </td>
           );
-        case 'furcation':
-          return renderSelectCell(
-            tooth,
-            FURCATION_OPTIONS,
-            String(chartData[`furcation_${tooth}_b`] ?? 'no-evaluado'),
-            value => setFurcation(tooth, 'b', FURCATION_OPTIONS.indexOf(value) - 1),
+        case 'furcation': {
+          const available = getFurcationSitesForTooth(tooth);
+          const groupSites: FurcationSite[] =
+            siteGroup === 'vestibular'
+              ? ['b']
+              : siteGroup === 'palatal'
+                ? isDistalFirst(tooth)
+                  ? ['dp', 'mp']
+                  : ['mp', 'dp']
+                : ['l'];
+          const sites = groupSites.filter(site => available.includes(site));
+
+          if (sites.length === 0) {
+            return (
+              <td
+                key={`furcation-${tooth}`}
+                colSpan={3}
+                className="border border-gray-200 dark:border-gray-600 p-0 text-center text-[10px] text-gray-300 dark:text-gray-600"
+              >
+                –
+              </td>
+            );
+          }
+
+          return (
+            <td
+              key={`furcation-${tooth}`}
+              colSpan={3}
+              className="border border-gray-200 dark:border-gray-600 p-0"
+            >
+              <div className="flex items-center justify-center gap-1 py-0.5">
+                {sites.map(site => {
+                  const grade = readNumber(chartData[`furcation_${tooth}_${site}`]);
+                  return (
+                    <button
+                      key={site}
+                      type="button"
+                      className="flex h-4 w-4 items-center justify-center rounded-sm bg-gray-200 text-black transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-600 dark:text-gray-100"
+                      disabled={disabled}
+                      onClick={() => setFurcation(tooth, site, (grade + 1) % 4)}
+                      title={`Furcación ${tooth} ${FURCATION_SITE_LABELS[site]}: grado ${grade} (clic para graduar)`}
+                    >
+                      <FurcationGlyph grade={grade} />
+                    </button>
+                  );
+                })}
+              </div>
+            </td>
           );
+        }
         default:
           return null;
       }

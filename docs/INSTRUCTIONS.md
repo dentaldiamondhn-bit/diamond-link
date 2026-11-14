@@ -364,7 +364,9 @@ export const CHART_TEMPLATE: ChartData = {
   reevaluation_note: '',
   clinician: '',
   viewStatus: 2,
-  isGmInverted: true,
+  // Site default for lang=es (js/script.js isUSA check): positive GM =
+  // recession, AL = PD - GM.
+  isGmInverted: false,
   isMirrored: false,
   active_indices: {
     pockets: true,
@@ -805,7 +807,9 @@ import { immer } from 'zustand/middleware/immer';
 import { UserSettings, LanguageCode } from '@/lib/types/patient';
 
 const DEFAULT_SETTINGS: UserSettings = {
-  isGmInverted: true,
+  // Site default for lang=es (inert copy; the chart store's flag is the
+  // single effective source).
+  isGmInverted: false,
   dateFormat: 'DD.MM.YYYY',
   language: 'es',
   autoSaveInterval: 30000,
@@ -1256,24 +1260,59 @@ export const IMPLANT_COORDINATES: Record<string, { x: number; y: number }> = {
   // 105-106 upper-palatal, 54 lower-lingual, 112 lower-buccal)
 };
 
-export const FURCATION_COORDINATES: Record<string, { x: number; y: number }> = {
-  'furcation_18_b': { x: 65, y: 100 },
-  'furcation_18_dp': { x: 85, y: 150 },
-  'furcation_18_mp': { x: 45, y: 150 },
-  // ... all furcation positions
-};
+// The site's surface-editor furcation overlay (window.furcationCoordinates,
+// js/coordinates/furcation_svg_coordinates.js) is NOT implemented — the app
+// has no surface-editor view. Only the chart-view table below is used.
+// See §19.6c for the full furcation behavior contract.
 
 export const FURCATION_CHART_COORDINATES: Record<string, Record<string, { x: number; y: number }>> = {
+  // Verbatim from the site's js/coordinates/furcation_chart_coordinates.js
+  // (790x162 per-view SVG space). Note: no entries for upper second
+  // premolars 15/25; the 14/24 `_b` rows are vestigial (no data button).
   'upper-svg-placeholder-01': {
-    'furcation_18_b': { x: 120, y: 80 },
-    // ...
+    'furcation_18_b': { x: 30.5, y: 95 },
+    'furcation_17_b': { x: 83, y: 95 },
+    'furcation_16_b': { x: 141, y: 95 },
+    'furcation_14_b': { x: 233, y: 95 },
+    'furcation_24_b': { x: 559, y: 95 },
+    'furcation_26_b': { x: 651, y: 95 },
+    'furcation_27_b': { x: 708.5, y: 95 },
+    'furcation_28_b': { x: 761.5, y: 95 },
   },
   'upper-svg-placeholder-02': {
-    'furcation_18_dp': { x: 200, y: 120 },
-    'furcation_18_mp': { x: 80, y: 120 },
-    // ...
+    'furcation_18_mp': { x: 48, y: 70 },
+    'furcation_18_dp': { x: 8, y: 70 },
+    'furcation_17_mp': { x: 100, y: 70 },
+    'furcation_17_dp': { x: 61, y: 70 },
+    'furcation_16_mp': { x: 162, y: 70 },
+    'furcation_16_dp': { x: 116, y: 70 },
+    'furcation_14_mp': { x: 246, y: 70 },
+    'furcation_14_dp': { x: 221, y: 70 },
+    'furcation_24_mp': { x: 546, y: 70 },
+    'furcation_24_dp': { x: 571, y: 70 },
+    'furcation_26_mp': { x: 629, y: 70 },
+    'furcation_26_dp': { x: 677, y: 70 },
+    'furcation_27_mp': { x: 693, y: 70 },
+    'furcation_27_dp': { x: 732, y: 70 },
+    'furcation_28_mp': { x: 745, y: 70 },
+    'furcation_28_dp': { x: 784, y: 70 },
   },
-  // ... for all 4 placeholders
+  'lower-svg-placeholder-01': {
+    'furcation_48_l': { x: 38.5, y: 90 },
+    'furcation_47_l': { x: 103, y: 90 },
+    'furcation_46_l': { x: 164, y: 90 },
+    'furcation_36_l': { x: 626.5, y: 90 },
+    'furcation_37_l': { x: 688, y: 90 },
+    'furcation_38_l': { x: 753.5, y: 90 },
+  },
+  'lower-svg-placeholder-02': {
+    'furcation_48_b': { x: 36, y: 80 },
+    'furcation_47_b': { x: 99, y: 80 },
+    'furcation_46_b': { x: 162.5, y: 80 },
+    'furcation_36_b': { x: 628, y: 80 },
+    'furcation_37_b': { x: 692.5, y: 80 },
+    'furcation_38_b': { x: 755.5, y: 80 },
+  },
 };
 
 export const MISSING_TOOTH_X_POSITIONS: Record<FDIToothNumber, { buccal: number; palatinal: number; lingual: number }> = {
@@ -2011,10 +2050,14 @@ export function getAllSurfacesForTooth(tooth: FDIToothNumber): SurfaceId[] {
   return [...getBuccalSurfaces(tooth), ...getOralSurfaces(tooth)];
 }
 
+// Furcation data-entry sites per the reference site's tooth table (34
+// buttons total). Upper molars carry b/dp/mp, upper FIRST premolars
+// dp/mp only (15/25 are single-rooted and have no furcation entry), lower
+// molars carry b/l.
 export const FURCATION_SITES_UPPER: Record<FDIToothNumber, FurcationSite[]> = {
   18: ['b', 'dp', 'mp'], 17: ['b', 'dp', 'mp'], 16: ['b', 'dp', 'mp'],
-  15: ['dp', 'mp'], 14: ['dp', 'mp'], 13: [], 12: [], 11: [],
-  21: [], 22: [], 23: [], 24: ['dp', 'mp'], 25: ['dp', 'mp'],
+  15: [], 14: ['dp', 'mp'], 13: [], 12: [], 11: [],
+  21: [], 22: [], 23: [], 24: ['dp', 'mp'], 25: [],
   26: ['b', 'dp', 'mp'], 27: ['b', 'dp', 'mp'], 28: ['b', 'dp', 'mp'],
 };
 
@@ -2719,6 +2762,36 @@ Source of truth: `js/renderer/chart_renderer.js` (`renderPerioPolygon`, `renderI
 - **Default convention.** `isGmInverted` defaults to the site's locale check (`isUSA`): `false` for lang=es, so positive GM = recession and `AL = PD − GM`. The app's store default is now `false` to match.
 - **Anatomical site order.** The site's per-tooth input DOM order is distal-first for Q1/Q4 (teeth 18-11, 48-41: `[db,b,mb]` / `[dp,p,mp]` / `[dl,l,ml]`) and mesial-first for Q2/Q3 (teeth 21-28, 31-38: `[mb,b,db]` / `[mp,p,dp]` / `[ml,l,dl]`) — live-verified. `ArchDataGrid` mirrors this: the vestibular/palatal/lingual column groups read `VD|VMe|VM` / `PD|PMe|PM` / `LD|LMe|LM` left-to-right for Q1/Q4 and `VM|VMe|VD` / `PM|PMe|PD` / `LM|LMe|LD` for Q2/Q3 (`sitesFor` reverses the surface order for Q1/Q4 teeth). The chart polylines are already anatomically ordered via `SITE_X_COORDINATES` (Q1: `db < b < mb` ascending, Q2: `mb < b < db`).
 
+### 19.6c Furcation selector and indicator
+
+Source of truth: `js/script.js` (`toggleFurcationGrade` :1320, `furcationSVGs` :580-584), `js/renderer/chart_renderer.js` (`renderFurcations` :47-203), `js/coordinates/furcation_chart_coordinates.js`, `js/misc/position.js` (`hatImplantatStatus`, `STUFEN = ['1','2','3']`). Reverse-engineered 2026-11-13.
+
+**Data model.** One grade (`0..3`) per applicable site, stored as `furcation_<tooth>_<site>`. The site's tooth table exposes exactly **34 data-entry buttons**: upper molars 18/17/16/26/27/28 carry `b`, `dp`, `mp`; upper **first** premolars 14/24 carry only `dp`, `mp` (buccal furcation does not exist on two-rooted premolars; 15/25 are single-rooted and have **no** furcation entry at all); lower molars 36/37/38/46/47/48 carry `b` and `l`.
+
+**Selector.** Each site is a click-to-cycle button (`toggleFurcationGrade`): `grade = (grade + 1) % 4`, so 0 → 1 → 2 → 3 → 0. The button is a 16×16 `#ECECEC` box, **empty at grade 0**, and otherwise shows the site's 15×15 grade SVG icon (ring / ring + filled left half / solid disc — `furcationSVGs`). The button row is hidden entirely on implant-active teeth (`.implant-active .furcation-button { display: none !important }`).
+
+**Indicator (chart SVGs).** `renderFurcations` draws one marker per graded site into the per-view chart SVG:
+
+- Grade 1: outline circle, `r = 5.75` site units (7 − 2.5/2), `stroke="black"`, `stroke-width="2.5"`, `fill="none"`.
+- Grade 2: the same outline circle **plus** a filled left half-disc — path `M cx cy-7 A 7 7 0 0 0 cx cy+7 L cx cy Z`, `fill="black"`. The half is the same on both sides of the arch (no mirroring).
+- Grade 3: solid circle, `r = 7`, `fill="black"`.
+- Markers are **not** triangles. They are skipped for absent teeth and for any implant status 1–3 (`isToothPresent` + `hatImplantatStatus` gates).
+- View routing (`chart_renderer.js:140-152`): upper site `b` → `upper-svg-placeholder-01`; upper sites containing `p`/`m`/`d` (`mp`, `dp`) → `upper-svg-placeholder-02`; lower `b` → `lower-svg-placeholder-02`; lower `l` → `lower-svg-placeholder-01`. The upper oral view therefore draws **two** markers per molar (one per palatal root).
+- Positions come verbatim from `furcationChartCoordinates` (790×162 per-view space). Note the table also contains vestigial `furcation_14_b`/`furcation_24_b` rows for which no data button exists.
+
+**App implementation.**
+
+- `src/lib/constants/furcation.ts` — `FURCATION_CHART_COORDINATES`, the site table ported verbatim; mapped to canvas space with `siteSvgXToApp`/`siteSvgYToApp`. Scale: `SITE_UNIT_TO_APP = POLYGON_SCALE / 6.45` (≈ 2.223 app units per site unit, isotropic on both axes).
+- `components/periodontal/FurcationMarker.tsx` — the three circle glyphs above in app units (`RADIUS_FILLED = 7u`, `STROKE_WIDTH = 2.5u`, `RADIUS_STROKED = 7u − 2.5u/2`), site view routing, absent/implant gating (`isToothPresent`/`isImplanted`), rendered in the polygon layer (`z-4`).
+- `components/periodontal/FurcationGlyph.tsx` — the site's three 15×15 selector icons, paths copied verbatim from `furcationSVGs`.
+- `components/periodontal/ArchDataGrid.tsx` — the furcation row renders one click-to-cycle button per site, grouped by grid: vestibular grid → `b`, palatal grid → `dp`/`mp` (distal-first for Q1/Q4 teeth, matching the grid's anatomical column order), lingual grid → `l`; teeth without a furcation site in that group show a dash. Grades store as numbers 0..3 (`setFurcation(tooth, site, (grade + 1) % 4)`) — the earlier single-dropdown stored an off-by-one `-1..2` and is gone.
+- `src/lib/constants/surfaces.ts` — `FURCATION_SITES_UPPER`/`LOWER` now mirror the site's 34-button set (15/25 empty).
+- `src/lib/utils/periodontalAnalysis.ts` — `getMaxFurcationGrade(data, tooth)` takes the worst grade across the tooth's sites; `furcationAdvanced` (grade ≥ 2) and the stage-4 classification rule (grade ≥ 3) read through it instead of only `_b`.
+
+**Persistence (round trip).** The header-level `estudios_periodontales.furcaciones` column cannot represent per-tooth findings, so grades live on `mediciones_periodontales` (migration `database/migrations/add_periodontal_furcation_columns.sql`): `furcacion_b`, `furcacion_mp`, `furcacion_dp`, `furcacion_l` `SMALLINT NULL` with a 0..3 CHECK. `prepareApiPayload` emits them per measurement as `furcacionB/Mp/Dp/L` (null when unset/0), both API routes write the columns with `?? null`, and `studyToChart` restores `furcation_<tooth>_<site>` on load. The GET route selects `mediciones_periodontales(*)`, so new columns flow through automatically.
+
+**Verification.** `scripts/verify-periodontal.cjs` asserts the verbatim coordinate table, the half-disc path, circle glyphs (no `<polygon>`), the absent/implant gates, the `(grade + 1) % 4` cycle, the 15/25 exclusion in both the coordinate table and `FURCATION_SITES_UPPER`, and the persistence wiring in the payload, both API routes and `studyToChart`.
+
 ### 19.7 Verification
 
 ```bash
@@ -2743,3 +2816,4 @@ The verification script checks:
 - `PerioPolygon`/`InterProximalPolygon` use the site colors (`#0000ff` PD, `#ff0000` GM, `#D011A6` muc), `fill-opacity 0.5`, `stroke-width 3`, solid lines, no data gate, muc only when muc data exists, interdental GM/PD lines continuous, midline pairs skipped
 - `calculateAL`/`getToothAl` implement the site formula `AL = PD − GM` (inverted mode flips the GM sign), the store defaults `isGmInverted: false`, and ArchDataGrid applies the site input ranges (GM −99..99, PD 0..99, step 1)
 - ArchDataGrid orders its columns anatomically per quadrant (Q1/Q4 distal-first with `VD|VMe|VM`-style labels, Q2/Q3 mesial-first) matching the site's per-tooth DOM order, and `SvgPlaceholder` paints polygons (`z-4`) above implants (`z-3`) so the red/blue lines and pocket fill stay visible over implant PNGs
+- the furcation feature matches the site contract (§19.6c): verbatim `FURCATION_CHART_COORDINATES` (no 15/25 entries), circle glyphs with the grade-2 left half-disc path, absent/implant gates, per-site `(grade + 1) % 4` cycle buttons grouped by grid, `FURCATION_SITES_*` mirroring the site's 34-button set, and per-site grade persistence (`furcacion_*` columns in both API routes, `prepareApiPayload` and `studyToChart`)

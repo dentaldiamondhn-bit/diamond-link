@@ -330,6 +330,41 @@ const studySrc = fs.readFileSync(path.join(root, 'src/lib/utils/studyToChart.ts'
 check(studySrc.includes('vestibular_gm_mesial') && studySrc.includes('palatino_gm_mesial'), 'studyToChart must restore the signed gingival margin from the study');
 check(!/chartData\[`gm_\$\{tooth\}_\$\{surface\}`\] = 0;/.test(studySrc), 'studyToChart must not hardcode gm_* to 0 (signed GM must round-trip)');
 
+// --- Furcation selector + indicator (reference: periodontalchart-online.com) ---
+const furcCoordsSrc = fs.readFileSync(path.join(root, 'src/lib/constants/furcation.ts'), 'utf8');
+check(furcCoordsSrc.includes("'furcation_18_b': { x: 30.5, y: 95 }"), 'furcation chart coordinates must be the site-verbatim table (upper-01 buccal y=95)');
+check(furcCoordsSrc.includes("'furcation_16_dp': { x: 116, y: 70 }"), 'furcation upper palatal coordinates must be the site-verbatim table (one marker per palatal root)');
+check(!furcCoordsSrc.includes('furcation_15') && !furcCoordsSrc.includes('furcation_25'), 'the site has no furcation entries for upper second premolars 15/25');
+
+const surfacesSrc = fs.readFileSync(path.join(root, 'src/lib/constants/surfaces.ts'), 'utf8');
+check(surfacesSrc.includes('15: []') && surfacesSrc.includes('25: []'), 'FURCATION_SITES_UPPER must not give 15/25 furcation sites (site table has none)');
+
+const furcMarkerSrc = fs.readFileSync(path.join(root, 'components/periodontal/FurcationMarker.tsx'), 'utf8');
+check(furcMarkerSrc.includes('A ${RADIUS_FILLED} ${RADIUS_FILLED} 0 0 0'), 'furcation grade-2 glyph must fill the left half-disc with the site path (M cx cy-7 A 7 7 0 0 0 cx cy+7 L cx cy Z)');
+check(furcMarkerSrc.includes('<circle'), 'furcation markers must be circles (site glyphs)');
+check(!furcMarkerSrc.includes('<polygon'), 'furcation markers must not be triangles (the site draws circles)');
+check(furcMarkerSrc.includes('isImplanted'), 'furcation markers must be hidden on implants (site renderFurcations rule)');
+check(furcMarkerSrc.includes('isToothPresent'), 'furcation markers must be hidden on absent teeth');
+check(furcMarkerSrc.includes('siteSvgXToApp') && furcMarkerSrc.includes('siteSvgYToApp'), 'furcation markers must map the site coordinates into app space');
+
+const furcGlyphSrc = fs.readFileSync(path.join(root, 'components/periodontal/FurcationGlyph.tsx'), 'utf8');
+check(furcGlyphSrc.includes('M7.5,15a7.5,7.5,0,1,1,0-15'), 'furcation selector icons must be the site-verbatim grade SVGs');
+
+check(gridSrc.includes('(grade + 1) % 4'), 'furcation selector must cycle grades 0-1-2-3-0 like toggleFurcationGrade');
+check(gridSrc.includes('getFurcationSitesForTooth'), 'furcation selector must offer exactly the site-verbatim per-tooth furcation sites');
+check(!gridSrc.includes("FURCATION_OPTIONS.indexOf(value) - 1"), 'furcation selector must not keep the off-by-one dropdown grades (grado1 must store 1, not 0)');
+
+check(analysisGatesSrc.includes('getMaxFurcationGrade'), 'periodontalAnalysis must read furcation involvement across all sites of a tooth, not only _b');
+
+check(storeSrc.includes('furcacionB: furcationValue('), 'prepareApiPayload must persist per-site furcation grades');
+check(studySrc.includes('furcacion_b'), 'studyToChart must restore per-site furcation grades from the study');
+
+const apiPostSrc = fs.readFileSync(path.join(root, 'app/api/estudios-periodontales/route.ts'), 'utf8');
+const apiPutSrc = fs.readFileSync(path.join(root, 'app/api/estudios-periodontales/[id]/route.ts'), 'utf8');
+check(apiPostSrc.includes('furcacion_b') && apiPostSrc.includes('furcacion_l'), 'POST route must persist per-site furcation columns');
+check(apiPutSrc.includes('furcacion_b') && apiPutSrc.includes('furcacion_l'), 'PUT route must persist per-site furcation columns');
+check(fs.existsSync(path.join(root, 'database/migrations/add_periodontal_furcation_columns.sql')), 'furcation columns migration must exist');
+
 console.log(
   failures === 0
     ? 'PASS: raster crowns only, unsquashed JPG-aspect canvas, 5 render layers (implant under mm grid under polygons), site mm grid in root area only, exact site implant PNGs (192 assets), exact crown hitboxes, CEJ alignment, site-faithful GM/PD lines (site x coords, blue/red 3px, no data gate), AL = PD - GM (site convention), GM accepts negatives (-99..99), anatomical site order (Q1/Q4 distal-first), polygons + mm lines painted over implant PNGs'
