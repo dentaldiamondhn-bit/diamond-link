@@ -75,20 +75,60 @@ export function buildChartDataFromStudy(study: any): ChartData {
       m.palatino_al_distal ?? m.palatinoAl?.distal,
     ];
 
+    // Per-site BOP/plaque flags restore from their own columns. flagValue
+    // keeps the tri-state: null means the column was never written (studies
+    // saved before it existed), so the tooth-level boolean decides.
+    const sangradoVestibular = [
+      m.sangrado_vestibular_mesial ?? m.sangradoVestibular?.mesial,
+      m.sangrado_vestibular_medio ?? m.sangradoVestibular?.medio,
+      m.sangrado_vestibular_distal ?? m.sangradoVestibular?.distal,
+    ];
+    const sangradoPalatino = [
+      m.sangrado_palatino_mesial ?? m.sangradoPalatino?.mesial,
+      m.sangrado_palatino_medio ?? m.sangradoPalatino?.medio,
+      m.sangrado_palatino_distal ?? m.sangradoPalatino?.distal,
+    ];
+    const placaVestibular = [
+      m.placa_vestibular_mesial ?? m.placaVestibular?.mesial,
+      m.placa_vestibular_medio ?? m.placaVestibular?.medio,
+      m.placa_vestibular_distal ?? m.placaVestibular?.distal,
+    ];
+    const placaPalatino = [
+      m.placa_palatino_mesial ?? m.placaPalatino?.mesial,
+      m.placa_palatino_medio ?? m.placaPalatino?.medio,
+      m.placa_palatino_distal ?? m.placaPalatino?.distal,
+    ];
+
+    const flagValue = (value: unknown): boolean | null => {
+      if (value === null || value === undefined) return null;
+      return value === true || value === '1' || value === 1;
+    };
+
     VESTIBULAR_SURFACES.forEach((surface, i) => {
       chartData[`pd_${tooth}_${surface}`] = readNumber(vestibular[i]);
       chartData[`gm_${tooth}_${surface}`] = readNumber(vestibularGm[i]);
       chartData[`al_${tooth}_${surface}`] = readNumber(vestibularAl[i]);
+      chartData[`bop_${tooth}_${surface}`] =
+        (flagValue(sangradoVestibular[i]) ?? Boolean(m.sangrado)) ? '1' : '0';
+      chartData[`pi_${tooth}_${surface}`] =
+        (flagValue(placaVestibular[i]) ?? Boolean(m.placa)) ? '1' : '0';
     });
 
     palatinoSurfaces.forEach((surface, i) => {
       chartData[`pd_${tooth}_${surface}`] = readNumber(palatino[i]);
       chartData[`gm_${tooth}_${surface}`] = readNumber(palatinoGm[i]);
       chartData[`al_${tooth}_${surface}`] = readNumber(palatinoAl[i]);
+      chartData[`bop_${tooth}_${surface}`] =
+        (flagValue(sangradoPalatino[i]) ?? Boolean(m.sangrado)) ? '1' : '0';
+      chartData[`pi_${tooth}_${surface}`] =
+        (flagValue(placaPalatino[i]) ?? Boolean(m.placa)) ? '1' : '0';
     });
 
     const mobility = readNumber(m.movilidad);
     if (mobility > 0) chartData[`mobility_${tooth}`] = mobility;
+
+    const implante = readNumber(m.implante);
+    if (implante > 0) chartData[`implant_${tooth}`] = implante;
 
     // Per-site furcation grades (furcacion_* columns, 0..3 or null) restore
     // into the chart's furcation_<tooth>_<site> fields.
@@ -101,12 +141,6 @@ export function buildChartDataFromStudy(study: any): ChartData {
     furcationBySite.forEach(([site, value]) => {
       const grade = readNumber(value);
       if (grade > 0) chartData[`furcation_${tooth}_${site}`] = grade;
-    });
-
-    const applicable = [...VESTIBULAR_SURFACES, ...palatinoSurfaces];
-    applicable.forEach(surface => {
-      chartData[`bop_${tooth}_${surface}`] = m.sangrado ? '1' : '0';
-      chartData[`pi_${tooth}_${surface}`] = m.placa ? '1' : '0';
     });
   });
 

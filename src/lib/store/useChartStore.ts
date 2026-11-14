@@ -423,6 +423,13 @@ export const useChartStore = create<ChartState>()(
             return value === '1' || value === 1 || value === true;
           });
 
+        // Per-site BOP/plaque flags keep the chart's site-level precision;
+        // the tooth-level sangrado/placa booleans stay for legacy readers.
+        const siteFlag = (prefix: 'bop' | 'pi', surface: SurfaceId): boolean => {
+          const value = chart[`${prefix}_${tooth}_${surface}`];
+          return value === '1' || value === 1 || value === true;
+        };
+
         // Furcation grades (0..3) persist per site; 0/unset ships as null so
         // only real findings land in the DB.
         const furcationValue = (site: FurcationSite): number | null => {
@@ -464,7 +471,28 @@ export const useChartStore = create<ChartState>()(
           },
           movilidad: parseInt(String(chart[`mobility_${tooth}`])) || 0,
           sangrado: anyFlag('bop'),
+          sangradoVestibular: {
+            mesial: siteFlag('bop', vestibularValues[0]),
+            medio: siteFlag('bop', vestibularValues[1]),
+            distal: siteFlag('bop', vestibularValues[2]),
+          },
+          sangradoPalatino: {
+            mesial: siteFlag('bop', palatinoValues[0]),
+            medio: siteFlag('bop', palatinoValues[1]),
+            distal: siteFlag('bop', palatinoValues[2]),
+          },
           placa: anyFlag('pi'),
+          placaVestibular: {
+            mesial: siteFlag('pi', vestibularValues[0]),
+            medio: siteFlag('pi', vestibularValues[1]),
+            distal: siteFlag('pi', vestibularValues[2]),
+          },
+          placaPalatino: {
+            mesial: siteFlag('pi', palatinoValues[0]),
+            medio: siteFlag('pi', palatinoValues[1]),
+            distal: siteFlag('pi', palatinoValues[2]),
+          },
+          implante: parseInt(String(chart[`implant_${tooth}`])) || 0,
           furcacionB: furcationValue('b'),
           furcacionMp: furcationValue('mp'),
           furcacionDp: furcationValue('dp'),
