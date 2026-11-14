@@ -23,7 +23,7 @@ export function buildChartDataFromStudy(study: any): ChartData {
   chartData.objetivo_estudio = study?.objetivo_estudio || '';
   chartData.plan_tratamiento = study?.plan_tratamiento || {};
   chartData.doctor_id = study?.doctor_id || '';
-  chartData.clinician = study?.doctors?.name || study?.doctor || '';
+  chartData.clinician = study?.atendido_por || study?.doctors?.name || study?.doctor || '';
 
   const mediciones: any[] = Array.isArray(study?.mediciones)
     ? study.mediciones

@@ -78,6 +78,7 @@ export async function PUT(
       .from('estudios_periodontales')
       .update({
         doctor_id: body.doctor_id || null,
+        atendido_por: body.atendido_por || null,
         fecha_estudio: body.fecha_estudio,
         indice_placa: body.indice_placa || null,
         indice_sangrado: body.indice_sangrado || null,

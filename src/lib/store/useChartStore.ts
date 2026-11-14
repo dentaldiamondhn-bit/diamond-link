@@ -483,6 +483,7 @@ export const useChartStore = create<ChartState>()(
       return {
         paciente_id: chart.patient_number,
         doctor_id: chart.doctor_id || null,
+        atendido_por: chart.clinician || null,
         fecha_estudio: chart.date,
         indice_placa: Number.isFinite(indicePlaca) ? clampIndex(indicePlaca) : null,
         indice_sangrado: Number.isFinite(indiceSangrado) ? clampIndex(indiceSangrado) : null,

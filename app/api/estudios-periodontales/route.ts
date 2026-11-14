@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
       .insert({
         paciente_id,
         doctor_id: doctor_id || null,
+        atendido_por: body.atendido_por || null,
         fecha_estudio,
         indice_placa: body.indice_placa || null,
         indice_sangrado: body.indice_sangrado || null,

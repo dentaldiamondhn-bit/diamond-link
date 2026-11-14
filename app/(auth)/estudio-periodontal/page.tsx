@@ -2,7 +2,10 @@
 
 import React, { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { PatientService } from '@/services/patientService';
+import { supabase } from '@/lib/supabase';
+import { formatPhoneDisplay } from '@/utils/phoneUtils';
 import { Patient } from '@/types/patient';
 import {
   useChartStore,
@@ -29,6 +32,7 @@ import { Plus, ChevronLeft, ChevronDown, ChevronUp, Save, Trash2, Eye, Edit } fr
 function EstudioPeriodontalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useUser();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [patientLoading, setPatientLoading] = useState(true);
   const [savedStudies, setSavedStudies] = useState<any[]>([]);
@@ -156,6 +160,49 @@ function EstudioPeriodontalContent() {
       cancelled = true;
     };
   }, [clearOverlay, isOverlayMode, pacienteId, setOverlayData]);
+
+  // Auto-populate Odontólogo: patient's assigned doctor (doctor / otro_doctor
+  // columns from patient-form) wins; fall back to the authenticated doctor's
+  // name resolved through doctors.user_email. Editable afterwards, and never
+  // clobbers a value the clinician (or a loaded study) already set.
+  const assignedPatientDoctor = patient
+    ? (patient.doctor && patient.doctor !== 'otro'
+        ? patient.doctor
+        : (patient.otro_doctor || '').trim())
+    : '';
+
+  useEffect(() => {
+    if (!patient) return;
+    if (useChartStore.getState().chartData.clinician) return;
+
+    if (assignedPatientDoctor) {
+      updateField('clinician', assignedPatientDoctor);
+      return;
+    }
+
+    const email = user?.primaryEmailAddress?.emailAddress;
+    if (!email) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('doctors')
+          .select('name')
+          .eq('user_email', email)
+          .single();
+        if (!cancelled && data?.name && !useChartStore.getState().chartData.clinician) {
+          useChartStore.getState().updateField('clinician', data.name);
+        }
+      } catch {
+        // Non-blocking: leave Odontólogo empty if the lookup fails
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assignedPatientDoctor, patient, updateField, user]);
 
   const handleInputChange = (field: string, value: any) => {
     updateField(field, value);
@@ -289,6 +336,13 @@ function EstudioPeriodontalContent() {
 
   const compactLabelClass = 'block text-[11px] font-medium text-gray-400 mb-1';
   const slimInputClass = 'h-8 text-xs px-2.5 py-1 w-full';
+  const dateInputClass =
+    'h-8 text-xs px-2.5 py-1 w-full dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100';
+  const phoneDisplay = patient?.telefono
+    ? patient.telefono.trim().startsWith('+')
+      ? patient.telefono
+      : formatPhoneDisplay(patient.telefono, (patient.codigopais || '504').replace(/^\+/, ''))
+    : '–';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -431,14 +485,8 @@ function EstudioPeriodontalContent() {
                   <div className="h-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
                 ) : patient ? (
                   <div className="flex h-8 items-center overflow-hidden rounded border border-gray-300 bg-gray-50 px-2.5 dark:border-gray-600 dark:bg-gray-700">
-                    <p
-                      className="min-w-0 truncate text-xs text-gray-900 dark:text-gray-100"
-                      title={patient.paciente_id ? `ID: ${patient.paciente_id}` : undefined}
-                    >
-                      <span className="font-semibold">{patient.nombre_completo}</span>
-                      {patient.paciente_id && (
-                        <span className="ml-1.5 text-[10px] text-gray-400">ID: {patient.paciente_id.slice(0, 8)}…</span>
-                      )}
+                    <p className="min-w-0 truncate text-xs font-medium text-gray-900 dark:text-gray-100">
+                      {patient.nombre_completo}
                     </p>
                   </div>
                 ) : (
@@ -454,7 +502,7 @@ function EstudioPeriodontalContent() {
               <div>
                 <label className={compactLabelClass}>Teléfono</label>
                 <div className="flex h-8 items-center overflow-hidden rounded border border-gray-300 bg-gray-50 px-2.5 dark:border-gray-600 dark:bg-gray-700">
-                  <p className="truncate text-xs text-gray-900 dark:text-gray-100">{patient?.telefono || '–'}</p>
+                  <p className="truncate whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">{phoneDisplay}</p>
                 </div>
               </div>
               <div>
@@ -464,7 +512,7 @@ function EstudioPeriodontalContent() {
                   value={chartData.date}
                   onChange={(e) => handleInputChange('date', e.target.value)}
                   disabled={readOnly}
-                  className={slimInputClass}
+                  className={dateInputClass}
                 />
               </div>
               <div className="md:col-span-2">
