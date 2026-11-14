@@ -96,16 +96,17 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify patient belongs to user
+    // Verify patient exists. Patients are not scoped per Clerk user anywhere
+    // in the app (creation never writes patients.clerk_user_id), so matching
+    // the odontogram-pilot/validate-id pattern: existence check only.
     const { data: patient, error: patientError } = await supabase
       .from('patients')
       .select('paciente_id')
       .eq('paciente_id', paciente_id)
-      .eq('clerk_user_id', userId)
       .single();
 
     if (patientError || !patient) {
-      return NextResponse.json({ error: 'Patient not found or unauthorized' }, { status: 404 });
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     // Create the estudio periodontal

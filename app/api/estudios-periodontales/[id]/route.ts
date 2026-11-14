@@ -25,7 +25,6 @@ export async function GET(
         mediciones_periodontales(*)
       `)
       .eq('id', estudioId)
-      .eq('patients.clerk_user_id', userId)
       .single();
 
     if (error) {
@@ -58,15 +57,12 @@ export async function PUT(
     const supabase = createSupabaseClient();
     const estudioId = id;
 
-    // First verify the estudio belongs to the user
+    // Verify the estudio exists (patients are not scoped per Clerk user in
+    // this app, so authorization is the login gate above)
     const { data: existingEstudio, error: verifyError } = await supabase
       .from('estudios_periodontales')
-      .select(`
-        id,
-        patients!inner(clerk_user_id)
-      `)
+      .select('id')
       .eq('id', estudioId)
-      .eq('patients.clerk_user_id', userId)
       .single();
 
     if (verifyError || !existingEstudio) {
@@ -173,15 +169,11 @@ export async function DELETE(
     const supabase = createSupabaseClient();
     const estudioId = id;
 
-    // Verify the estudio belongs to the user before deleting
+    // Verify the estudio exists before deleting (see PUT note on scoping)
     const { data: existingEstudio, error: verifyError } = await supabase
       .from('estudios_periodontales')
-      .select(`
-        id,
-        patients!inner(clerk_user_id)
-      `)
+      .select('id')
       .eq('id', estudioId)
-      .eq('patients.clerk_user_id', userId)
       .single();
 
     if (verifyError || !existingEstudio) {
