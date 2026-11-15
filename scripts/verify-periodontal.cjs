@@ -151,7 +151,7 @@ check(placeholderSrc.includes('z-[5]'), 'SvgPlaceholder must have interaction SV
 check(placeholderSrc.indexOf('z-[2]') < placeholderSrc.indexOf('z-[3]'), 'implant layer (z-2) must render below the mm-line layer (z-3), like the site');
 check(placeholderSrc.indexOf('z-[3]') < placeholderSrc.indexOf('z-[4]'), 'mm-line layer (z-3) must render below the GM/PD polygon layer (z-4)');
 check(placeholderSrc.includes('ImplantOverlay'), 'SvgPlaceholder must render ImplantOverlay');
-check(placeholderSrc.includes('ToothSurfaceMarkers'), 'SvgPlaceholder must render visible BOP/plaque markers in layer 4');
+check(!placeholderSrc.includes('ToothSurfaceMarkers'), 'SvgPlaceholder must not render BOP/plaque canvas markers (removed by product decision)');
 check(!placeholderSrc.includes('ToothOutlineSvg'), 'SvgPlaceholder must not mount vector crown outlines');
 check(!placeholderSrc.includes('implant-mask-'), 'SvgPlaceholder must not render inline implant masks');
 check(placeholderSrc.includes('getMmLineYs(id).map'), 'SvgPlaceholder must draw the site mm lines (16 lines from the CEJ into the root area)');
@@ -164,9 +164,6 @@ check(surfaceSrc.includes('getSiteToothCrown'), 'ToothSurfaceSvg must use exact 
 check(surfaceSrc.includes('getSiteCrownTransform'), 'ToothSurfaceSvg must align hitboxes to crown geometry');
 check(surfaceSrc.includes('pointerEvents="all"'), 'ToothSurfaceSvg crown hitboxes must receive pointer events');
 check(!surfaceSrc.includes('BOP_COLOR'), 'ToothSurfaceSvg must contain only invisible hitboxes');
-
-const markersSrc = fs.readFileSync(path.join(root, 'components/periodontal/ToothSurfaceMarkers.tsx'), 'utf8');
-check(markersSrc.includes('pointerEvents="none"'), 'ToothSurfaceMarkers must not intercept clicks');
 
 const geometrySrc = fs.readFileSync(path.join(root, 'src/lib/utils/chartGeometry.ts'), 'utf8');
 for (const [view, value] of [
@@ -307,7 +304,7 @@ check(/isGmInverted: false,/.test(settingsSrc), 'useSettingsStore must default i
 
 const gridSrc = fs.readFileSync(path.join(root, 'components/periodontal/ArchDataGrid.tsx'), 'utf8');
 check(gridSrc.includes('type="text"'), 'ArchDataGrid GM/PD inputs must be type="text" (a controlled number input drops the intermediate "-")');
-check(!/<input[\s\S]{0,200}type="number"/.test(gridSrc), 'ArchDataGrid must not keep type="number" inputs for GM/PD');
+check(gridSrc.includes('type="number"') && gridSrc.includes('min={1}') && gridSrc.includes('max={3}'), 'ArchDataGrid mobility must be a number input bounded to 1..3 (empty = no mobility)');
 check(gridSrc.includes('formatMeasurementInput(next, field)'), 'ArchDataGrid must format GM/PD input with the site validateAndFormatInput rules');
 check(gridSrc.includes("updateField(cellKey, '0')"), 'ArchDataGrid must reset an empty or lone "-" value to 0 on blur, like the site');
 check(gridSrc.includes('isDistalFirst'), 'ArchDataGrid must order grid columns anatomically (Q1/Q4 distal-first like the site DOM order)');

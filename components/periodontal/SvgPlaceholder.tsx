@@ -13,7 +13,6 @@ import {
 import { ImplantOverlay } from './ImplantOverlay';
 import { PerioPolygon } from './PerioPolygon';
 import { ToothSurfaceSvg } from './ToothSurfaceSvg';
-import { ToothSurfaceMarkers } from './ToothSurfaceMarkers';
 import { FurcationMarker } from './FurcationMarker';
 import { MissingToothDiagonal } from './MissingToothDiagonal';
 import { InterProximalPolygon } from './InterProximalPolygon';
@@ -166,16 +165,6 @@ export function SvgPlaceholder({
 
           {teeth.map(tooth => (
             <MissingToothDiagonal key={`missing-${tooth}`} tooth={tooth} viewId={id} data={data} />
-          ))}
-
-          {teeth.map(tooth => (
-            <ToothSurfaceMarkers
-              key={`surface-marker-${tooth}`}
-              tooth={tooth}
-              viewId={id}
-              data={data}
-              isGmInverted={isGmInverted}
-            />
           ))}
         </svg>
 
