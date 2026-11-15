@@ -10,6 +10,7 @@ export { PdHighlighter } from './PdHighlighter';
 export { PerioPolygon } from './PerioPolygon';
 
 export { SvgPlaceholder } from './SvgPlaceholder';
+export { SavedStudiesTab } from './SavedStudiesTab';
 export { SummaryMetrics } from './SummaryMetrics';
 export { SummaryMetricsBar } from './SummaryMetricsBar';
 export { ToothSurfaceSvg } from './ToothSurfaceSvg';

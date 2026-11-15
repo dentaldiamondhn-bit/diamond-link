@@ -21,12 +21,13 @@ import {
   JawChart,
   LeftActionPanel,
   QrModal,
+  SavedStudiesTab,
   SummaryModal,
   ThreeDModal,
 } from '@/components/periodontal';
 import type { ClinicalModalKey } from '@/components/periodontal';
 import { Button, Input } from '@/components/ui';
-import { Plus, ChevronLeft, ChevronDown, ChevronUp, Save, Trash2, Eye, Edit } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, Save, Edit } from 'lucide-react';
 
 function EstudioPeriodontalContent() {
   const router = useRouter();
@@ -35,9 +36,6 @@ function EstudioPeriodontalContent() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [patientLoading, setPatientLoading] = useState(true);
   const [savedStudies, setSavedStudies] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'chart' | 'saved'>('chart');
   const [readOnly, setReadOnly] = useState(false);
@@ -65,17 +63,16 @@ function EstudioPeriodontalContent() {
   const loadSavedStudies = useCallback(async () => {
     setLoading(true);
     try {
+      // Filtering and pagination happen client-side in SavedStudiesTab, so a
+      // generous page size is fetched once per patient.
       const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '10',
+        limit: '100',
         ...(pacienteId && { paciente_id: pacienteId }),
-        ...(searchTerm && { search: searchTerm }),
-        ...(dateFilter && { date: dateFilter })
       });
 
       const response = await fetch(`/api/estudios-periodontales?${params}`);
       if (!response.ok) throw new Error('Failed to fetch studies');
-      
+
       const result = await response.json();
       setSavedStudies(result.data || []);
     } catch (error) {
@@ -83,7 +80,7 @@ function EstudioPeriodontalContent() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, dateFilter, pacienteId, searchTerm]);
+  }, [pacienteId]);
 
   const loadPatientData = useCallback(async () => {
     if (pacienteId) {
@@ -280,30 +277,6 @@ function EstudioPeriodontalContent() {
     }
   };
 
-  const filteredStudies = savedStudies.filter(study => {
-    const fecha = study.fecha_estudio || '';
-    const notas = study.observaciones_generales || '';
-    const matchesSearch = !searchTerm ||
-      fecha.includes(searchTerm) ||
-      notas.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDate = !dateFilter || fecha === dateFilter;
-    return matchesSearch && matchesDate;
-  });
-
-  const studiesPerPage = 10;
-  const totalPages = Math.ceil(filteredStudies.length / studiesPerPage);
-  const currentStudies = filteredStudies.slice(
-    (currentPage - 1) * studiesPerPage,
-    currentPage * studiesPerPage
-  );
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric', month: 'long', day: 'numeric'
-    });
-  };
-
   const loadStudy = async (studyId: string, readOnly: boolean) => {
     try {
       const response = await fetch(`/api/estudios-periodontales/${studyId}`);
@@ -366,107 +339,15 @@ function EstudioPeriodontalContent() {
       </div>
 
       {activeTab === 'saved' ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar</label>
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Fecha u observaciones..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button variant="outline" onClick={loadSavedStudies}>
-                Actualizar
-              </Button>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-gray-700">
-                  <th className="px-3 py-2 border border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200">Fecha</th>
-                  <th className="px-3 py-2 border border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200">Versión</th>
-                  <th className="px-3 py-2 border border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200">Observaciones</th>
-                  <th className="px-3 py-2 border border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={4} className="px-3 py-6 text-center text-gray-500">Cargando...</td>
-                  </tr>
-                ) : currentStudies.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-3 py-6 text-center text-gray-500">No se encontraron estudios periodontales.</td>
-                  </tr>
-                ) : currentStudies.map(study => (
-                  <tr key={study.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="px-3 py-2 border border-gray-200 dark:border-gray-600 whitespace-nowrap">{formatDate(study.fecha_estudio)}</td>
-                    <td className="px-3 py-2 border border-gray-200 dark:border-gray-600">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">
-                          v{study.version ?? '—'}
-                        </span>
-                        {study.es_version_actual && (
-                          <span className="rounded bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
-                            Actual
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 border border-gray-200 dark:border-gray-600">{study.observaciones_generales || '-'}</td>
-                    <td className="px-3 py-2 border border-gray-200 dark:border-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => loadStudy(study.id, true)}>
-                          <Eye className="w-4 h-4 mr-1" /> Ver
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => loadStudy(study.id, false)}>
-                          <Edit className="w-4 h-4 mr-1" /> Editar
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => deleteStudy(study.id)}>
-                          <Trash2 className="w-4 h-4 mr-1" /> Eliminar
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-4">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-              >
-                Anterior
-              </Button>
-              <span className="text-sm text-gray-600 dark:text-gray-400">Pagina {currentPage} de {totalPages}</span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
-              >
-                Siguiente
-              </Button>
-            </div>
-          )}
-        </div>
+        <SavedStudiesTab
+          studies={savedStudies}
+          loading={loading}
+          onRefresh={loadSavedStudies}
+          onView={studyId => loadStudy(studyId, true)}
+          onEdit={studyId => loadStudy(studyId, false)}
+          onDelete={deleteStudy}
+          onCreateNew={() => setActiveTab('chart')}
+        />
       ) : (
       <>
       <div className="mb-6">

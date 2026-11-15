@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('estudios_periodontales')
-      .select('*')
+      .select(
+        '*, mediciones_periodontales(vestibular_mesial, vestibular_medio, vestibular_distal, palatino_mesial, palatino_medio, palatino_distal, vestibular_al_mesial, vestibular_al_medio, vestibular_al_distal, palatino_al_mesial, palatino_al_medio, palatino_al_distal)',
+      )
       .order('fecha_estudio', { ascending: false });
 
     // Apply filters
@@ -62,7 +64,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Flag each patient's latest version, like odontogram-pilot listByPatient.
+    // Flag each patient's latest version, like odontogram-pilot listByPatient,
+    // and attach a clinical snapshot per study (saved indices + mean probing
+    // depth and attachment level across all recorded sites).
     let dataWithVersionFlags = data;
     if (data && data.length > 0) {
       const pacienteIds = Array.from(new Set(data.map(row => row.paciente_id)));
@@ -79,9 +83,27 @@ export async function GET(request: NextRequest) {
             maxByPaciente.set(row.paciente_id, row.version || 0);
           }
         });
+
+        const meanOf = (rows: any[], keys: string[]): number | null => {
+          const values = rows
+            .flatMap(row => keys.map(key => row[key]))
+            .filter(value => typeof value === 'number' && Number.isFinite(value));
+          if (values.length === 0) return null;
+          const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+          return Math.round(mean * 10) / 10;
+        };
+        const PD_KEYS = ['vestibular_mesial', 'vestibular_medio', 'vestibular_distal', 'palatino_mesial', 'palatino_medio', 'palatino_distal'];
+        const AL_KEYS = ['vestibular_al_mesial', 'vestibular_al_medio', 'vestibular_al_distal', 'palatino_al_mesial', 'palatino_al_medio', 'palatino_al_distal'];
+
         dataWithVersionFlags = data.map(row => ({
           ...row,
           es_version_actual: maxByPaciente.get(row.paciente_id) === row.version,
+          metricas: {
+            bop: row.indice_sangrado ?? null,
+            pi: row.indice_placa ?? null,
+            ps_media: meanOf(row.mediciones_periodontales || [], PD_KEYS),
+            nic_medio: meanOf(row.mediciones_periodontales || [], AL_KEYS),
+          },
         }));
       }
     }
