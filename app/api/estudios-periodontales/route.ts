@@ -62,8 +62,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Flag each patient's latest version, like odontogram-pilot listByPatient.
+    let dataWithVersionFlags = data;
+    if (data && data.length > 0) {
+      const pacienteIds = Array.from(new Set(data.map(row => row.paciente_id)));
+      const { data: versionRows, error: versionError } = await supabase
+        .from('estudios_periodontales')
+        .select('paciente_id, version')
+        .in('paciente_id', pacienteIds);
+
+      if (!versionError && versionRows) {
+        const maxByPaciente = new Map<string, number>();
+        versionRows.forEach(row => {
+          const current = maxByPaciente.get(row.paciente_id) || 0;
+          if ((row.version || 0) > current) {
+            maxByPaciente.set(row.paciente_id, row.version || 0);
+          }
+        });
+        dataWithVersionFlags = data.map(row => ({
+          ...row,
+          es_version_actual: maxByPaciente.get(row.paciente_id) === row.version,
+        }));
+      }
+    }
+
     return NextResponse.json({
-      data,
+      data: dataWithVersionFlags,
       pagination: {
         page,
         limit,
@@ -109,11 +133,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
+    // Per-patient auto-incrementing version, like odontogram-pilot: highest
+    // existing version + 1, starting at 1 for the patient's first study.
+    const { data: lastVersion } = await supabase
+      .from('estudios_periodontales')
+      .select('version')
+      .eq('paciente_id', paciente_id)
+      .order('version', { ascending: false })
+      .limit(1);
+
+    const nextVersion = ((lastVersion && lastVersion[0]?.version) || 0) + 1;
+
     // Create the estudio periodontal
     const { data, error } = await supabase
       .from('estudios_periodontales')
       .insert({
         paciente_id,
+        version: nextVersion,
         doctor_id: doctor_id || null,
         atendido_por: body.atendido_por || null,
         fecha_estudio,

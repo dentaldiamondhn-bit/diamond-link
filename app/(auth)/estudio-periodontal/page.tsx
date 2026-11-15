@@ -396,6 +396,7 @@ function EstudioPeriodontalContent() {
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700">
                   <th className="px-3 py-2 border border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200">Fecha</th>
+                  <th className="px-3 py-2 border border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200">Versión</th>
                   <th className="px-3 py-2 border border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200">Observaciones</th>
                   <th className="px-3 py-2 border border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-200">Acciones</th>
                 </tr>
@@ -403,15 +404,27 @@ function EstudioPeriodontalContent() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={3} className="px-3 py-6 text-center text-gray-500">Cargando...</td>
+                    <td colSpan={4} className="px-3 py-6 text-center text-gray-500">Cargando...</td>
                   </tr>
                 ) : currentStudies.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-3 py-6 text-center text-gray-500">No se encontraron estudios periodontales.</td>
+                    <td colSpan={4} className="px-3 py-6 text-center text-gray-500">No se encontraron estudios periodontales.</td>
                   </tr>
                 ) : currentStudies.map(study => (
                   <tr key={study.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-3 py-2 border border-gray-200 dark:border-gray-600 whitespace-nowrap">{formatDate(study.fecha_estudio)}</td>
+                    <td className="px-3 py-2 border border-gray-200 dark:border-gray-600">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                          v{study.version ?? '—'}
+                        </span>
+                        {study.es_version_actual && (
+                          <span className="rounded bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+                            Actual
+                          </span>
+                        )}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 border border-gray-200 dark:border-gray-600">{study.observaciones_generales || '-'}</td>
                     <td className="px-3 py-2 border border-gray-200 dark:border-gray-600">
                       <div className="flex items-center gap-2">
