@@ -23,7 +23,7 @@ import {
   QrModal,
   SavedStudiesTab,
   SummaryModal,
-  ThreeDModal,
+  Periodontal3DModal,
 } from '@/components/periodontal';
 import type { ClinicalModalKey } from '@/components/periodontal';
 import { Button, Input } from '@/components/ui';
@@ -614,7 +614,7 @@ function EstudioPeriodontalContent() {
         onOpenChange={open => !open && setOpenModal(null)}
       />
       <IntervalModal open={openModal === 'interval'} onOpenChange={open => !open && setOpenModal(null)} />
-      <ThreeDModal open={openModal === 'three-d'} onOpenChange={open => !open && setOpenModal(null)} />
+      <Periodontal3DModal open={openModal === 'three-d'} onOpenChange={open => !open && setOpenModal(null)} />
       <QrModal open={openModal === 'qr'} onOpenChange={open => !open && setOpenModal(null)} />
       <CalibrationModal
         open={openModal === 'calibration'}

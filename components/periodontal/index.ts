@@ -20,5 +20,5 @@ export { ClassificationModal } from './modals/ClassificationModal';
 export { IntervalModal } from './modals/IntervalModal';
 export { QrModal } from './modals/QrModal';
 export { SummaryModal } from './modals/SummaryModal';
-export { ThreeDModal } from './modals/ThreeDModal';
+export { Periodontal3DModal } from './Periodontal3DModal';
 
