@@ -101,19 +101,20 @@ export function SavedStudiesTab({
   );
 
   const cardClass =
-    'group relative bg-gradient-to-br from-white/[0.05] to-white/[0.015] hover:from-white/[0.08] hover:to-teal-500/[0.04] backdrop-blur-xl border border-white/10 hover:border-teal-400/30 rounded-2xl p-4 transition-all duration-200 shadow-lg';
+    'group relative bg-gradient-to-br from-white/[0.05] to-white/[0.015] hover:from-white/[0.08] hover:to-teal-500/[0.04] backdrop-blur-xl border border-white/10 hover:border-teal-400/30 rounded-xl px-3.5 py-2.5 transition-all duration-200 shadow-lg';
 
   const viewButtonClass =
-    'bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 text-teal-200 rounded-xl px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-all';
+    'h-7 bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 text-teal-200 rounded-xl px-2.5 text-xs font-medium flex items-center gap-1.5 transition-all';
   const editButtonClass =
-    'bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-all';
+    'h-7 bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-slate-200 rounded-xl px-2.5 text-xs font-medium flex items-center gap-1.5 transition-all';
   const deleteButtonClass =
-    'bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 text-rose-300 rounded-xl px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-all';
+    'h-7 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 text-rose-300 rounded-xl px-2.5 text-xs font-medium flex items-center gap-1.5 transition-all';
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900 via-slate-950 to-black p-4 shadow-[0_8px_32px_rgba(0,0,0,0.35)] md:p-5">
-      <div className="flex flex-col items-end justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl md:flex-row">
-        <div className="relative w-full md:max-w-xs">
+    <div className="rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-black">
+      <div className="space-y-2.5">
+      <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+        <div className="relative min-w-[240px] flex-1">
           <label htmlFor="buscar-estudios" className="sr-only">
             Buscar estudios guardados
           </label>
@@ -131,11 +132,11 @@ export function SavedStudiesTab({
               setCurrentPage(1);
             }}
             placeholder="Buscar por fecha, objetivo u odontólogo..."
-            className="h-9 w-full rounded-xl border border-white/10 bg-slate-900/50 pl-9 pr-3 text-xs text-slate-100 placeholder:text-slate-500 focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            className="h-8 w-full rounded-xl border border-white/10 bg-slate-900/50 pl-9 pr-3 text-xs text-slate-100 placeholder:text-slate-500 focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 
-        <div className="relative w-full md:w-44">
+        <div className="relative w-40">
           <label htmlFor="filtro-fecha" className="sr-only">
             Filtrar por fecha
           </label>
@@ -148,7 +149,7 @@ export function SavedStudiesTab({
               setDateFilter(event.target.value);
               setCurrentPage(1);
             }}
-            className="h-9 w-full rounded-xl border border-white/10 bg-slate-900/50 px-3 text-xs text-slate-100 [color-scheme:dark] focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-75 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+            className="h-8 w-full rounded-xl border border-white/10 bg-slate-900/50 px-3 text-xs text-slate-100 [color-scheme:dark] focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-75 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
           />
           {dateFilter && (
             <button
@@ -169,14 +170,14 @@ export function SavedStudiesTab({
         <button
           type="button"
           onClick={onRefresh}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 text-xs font-medium text-slate-200 transition-all hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-xs font-medium text-slate-200 transition-all hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
         >
           <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} />
           Actualizar
         </button>
       </div>
 
-      <div className="mt-4 space-y-3" aria-busy={loading} aria-live="polite">
+      <div className="space-y-2.5" aria-busy={loading} aria-live="polite">
         {loading ? (
           Array.from({ length: 3 }).map((_, index) => (
             <div
@@ -208,6 +209,7 @@ export function SavedStudiesTab({
             const metricas: SavedStudyMetricas = study.metricas || {};
             const observaciones = study.observaciones_generales || '';
             const objetivo = study.objetivo_estudio || '';
+            const metaLine = `${study.atendido_por ? `Odontólogo: ${study.atendido_por}` : 'Odontólogo: –'} · ${objetivo || observaciones ? `Objetivo: ${objetivo || observaciones}` : 'Objetivo: –'}`;
             return (
               <div
                 key={study.id}
@@ -215,15 +217,13 @@ export function SavedStudiesTab({
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
                   <div className="min-w-0 md:w-64 md:shrink-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-slate-100">
                         {formatLongDate(study.fecha_estudio)}
                       </p>
                       <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] text-slate-400">
                         {formatRelativeTime(study.fecha_estudio)}
                       </span>
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       <span className="rounded-md border border-white/10 bg-slate-800/80 px-2 py-0.5 font-mono text-[11px] text-slate-300">
                         v{study.version ?? '—'}
                       </span>
@@ -233,16 +233,8 @@ export function SavedStudiesTab({
                         </span>
                       )}
                     </div>
-                    <p className="mt-1.5 truncate text-xs text-slate-400" title={study.atendido_por || ''}>
-                      {study.atendido_por ? `Odontólogo: ${study.atendido_por}` : 'Odontólogo: –'}
-                    </p>
-                    <p
-                      className="truncate text-xs text-slate-500"
-                      title={objetivo || observaciones || ''}
-                    >
-                      {objetivo || observaciones
-                        ? `Objetivo / Observaciones: ${objetivo || observaciones}`
-                        : 'Objetivo / Observaciones: –'}
+                    <p className="mt-1 truncate text-[11px] text-slate-400" title={metaLine}>
+                      {metaLine}
                     </p>
                   </div>
 
@@ -285,7 +277,7 @@ export function SavedStudiesTab({
       </div>
 
       {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-2">
           <button
             type="button"
             disabled={safeCurrentPage <= 1}
@@ -307,6 +299,7 @@ export function SavedStudiesTab({
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }
