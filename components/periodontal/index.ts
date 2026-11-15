@@ -4,11 +4,11 @@ export { ImplantOverlay } from './ImplantOverlay';
 export { InterProximalPolygon } from './InterProximalPolygon';
 export { JawChart } from './JawChart';
 export { LeftActionPanel } from './LeftActionPanel';
+export type { ClinicalModalKey } from './LeftActionPanel';
 export { MissingToothDiagonal } from './MissingToothDiagonal';
 export { PdHighlighter } from './PdHighlighter';
 export { PerioPolygon } from './PerioPolygon';
-export { RightClinicalPanel } from './RightClinicalPanel';
-export type { ClinicalModalKey } from './RightClinicalPanel';
+
 export { SvgPlaceholder } from './SvgPlaceholder';
 export { SummaryMetrics } from './SummaryMetrics';
 export { SummaryMetricsBar } from './SummaryMetricsBar';

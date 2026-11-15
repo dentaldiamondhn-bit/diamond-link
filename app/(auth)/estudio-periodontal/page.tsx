@@ -21,7 +21,6 @@ import {
   JawChart,
   LeftActionPanel,
   QrModal,
-  RightClinicalPanel,
   SummaryModal,
   ThreeDModal,
 } from '@/components/periodontal';
@@ -554,6 +553,7 @@ function EstudioPeriodontalContent() {
               onSave={handleFormSubmit}
               onExport={handleExportJson}
               onImport={() => importInputRef.current?.click()}
+              onOpenModal={setOpenModal}
               disabled={readOnly}
             />
 
@@ -566,8 +566,6 @@ function EstudioPeriodontalContent() {
                 readOnly={readOnly}
               />
             </div>
-
-            <RightClinicalPanel onOpenModal={setOpenModal} />
           </div>
 
           <input
