@@ -50,9 +50,6 @@ const isDistalFirst = (tooth: FDIToothNumber): boolean => {
   return quadrant === 1 || quadrant === 4;
 };
 
-const MOBILITY_OPTIONS = ['0', '1', '2', '3'];
-const IMPLANT_OPTIONS = ['0', '1', '2', '3'];
-
 // Furcation selector (reference js/script.js toggleFurcationGrade): one
 // click-to-cycle button per applicable site, grades 0→1→2→3→0, empty box at
 // grade 0. Sites are grouped by grid: vestibular carries the buccal site,
@@ -178,27 +175,32 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
     );
   };
 
-  const renderSelectCell = (
-    tooth: FDIToothNumber,
-    options: string[],
-    current: string,
-    onChange: (value: string) => void,
-  ) => (
-    <td key={`select-${tooth}`} colSpan={3} className="border border-gray-200 dark:border-gray-600 p-0">
-      <select
-        className={cellClass}
-        value={current}
-        disabled={disabled}
-        onChange={event => onChange(event.target.value)}
-      >
-        {options.map(option => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </td>
-  );
+  // Mobility grades accept only 1..3; an empty field means no mobility (0).
+  const renderMobilityCell = (tooth: FDIToothNumber) => {
+    const current = parseInt(String(chartData[`mobility_${tooth}`] ?? '0'), 10) || 0;
+    return (
+      <td key={`mobility-${tooth}`} colSpan={3} className="border border-gray-200 dark:border-gray-600 p-0">
+        <input
+          type="number"
+          min={1}
+          max={3}
+          step={1}
+          inputMode="numeric"
+          className={cellClass}
+          value={current > 0 ? String(current) : ''}
+          disabled={disabled}
+          onChange={event => {
+            const raw = parseInt(event.target.value, 10);
+            if (Number.isNaN(raw) || raw <= 0) {
+              setMobility(tooth, 0);
+            } else {
+              setMobility(tooth, Math.min(3, Math.max(1, raw)));
+            }
+          }}
+        />
+      </td>
+    );
+  };
 
   const renderRowCells = (row: RowDef) =>
     teeth.map(tooth => {
@@ -215,12 +217,7 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
 
       switch (row.kind) {
         case 'mobility':
-          return renderSelectCell(
-            tooth,
-            MOBILITY_OPTIONS,
-            String(chartData[`mobility_${tooth}`] ?? '0'),
-            value => setMobility(tooth, parseInt(value, 10) || 0),
-          );
+          return renderMobilityCell(tooth);
         case 'implant':
           return (
             <td key={`implant-${tooth}`} colSpan={3} className="border border-gray-200 dark:border-gray-600 p-0">
