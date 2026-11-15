@@ -5,6 +5,7 @@ import {
   Box,
   CalendarClock,
   ClipboardList,
+  Copy,
   Download,
   Droplet,
   QrCode,
@@ -31,6 +32,8 @@ interface LeftActionPanelProps {
   onExport: () => void;
   onImport: () => void;
   onOpenModal: (key: ClinicalModalKey) => void;
+  onNewVersion: () => void;
+  isEditingVersion: boolean;
   disabled?: boolean;
 }
 
@@ -84,7 +87,15 @@ const MODAL_BUTTONS: { key: ClinicalModalKey; label: string; icon: React.Element
   { key: 'calibration', label: 'Calibración', icon: Ruler },
 ];
 
-export function LeftActionPanel({ onSave, onExport, onImport, onOpenModal, disabled = false }: LeftActionPanelProps) {
+export function LeftActionPanel({
+  onSave,
+  onExport,
+  onImport,
+  onOpenModal,
+  onNewVersion,
+  isEditingVersion,
+  disabled = false,
+}: LeftActionPanelProps) {
   const activeRemoteControl = useChartStore(state => state.activeRemoteControl);
   const setActiveRemoteControl = useChartStore(state => state.setActiveRemoteControl);
 
@@ -97,7 +108,18 @@ export function LeftActionPanel({ onSave, onExport, onImport, onOpenModal, disab
         className="flex items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Save className="h-4 w-4" />
-        Guardar
+        {isEditingVersion ? 'Actualizar Versión' : 'Guardar'}
+      </button>
+
+      <button
+        type="button"
+        onClick={onNewVersion}
+        disabled={disabled || !isEditingVersion}
+        title={isEditingVersion ? 'Crear una nueva versión a partir del estudio cargado' : 'Cargue un estudio guardado (Editar) para poder crear una nueva versión'}
+        className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-2 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Copy className="h-4 w-4" />
+        Nueva Versión
       </button>
 
       <div className="grid grid-cols-2 gap-2">

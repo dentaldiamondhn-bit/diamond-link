@@ -613,11 +613,21 @@ export const useChartStore = create<ChartState>()(
 
       set((state) => {
         state.chartData[`implant_${tooth}`] = next;
+        // An implanted tooth has no furcation to grade: activating the implant
+        // clears any recorded grades so hidden data can't persist behind the
+        // locked furcation selector.
+        if (next !== 0) {
+          ['b', 'mp', 'dp', 'l'].forEach(site => {
+            state.chartData[`furcation_${tooth}_${site}`] = 0;
+          });
+        }
         state.isDirty = true;
       });
     },
 
     setFurcation: (tooth: number, site: string, grade: number) => {
+      // Furcation grading is locked while the tooth carries an implant.
+      if ((parseInt(get().chartData[`implant_${tooth}`], 10) || 0) !== 0) return;
       set((state) => {
         state.chartData[`furcation_${tooth}_${site}`] = grade;
         state.isDirty = true;

@@ -41,6 +41,7 @@ function EstudioPeriodontalContent() {
   const [readOnly, setReadOnly] = useState(false);
   const [datosCollapsed, setDatosCollapsed] = useState(false);
   const [openModal, setOpenModal] = useState<ClinicalModalKey | null>(null);
+  const [loadedStudy, setLoadedStudy] = useState<{ id: string; version: number | null } | null>(null);
   const importInputRef = React.useRef<HTMLInputElement>(null);
 
   const pacienteId = searchParams.get('paciente_id');
@@ -105,6 +106,7 @@ function EstudioPeriodontalContent() {
       setPatientLoading(false);
       initializeFromPatient('new', '');
     }
+    setLoadedStudy(null);
   }, [initializeFromPatient, loadPatientData, pacienteId]);
 
   useEffect(() => {
@@ -246,13 +248,74 @@ function EstudioPeriodontalContent() {
       return;
     }
     
-    if (!confirm('¿Está seguro que desea guardar este estudio periodontal?')) {
+    if (!confirm(
+      loadedStudy
+        ? `¿Desea modificar el estudio guardado${loadedStudy.version ? ` (versión ${loadedStudy.version})` : ''}? Se actualizará la versión actual sin crear una nueva.`
+        : '¿Está seguro que desea guardar este estudio periodontal?'
+    )) {
       return;
     }
 
     try {
       const payload = currentState.prepareApiPayload();
-      
+
+      // Editing a loaded version updates it in place (odontogram-pilot
+      // "Actualizar Versión"); a fresh chart creates the next version.
+      const response = loadedStudy
+        ? await fetch(`/api/estudios-periodontales/${loadedStudy.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+        : await fetch('/api/estudios-periodontales', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save study');
+      }
+
+      await response.json();
+      alert(loadedStudy
+        ? `Estudio actualizado correctamente${loadedStudy.version ? ` (versión ${loadedStudy.version})` : ''}`
+        : 'Estudio periodontal guardado correctamente');
+
+      reset();
+      setLoadedStudy(null);
+      setActiveTab('saved');
+      loadSavedStudies();
+
+    } catch (error) {
+      console.error('Error al guardar el estudio:', error);
+      alert('Ocurrió un error al guardar el estudio: ' + (error as Error).message);
+    }
+  };
+
+  const handleCreateNewVersion = async () => {
+    if (!loadedStudy) return;
+
+    const currentState = useChartStore.getState();
+    const patientId = pacienteId || currentState.chartData.patient_number;
+
+    if (!patientId || patientId === 'new') {
+      alert('Por favor seleccione un paciente antes de crear una nueva versión.');
+      return;
+    }
+
+    if (!confirm(
+      `¿Crear una nueva versión a partir de la versión actual${loadedStudy.version ? ` (${loadedStudy.version})` : ''}? La versión cargada se conserva sin cambios.`
+    )) {
+      return;
+    }
+
+    try {
+      const payload = currentState.prepareApiPayload();
+
+      // Odontogram-pilot "Nueva Versión": copy the current chart into a new
+      // study row; the API assigns the next per-patient version number.
       const response = await fetch('/api/estudios-periodontales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -261,19 +324,20 @@ function EstudioPeriodontalContent() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to save study');
+        throw new Error(error.error || 'Failed to create new version');
       }
 
-      await response.json();
-      alert('Estudio periodontal guardado correctamente');
-      
+      const result = await response.json();
+      alert(`Nueva versión creada correctamente${result.data?.version ? ` (versión ${result.data.version})` : ''}`);
+
       reset();
+      setLoadedStudy(null);
       setActiveTab('saved');
       loadSavedStudies();
-      
+
     } catch (error) {
-      console.error('Error al guardar el estudio:', error);
-      alert('Ocurrió un error al guardar el estudio: ' + (error as Error).message);
+      console.error('Error al crear la nueva versión:', error);
+      alert('Ocurrió un error al crear la nueva versión: ' + (error as Error).message);
     }
   };
 
@@ -285,6 +349,7 @@ function EstudioPeriodontalContent() {
       const study = result.data || result;
 
       loadFromApiData(study);
+      setLoadedStudy({ id: study.id, version: study.version ?? null });
       setReadOnly(readOnly);
       setActiveTab('chart');
     } catch (error) {
@@ -448,6 +513,8 @@ function EstudioPeriodontalContent() {
               onExport={handleExportJson}
               onImport={() => importInputRef.current?.click()}
               onOpenModal={setOpenModal}
+              onNewVersion={handleCreateNewVersion}
+              isEditingVersion={Boolean(loadedStudy)}
               disabled={readOnly}
             />
 
@@ -532,7 +599,7 @@ function EstudioPeriodontalContent() {
             )}
             <Button onClick={handleFormSubmit} disabled={readOnly}>
               <Save className="w-4 h-4 mr-2" />
-              Guardar Estudio
+              {loadedStudy ? 'Actualizar Versión' : 'Guardar Estudio'}
             </Button>
           </div>
         </div>

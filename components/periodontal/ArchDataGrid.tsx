@@ -279,14 +279,20 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
               <div className="flex items-center justify-center gap-1 py-0.5">
                 {sites.map(site => {
                   const grade = readNumber(chartData[`furcation_${tooth}_${site}`]);
+                  const implantLocked =
+                    (parseInt(String(chartData[`implant_${tooth}`] ?? '0'), 10) || 0) !== 0;
                   return (
                     <button
                       key={site}
                       type="button"
                       className="flex h-4 w-4 items-center justify-center rounded-sm bg-gray-200 text-black transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-600 dark:text-gray-100"
-                      disabled={disabled}
+                      disabled={disabled || implantLocked}
                       onClick={() => setFurcation(tooth, site, (grade + 1) % 4)}
-                      title={`Furcación ${tooth} ${FURCATION_SITE_LABELS[site]}: grado ${grade} (clic para graduar)`}
+                      title={
+                        implantLocked
+                          ? `Furcación bloqueada: ${tooth} tiene implante`
+                          : `Furcación ${tooth} ${FURCATION_SITE_LABELS[site]}: grado ${grade} (clic para graduar)`
+                      }
                     >
                       <FurcationGlyph grade={grade} />
                     </button>
