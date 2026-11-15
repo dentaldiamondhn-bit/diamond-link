@@ -3,7 +3,7 @@
 import React from 'react';
 import { FDIToothNumber, FurcationSite, SurfaceId } from '@/lib/types';
 import { getApplicableSurfaces } from '@/lib/utils/chartGeometry';
-import { getToothAl, isToothPresent, readFlag, formatMeasurementInput, readNumber } from '@/lib/utils/periodontalAnalysis';
+import { getToothAl, isToothCharted, isToothPresent, readFlag, formatMeasurementInput, readNumber } from '@/lib/utils/periodontalAnalysis';
 import { getFurcationSitesForTooth } from '@/lib/constants/surfaces';
 import { FurcationGlyph } from './FurcationGlyph';
 import { useChartStore } from '@/lib/store/useChartStore';
@@ -86,6 +86,12 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
   const teeth = arch === 'upper' ? UPPER_TEETH : LOWER_TEETH;
   const rows = ROWS;
 
+  // Parameters lock for Ausente positions: an empty position without an
+  // implant cannot be probed. Peri-implant sites stay editable on purpose
+  // (implant PNG and probing values remain active when the tooth is off).
+  const isToothLocked = (tooth: FDIToothNumber): boolean =>
+    !isToothCharted(chartData, tooth);
+
   const sitesFor = (tooth: FDIToothNumber): SurfaceId[] => {
     const applicable = getApplicableSurfaces(tooth);
     const sites =
@@ -142,7 +148,7 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
           type="text"
           className={cellClass}
           value={value}
-          disabled={disabled}
+          disabled={disabled || isToothLocked(tooth)}
           onChange={event => handleChange(event.target.value)}
           onBlur={handleBlur}
         />
@@ -165,7 +171,7 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
         <button
           type="button"
           className={`w-full py-0.5 text-[10px] font-bold transition-colors disabled:cursor-not-allowed ${colorClass}`}
-          disabled={disabled}
+          disabled={disabled || isToothLocked(tooth)}
           onClick={() => (type === 'bop' ? toggleBop(tooth, surface) : togglePlaque(tooth, surface))}
           title={isActive ? 'Quitar' : 'Marcar'}
         >
@@ -188,7 +194,7 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
           inputMode="numeric"
           className={cellClass}
           value={current > 0 ? String(current) : ''}
-          disabled={disabled}
+          disabled={disabled || isToothLocked(tooth)}
           onChange={event => {
             const raw = parseInt(event.target.value, 10);
             if (Number.isNaN(raw) || raw <= 0) {
@@ -286,7 +292,7 @@ export function ArchDataGrid({ arch, siteGroup, readOnly = false }: ArchDataGrid
                       key={site}
                       type="button"
                       className="flex h-4 w-4 items-center justify-center rounded-sm bg-gray-200 text-black transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-600 dark:text-gray-100"
-                      disabled={disabled || implantLocked}
+                      disabled={disabled || implantLocked || isToothLocked(tooth)}
                       onClick={() => setFurcation(tooth, site, (grade + 1) % 4)}
                       title={
                         implantLocked

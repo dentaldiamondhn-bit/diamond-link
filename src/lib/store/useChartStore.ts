@@ -20,6 +20,7 @@ import {
   ChartIndexSummary,
   EMPTY_INDEX_SUMMARY,
   isToothPresent,
+  isToothCharted,
   readNumber,
 } from '@/lib/utils/periodontalAnalysis';
 import { getApplicableSurfaces } from '@/lib/utils/chartGeometry';
@@ -557,6 +558,9 @@ export const useChartStore = create<ChartState>()(
     },
 
     toggleBop: (tooth: number, surface: SurfaceId) => {
+      // BOP is locked while the position is Ausente without an implant
+      // (peri-implant BOP stays measurable on purpose).
+      if (!isToothCharted(get().chartData, tooth as FDIToothNumber)) return;
       const key = `bop_${tooth}_${surface}`;
       const current = get().chartData[key] === '1' || get().chartData[key] === 1;
 
@@ -569,6 +573,9 @@ export const useChartStore = create<ChartState>()(
     },
 
     togglePlaque: (tooth: number, surface: SurfaceId) => {
+      // Plaque is locked while the position is Ausente without an implant
+      // (peri-implant plaque stays measurable on purpose).
+      if (!isToothCharted(get().chartData, tooth as FDIToothNumber)) return;
       const key = `pi_${tooth}_${surface}`;
       const current = get().chartData[key] === '1' || get().chartData[key] === 1;
 
@@ -597,6 +604,9 @@ export const useChartStore = create<ChartState>()(
           });
           state.chartData[`mobility_${tooth}`] = 0;
           state.chartData[`implant_${tooth}`] = 0;
+          ['b', 'mp', 'dp', 'l'].forEach(site => {
+            state.chartData[`furcation_${tooth}_${site}`] = 0;
+          });
           state.chartData[`note_${tooth}`] = '';
         }
 
@@ -626,8 +636,10 @@ export const useChartStore = create<ChartState>()(
     },
 
     setFurcation: (tooth: number, site: string, grade: number) => {
-      // Furcation grading is locked while the tooth carries an implant.
+      // Furcation grading is locked while the tooth carries an implant or is
+      // marked Ausente.
       if ((parseInt(get().chartData[`implant_${tooth}`], 10) || 0) !== 0) return;
+      if (!isToothPresent(get().chartData, tooth as FDIToothNumber)) return;
       set((state) => {
         state.chartData[`furcation_${tooth}_${site}`] = grade;
         state.isDirty = true;
@@ -635,6 +647,9 @@ export const useChartStore = create<ChartState>()(
     },
 
     setMobility: (tooth: number, grade: number) => {
+      // Mobility is locked while the position is Ausente without an implant
+      // (peri-implant mobility stays measurable on purpose).
+      if (!isToothCharted(get().chartData, tooth as FDIToothNumber)) return;
       set((state) => {
         state.chartData[`mobility_${tooth}`] = grade;
         state.isDirty = true;
