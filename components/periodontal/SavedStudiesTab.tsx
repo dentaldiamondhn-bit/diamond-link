@@ -114,9 +114,17 @@ export function SavedStudiesTab({
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900 via-slate-950 to-black p-4 shadow-[0_8px_32px_rgba(0,0,0,0.35)] md:p-5">
       <div className="flex flex-col items-end justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl md:flex-row">
         <div className="relative w-full md:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <label htmlFor="buscar-estudios" className="sr-only">
+            Buscar estudios guardados
+          </label>
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+          />
           <input
+            id="buscar-estudios"
             type="text"
+            aria-label="Buscar estudios guardados"
             value={searchTerm}
             onChange={event => {
               setSearchTerm(event.target.value);
@@ -128,8 +136,13 @@ export function SavedStudiesTab({
         </div>
 
         <div className="relative w-full md:w-44">
+          <label htmlFor="filtro-fecha" className="sr-only">
+            Filtrar por fecha
+          </label>
           <input
+            id="filtro-fecha"
             type="date"
+            aria-label="Filtrar por fecha"
             value={dateFilter}
             onChange={event => {
               setDateFilter(event.target.value);
@@ -144,7 +157,8 @@ export function SavedStudiesTab({
                 setDateFilter('');
                 setCurrentPage(1);
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 transition-colors hover:text-slate-200"
+              aria-label="Limpiar filtro de fecha"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 transition-colors hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
               title="Limpiar fecha"
             >
               ×
@@ -155,25 +169,25 @@ export function SavedStudiesTab({
         <button
           type="button"
           onClick={onRefresh}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 text-xs font-medium text-slate-200 transition-all hover:bg-white/[0.12]"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 text-xs font-medium text-slate-200 transition-all hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`} />
           Actualizar
         </button>
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 space-y-3" aria-busy={loading} aria-live="polite">
         {loading ? (
           Array.from({ length: 3 }).map((_, index) => (
             <div
               key={`skeleton-${index}`}
-              className="h-20 animate-pulse rounded-2xl border border-white/10 bg-white/[0.04]"
+              className="h-20 animate-pulse motion-reduce:animate-none rounded-2xl border border-white/10 bg-white/[0.04]"
             />
           ))
         ) : currentStudies.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center backdrop-blur-xl">
             <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3">
-              <Stethoscope className="h-6 w-6 text-teal-400/70" />
+              <Stethoscope aria-hidden="true" className="h-6 w-6 text-teal-400/70" />
             </div>
             <p className="mt-4 text-sm font-medium text-slate-200">
               No se encontraron estudios guardados
@@ -184,7 +198,7 @@ export function SavedStudiesTab({
             <button
               type="button"
               onClick={onCreateNew}
-              className="mt-5 rounded-xl border border-teal-400/30 bg-teal-500/15 px-4 py-2 text-xs font-medium text-teal-200 transition-all hover:bg-teal-500/25"
+              className="mt-5 rounded-xl border border-teal-400/30 bg-teal-500/15 px-4 py-2 text-xs font-medium text-teal-200 transition-all hover:bg-teal-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
             >
               Crear Nuevo Estudio
             </button>
@@ -250,16 +264,16 @@ export function SavedStudiesTab({
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
-                    <button type="button" onClick={() => onView(study.id)} className={viewButtonClass}>
-                      <Eye className="h-3.5 w-3.5" />
+                    <button type="button" onClick={() => onView(study.id)} className={`${viewButtonClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40`}>
+                      <Eye aria-hidden="true" className="h-3.5 w-3.5" />
                       Ver
                     </button>
-                    <button type="button" onClick={() => onEdit(study.id)} className={editButtonClass}>
-                      <Pencil className="h-3.5 w-3.5" />
+                    <button type="button" onClick={() => onEdit(study.id)} className={`${editButtonClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40`}>
+                      <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
                       Editar
                     </button>
-                    <button type="button" onClick={() => onDelete(study.id)} className={deleteButtonClass}>
-                      <Trash2 className="h-3.5 w-3.5" />
+                    <button type="button" onClick={() => onDelete(study.id)} className={`${deleteButtonClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40`}>
+                      <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
                       Eliminar
                     </button>
                   </div>
@@ -276,7 +290,7 @@ export function SavedStudiesTab({
             type="button"
             disabled={safeCurrentPage <= 1}
             onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:bg-white/[0.12] disabled:opacity-40"
+            className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 disabled:opacity-40"
           >
             Anterior
           </button>
@@ -287,7 +301,7 @@ export function SavedStudiesTab({
             type="button"
             disabled={safeCurrentPage >= totalPages}
             onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:bg-white/[0.12] disabled:opacity-40"
+            className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40 disabled:opacity-40"
           >
             Siguiente
           </button>
