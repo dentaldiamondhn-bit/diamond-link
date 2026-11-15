@@ -270,6 +270,7 @@ check(!/const stored = data\[`al_/.test(analysisSrc), 'getToothAl must derive AL
 // lone "-" is a legal intermediate state, magnitude clamped to 0..99.
 const analysisModule = loadTs('src/lib/utils/periodontalAnalysis.ts', { stripAliasImport: true });
 const fmt = analysisModule.formatMeasurementInput;
+const MEASUREMENT_VALIDATION_TYPE = analysisModule.MEASUREMENT_VALIDATION_TYPE;
 const fmtCases = [
   ['gm', '-2', '-2'],
   ['gm', '-', '-'],
@@ -284,11 +285,14 @@ const fmtCases = [
   ['pd', '99', '99'],
   ['pd', '', ''],
   ['pd', '12a', '12'],
+  ['pd', '-4', '4'],
+  ['pd', '-99', '99'],
 ];
 for (const [field, input, expected] of fmtCases) {
   check(fmt(input, field) === expected, `formatMeasurementInput('${field}', '${input}') must be '${expected}', got '${fmt(input, field)}'`);
 }
-check(fmt('-4', 'pd') === '-4', 'formatMeasurementInput must keep the minus sign on PD (signed probing depth)');
+check(MEASUREMENT_VALIDATION_TYPE.pd === '0-99', 'PD validation type must be 0-99 (probing depth rejects negatives)');
+check(MEASUREMENT_VALIDATION_TYPE.gm === '-99-99', 'GM validation type must stay -99-99 (signed gingival margin)');
 
 const clinicalSrc = fs.readFileSync(path.join(root, 'src/lib/types/clinical.ts'), 'utf8');
 check(clinicalSrc.includes('isGmInverted ? pd + gm : pd - gm'), 'calculateAL must use the site formula AL = PD - GM (sign flipped in inverted mode)');

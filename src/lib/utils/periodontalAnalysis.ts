@@ -93,12 +93,11 @@ export function readFlag(value: unknown): boolean {
 export type MeasurementField = 'gm' | 'pd';
 
 // Site validation types (data-validation-type on the reference inputs,
-// js/script.js validateAndFormatInput). GM is signed on the site; PD is
-// signed here as well because the chart must accept a negative probing
-// depth. Set 'pd' back to '0-99' to match the reference exactly.
+// js/script.js validateAndFormatInput). GM is signed on the site (-99..99);
+// PD is unsigned 0..99, so negative probing depths are rejected at input.
 export const MEASUREMENT_VALIDATION_TYPE: Record<MeasurementField, '-99-99' | '0-99'> = {
   gm: '-99-99',
-  pd: '-99-99',
+  pd: '0-99',
 };
 
 function onlyDigits(value: string): string {
