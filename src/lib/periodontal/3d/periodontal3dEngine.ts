@@ -39,6 +39,8 @@ const GUM_VIEW_DISTANCE = 0.24;
 // vertexColors carries the CEJ gradient (crown ivory -> root dentin); DoubleSide is
 // defense-in-depth: winding measured 100% outward-consistent, but belt-and-suspenders
 const TOOTH_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.48, metalness: 0.03, side: THREE.DoubleSide });
+// TEMPORARY debug A/B (?pd3d-solid in the URL): same lighting, no vertex color attribute
+const TOOTH_MATERIAL_SOLID = new THREE.MeshStandardMaterial({ color: 0xf5f2eb, roughness: 0.48, metalness: 0.03, side: THREE.DoubleSide });
 const IMPLANT_CROWN_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xf8f7f2, roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide });
 const FIXTURE_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xb8c2ce, roughness: 0.28, metalness: 0.92 });
 const GUM_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xe0556e, roughness: 0.62, metalness: 0, transparent: true, opacity: 0.92 });
@@ -122,6 +124,7 @@ class Periodontal3dViewer {
   private resizeObserver: ResizeObserver;
   private camGoal: { position: THREE.Vector3; target: THREE.Vector3 } | null = null;
   private toggles: ViewerToggles = { translucentGums: false, pockets: true, bop: true, plaque: false };
+  private solidTeeth = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('pd3d-solid');
   private onHover: (info: HoverInfo | null) => void;
   private lastHoverTooth: number | null = null;
   private disposed = false;
@@ -414,7 +417,7 @@ class Periodontal3dViewer {
       } else {
         const geometry = getToothGeometry(this.assets, entry);
         if (!geometry) continue;
-        const mesh = new THREE.Mesh(geometry, TOOTH_MATERIAL);
+        const mesh = new THREE.Mesh(geometry, this.solidTeeth ? TOOTH_MATERIAL_SOLID : TOOTH_MATERIAL);
         if (entry.scale) mesh.scale.setScalar(entry.scale);
         toothGroup.add(mesh);
         pickTarget = mesh;
@@ -519,12 +522,17 @@ class Periodontal3dViewer {
     manifestTeeth: number;
     dynamicChildren: number;
     pickables: number;
+    dynamicParentIsScene: boolean;
+    ancestorsVisible: boolean;
     meshes: Array<{
       tooth: number | null;
       visible: boolean;
       positions: number;
       colors: number | null;
       boundingSphere: number | null;
+      indexCount: number | null;
+      indexArray: string | null;
+      drawRangeCount: number;
     }>;
   } {
     const meshes: Array<{
@@ -533,25 +541,40 @@ class Periodontal3dViewer {
       positions: number;
       colors: number | null;
       boundingSphere: number | null;
+      indexCount: number | null;
+      indexArray: string | null;
+      drawRangeCount: number;
     }> = [];
     this.dynamicGroup.traverse(obj => {
       if (obj instanceof THREE.Mesh) {
         const position = obj.geometry.getAttribute('position');
         const color = obj.geometry.getAttribute('color');
+        const index = obj.geometry.getIndex();
         meshes.push({
           tooth: typeof obj.userData.tooth === 'number' ? obj.userData.tooth : null,
           visible: obj.visible,
           positions: position ? position.count : 0,
           colors: color ? color.count : null,
           boundingSphere: obj.geometry.boundingSphere ? obj.geometry.boundingSphere.radius : null,
+          indexCount: index ? index.count : null,
+          indexArray: index ? index.array.constructor.name : null,
+          drawRangeCount: obj.geometry.drawRange.count,
         });
       }
     });
+    let node: THREE.Object3D | null = this.dynamicGroup;
+    let ancestorsVisible = true;
+    while (node) {
+      if (!node.visible) ancestorsVisible = false;
+      node = node.parent;
+    }
     return {
       assetsLoaded: Boolean(this.assets),
       manifestTeeth: this.toothEntryByFdi.size,
       dynamicChildren: this.dynamicGroup.children.length,
       pickables: this.pickables.length,
+      dynamicParentIsScene: this.dynamicGroup.parent === this.scene,
+      ancestorsVisible,
       meshes,
     };
   }
