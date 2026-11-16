@@ -512,6 +512,50 @@ class Periodontal3dViewer {
     GUM_MATERIAL.opacity = toggles.translucentGums ? 0.45 : 0.92;
   }
 
+  /** Runtime evidence snapshot: scene children, per-mesh visibility/attributes.
+   *  Used to diagnose "teeth invisible" reports without a WebGL context. */
+  getRuntimeStats(): {
+    assetsLoaded: boolean;
+    manifestTeeth: number;
+    dynamicChildren: number;
+    pickables: number;
+    meshes: Array<{
+      tooth: number | null;
+      visible: boolean;
+      positions: number;
+      colors: number | null;
+      boundingSphere: number | null;
+    }>;
+  } {
+    const meshes: Array<{
+      tooth: number | null;
+      visible: boolean;
+      positions: number;
+      colors: number | null;
+      boundingSphere: number | null;
+    }> = [];
+    this.dynamicGroup.traverse(obj => {
+      if (obj instanceof THREE.Mesh) {
+        const position = obj.geometry.getAttribute('position');
+        const color = obj.geometry.getAttribute('color');
+        meshes.push({
+          tooth: typeof obj.userData.tooth === 'number' ? obj.userData.tooth : null,
+          visible: obj.visible,
+          positions: position ? position.count : 0,
+          colors: color ? color.count : null,
+          boundingSphere: obj.geometry.boundingSphere ? obj.geometry.boundingSphere.radius : null,
+        });
+      }
+    });
+    return {
+      assetsLoaded: Boolean(this.assets),
+      manifestTeeth: this.toothEntryByFdi.size,
+      dynamicChildren: this.dynamicGroup.children.length,
+      pickables: this.pickables.length,
+      meshes,
+    };
+  }
+
   setCameraPreset(key: CameraPresetKey): void {
     const preset = CAMERA_PRESETS[key];
     this.camGoal = {
