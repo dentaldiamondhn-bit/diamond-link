@@ -101,20 +101,28 @@ export function Periodontal3DModal({ open, onOpenChange }: Periodontal3DModalPro
     };
   }, [open]);
 
+  // Sync effects run on [dep, open]: before the viewer exists (open=false) they
+  // no-op; when open flips, the mount effect above has already created the
+  // viewer (declaration order), so state reaches the engine. Without `open` in
+  // deps, data applied pre-mount is silently lost (updateData pending queue
+  // only covers the window between loadAssets() start and finish).
   useEffect(() => {
+    if (!open) return;
     viewerRef.current?.updateData(chartData);
     if (process.env.NODE_ENV !== 'production') {
       console.log('[Periodontal3D] updateData', viewerRef.current?.getRuntimeStats());
     }
-  }, [chartData]);
+  }, [chartData, open]);
 
   useEffect(() => {
+    if (!open) return;
     viewerRef.current?.applyToggles(toggles);
-  }, [toggles]);
+  }, [toggles, open]);
 
   useEffect(() => {
+    if (!open) return;
     viewerRef.current?.setAutoRotate(autoRotate);
-  }, [autoRotate]);
+  }, [autoRotate, open]);
 
   useEffect(() => {
     if (!open) return;
