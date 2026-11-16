@@ -38,12 +38,12 @@ const GUM_VIEW_DISTANCE = 0.24;
 
 // vertexColors carries the CEJ gradient (crown ivory -> root dentin); DoubleSide is
 // defense-in-depth: winding measured 100% outward-consistent, but belt-and-suspenders
-const TOOTH_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.48, metalness: 0.03, side: THREE.DoubleSide });
+const TOOTH_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.22, metalness: 0.03, side: THREE.DoubleSide });
 // TEMPORARY debug A/B (?pd3d-solid in the URL): same lighting, no vertex color attribute
 const TOOTH_MATERIAL_SOLID = new THREE.MeshStandardMaterial({ color: 0xf5f2eb, roughness: 0.48, metalness: 0.03, side: THREE.DoubleSide });
 const IMPLANT_CROWN_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xf8f7f2, roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide });
 const FIXTURE_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xb8c2ce, roughness: 0.28, metalness: 0.92 });
-const GUM_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xe0556e, roughness: 0.62, metalness: 0, transparent: true, opacity: 0.92 });
+const GUM_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xd96b78, roughness: 0.45, metalness: 0.02, transparent: true, opacity: 0.88 });
 const POCKET_BOP_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xff3b47, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
 const POCKET_HEALTHY_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
 const BOP_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xff2440 });
@@ -168,7 +168,9 @@ class Periodontal3dViewer {
     key.position.set(3, 5, 4);
     const fill = new THREE.DirectionalLight(0xdfe8ff, 0.45);
     fill.position.set(-3, 2, -4);
-    this.scene.add(ambient, key, fill);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.6);
+    rim.position.set(-1.5, 2.5, -6);
+    this.scene.add(ambient, key, fill, rim);
 
     const grid = new THREE.GridHelper(6, 12, 0x1e293b, 0x111827);
     const gridMaterial = grid.material as THREE.Material;
@@ -512,7 +514,7 @@ class Periodontal3dViewer {
 
   applyToggles(toggles: ViewerToggles): void {
     this.toggles = toggles;
-    GUM_MATERIAL.opacity = toggles.translucentGums ? 0.45 : 0.92;
+    GUM_MATERIAL.opacity = toggles.translucentGums ? 0.35 : 0.88;
   }
 
   /** Runtime evidence snapshot: scene children, per-mesh visibility/attributes.

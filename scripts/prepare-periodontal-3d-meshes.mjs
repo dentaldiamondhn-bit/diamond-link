@@ -307,22 +307,28 @@ function main() {
       (z + offsetZ) * MM_TO_WORLD,
     ]);
     // local wrap: shift the gum toward each tooth's regularized cervical so the
-    // margin hugs the necks. Margin measured with the same seeded-window /
-    // buccal-half semantics as detectCervical (robust to papilla + retromolar
-    // verts); delta clamped to +/-0.07u, quadratic falloff within 0.16u.
-    const jawDir = jaw === 'upper' ? 1 : -1;
+    // margin hugs the necks. Margin anchor = gingiva vert nearest (3D) to the
+    // tooth's buccal-midline point at cervical height — papillae rise
+    // interproximally and must NOT hijack the measurement. Deltas clamp at
+    // +/-0.13u for real teeth (~4mm, measured residuals), +/-0.10u for
+    // extrapolated wisdom sockets to avoid stretching the retromolar ridge.
     const wrapDeltas = [];
     for (const t of Object.values(manifest.teeth).filter((x) => x.jaw === jaw)) {
       const [cx, cy, cz] = t.pos;
-      const near = outVerts.filter((v) => {
+      const ax = cx + t.buccal[0] * 0.06;
+      const az = cz + t.buccal[1] * 0.06;
+      let best = null;
+      for (const v of outVerts) {
         const dx = v[0] - cx;
         const dz = v[2] - cz;
-        return Math.hypot(dx, dz) <= 0.1 && dx * t.buccal[0] + dz * t.buccal[1] > 0.05 * 0.1 && Math.abs(v[1] - cy) <= 0.13;
-      });
-      if (near.length < 4) continue;
-      const sorted = near.map((v) => v[1]).sort((a, b) => a - b);
-      const margin = jawDir === 1 ? percentile(sorted, 0.2) : percentile(sorted, 0.8);
-      const delta = Math.max(-0.07, Math.min(0.07, cy - margin));
+        if (dx * t.buccal[0] + dz * t.buccal[1] <= 0.005) continue;
+        if (Math.abs(v[1] - cy) > 0.45) continue;
+        const d3 = (v[0] - ax) ** 2 + (v[1] - cy) ** 2 + (v[2] - az) ** 2;
+        if (!best || d3 < best.d3) best = { d3, y: v[1] };
+      }
+      if (!best) continue;
+      const clamp = t.cervicalMethod === 'extrapolated' ? 0.1 : 0.13;
+      const delta = Math.max(-clamp, Math.min(clamp, cy - best.y));
       if (Math.abs(delta) > 0.002) wrapDeltas.push({ cx, cz, delta });
     }
     if (wrapDeltas.length > 0) {
@@ -339,12 +345,47 @@ function main() {
         if (bestD < 0.24) v[1] += bestDelta * 0.9 * (1 - bestD / 0.24) ** 2;
       }
     }
-    const outNormals = parsed.normals.map((n) => {
-      const [x, y, z] = axisMap(n);
-      const len = Math.hypot(x, y, z) || 1;
-      return [x / len, y / len, z / len];
+    // weld split vertices (BP3D export duplicates positions with per-face
+    // normals -> visible faceting) and recompute smooth area-weighted normals
+    const weldMap = new Map();
+    const weldIndex = [];
+    for (const v of outVerts) {
+      const key = `${v[0].toFixed(4)},${v[1].toFixed(4)},${v[2].toFixed(4)}`;
+      let idx = weldMap.get(key);
+      if (idx === undefined) {
+        idx = weldIndex.length;
+        weldMap.set(key, idx);
+      }
+      weldIndex.push(idx);
+    }
+    const welded = new Array(weldIndex.length);
+    for (let i = 0; i < outVerts.length; i++) welded[weldIndex[i]] = outVerts[i];
+    const remapped = [];
+    for (const tri of parsed.faces) {
+      const [a, b, c] = tri.map(([vi]) => weldIndex[vi]);
+      if (a !== b && b !== c && a !== c) remapped.push([a, b, c]);
+    }
+    const smoothNormals = welded.map(() => [0, 0, 0]);
+    for (const [a, b, c] of remapped) {
+      const [ax, ay, az] = welded[a];
+      const [bx, by, bz] = welded[b];
+      const [cx2, cy2, cz2] = welded[c];
+      const ux = bx - ax, uy = by - ay, uz = bz - az;
+      const vx = cx2 - ax, vy = cy2 - ay, vz = cz2 - az;
+      const nx = uy * vz - uz * vy;
+      const ny = uz * vx - ux * vz;
+      const nz = ux * vy - uy * vx;
+      for (const vi of [a, b, c]) {
+        smoothNormals[vi][0] += nx;
+        smoothNormals[vi][1] += ny;
+        smoothNormals[vi][2] += nz;
+      }
+    }
+    const outNormals = smoothNormals.map((n) => {
+      const len = Math.hypot(n[0], n[1], n[2]) || 1;
+      return [n[0] / len, n[1] / len, n[2] / len];
     });
-    writeMesh(join(OUT_DIR, `gingiva_${jaw}.pmesh.json`), outVerts, outNormals, parsed.faces.map((tri) => tri.map(([vi]) => vi)));
+    writeMesh(join(OUT_DIR, `gingiva_${jaw}.pmesh.json`), welded, outNormals, remapped);
     manifest.gingiva[jaw] = {
       mesh: `gingiva_${jaw}.pmesh.json`,
       source: GINGIVA_FILES[jaw],
