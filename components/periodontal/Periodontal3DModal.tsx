@@ -75,13 +75,16 @@ export function Periodontal3DModal({ open, onOpenChange }: Periodontal3DModalPro
     if (!container) return;
     const viewer = createPeriodontal3dViewer(container, info => setHover(info));
     viewerRef.current = viewer;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Periodontal3D] viewer mounted (expects dynamicChildren=32)');
+    }
     let cancelled = false;
     viewer
       .loadAssets()
       .then(() => {
         if (cancelled) return;
         if (process.env.NODE_ENV !== 'production') {
-          console.debug('[Periodontal3D] assets ready', viewerRef.current?.getRuntimeStats());
+          console.log('[Periodontal3D] assets ready', viewerRef.current?.getRuntimeStats());
         }
         setAssetsState('ready');
       })
@@ -101,7 +104,7 @@ export function Periodontal3DModal({ open, onOpenChange }: Periodontal3DModalPro
   useEffect(() => {
     viewerRef.current?.updateData(chartData);
     if (process.env.NODE_ENV !== 'production') {
-      console.debug('[Periodontal3D] updateData', viewerRef.current?.getRuntimeStats());
+      console.log('[Periodontal3D] updateData', viewerRef.current?.getRuntimeStats());
     }
   }, [chartData]);
 
