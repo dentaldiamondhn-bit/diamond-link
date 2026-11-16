@@ -17,9 +17,12 @@ import {
   AnalysisModal,
   CalibrationModal,
   ClassificationModal,
+  HistoriaTab,
   IntervalModal,
   JawChart,
   LeftActionPanel,
+  ProfileModal,
+  AiPromptModal,
   QrModal,
   SavedStudiesTab,
   SummaryModal,
@@ -37,7 +40,7 @@ function EstudioPeriodontalContent() {
   const [patientLoading, setPatientLoading] = useState(true);
   const [savedStudies, setSavedStudies] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chart' | 'saved'>('chart');
+  const [activeTab, setActiveTab] = useState<'chart' | 'saved' | 'historial'>('chart');
   const [readOnly, setReadOnly] = useState(false);
   const [datosCollapsed, setDatosCollapsed] = useState(false);
   const [openModal, setOpenModal] = useState<ClinicalModalKey | null>(null);
@@ -387,6 +390,7 @@ function EstudioPeriodontalContent() {
         {([
           { id: 'chart' as const, label: 'Nuevo Estudio' },
           { id: 'saved' as const, label: 'Estudios Guardados' },
+          { id: 'historial' as const, label: 'Historial' },
         ]).map(tab => (
           <button
             key={tab.id}
@@ -413,6 +417,8 @@ function EstudioPeriodontalContent() {
           onDelete={deleteStudy}
           onCreateNew={() => setActiveTab('chart')}
         />
+      ) : activeTab === 'historial' ? (
+        <HistoriaTab patient={patient} studies={savedStudies} loading={loading} />
       ) : (
       <>
       <div className="mb-6">
@@ -612,6 +618,7 @@ function EstudioPeriodontalContent() {
       <ClassificationModal
         open={openModal === 'classification'}
         onOpenChange={open => !open && setOpenModal(null)}
+        patient={patient}
       />
       <IntervalModal open={openModal === 'interval'} onOpenChange={open => !open && setOpenModal(null)} />
       <Periodontal3DModal open={openModal === 'three-d'} onOpenChange={open => !open && setOpenModal(null)} />
@@ -619,6 +626,16 @@ function EstudioPeriodontalContent() {
       <CalibrationModal
         open={openModal === 'calibration'}
         onOpenChange={open => !open && setOpenModal(null)}
+      />
+      <ProfileModal
+        open={openModal === 'profile'}
+        onOpenChange={open => !open && setOpenModal(null)}
+        patient={patient}
+      />
+      <AiPromptModal
+        open={openModal === 'aiprompt'}
+        onOpenChange={open => !open && setOpenModal(null)}
+        patient={patient}
       />
     </div>
   );

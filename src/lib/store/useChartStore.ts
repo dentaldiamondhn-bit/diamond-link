@@ -521,6 +521,7 @@ export const useChartStore = create<ChartState>()(
         observaciones_generales: chart.observaciones_generales || null,
         objetivo_estudio: chart.objetivo_estudio || null,
         plan_tratamiento: chart.plan_tratamiento || {},
+        clasificacion: chart.clasificacion || null,
         mediciones,
       };
     },

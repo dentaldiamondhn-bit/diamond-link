@@ -2,6 +2,7 @@
 
 import React from 'react';
 import {
+  Activity,
   Box,
   CalendarClock,
   ClipboardList,
@@ -13,6 +14,7 @@ import {
   Save,
   ScanLine,
   ShieldCheck,
+  Sparkles,
   Stethoscope,
   Upload,
 } from 'lucide-react';
@@ -25,7 +27,9 @@ export type ClinicalModalKey =
   | 'interval'
   | 'three-d'
   | 'qr'
-  | 'calibration';
+  | 'calibration'
+  | 'profile'
+  | 'aiprompt';
 
 interface LeftActionPanelProps {
   onSave: () => void;
@@ -85,6 +89,8 @@ const MODAL_BUTTONS: { key: ClinicalModalKey; label: string; icon: React.Element
   { key: 'three-d', label: '3D', icon: Box },
   { key: 'qr', label: 'Código QR', icon: QrCode },
   { key: 'calibration', label: 'Calibración', icon: Ruler },
+  { key: 'profile', label: 'Perfil', icon: Activity },
+  { key: 'aiprompt', label: 'Prompt IA', icon: Sparkles },
 ];
 
 export function LeftActionPanel({

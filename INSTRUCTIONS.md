@@ -1,6 +1,6 @@
 # Dental Diamond Link — Instructions
 
-This file documents project conventions and reverse-engineering studies. Section 20 holds the reverse-engineered analysis of the reference site's 3D Periodontal Viewer that our `Periodontal3DModal` ports.
+This file documents project conventions and reverse-engineering studies. Section 20 holds the reverse-engineered analysis of the reference site's 3D Periodontal Viewer that our `Periodontal3DModal` ports. Section 21 documents the ported periodontal modals and the Historial (study-history) section from the same reference site.
 
 ## 20. Reverse-Engineered 3D Periodontal Viewer
 
@@ -116,3 +116,128 @@ Pipeline (`prepare-periodontal-3d-meshes.mjs`, re-runnable against a fresh BodyP
 6. **Gingiva alignment**: global per-jaw vertical shift maps the donor margins onto the regularized cervicals, then a local clamp/falloff wrap deforms the gum toward each tooth neck (±0.07 u, quadratic falloff within 0.24 u).
 
 Runtime GM deformation: each gingiva vertex keeps a precomputed (nearest tooth, weight) pair; on every `chartData` change the vertex is displaced along y by that tooth's mean margin apical offset (recession lifts upper margins apically / lowers lower ones), so the scalloped gum margin breathes with the data. Tooth meshes are one geometry per FDI (crown + curved roots, real morphology: incisor/canine/premolar/molar, single/double/triple roots).
+
+## 21. Periodontal modals & Historial (port from periodontalchart-online.com)
+
+Source: `https://www.periodontalchart-online.com/?lang=es` (reference site). Evidence: the live
+site's JS/CSS/HTML was downloaded and analyzed statically — `js/renderer/overview_renderer.js`,
+`js/renderer/profile_rendering.js`, `js/renderer/aiprompt_renderer.js`,
+`js/renderer/history_renderer.js` (3106 lines), `js/coordinates/overview_coordinates.js`,
+`js/coordinates/history_coordinates.js`, `js/misc/position.js`, `index.html` (embedded
+`window.historyLabels` Spanish dictionary), and the modal markup. Cache-busting param used:
+`?v=20261116181328`.
+
+### 21.1 Shared data-model facts (used by every port)
+
+- Flat `Record<string, any>` chart data: `pd_/gm_/al_/bop_/pi_<tooth>_<site>`,
+  `tooth_<FDI>`, `implant_<FDI>`, `furcation_<FDI>_<site>`, `mobility_<FDI>`, plus `date`,
+  `patient_number`, `patient_first_name`, `patient_last_name`.
+- **"Der Zahn entscheidet"** (site `js/misc/position.js`): a position counts as occupied only when
+  `tooth_<FDI> == '1'`; an implant never rescues a switched-off tooth. Implant statuses are
+  `1|2|3` (`hatImplantatStatus`); the implant marker requires tooth **and** status
+  (`implantatSichtbar`).
+- Probing covers the **6 applicable surfaces per arch**: upper `{db,b,mb,dp,p,mp}`,
+  lower `{db,b,mb,dl,l,ml}` (site's `analyzeJsonDataSVG`); overview SVG polygons merge them into
+  the letters `d/m/b/p/l` (`areaMap`: db/dp/dl→d, mb/mp/ml→m).
+- The app persists studies as rows in `estudios_periodontales` + `mediciones_periodontales`
+  (one row per **present** tooth; absent teeth simply have no row). `buildChartDataFromStudy`
+  (`src/lib/utils/studyToChart.ts`) flattens them back to the shape above.
+- All engines are **self-contained** (no imports) so plain `node --test` can execute them;
+  data tables (polygon paths, coordinates) are injected by the caller from `src/lib/constants/*`.
+
+### 21.2 Resumen (SummaryModal) — ported
+
+- Files: `src/lib/constants/overviewSites.ts` (128 site polygons extracted from the site's
+  `img/svg/ok-uk-01.svg`, ids `site_<FDI><mdbpl>`), `src/lib/constants/overviewCoordinates.ts`
+  (192 PD-text slots, furcation + implant marker coordinates, left side mirrored at x=500),
+  `src/lib/utils/periodontalOverview.ts` (engine), `components/periodontal/modals/SummaryModal.tsx`
+  (PI blue / BOP red maps, PD texts > 3 in red, yellow circle for PD ≥ 6, missing teeth grey,
+  `pd_bop.png` export), tests `tests/periodontalOverview.test.ts` (26).
+- Semantics: `computeOverviewStats` counts BOP/PI/PD≥4 over present teeth only (6 surfaces/tooth);
+  percentages rounded to whole numbers; an empty chart yields 0 instead of the site's NaN.
+- `getOverviewSiteFills` greys a polygon only when the tooth key is **explicitly** `'0'`; the
+  positionBesetzt gate is applied everywhere else.
+
+### 21.3 Perfil (ProfileModal) + Prompt IA (AiPromptModal) — ported
+
+- Files: `src/lib/utils/periodontalProfile.ts` (engine: `analyzeForProfile` port of
+  `analyzeJsonData`, stability assessment, AI prompt builder, `detectDiabetes` regex `/diab[ée]t/i`),
+  `components/periodontal/modals/ProfileModal.tsx` (pure-SVG stacked bar PI/PD/BOP,
+  `profile.png`), `components/periodontal/modals/AiPromptModal.tsx` (17 languages with native
+  names, copy-to-clipboard + Gemini handoff, `aiprompt.png`),
+  `components/periodontal/modals/rasterizeSvg.ts` (shared SVG→PNG serializer + `wrapText`),
+  tests `tests/periodontalProfile.test.ts` (21).
+- Stability criteria (Spanish copy from the site dictionary): PI ≤ 20%, BOP ≤ 20% (**≤ 16% if
+  smoker**), no residual pockets ≥ 6 mm, no furcation ≥ grade 2.
+
+### 21.4 Clasificación (ClassificationModal) — ported
+
+- Files: `src/lib/utils/periodontalClassification.ts`, `components/periodontal/modals/ClassificationModal.tsx`,
+  tests `tests/periodontalClassification.test.ts`.
+- Persistence: `clasificacion` column added to `estudios_periodontales` via
+  `database/migrations/add_clasificacion_estudios_periodontales.sql` (**must be applied manually
+  in Supabase**); wired through `useChartStore.prepareApiPayload`, `studyToChart.ts` and the
+  POST/PUT routes in `app/api/estudios-periodontales/`.
+
+### 21.5 Historial (HistoriaTab) — ported
+
+The reference site's "Historial" is a **main-page tab** (not a modal): it compares all saved
+studies of one patient. Ported as a third tab in `app/(auth)/estudio-periodontal/page.tsx`
+("Historial") rendering `components/periodontal/HistoriaTab.tsx`.
+
+Engine `src/lib/utils/periodontalHistory.ts` (self-contained; tests
+`tests/periodontalHistory.test.ts`, 40 tests):
+
+- `parseHistoryDate` / `formatHistoryDate` (DD.MM.YYYY) / `formatHistoryMonthYear`
+  ("Ene 2026" Spanish abbreviations — the site hardcodes German month names even in Spanish).
+- `analyzeHistoryJsonData` — port of the site's `analyzeJsonData` (one-decimal longitudinal
+  percentages; BOP/PI count surfaces `> 0` and positive sites `== 1`; PD buckets `==4/==5/≥6`;
+  furcation 2|3). **Deviation:** the site computes `totalTeeth = 32 − explicit tooth_==0`
+  (its data flags every absent tooth); app studies omit absent teeth entirely, so the engine
+  counts teeth whose switch is on — clinically equivalent for our data.
+- `analyzeHistorySvgData` — port of `analyzeJsonDataSVG` (integer % for the map stamps).
+- `extractHistoryInstanceData` — port of `extractInstanceData` counters (teeth, pockets 4/5/6,
+  closed pockets = PD 4 + BOP `0` on the probed side of the arch, furcation 1/2/3, implants);
+  the site's counters deliberately run **without** a presence gate.
+- `adjustPdForComparison` (PD 0 → 1 mm for b/p/l, 2 mm interproximal) +
+  `calculatePdDifferences` (chronological ordering, sites missing in one study skipped) +
+  `aggregatePdDifferences` (d/m sums; lower jaw averages the pair) +
+  `getHeatmapColor` (d3 threshold scale port; ≥ 5 mm → no fill, like the original).
+- `calculateChangePercentages` (improvement / no change / worsening, adjusted to sum 100),
+  `summarizeTopWorseningSites` (only worsening sites, tie-break by newest value, top 16).
+- `suggestMaintenanceInterval` — the site's interval ladder (max over the three PD-percentage
+  thresholds, in months), `computeIntervalStatus` (expected = months × 30 days; ±30 days
+  tolerance → TEMPRANO / A TIEMPO / TARDE).
+
+UI (`HistoriaTab.tsx`, reusing `modals/OverviewMap.tsx` — extracted from SummaryModal with an
+additive `layerVisibility` prop):
+
+- Header (patient ID, latest date, apellidos, nombre, birth date, clinician) + suggested-months
+  badge; toggle row **PD/BOP · PD ≥ 6mm · Furcaciones · Implantes · PI +** (same defaults and
+  per-map gating as the site, including the quirk that furcation/implant markers on the PI map
+  follow the "PI +" toggle).
+- Three pure-SVG trend charts (Inflamación red, Profundidades stacked 4/5/≥6, Higiene blue).
+- One BOP + PI map pair per study (newest first) with PD texts, furcation/implant markers,
+  missing-teeth grey, and a per-block PNG export (combined 1000×640 SVG via `rasterizeSvg`).
+- Between consecutive studies: interval strip (status + expected/actual days) and an expandable
+  comparison panel — heatmap superimpose map + legend + change histogram on the left;
+  transposed comparison table (Antes/Después/Diferencia) + stacked improvement bar, toggling
+  ("Tabla 1/2" ⇄ "Tabla 2/2") to the top-16 worsening-sites table on the right.
+- Data: per-study detail fetches (`/api/estudios-periodontales/[id]`, which returns full
+  `mediciones_periodontales(*)`; the list endpoint only ships PD/AL).
+
+**Intentional omissions / deviations:** the site's timelapse animation slide and cumulative-BOP
+overlay slide are not ported; HTML-panel PNG downloads (html2canvas on the site) are not ported
+(no html2canvas dependency — SVG parts use `rasterizeSvg`); the "seleccionado" interval badge is
+not shown because `intervalo_mantenimiento` is not persisted by the API; "Mostrar cambios"
+tooltip is Spanish (the site shows a German fallback); map date stamps use numeric DD.MM.YYYY
+(consistent with Resumen).
+
+### 21.6 Verification
+
+```bash
+node --test tests/periodontalHistory.test.ts tests/periodontalOverview.test.ts \
+  tests/periodontalProfile.test.ts tests/periodontalClassification.test.ts   # 115 tests
+npx eslint <changed files> --ext .ts,.tsx    # 0 errors (accepted no-explicit-any warnings)
+npm run build                                # production build green
+```

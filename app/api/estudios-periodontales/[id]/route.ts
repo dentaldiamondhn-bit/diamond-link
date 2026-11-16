@@ -83,6 +83,7 @@ export async function PUT(
         observaciones_generales: body.observaciones_generales || null,
         objetivo_estudio: body.objetivo_estudio || null,
         plan_tratamiento: body.plan_tratamiento || {},
+        clasificacion: body.clasificacion || null,
         actualizado_en: new Date().toISOString()
       })
       .eq('id', estudioId)

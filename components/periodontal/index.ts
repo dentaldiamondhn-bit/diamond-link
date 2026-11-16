@@ -10,14 +10,17 @@ export { PdHighlighter } from './PdHighlighter';
 export { PerioPolygon } from './PerioPolygon';
 
 export { SvgPlaceholder } from './SvgPlaceholder';
+export { HistoriaTab } from './HistoriaTab';
 export { SavedStudiesTab } from './SavedStudiesTab';
 export { SummaryMetrics } from './SummaryMetrics';
 export { SummaryMetricsBar } from './SummaryMetricsBar';
 export { ToothSurfaceSvg } from './ToothSurfaceSvg';
 export { AnalysisModal } from './modals/AnalysisModal';
+export { AiPromptModal } from './modals/AiPromptModal';
 export { CalibrationModal } from './modals/CalibrationModal';
 export { ClassificationModal } from './modals/ClassificationModal';
 export { IntervalModal } from './modals/IntervalModal';
+export { ProfileModal } from './modals/ProfileModal';
 export { QrModal } from './modals/QrModal';
 export { SummaryModal } from './modals/SummaryModal';
 export { Periodontal3DModal } from './Periodontal3DModal';

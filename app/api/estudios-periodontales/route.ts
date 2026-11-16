@@ -182,6 +182,7 @@ export async function POST(request: NextRequest) {
         observaciones_generales: body.observaciones_generales || null,
         objetivo_estudio: body.objetivo_estudio || null,
         plan_tratamiento: body.plan_tratamiento || {},
+        clasificacion: body.clasificacion || null,
       })
       .select()
       .single();
