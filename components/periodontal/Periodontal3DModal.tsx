@@ -82,7 +82,8 @@ export function Periodontal3DModal({ open, onOpenChange }: Periodontal3DModalPro
         if (cancelled) return;
         setAssetsState('ready');
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[Periodontal3D] asset load failed:', err);
         if (cancelled) return;
         setAssetsState('error');
       });

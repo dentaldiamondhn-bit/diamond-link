@@ -36,8 +36,10 @@ const CAMERA_PRESETS: Record<CameraPresetKey, { position: [number, number, numbe
 
 const GUM_VIEW_DISTANCE = 0.24;
 
-const TOOTH_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.48, metalness: 0.03 });
-const IMPLANT_CROWN_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xf8f7f2, roughness: 0.4, metalness: 0.1 });
+// vertexColors carries the CEJ gradient (crown ivory -> root dentin); DoubleSide is
+// defense-in-depth: winding measured 100% outward-consistent, but belt-and-suspenders
+const TOOTH_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.48, metalness: 0.03, side: THREE.DoubleSide });
+const IMPLANT_CROWN_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xf8f7f2, roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide });
 const FIXTURE_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xb8c2ce, roughness: 0.28, metalness: 0.92 });
 const GUM_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xe0556e, roughness: 0.62, metalness: 0, transparent: true, opacity: 0.92 });
 const POCKET_BOP_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xff3b47, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
