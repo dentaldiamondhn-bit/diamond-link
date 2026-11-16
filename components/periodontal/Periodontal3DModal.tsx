@@ -60,6 +60,7 @@ export function Periodontal3DModal({ open, onOpenChange }: Periodontal3DModalPro
   });
   const [autoRotate, setAutoRotate] = useState(false);
   const [hover, setHover] = useState<HoverInfo | null>(null);
+  const [assetsState, setAssetsState] = useState<'loading' | 'ready' | 'error'>('loading');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<Periodontal3dViewerInstance | null>(null);
 
@@ -69,15 +70,23 @@ export function Periodontal3DModal({ open, onOpenChange }: Periodontal3DModalPro
     if (!container) return;
     const viewer = createPeriodontal3dViewer(container, info => setHover(info));
     viewerRef.current = viewer;
-    viewer.updateData(useChartStore.getState().chartData);
-    viewer.applyToggles(toggles);
-    viewer.setAutoRotate(autoRotate);
+    let cancelled = false;
+    viewer
+      .loadAssets()
+      .then(() => {
+        if (cancelled) return;
+        setAssetsState('ready');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAssetsState('error');
+      });
     return () => {
+      cancelled = true;
       viewer.dispose();
       viewerRef.current = null;
       setHover(null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -182,6 +191,20 @@ export function Periodontal3DModal({ open, onOpenChange }: Periodontal3DModalPro
 
             <div className="relative flex-1 overflow-hidden">
               <div ref={containerRef} className="h-full w-full" />
+              {assetsState !== 'ready' && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm">
+                  {assetsState === 'loading' ? (
+                    <div className="flex flex-col items-center gap-2 text-slate-300">
+                      <span className="h-6 w-6 animate-spin rounded-full border-2 border-teal-400/70 border-t-transparent" aria-hidden="true" />
+                      <p className="text-xs">Cargando anatomía 3D…</p>
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      No se pudo cargar el modelo anatómico. Reintenta abriendo el visor.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-white/10 bg-slate-950/70 px-2.5 py-1.5 text-[10px] text-slate-400 backdrop-blur-md">
                 <span className="mr-2 inline-flex items-center gap-1">
                   <span className="inline-block h-2 w-2 rounded-full bg-[#ff3b47]" aria-hidden="true" /> BOP

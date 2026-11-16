@@ -81,15 +81,38 @@ Consequences (verified numerically): upper cervical line sits at world y ≈ 4.1
 
 ### 20.6 Our Port (`Periodontal3DModal` + `src/lib/periodontal/3d/`)
 
-Stack: **vanilla `three` r187 + `@types/three` inside a React ref canvas** (mirrors the original's architecture; avoids R3F peer-dep conflicts with the app's React 18). Zero external assets — everything procedural.
+Stack: **vanilla `three` r187 + `@types/three` inside a React ref canvas** (mirrors the original's architecture; avoids R3F peer-dep conflicts with the app's React 18). See 20.7 for the real anatomical mesh pipeline that replaced the first procedural port.
 
-Deliberate upgrades over the original (documented deviations):
+1. **Same site math, our conventions**: GM sign follows our port of `calculateSingleALForInput` — normal mode: margin apical offset = **−GM** (positive GM input = margin coronal to CEJ), inverted mode (`isGmInverted`): **+GM**; NIC/AL = PD + marginApical (≡ `AL = PD − GM` normal / `PD + GM` inverted, same as the app). Local y_gm = dir·marginApical·k, y_al = y_gm + dir·PD·k, dir = +1 upper (apex up) / −1 lower, **k = MM_TO_WORLD = 0.032** world units per mm.
+2. **Pocket visualization**: per-site translucent ribbon quad GM→AL (custom `BufferGeometry`, red `0xFF3B47` if BOP, blue `0x3B82F6` otherwise) anchored to the crown surface at the site's angular position (buccal sites at 0°±24°·side, palatal/lingual at 180°±24°) — the direct analogue of the original's trapezoids, mapped 1:1 to our 9-site store keys (`pd/gm/bop/pi_<tooth>_<site>`). Anchor points are raycast once per tooth/site against the real mesh (`computeSiteAnchors`).
+3. **Implants**: lathe-profile titanium fixture (tapered, 5 thread rings) + abutment + lathe crown replacing the natural tooth mesh when `implant_<tooth> > 0`; peri-implant probing sites keep rendering ribbons/dots (matches the app's ausente+implante exception). **Ausente** teeth are skipped (edentulous ridge stays in the gingiva mesh). *Deviation:* the implant remains parametric (`LatheGeometry`) — no clean CC0 implant mesh was available; revisit if one lands in `public/models/periodontal/`.
+4. **BOP/Plaque markers**: red (BOP) / amber (plaque) custom octahedron markers at each positive site, snapped to the crown surface via the site anchors, toggleable.
+5. **Controls**: OrbitControls (damped, min/max distance), animated-tween camera presets **Vista Frontal / Maxilar Superior / Mandibular Inferior / Oclusal / Reiniciar Cámara**, auto-rotate toggle (off by default, −0.8 speed), glass pills for **Encía Translúcida / Bolsas Periodontales / BOP / Placa**.
+6. **Inspection**: raycast hover on the real tooth meshes → floating glass tooltip with FDI number, estado (Ausente/Implante/Presente), 6-site GM/PD/NIC/BOP table, and mobility grade.
+7. Scene dressing: transparent canvas (alpha) over the dark glass panel, subtle grid at y = −1.05, ambient + key + fill lights; dynamic group rebuilt on every `chartData` change (loaded geometries cached module-level, per-rebuild geometries disposed).
+8. **Async loading**: `viewer.loadAssets()` (idempotent, module-level fetch cache) loads manifest + 30 `.pmesh.json` files; the modal shows a "Cargando anatomía 3D…" spinner and surfaces load errors; data updates before load are queued (`pendingData`) and applied when assets land.
 
-1. **Anatomical context added around the extracted math**: per-tooth procedural crown (scaled sphere, jaw-aware) + root cones (1/2/3 roots by FDI type), pink gingival collar ring per tooth, and two arch gum bands (`TubeGeometry` over a Catmull-Rom horseshoe through the cervical points). The original's fan (`yRotation` table) was re-projected onto a real horseshoe: `x = side·A·sin θ, z = −B·(1−cos θ)`, `rotation.y = atan2(x, z+B)` with the original's exact per-tooth angles `[0.1, 0.4, 0.6, 0.7, 0.9, 1.1, 1.3, 1.5]`.
-2. **Same site math, our conventions**: GM sign follows our port of `calculateSingleALForInput` — normal mode: margin apical offset = **−GM** (positive GM input = margin coronal to CEJ), inverted mode (`isGmInverted`): **+GM**; NIC/AL = PD + marginApical (≡ `AL = PD − GM` normal / `PD + GM` inverted, same as the app). Local y_gm = dir·marginApical·k, y_al = y_gm + dir·PD·k, dir = +1 upper (apex up) / −1 lower, **k = MM_TO_WORLD = 0.032** world units per mm.
-3. **Pocket visualization**: per-site translucent ribbon GM→AL (red `0xFF3B47` if BOP, blue `0x3B82F6` otherwise) at the site's angular position (buccal sites at 0°±24°·side, palatal/lingual at 180°±24°, `side` = quadrant mirror sign) — the direct analogue of the original's trapezoids, mapped 1:1 to our 9-site store keys (`pd/gm/bop/pi_<tooth>_<site>`).
-4. **Implants**: metallic fixture (cylinder + 4 torus threads) + abutment + crown replacing the natural tooth when `implant_<tooth> > 0`; peri-implant probing sites keep rendering ribbons/dots (matches the app's ausente+implante exception). **Ausente** teeth are skipped, while the arch gum bands continue through the gap (edentulous ridge).
-5. **BOP/Plaque markers**: red (BOP) / amber (plaque) spheres at each positive site on the gingival margin, toggleable.
-6. **Controls**: OrbitControls (damped, min/max distance), animated-tween camera presets **Vista Frontal / Maxilar Superior / Mandibular Inferior / Oclusal / Reiniciar Cámara**, auto-rotate toggle (off by default, −0.8 speed), glass pills for **Encía Translúcida / Bolsas Periodontales / BOP / Placa**.
-7. **Inspection**: raycast hover on crowns → floating glass tooltip with FDI number, estado (Ausente/Implante/Presente), 6-site GM/PD/NIC/BOP table, and mobility grade.
-8. Scene dressing: transparent canvas (alpha) over the dark glass panel, subtle grid at y = −1.15, ambient + key + fill lights; dynamic group rebuilt on every `chartData` change (shared geometries cached in `archLayout.ts`, per-rebuild geometries disposed).
+### 20.7 Real anatomical meshes (BodyParts3D pipeline)
+
+The original viewer is 100% procedural (see 20.2) — it has no meshes to extract.
+Our viewer instead bundles **real anatomical meshes from BodyParts3D 4.3
+(Database Center for Life Science, DBCLS; CC BY-SA 2.1 JP)** — full pipeline in
+`scripts/prepare-periodontal-3d-meshes.mjs`, attribution in
+`public/models/periodontal/NOTICE.md`.
+
+Assets (30 `.pmesh.json` files + `manifest.json`, ~3.9 MB, gzip-served):
+
+- `teeth/tooth_<FDI>.pmesh.json` — 28 individual permanent teeth (11–17, 21–27, 31–37, 41–47) with FMA-verified per-quadrant identities. `.pmesh.json` = `{p, n, c?, f}` (positions/normals/optional vertex colors/triangle indices) parsed by `pmeshToBufferGeometry` in `meshLoader.ts`.
+- `gingiva_upper.pmesh.json` / `gingiva_lower.pmesh.json` — the donor's actual maxillary/mandibular gingiva (FMA59763/59764).
+- Wisdom teeth (FDI x8) reuse the adjacent second molar mesh, position extrapolated along the arch, scale 0.94 (BodyParts3D has no third molars).
+
+Pipeline (`prepare-periodontal-3d-meshes.mjs`, re-runnable against a fresh BodyParts3D `download.cgi` OBJ dump):
+
+1. **Body→scene mapping** `(X, Z, −Y)` — verified numerically against the dataset (x+ = patient left, z+ = superior, y− = anterior); the mapping is a proper rotation (det = +1, no chirality flip) putting anterior at scene +z and patient-right on the viewer's left.
+2. **Cervical line per tooth** from the donor's own gingival margin: gingiva vertices horizontally near the tooth centroid, buccal half, within ±7 mm of an anatomical prior (per-type crown fraction), margin = crown-side 20/80 percentile; falls back to the prior when the estimate leaves the anatomical crown-height range.
+3. **Yaw baked** so the buccal faces local +z (arch-center outward direction); cervical centroid becomes the mesh local origin; mm→world scale `MM_TO_WORLD = 0.032` baked.
+4. **CEJ vertex-color gradient** baked into every tooth: crown `#f8fafc` → root dentin `#e2d5c3` (rendered with `vertexColors: true`).
+5. **Occlusal regularization**: donor in-situ heights are asymmetric, so crown tips are re-anchored at ±0.07 (slight open bite, both arches visible); x/z arch shape stays the donor's real positions.
+6. **Gingiva alignment**: global per-jaw vertical shift maps the donor margins onto the regularized cervicals, then a local clamp/falloff wrap deforms the gum toward each tooth neck (±0.07 u, quadratic falloff within 0.24 u).
+
+Runtime GM deformation: each gingiva vertex keeps a precomputed (nearest tooth, weight) pair; on every `chartData` change the vertex is displaced along y by that tooth's mean margin apical offset (recession lifts upper margins apically / lowers lower ones), so the scalloped gum margin breathes with the data. Tooth meshes are one geometry per FDI (crown + curved roots, real morphology: incisor/canine/premolar/molar, single/double/triple roots).

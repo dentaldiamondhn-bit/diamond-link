@@ -1,0 +1,609 @@
+{
+  "generator": "scripts/prepare-periodontal-3d-meshes.mjs",
+  "source": "BodyParts3D 4.3 (Database Center for Life Science, DBCLS) - CC BY-SA 2.1 JP",
+  "mmToWorld": 0.032,
+  "teeth": {
+    "11": {
+      "mesh": "teeth/tooth_11.pmesh.json",
+      "type": "incisor",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.3049600000000064,
+      "pos": [
+        -0.12509389866509674,
+        0.3749600000000064,
+        0.5756577020344785
+      ],
+      "buccal": [
+        -0.25331856810312686,
+        0.9673829143902539
+      ],
+      "source": "FJ1279_BP7683_FMA55681_Right upper central incisor tooth.obj"
+    },
+    "12": {
+      "mesh": "teeth/tooth_12.pmesh.json",
+      "type": "incisor",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.36704000000000087,
+      "pos": [
+        -0.3851291803041212,
+        0.43704000000000087,
+        0.4705878405710637
+      ],
+      "buccal": [
+        -0.6531738528059577,
+        0.7572079754008282
+      ],
+      "source": "FJ1280_BP7747_FMA55680_Right upper lateral incisor tooth.obj"
+    },
+    "13": {
+      "mesh": "teeth/tooth_13.pmesh.json",
+      "type": "canine",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.33663999999999944,
+      "pos": [
+        -0.5957921670396051,
+        0.40663999999999945,
+        0.34977045734525747
+      ],
+      "buccal": [
+        -0.8925581896131053,
+        0.450932232330509
+      ],
+      "source": "FJ1281_BP7684_FMA55798_Right upper canine tooth.obj"
+    },
+    "14": {
+      "mesh": "teeth/tooth_14.pmesh.json",
+      "type": "premolar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.24159999999999854,
+      "pos": [
+        -0.679245385104121,
+        0.31159999999999854,
+        0.11545056057106468
+      ],
+      "buccal": [
+        -0.995914747743453,
+        0.09029847854252362
+      ],
+      "source": "FJ1277_BP7681_FMA55689_Right first upper premolar tooth.obj"
+    },
+    "15": {
+      "mesh": "teeth/tooth_15.pmesh.json",
+      "type": "premolar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.25695999999999913,
+      "pos": [
+        -0.767335172930208,
+        0.32695999999999914,
+        -0.061442378559368994
+      ],
+      "buccal": [
+        -0.9847433421659365,
+        -0.17401307439345298
+      ],
+      "source": "FJ1278_BP7682_FMA55688_Right second upper premolar tooth.obj"
+    },
+    "16": {
+      "mesh": "teeth/tooth_16.pmesh.json",
+      "type": "molar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.24384000000000378,
+      "pos": [
+        -0.8087980631993592,
+        0.3138400000000038,
+        -0.37413511561941143
+      ],
+      "buccal": [
+        -0.8885462348490547,
+        -0.4587870840984612
+      ],
+      "source": "FJ1276_BP7680_FMA55698_Right first upper molar tooth.obj"
+    },
+    "17": {
+      "mesh": "teeth/tooth_17.pmesh.json",
+      "type": "molar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.22240000000000146,
+      "pos": [
+        -0.8012738331041211,
+        0.29240000000000144,
+        -0.6372815994289358
+      ],
+      "buccal": [
+        -0.7532104906950006,
+        -0.6577795654373859
+      ],
+      "source": "FJ1275_BP5452_FMA55697_Right second upper molar tooth.obj"
+    },
+    "18": {
+      "mesh": "teeth/tooth_17.pmesh.json",
+      "type": "molar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "extrapolated",
+      "crownH": 0.20905600000000135,
+      "pos": [
+        -0.7971355065517403,
+        0.29240000000000144,
+        -0.7820121655241743
+      ],
+      "buccal": [
+        -0.7532104906950006,
+        -0.6577795654373859
+      ],
+      "source": "reuse of FJ1275_BP5452_FMA55697_Right second upper molar tooth.obj",
+      "scale": 0.94
+    },
+    "21": {
+      "mesh": "teeth/tooth_21.pmesh.json",
+      "type": "incisor",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.3116800000000003,
+      "pos": [
+        0.13840006738368377,
+        0.3816800000000003,
+        0.5842883361808208
+      ],
+      "buccal": [
+        0.2677104452632639,
+        0.9634994122971455
+      ],
+      "source": "FJ1265_BP5440_FMA55682_Left upper central incisor tooth.obj"
+    },
+    "22": {
+      "mesh": "teeth/tooth_22.pmesh.json",
+      "type": "incisor",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.36704000000000087,
+      "pos": [
+        0.37167778289587877,
+        0.43704000000000087,
+        0.4790985605710639
+      ],
+      "buccal": [
+        0.6505781738671331,
+        0.7594392929574464
+      ],
+      "source": "FJ1266_BP5438_FMA55683_Left upper lateral incisor tooth.obj"
+    },
+    "23": {
+      "mesh": "teeth/tooth_23.pmesh.json",
+      "type": "canine",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.33663999999999944,
+      "pos": [
+        0.5620591748958789,
+        0.40663999999999945,
+        0.3714833605710646
+      ],
+      "buccal": [
+        0.8882133825017665,
+        0.4594311560449189
+      ],
+      "source": "FJ1267_BP5482_FMA55799_Left upper canine tooth.obj"
+    },
+    "24": {
+      "mesh": "teeth/tooth_24.pmesh.json",
+      "type": "premolar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.24255999999999767,
+      "pos": [
+        0.6638186064748262,
+        0.3125599999999977,
+        0.12003936057106239
+      ],
+      "buccal": [
+        0.9957816267611987,
+        0.09175484621980907
+      ],
+      "source": "FJ1262_BP5468_FMA55690_Left first upper premolar tooth.obj"
+    },
+    "25": {
+      "mesh": "teeth/tooth_25.pmesh.json",
+      "type": "premolar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.2569600000000064,
+      "pos": [
+        0.7474793082292122,
+        0.3269600000000064,
+        -0.07380197276226863
+      ],
+      "buccal": [
+        0.9845874058356898,
+        -0.1748932253397672
+      ],
+      "source": "FJ1264_BP5466_FMA55691_Left second upper premolar tooth.obj"
+    },
+    "26": {
+      "mesh": "teeth/tooth_26.pmesh.json",
+      "type": "molar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.21952000000000407,
+      "pos": [
+        0.7502108444610964,
+        0.2895200000000041,
+        -0.38248168290719603
+      ],
+      "buccal": [
+        0.8895519507332924,
+        -0.4568340256007581
+      ],
+      "source": "FJ1261_BP5455_FMA55699_Left first upper molar tooth.obj"
+    },
+    "27": {
+      "mesh": "teeth/tooth_27.pmesh.json",
+      "type": "molar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.22272000000000117,
+      "pos": [
+        0.7946671922871834,
+        0.2927200000000012,
+        -0.6190702046463257
+      ],
+      "buccal": [
+        0.7534327006286151,
+        -0.6575250304159315
+      ],
+      "source": "FJ1263_BP5453_FMA55700_Left second upper molar tooth.obj"
+    },
+    "28": {
+      "mesh": "teeth/tooth_27.pmesh.json",
+      "type": "molar",
+      "jaw": "upper",
+      "dir": 1,
+      "cervicalMethod": "extrapolated",
+      "crownH": 0.2093568000000011,
+      "pos": [
+        0.8191181835915312,
+        0.2927200000000012,
+        -0.749193891602847
+      ],
+      "buccal": [
+        0.7534327006286151,
+        -0.6575250304159315
+      ],
+      "source": "reuse of FJ1263_BP5453_FMA55700_Left second upper molar tooth.obj",
+      "scale": 0.94
+    },
+    "31": {
+      "mesh": "teeth/tooth_31.pmesh.json",
+      "type": "incisor",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "fraction",
+      "crownH": 0.34231680000000053,
+      "pos": [
+        0.08074971569587891,
+        -0.41231680000000054,
+        0.23123136057106514
+      ],
+      "buccal": [
+        0.19934267049821594,
+        0.9799298442840894
+      ],
+      "source": "FJ1258_BP5447_FMA57143_Left lower central incisor tooth.obj"
+    },
+    "32": {
+      "mesh": "teeth/tooth_32.pmesh.json",
+      "type": "incisor",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.24191999999999825,
+      "pos": [
+        0.21847188386139615,
+        -0.31191999999999825,
+        0.32551356746761667
+      ],
+      "buccal": [
+        0.5053521141230052,
+        0.8629132289815755
+      ],
+      "source": "FJ1259_BP5444_FMA57141_Left lower lateral incisor tooth.obj"
+    },
+    "33": {
+      "mesh": "teeth/tooth_33.pmesh.json",
+      "type": "canine",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.21759999999999854,
+      "pos": [
+        0.36157062720357125,
+        -0.2875999999999985,
+        0.21284428364798805
+      ],
+      "buccal": [
+        0.816197717671593,
+        0.5777726937712465
+      ],
+      "source": "FJ1260_BP5480_FMA55687_Left lower canine tooth.obj"
+    },
+    "34": {
+      "mesh": "teeth/tooth_34.pmesh.json",
+      "type": "premolar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.2028799999999974,
+      "pos": [
+        0.576335894895879,
+        -0.2728799999999974,
+        0.08010208057106502
+      ],
+      "buccal": [
+        0.9807906371178687,
+        0.195063390060578
+      ],
+      "source": "FJ1255_BP5472_FMA55693_Left first lower premolar tooth.obj"
+    },
+    "35": {
+      "mesh": "teeth/tooth_35.pmesh.json",
+      "type": "premolar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "fraction",
+      "crownH": 0.3291903999999995,
+      "pos": [
+        0.6790040193403234,
+        -0.3991903999999995,
+        -0.17176508387338071
+      ],
+      "buccal": [
+        0.9876886211235585,
+        -0.15643269384321173
+      ],
+      "source": "FJ1257_BP5475_FMA55692_Left second lower premolar tooth.obj"
+    },
+    "36": {
+      "mesh": "teeth/tooth_36.pmesh.json",
+      "type": "molar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.1708799999999974,
+      "pos": [
+        0.7030708679191349,
+        -0.2408799999999974,
+        -0.4077634301266098
+      ],
+      "buccal": [
+        0.8954533061598624,
+        -0.4451554520472275
+      ],
+      "source": "FJ1254_BP5462_FMA55704_Left first lower molar tooth.obj"
+    },
+    "37": {
+      "mesh": "teeth/tooth_37.pmesh.json",
+      "type": "molar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "fraction",
+      "crownH": 0.22739199999999982,
+      "pos": [
+        0.794695368444266,
+        -0.2973919999999998,
+        -0.7496277362031296
+      ],
+      "buccal": [
+        0.7694169047629522,
+        -0.6387469191041144
+      ],
+      "source": "FJ1256_BP5459_FMA55703_Left second lower molar tooth.obj"
+    },
+    "38": {
+      "mesh": "teeth/tooth_37.pmesh.json",
+      "type": "molar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "extrapolated",
+      "crownH": 0.21374847999999982,
+      "pos": [
+        0.8450888437330881,
+        -0.2973919999999998,
+        -0.9376531045452156
+      ],
+      "buccal": [
+        0.7694169047629522,
+        -0.6387469191041144
+      ],
+      "source": "reuse of FJ1256_BP5459_FMA55703_Left second lower molar tooth.obj",
+      "scale": 0.94
+    },
+    "41": {
+      "mesh": "teeth/tooth_41.pmesh.json",
+      "type": "incisor",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "fraction",
+      "crownH": 0.3421823999999979,
+      "pos": [
+        -0.09405588441446594,
+        -0.4121823999999979,
+        0.23634611919175497
+      ],
+      "buccal": [
+        -0.20510311710318713,
+        0.9787403697378362
+      ],
+      "source": "FJ1272_BP5446_FMA57142_Right lower central incisor tooth.obj"
+    },
+    "42": {
+      "mesh": "teeth/tooth_42.pmesh.json",
+      "type": "incisor",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.2451200000000026,
+      "pos": [
+        -0.23024094510412116,
+        -0.3151200000000026,
+        0.32855936057106283
+      ],
+      "buccal": [
+        -0.4957218774412941,
+        0.8684813298085795
+      ],
+      "source": "FJ1273_BP5443_FMA57140_Right lower lateral incisor tooth.obj"
+    },
+    "43": {
+      "mesh": "teeth/tooth_43.pmesh.json",
+      "type": "canine",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.21791999999999825,
+      "pos": [
+        -0.3957328940696384,
+        -0.2879199999999983,
+        0.22308929160554636
+      ],
+      "buccal": [
+        -0.8250397560205511,
+        0.5650746862013457
+      ],
+      "source": "FJ1274_BP5479_FMA55686_Right lower canine tooth.obj"
+    },
+    "44": {
+      "mesh": "teeth/tooth_44.pmesh.json",
+      "type": "premolar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.1993600000000006,
+      "pos": [
+        -0.5850158733799832,
+        -0.2693600000000006,
+        0.07911467091589203
+      ],
+      "buccal": [
+        -0.9801698920054596,
+        0.19815898366212403
+      ],
+      "source": "FJ1269_BP5471_FMA55694_Right first lower premolar tooth.obj"
+    },
+    "45": {
+      "mesh": "teeth/tooth_45.pmesh.json",
+      "type": "premolar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "fraction",
+      "crownH": 0.32890879999999745,
+      "pos": [
+        -0.7011409341950301,
+        -0.39890879999999745,
+        -0.16835482124711781
+      ],
+      "buccal": [
+        -0.9883183093815194,
+        -0.15240380356557837
+      ],
+      "source": "FJ1271_BP5474_FMA55695_Right second lower premolar tooth.obj"
+    },
+    "46": {
+      "mesh": "teeth/tooth_46.pmesh.json",
+      "type": "molar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "gingiva-margin",
+      "crownH": 0.16607999999999448,
+      "pos": [
+        -0.7286970128592232,
+        -0.2360799999999945,
+        -0.3986310067758741
+      ],
+      "buccal": [
+        -0.8950700236246786,
+        -0.44592561353718774
+      ],
+      "source": "FJ1268_BP5461_FMA55705_Right first lower molar tooth.obj"
+    },
+    "47": {
+      "mesh": "teeth/tooth_47.pmesh.json",
+      "type": "molar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "fraction",
+      "crownH": 0.22714880000000268,
+      "pos": [
+        -0.8364154871730867,
+        -0.29714880000000266,
+        -0.7388218808082456
+      ],
+      "buccal": [
+        -0.7711162807461402,
+        -0.6366943391991481
+      ],
+      "source": "FJ1270_BP5458_FMA55706_Right second lower molar tooth.obj"
+    },
+    "48": {
+      "mesh": "teeth/tooth_47.pmesh.json",
+      "type": "molar",
+      "jaw": "lower",
+      "dir": -1,
+      "cervicalMethod": "extrapolated",
+      "crownH": 0.2135198720000025,
+      "pos": [
+        -0.8956606480457115,
+        -0.29714880000000266,
+        -0.92592686152605
+      ],
+      "buccal": [
+        -0.7711162807461402,
+        -0.6366943391991481
+      ],
+      "source": "reuse of FJ1270_BP5458_FMA55706_Right second lower molar tooth.obj",
+      "scale": 0.94
+    }
+  },
+  "gingiva": {
+    "upper": {
+      "mesh": "gingiva_upper.pmesh.json",
+      "source": "Maxillary gingiva",
+      "pos": [
+        0,
+        0,
+        0
+      ],
+      "offsetY": -46.4995
+    },
+    "lower": {
+      "mesh": "gingiva_lower.pmesh.json",
+      "source": "Mandibular gingiva",
+      "pos": [
+        0,
+        0,
+        0
+      ],
+      "offsetY": -46.6687
+    }
+  }
+}
