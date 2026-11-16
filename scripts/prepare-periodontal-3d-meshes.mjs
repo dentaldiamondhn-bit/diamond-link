@@ -82,6 +82,10 @@ const toothType = (fdi) => {
   if (d === 4 || d === 5) return 'premolar';
   return 'molar';
 };
+
+/** Body (X left+, Y anterior+, Z superior+) -> scene (x, y up, z anterior). */
+const axisMap = ([x, y, z]) => [x, z, -y];
+
 const CROWN_FRACTION = { incisor: 0.42, canine: 0.44, premolar: 0.44, molar: 0.38 };
 const CROWN_H_RANGE = { incisor: [0.24, 0.44], canine: [0.24, 0.46], premolar: [0.22, 0.42], molar: [0.17, 0.34] };
 
@@ -257,7 +261,8 @@ function main() {
       const [X, Y, Z] = t.verts[i];
       const local = rot([X - t.cx, Z - t.yCerv, -Y - t.cz]).map((c) => c * MM_TO_WORLD);
       outVerts.push(local);
-      const nrm = rot(t.normals[i] ?? [0, 1, 0]);
+      // normals need the same body->scene axis map as positions, then the yaw
+      const nrm = rot(axisMap(t.normals[i] ?? [0, 1, 0]));
       const len = Math.hypot(...nrm) || 1;
       outNormals.push([nrm[0] / len, nrm[1] / len, nrm[2] / len]);
       // CEJ vertex-color gradient (signed > 0 on the crown side)
@@ -335,8 +340,9 @@ function main() {
       }
     }
     const outNormals = parsed.normals.map((n) => {
-      const len = Math.hypot(...n) || 1;
-      return [n[0] / len, n[1] / len, n[2] / len];
+      const [x, y, z] = axisMap(n);
+      const len = Math.hypot(x, y, z) || 1;
+      return [x / len, y / len, z / len];
     });
     writeMesh(join(OUT_DIR, `gingiva_${jaw}.pmesh.json`), outVerts, outNormals, parsed.faces.map((tri) => tri.map(([vi]) => vi)));
     manifest.gingiva[jaw] = {
