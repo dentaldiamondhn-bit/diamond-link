@@ -30,6 +30,11 @@ function readNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function isToothPresent(value: unknown): boolean {
+  if (value === '0' || value === 0 || value === false) return false;
+  return true;
+}
+
 function getSiteLabel(tooth: number, site: string): string {
   const jaw = tooth >= 11 && tooth <= 28 ? 'upper' : 'lower';
   const labels: Record<string, string> =
@@ -126,7 +131,7 @@ export function Periodontal3DModal({ open, onOpenChange }: Periodontal3DModalPro
 
   const hoverTooth = hover?.tooth ?? null;
   const hoverSites = hoverTooth != null ? getAnatomicalSites(hoverTooth) : [];
-  const hoverPresent = hoverTooth != null && readNumber(chartData[`tooth_${hoverTooth}`]) === 1;
+  const hoverPresent = hoverTooth != null && isToothPresent(chartData[`tooth_${hoverTooth}`]);
   const hoverImplant = hoverTooth != null && readNumber(chartData[`implant_${hoverTooth}`]) > 0;
   const hoverMobility = hoverTooth != null ? readNumber(chartData[`mobility_${hoverTooth}`]) : 0;
   const inverted = Boolean(chartData.isGmInverted);

@@ -54,6 +54,14 @@ function isBinaryOn(value: unknown): boolean {
   return readNumber(value) === 1 || value === '1' || value === true;
 }
 
+/** A tooth is present unless explicitly marked absent ('0' / 0 / false).
+ *  Missing flags (CHART_TEMPLATE, loaded/imported studies without tooth
+ *  rows) must not hide the anatomy. */
+function isToothPresent(value: unknown): boolean {
+  if (value === '0' || value === 0 || value === false) return false;
+  return true;
+}
+
 /** Small octahedron marker (custom BufferGeometry: no primitive classes). */
 function buildMarkerGeometry(radius: number): THREE.BufferGeometry {
   const vertices = [
@@ -387,7 +395,7 @@ class Periodontal3dViewer {
 
       const entry = this.toothEntryByFdi.get(tooth);
       if (!entry) continue;
-      if (!isBinaryOn(chartData[`tooth_${tooth}`])) continue;
+      if (!isToothPresent(chartData[`tooth_${tooth}`])) continue;
       const implanted = readNumber(chartData[`implant_${tooth}`]) > 0;
 
       const toothGroup = new THREE.Group();
