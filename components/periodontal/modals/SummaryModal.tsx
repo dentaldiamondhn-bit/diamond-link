@@ -28,6 +28,11 @@ interface SummaryModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const PILL_BASE =
+  'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors';
+const PILL_IDLE = 'border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.12] hover:text-white';
+const PILL_ACTIVE = 'border-teal-400/40 bg-teal-500/15 text-teal-300';
+
 export function SummaryModal({ open, onOpenChange }: SummaryModalProps) {
   const chartData = useChartStore(state => state.chartData);
 
@@ -129,183 +134,193 @@ export function SummaryModal({ open, onOpenChange }: SummaryModalProps) {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} aria-hidden="true" />
-      <div className="relative z-50 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
-        <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Resumen</h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {[patientInfo, dateText].filter(Boolean).join(' · ') ||
-                'Mapa del periodicio completo'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-            aria-label="Cerrar"
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => onOpenChange(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Resumen periodontal"
+        >
+          <div
+            className="flex h-[min(760px,92vh)] w-[min(1100px,95vw)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/85 shadow-2xl backdrop-blur-2xl"
+            onClick={event => event.stopPropagation()}
           >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto px-6 py-4">
-          <div className="space-y-4">
-            <section className="rounded-md border border-gray-200 p-3 dark:border-gray-700">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded-full bg-blue-600" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Índice de placa (PI)
-                </h3>
-                <span className="ml-auto rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                  {stats.piPercent}%
-                </span>
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-2.5">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-white">Resumen</h2>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {[patientInfo, formatOverviewDate(chartData.date)].filter(Boolean).join(' · ') ||
+                    'Mapa del periodicio completo'}
+                </p>
               </div>
-              <OverviewMap
-                kind="pi"
-                fills={fills}
-                pdTexts={pdTexts}
-                furcations={furcations}
-                implants={implants}
-                dateText={dateText}
-                percent={stats.piPercent}
-                svgRef={piSvgRef}
-              />
-            </section>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300 transition-colors hover:bg-white/[0.12] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-            <section className="rounded-md border border-gray-200 p-3 dark:border-gray-700">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded-full bg-red-600" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  Sangrado al sondaje (BOP)
-                </h3>
-                <span className="ml-auto rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-200">
-                  {stats.bopPercent}%
-                </span>
+            <div className="overflow-y-auto px-4 py-4">
+              <div className="space-y-4">
+                <section className="rounded-md border border-white/10 p-3 bg-white/[0.02]">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-full bg-blue-600" />
+                    <h3 className="text-sm font-semibold text-white">
+                      Índice de placa (PI)
+                    </h3>
+                    <span className="ml-auto rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-semibold text-blue-300">
+                      {stats.piPercent}%
+                    </span>
+                  </div>
+                  <OverviewMap
+                    kind="pi"
+                    fills={fills}
+                    pdTexts={pdTexts}
+                    furcations={furcations}
+                    implants={implants}
+                    dateText={formatOverviewDate(chartData.date)}
+                    percent={stats.piPercent}
+                    svgRef={piSvgRef}
+                  />
+                </section>
+
+                <section className="rounded-md border border-white/10 p-3 bg-white/[0.02]">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-full bg-red-600" />
+                    <h3 className="text-sm font-semibold text-white">
+                      Sangrado al sondaje (BOP)
+                    </h3>
+                    <span className="ml-auto rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-300">
+                      {stats.bopPercent}%
+                    </span>
+                  </div>
+                  <OverviewMap
+                    kind="bop"
+                    fills={fills}
+                    pdTexts={pdTexts}
+                    furcations={furcations}
+                    implants={implants}
+                    dateText={formatOverviewDate(chartData.date)}
+                    percent={stats.bopPercent}
+                    svgRef={bopSvgRef}
+                  />
+                </section>
+
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] leading-snug text-red-400">
+                    Haga clic en el botón solo una vez. La imagen se descarga como
+                    "pd_bop.png" y puede usarse en presentaciones.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/35 hover:border-teal-400/60 shadow-[0_0_12px_rgba(45,212,191,0.12)] px-4 py-2 text-sm font-medium transition-all"
+                  >
+                    {downloading ? <Download className="h-4 w-4 animate-pulse" /> : <Download className="h-4 w-4" />}
+                    Descargar
+                  </button>
+                </div>
               </div>
-              <OverviewMap
-                kind="bop"
-                fills={fills}
-                pdTexts={pdTexts}
-                furcations={furcations}
-                implants={implants}
-                dateText={dateText}
-                percent={stats.bopPercent}
-                svgRef={bopSvgRef}
-              />
-            </section>
 
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] leading-snug text-red-600 dark:text-red-300">
-                Haga clic en el botón solo una vez. La imagen se descarga como
-                &quot;pd_bop.png&quot; y puede usarse en presentaciones.
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  { label: 'Prof. media', value: `${perSiteStats.meanPd.toFixed(1)} mm` },
+                  { label: 'NIC media', value: `${perSiteStats.meanAl.toFixed(1)} mm` },
+                  { label: 'BOP', value: `${perSiteStats.bopPercent.toFixed(0)}%` },
+                  { label: 'PI', value: `${perSiteStats.plaquePercent.toFixed(0)}%` },
+                ].map(item => (
+                  <div
+                    key={item.label}
+                    className="rounded-md border border-white/10 bg-white/[0.02] p-3 text-center"
+                  >
+                    <div className="text-[10px] uppercase tracking-wide text-slate-400">
+                      {item.label}
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-teal-300">{item.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="overflow-x-auto rounded-md border border-white/10 bg-white/[0.02]">
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr>
+                      {['Diente', 'Vest. mesial', 'Vest. medio', 'Vest. distal', 'Oral mesial', 'Oral medio', 'Oral distal'].map(
+                        header => (
+                          <th
+                            key={header}
+                            className="border border-white/10 bg-white/[0.02] px-2 py-1 text-center font-semibold text-slate-300"
+                          >
+                            {header}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(tooth => {
+                      const surfaces = getApplicableSurfaces(tooth);
+                      return (
+                        <tr key={tooth}>
+                          <td className="border border-white/10 px-2 py-1 text-center font-bold text-white">
+                            {tooth}
+                          </td>
+                          {surfaces.map(surface => {
+                            const pd = readNumber(chartData[`pd_${tooth}_${surface}`]);
+                            const al = getToothAl(chartData, tooth, surface);
+                            return (
+                              <td
+                                key={surface}
+                                className="border border-white/10 px-2 py-1 text-center text-slate-300"
+                              >
+                                {pd ? `${pd} / ${al.toFixed(1)}` : '&mdash;'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="border border-white/10 px-2 py-6 text-center text-slate-500"
+                        >
+                          Todavía no hay profundidades de sondaje registradas
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+<p className="mt-3 text-[11px] text-slate-500">
+                Números rojos sobre el mapa: PD &gt; 3 mm. Círculo amarillo: PD &ge; 6 mm. Sitios
+                grises: dientes ausentes.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
+              <p className="text-[11px] text-slate-500">
+                Vista general del estudio periodontal actual.
               </p>
               <button
                 type="button"
-                onClick={handleDownload}
-                disabled={downloading}
-                className="inline-flex flex-shrink-0 items-center gap-2 rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => onOpenChange(false)}
+                className="rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/35 hover:border-teal-400/60 shadow-[0_0_12px_rgba(45,212,191,0.12)] px-4 py-2 text-sm font-medium transition-all"
               >
-                {downloading ? (
-                  <Download className="h-4 w-4 animate-pulse" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                Descargar
+                Cerrar
               </button>
             </div>
           </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: 'Prof. media', value: `${perSiteStats.meanPd.toFixed(1)} mm` },
-              { label: 'NIC media', value: `${perSiteStats.meanAl.toFixed(1)} mm` },
-              { label: 'BOP', value: `${perSiteStats.bopPercent.toFixed(0)}%` },
-              { label: 'PI', value: `${perSiteStats.plaquePercent.toFixed(0)}%` },
-            ].map(item => (
-              <div
-                key={item.label}
-                className="rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3 text-center"
-              >
-                <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  {item.label}
-                </div>
-                <div className="mt-1 text-lg font-bold text-teal-600 dark:text-teal-300">{item.value}</div>
-              </div>
-            ))}
-          </div>
-
-          <table className="mt-4 w-full border-collapse text-xs">
-            <thead>
-              <tr>
-                {['Diente', 'Vest. mesial', 'Vest. medio', 'Vest. distal', 'Oral mesial', 'Oral medio', 'Oral distal'].map(
-                  header => (
-                    <th
-                      key={header}
-                      className="border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-2 py-1 text-center font-semibold text-gray-700 dark:text-gray-200"
-                    >
-                      {header}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(tooth => {
-                const surfaces = getApplicableSurfaces(tooth);
-                return (
-                  <tr key={tooth}>
-                    <td className="border border-gray-200 dark:border-gray-600 px-2 py-1 text-center font-bold text-gray-900 dark:text-white">
-                      {tooth}
-                    </td>
-                    {surfaces.map(surface => {
-                      const pd = readNumber(chartData[`pd_${tooth}_${surface}`]);
-                      const al = getToothAl(chartData, tooth, surface);
-                      return (
-                        <td
-                          key={surface}
-                          className="border border-gray-200 dark:border-gray-600 px-2 py-1 text-center text-gray-700 dark:text-gray-200"
-                        >
-                          {pd ? `${pd} / ${al.toFixed(1)}` : '–'}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="border border-gray-200 dark:border-gray-600 px-2 py-6 text-center text-gray-500 dark:text-gray-400"
-                  >
-                    Todavía no hay profundidades de sondaje registradas
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
-            Números rojos sobre el mapa: PD &gt; 3 mm. Círculo amarillo: PD ≥ 6 mm. Sitios
-            grises: dientes ausentes.
-          </p>
         </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-gray-200 px-6 py-3 dark:border-gray-700">
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            Vista general del estudio periodontal actual.
-          </p>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

@@ -81,13 +81,13 @@ function ChartSvg({
       role="img"
       aria-label="Perfil periodontal"
     >
-      <rect width={CHART_W} height={CHART_H} fill="#FFFFFF" />
+      <rect width={CHART_W} height={CHART_H} fill="#0c1220" />
 
       {[0, 20, 40, 60, 80, 100].map(tick => {
         const x = barX(tick);
         return (
           <g key={`tick-${tick}`}>
-            <line x1={x} y1={ROW_YS[0] - 14} x2={x} y2={ROW_YS[2] + BAR_HEIGHT + 8} stroke="#E5E7EB" strokeWidth={1} />
+            <line x1={x} y1={ROW_YS[0] - 14} x2={x} y2={ROW_YS[2] + BAR_HEIGHT + 8} stroke="#374151" strokeWidth={1} />
             <text x={x} y={ROW_YS[2] + BAR_HEIGHT + 28} fontSize={12} fill="#6B7280" textAnchor="middle" fontFamily="Arial, sans-serif">
               {tick}
             </text>
@@ -101,7 +101,7 @@ function ChartSvg({
           x={PLOT_LEFT - 12}
           y={ROW_YS[index] + BAR_HEIGHT / 2 + 5}
           fontSize={13}
-          fill="#374151"
+          fill="#9CA3AF"
           textAnchor="end"
           fontFamily="Arial, sans-serif"
         >
@@ -110,7 +110,7 @@ function ChartSvg({
       ))}
 
       <rect x={PLOT_LEFT} y={ROW_YS[0]} width={barX(metrics.pi) - PLOT_LEFT || 0} height={BAR_HEIGHT} fill={COLORS.pi} />
-      <text x={barX(metrics.pi) + 6} y={ROW_YS[0] + BAR_HEIGHT / 2 + 5} fontSize={12} fill="#374151" fontFamily="Arial, sans-serif">
+      <text x={barX(metrics.pi) + 6} y={ROW_YS[0] + BAR_HEIGHT / 2 + 5} fontSize={12} fill="#E5E7EB" fontFamily="Arial, sans-serif">
         {metrics.pi > 0 ? `${metrics.pi.toFixed(1)}%` : ''}
       </text>
 
@@ -126,7 +126,7 @@ function ChartSvg({
               x={x + width / 2}
               y={ROW_YS[1] + BAR_HEIGHT / 2 + 5}
               fontSize={11}
-              fill={segment.color === COLORS.pd4 ? '#6B7280' : '#FFFFFF'}
+              fill={segment.color === COLORS.pd4 ? '#9CA3AF' : '#FFFFFF'}
               textAnchor="middle"
               fontFamily="Arial, sans-serif"
             >
@@ -137,11 +137,11 @@ function ChartSvg({
       })}
 
       <rect x={PLOT_LEFT} y={ROW_YS[2]} width={barX(metrics.bop) - PLOT_LEFT || 0} height={BAR_HEIGHT} fill={COLORS.bop} />
-      <text x={barX(metrics.bop) + 6} y={ROW_YS[2] + BAR_HEIGHT / 2 + 5} fontSize={12} fill="#374151" fontFamily="Arial, sans-serif">
+      <text x={barX(metrics.bop) + 6} y={ROW_YS[2] + BAR_HEIGHT / 2 + 5} fontSize={12} fill="#E5E7EB" fontFamily="Arial, sans-serif">
         {metrics.bop > 0 ? `${metrics.bop.toFixed(1)}%` : ''}
       </text>
 
-      <line x1={PLOT_LEFT} y1={ROW_YS[2] + BAR_HEIGHT} x2={PLOT_RIGHT} y2={ROW_YS[2] + BAR_HEIGHT} stroke="#9CA3AF" strokeWidth={1} />
+      <line x1={PLOT_LEFT} y1={ROW_YS[2] + BAR_HEIGHT} x2={PLOT_RIGHT} y2={ROW_YS[2] + BAR_HEIGHT} stroke="#374151" strokeWidth={1} />
     </svg>
   );
 }
@@ -225,6 +225,12 @@ function buildExportSvg(
   return svg;
 }
 
+interface ProfileModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  patient?: Patient | null;
+}
+
 export function ProfileModal({ open, onOpenChange, patient = null }: ProfileModalProps) {
   const chartData = useChartStore(state => state.chartData);
   const [downloading, setDownloading] = useState(false);
@@ -266,148 +272,127 @@ export function ProfileModal({ open, onOpenChange, patient = null }: ProfileModa
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} aria-hidden="true" />
-      <div className="relative z-50 flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
-        <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              ¿Qué tan estables son sus encías?
-            </h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Perfil periodontal del estudio actual
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-            aria-label="Cerrar"
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => onOpenChange(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Perfil periodontal"
+        >
+          <div
+            className="flex h-[min(760px,92vh)] w-[min(1100px,95vw)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/85 shadow-2xl backdrop-blur-2xl"
+            onClick={event => event.stopPropagation()}
           >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto px-6 py-4">
-          <section className="rounded-md border border-gray-200 p-4 dark:border-gray-700">
-            <div className="flex flex-wrap items-center gap-4">
-              <ChartSvg metrics={metrics} innerRef={chartRef} />
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-gray-600 dark:text-gray-300">
-              <span className="font-semibold">
-                Leyenda:
-              </span>
-              {LEGEND.map(item => (
-                <span key={item.label} className="inline-flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />
-                  {item.label}
-                </span>
-              ))}
-            </div>
-          </section>
-
-          <section className="mt-5 space-y-3 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-              Evaluación de su Estabilidad Periodontal
-            </h3>
-            {assessment.stable ? (
-              <p>
-                <EmphasisText text="Las condiciones periodontales se consideran **estables**, ya que se cumplen los criterios principales (Higiene bucal ≤20%, sin bolsas residuales ≥ 6mm, sin afectación de furcación ≥ Grado 2, Inflamación ≤20%)." />
-              </p>
-            ) : (
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-2.5">
               <div>
-                <p>
-                  <EmphasisText text="La estabilidad periodontal podría **no estar completamente alcanzada**. Los siguientes puntos se desvían del objetivo de estabilidad:" />
-                </p>
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  {assessment.deviations.map((deviation, index) => (
-                    <li key={index}>{deviation}</li>
-                  ))}
-                </ul>
+                <h2 className="text-sm font-semibold text-white">¿Qué tan estables son sus encías?</h2>
+                <p className="mt-1 text-[11px] text-slate-400">Perfil periodontal del estudio actual</p>
               </div>
-            )}
-
-            <div className="grid gap-2 pt-1 sm:grid-cols-2">
-              <p>
-                <strong>Higiene Bucal (%)</strong>
-                <br />
-                {profilePiText(metrics.pi)}
-              </p>
-              <p>
-                <strong>Profundidades de Sondaje (%)</strong>
-                <br />
-                {profilePdText(metrics.pd6)}
-              </p>
-              <p>
-                <strong>Furcaciones (número)</strong>
-                <br />
-                {profileFurcationText(metrics.furcation2)}
-              </p>
-              <p>
-                <strong>Inflamación (%)</strong>
-                <br />
-                {profileBopText(values, assessment.bopTarget)}
-              </p>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300 transition-colors hover:bg-white/[0.12] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="rounded-md border border-teal-200 bg-teal-50 px-4 py-3 dark:border-teal-800 dark:bg-teal-900/20">
-              <h3 className="text-base font-semibold text-teal-800 dark:text-teal-200">
-                Notas de Resumen
-              </h3>
-              {assessment.summaryGood ? (
-                <p className="mt-1">
-                  Todas las condiciones relevantes para una situación periodontalmente estable se cumplen actualmente.
-                </p>
-              ) : (
-                <div className="mt-1">
-                  {assessment.goals.length > 0 && (
-                    <>
-                      <p>Los siguientes pasos podrían ser necesarios para la estabilización periodontal:</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-5">
-                        {assessment.goals.map((goal, index) => (
-                          <li key={index}>{goal}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  {assessment.summaryRisks && <p className="mt-2">{assessment.summaryRisks}</p>}
+            <div className="overflow-y-auto px-4 py-4">
+              <section className="rounded-md border border-white/10 p-4 bg-white/[0.02]">
+                <div className="flex flex-wrap items-center gap-4">
+                  <ChartSvg metrics={metrics} innerRef={chartRef} />
                 </div>
-              )}
+                <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-slate-400">
+                  <span className="font-semibold">Leyenda:</span>
+                  {LEGEND.map(item => (
+                    <span key={item.label} className="inline-flex items-center gap-1.5">
+                      <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              </section>
+
+              <section className="mt-5 space-y-3 text-sm leading-relaxed text-slate-300">
+                <h3 className="text-base font-semibold text-white">Evaluación de su Estabilidad Periodontal</h3>
+                {assessment.stable ? (
+                  <p>
+                    <EmphasisText text="Las condiciones periodontales se consideran **estables**, ya que se cumplen los criterios principales (Higiene bucal ≤20%, sin bolsas residuales ≥ 6mm, sin afectación de furcación ≥ Grado 2, Inflamación ≤20%)." />
+                  </p>
+                ) : (
+                  <div>
+                    <p>
+                      <EmphasisText text="La estabilidad periodontal podría **no estar completamente alcanzada**. Los siguientes puntos se desvían del objetivo de estabilidad:" />
+                    </p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {assessment.deviations.map((deviation, index) => (
+                        <li key={index}>{deviation}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="grid gap-2 pt-1 sm:grid-cols-2">
+                  <p><strong>Higiene Bucal (%)</strong><br />{profilePiText(metrics.pi)}</p>
+                  <p><strong>Profundidades de Sondaje (%)</strong><br />{profilePdText(metrics.pd6)}</p>
+                  <p><strong>Furcaciones (número)</strong><br />{profileFurcationText(metrics.furcation2)}</p>
+                  <p><strong>Inflamación (%)</strong><br />{profileBopText(values, assessment.bopTarget)}</p>
+                </div>
+
+                <div className="rounded-md border border-teal-400/30 bg-teal-500/10 px-4 py-3">
+                  <h3 className="text-base font-semibold text-teal-300">Notas de Resumen</h3>
+                  {assessment.summaryGood ? (
+                    <p className="mt-1">Todas las condiciones relevantes para una situación periodontalmente estable se cumplen actualmente.</p>
+                  ) : (
+                    <div className="mt-1">
+                      {assessment.goals.length > 0 && (
+                        <>
+                          <p>Los siguientes pasos podrían ser necesarios para la estabilización periodontal:</p>
+                          <ul className="mt-1 list-disc space-y-1 pl-5">
+                            {assessment.goals.map((goal, index) => (
+                              <li key={index}>{goal}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      {assessment.summaryRisks && <p className="mt-2">{assessment.summaryRisks}</p>}
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-right text-xs text-slate-500">{dateStamp}</p>
+              </section>
+
+              <p className="mt-4 text-[11px] leading-snug text-red-400">Haga clic en el botón solo una vez. La imagen se descarga como "profile.png" y puede usarse en presentaciones.</p>
             </div>
 
-            <p className="text-right text-xs text-gray-500 dark:text-gray-400">{dateStamp}</p>
-          </section>
-
-          <p className="mt-4 text-[11px] leading-snug text-red-600 dark:text-red-300">
-            Haga clic en el botón solo una vez. La imagen se descarga como
-            &quot;profile.png&quot; y puede usarse en presentaciones.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-gray-200 px-6 py-3 dark:border-gray-700">
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            Higiene bucal ≤ 20% · BOP ≤ {assessment.bopTarget}% · sin bolsas ≥ 6 mm · sin furcaciones ≥ Grado 2
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={downloading}
-              className="inline-flex items-center gap-2 rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Download className="h-4 w-4" />
-              Descargar
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
-            >
-              Cerrar
-            </button>
+            <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
+              <p className="text-[11px] text-slate-500">Higiene bucal ≤ 20% · BOP ≤ {assessment.bopTarget}% · sin bolsas ≥ 6 mm · sin furcaciones ≥ Grado 2</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/35 hover:border-teal-400/60 shadow-[0_0_12px_rgba(45,212,191,0.12)] px-4 py-2 text-sm font-medium transition-all"
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  className="rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/35 hover:border-teal-400/60 shadow-[0_0_12px_rgba(45,212,191,0.12)] px-4 py-2 text-sm font-medium transition-all"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

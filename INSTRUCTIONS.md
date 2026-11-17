@@ -120,7 +120,8 @@ Runtime GM deformation: each gingiva vertex keeps a precomputed (nearest tooth, 
 ## 21. Periodontal modals & Historial (port from periodontalchart-online.com)
 
 Source: `https://www.periodontalchart-online.com/?lang=es` (reference site). Evidence: the live
-site's JS/CSS/HTML was downloaded and analyzed statically — `js/renderer/overview_renderer.js`,
+site's JS/CSS/HTML was downloaded and analyzed statically (see section 22 for the remaining
+features to port). — `js/renderer/overview_renderer.js`,
 `js/renderer/profile_rendering.js`, `js/renderer/aiprompt_renderer.js`,
 `js/renderer/history_renderer.js` (3106 lines), `js/coordinates/overview_coordinates.js`,
 `js/coordinates/history_coordinates.js`, `js/misc/position.js`, `index.html` (embedded
@@ -239,5 +240,46 @@ tooltip is Spanish (the site shows a German fallback); map date stamps use numer
 node --test tests/periodontalHistory.test.ts tests/periodontalOverview.test.ts \
   tests/periodontalProfile.test.ts tests/periodontalClassification.test.ts   # 115 tests
 npx eslint <changed files> --ext .ts,.tsx    # 0 errors (accepted no-explicit-any warnings)
-npm run build                                # production build green
-```
+### 21.7 Código QR (QrModal) — ported (2026-11-17)
+
+Source: `js/qrcode_modal.js` (ES labels from `?lang=es` inline dictionary; `decoder.js` lives
+behind the public `/api/` viewer and was not reachable — the encoder's key list is the contract).
+Evidence: generated key sequence verified **byte-identical** to the site's 900-key array.
+
+- Files: `src/lib/utils/periodontalQr.ts` (self-contained engine), `components/periodontal/modals/QrModal.tsx`,
+  tests `tests/periodontalQr.test.ts` (20) pinning the exact reference blocks for teeth 18 and 36.
+- Encoding (`encodeChartDataForQr`): exactly **900 keys → 1800 chars**. Starts `initial_exam`,
+  `reevaluation`; teeth in order 18→11, 28→21, 38→31, 48→41; per tooth: `tooth_`, `mobility_`,
+  furcation keys (**upper molars b/dp/mp, upper premolars 14/24 dp/mp, lower molars b/l, nothing
+  else**), `implant_`, then 4 six-key blocks [BOP buccal, PI buccal], [BOP inner, PI inner],
+  [GM buccal, PD buccal], [GM inner, PD inner] with sites `db,b,mb` + `dp,p,mp` (upper) /
+  `dl,l,ml` (lower). Each value: `Math.round(v) + 50` padded to 2 digits (offset supports GM
+  ≥ −50; missing → "50").
+- URL (`buildPerioChartUrl`): `<base>?i=<encoded>` where base defaults to
+  `https://www.periodontalchart-online.com/api/` — the site's public viewer decodes `?i=` and
+  shows the full interactive chart, so scanning the QR works with zero backend on our side.
+- Modal (Spanish, from the site dictionary): "Periodontograma"; QR shown client-side via the
+  `qrcode` package (error correction L — the ~1830-char payload needs a v34+ symbol);
+  "Abrir Periodontograma" opens the URL in a new tab; "Este periodontograma no está registrado
+  con nosotros." when `hasRecordedFindings` is false; the site's privacy notice verbatim.
+
+**Deviations:** the site renders the QR through `api.qrserver.com` (third-party request leaking
+the chart URL); we generate it locally with `qrcode` — no data leaves the device. The payload
+URL points at the reference site's viewer (our app has no public unauthenticated chart viewer;
+revisit `PERIO_QR_TARGET_BASE` if one is added).
+
+
+## 22. Pending ports (backlog)
+
+Features from the reference site not yet ported, queued in requested order:
+
+1. **Lector PDF (`js/pdf_reader_manager.js`, `css/reader_modal.css`)** — client-side import of the
+   site's own PDF chart report: parses metadata + per-tooth findings (GM/PD/BOP/PI/furcation/
+   mobility/implants) with pdf.js and feeds them back into the chart as a new study.
+2. **3D Surface analysis panel** — `render_bopSurfaces()` area-percentage bars (total,
+   buccal/lingual, interdental; trapezoid area `(a+b)/2·h`, 42.25 px² = 1 mm²) from the site's
+   `three_modal` (see 20.5); our `Periodontal3DModal` has no equivalent yet.
+3. **Historial timelapse + cumulative overlay** — the site's history slides 2–3: play-through
+   animation with loop + draggable timeline slider (timelapse BOP/PI map pairs per date) and the
+   cumulative BOP overlay heatmap frames (`prepareCumulativeOverlayFrames`). These were noted as
+   intentional omissions in 21.5; queued for porting on request (2026-11-17).

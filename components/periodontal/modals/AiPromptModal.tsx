@@ -43,7 +43,7 @@ function buildTextSvg(promptText: string): SVGSVGElement {
   const background = document.createElementNS(SVG_NS, 'rect');
   background.setAttribute('width', String(EXPORT_W));
   background.setAttribute('height', String(height));
-  background.setAttribute('fill', '#FFFFFF');
+  background.setAttribute('fill', '#0c1220');
   svg.appendChild(background);
 
   let y = 50;
@@ -54,6 +54,7 @@ function buildTextSvg(promptText: string): SVGSVGElement {
       textEl.setAttribute('y', String(y));
       textEl.setAttribute('font-size', '15');
       textEl.setAttribute('font-family', "'Courier New', monospace");
+      textEl.setAttribute('fill', '#E5E7EB');
       textEl.textContent = line;
       svg.appendChild(textEl);
     }
@@ -61,6 +62,12 @@ function buildTextSvg(promptText: string): SVGSVGElement {
   }
 
   return svg;
+}
+
+interface AiPromptModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  patient?: Patient | null;
 }
 
 export function AiPromptModal({ open, onOpenChange, patient = null }: AiPromptModalProps) {
@@ -111,103 +118,100 @@ export function AiPromptModal({ open, onOpenChange, patient = null }: AiPromptMo
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} aria-hidden="true" />
-      <div className="relative z-50 flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
-        <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Prompt para Gemini (Google), ChatGPT (OpenAI), etc.:
-            </h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Generado a partir del estudio periodontal actual
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-            aria-label="Cerrar"
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => onOpenChange(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Prompt para IA"
+        >
+          <div
+            className="flex h-[min(760px,92vh)] w-[min(1100px,95vw)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/85 shadow-2xl backdrop-blur-2xl"
+            onClick={event => event.stopPropagation()}
           >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-2.5">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-white">Prompt para Gemini (Google), ChatGPT (OpenAI), etc.:</h2>
+                <p className="mt-1 text-[11px] text-slate-400">Generado a partir del estudio periodontal actual</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300 transition-colors hover:bg-white/[0.12] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-        <div className="overflow-y-auto px-6 py-4">
-          <div className="flex items-center gap-3">
-            <label htmlFor="ai-prompt-language" className="text-sm text-gray-700 dark:text-gray-200">
-              Idioma:
-            </label>
-            <select
-              id="ai-prompt-language"
-              value={languageCode}
-              onChange={event => setLanguageCode(event.target.value)}
-              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100"
-            >
-              {AI_PROMPT_LANGUAGES.map(language => (
-                <option key={language.code} value={language.code}>
-                  {language.name}
-                </option>
-              ))}
-            </select>
+            <div className="overflow-y-auto px-4 py-4">
+              <div className="flex items-center gap-3 mb-4">
+                <label htmlFor="ai-prompt-language" className="text-sm text-slate-300">Idioma:</label>
+                <select
+                  id="ai-prompt-language"
+                  value={languageCode}
+                  onChange={event => setLanguageCode(event.target.value)}
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-white focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                >
+                  {AI_PROMPT_LANGUAGES.map(language => (
+                    <option key={language.code} value={language.code}>
+                      {language.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <pre className="mt-3 max-h-[45vh] overflow-y-auto whitespace-pre-wrap rounded-md border border-white/10 bg-white/[0.02] p-4 font-mono text-xs leading-relaxed text-slate-200">
+                {prompt}
+              </pre>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={copyPrompt}
+                  className="inline-flex items-center gap-2 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/35 hover:border-teal-400/60 shadow-[0_0_12px_rgba(45,212,191,0.12)] px-4 py-2 text-sm font-medium transition-all"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copiar Prompt
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyAndOpenGemini}
+                  className="inline-flex items-center gap-2 rounded-lg border border-teal-400/35 bg-teal-500/15 text-teal-200 hover:bg-teal-500/25 px-4 py-2 text-sm font-medium transition-all"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Copiar Prompt y Abrir Gemini
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/[0.08] transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar
+                </button>
+                <span className={`text-xs transition-opacity ${copied ? 'text-teal-300 opacity-100' : 'opacity-0'}`}>✔ Copiado al portapapeles</span>
+              </div>
+
+              <p className="mt-4 text-[11px] leading-snug text-red-400">Haga clic en el botón solo una vez. La imagen se descarga como "aiprompt.png" y puede usarse en presentaciones.</p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
+              <p className="text-[11px] text-slate-500">El prompt no incluye datos personales del paciente.</p>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/35 hover:border-teal-400/60 shadow-[0_0_12px_rgba(45,212,191,0.12)] px-4 py-2 text-sm font-medium transition-all"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
-
-          <pre className="mt-3 max-h-[45vh] overflow-y-auto whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-4 font-mono text-xs leading-relaxed text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
-            {prompt}
-          </pre>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={copyPrompt}
-              className="inline-flex items-center gap-2 rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
-            >
-              <Copy className="h-4 w-4" />
-              Copiar Prompt
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyAndOpenGemini}
-              className="inline-flex items-center gap-2 rounded-md border border-teal-600 px-4 py-2 text-sm font-medium text-teal-700 transition-colors hover:bg-teal-50 dark:border-teal-500 dark:text-teal-300 dark:hover:bg-teal-900/30"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Copiar Prompt y Abrir Gemini
-            </button>
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={downloading}
-              className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Download className="h-4 w-4" />
-              Descargar
-            </button>
-            <span
-              className={`text-xs transition-opacity ${copied ? 'text-teal-600 opacity-100 dark:text-teal-300' : 'opacity-0'}`}
-            >
-              ✔ Copiado al portapapeles
-            </span>
-          </div>
-
-          <p className="mt-4 text-[11px] leading-snug text-red-600 dark:text-red-300">
-            Haga clic en el botón solo una vez. La imagen se descarga como
-            &quot;aiprompt.png&quot; y puede usarse en presentaciones.
-          </p>
         </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-gray-200 px-6 py-3 dark:border-gray-700">
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            El prompt no incluye datos personales del paciente.
-          </p>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

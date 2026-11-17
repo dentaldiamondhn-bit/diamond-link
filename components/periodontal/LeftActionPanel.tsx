@@ -29,7 +29,10 @@ export type ClinicalModalKey =
   | 'qr'
   | 'calibration'
   | 'profile'
-  | 'aiprompt';
+  | 'aiprompt'
+  | 'general-health'
+  | 'general-health-editor'
+  | 'microbiology';
 
 interface LeftActionPanelProps {
   onSave: () => void;
@@ -91,6 +94,9 @@ const MODAL_BUTTONS: { key: ClinicalModalKey; label: string; icon: React.Element
   { key: 'calibration', label: 'Calibración', icon: Ruler },
   { key: 'profile', label: 'Perfil', icon: Activity },
   { key: 'aiprompt', label: 'Prompt IA', icon: Sparkles },
+  { key: 'general-health', label: 'Salud General', icon: Stethoscope },
+  { key: 'general-health-editor', label: 'Editor Salud', icon: ClipboardList },
+  { key: 'microbiology', label: 'Microbiología', icon: Box },
 ];
 
 export function LeftActionPanel({

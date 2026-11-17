@@ -17,10 +17,13 @@ import {
   AnalysisModal,
   CalibrationModal,
   ClassificationModal,
+  GeneralHealthEditorModal,
+  GeneralHealthFormModal,
   HistoriaTab,
   IntervalModal,
   JawChart,
   LeftActionPanel,
+  MicrobiologyModal,
   ProfileModal,
   AiPromptModal,
   QrModal,
@@ -30,7 +33,7 @@ import {
 } from '@/components/periodontal';
 import type { ClinicalModalKey } from '@/components/periodontal';
 import { Button, Input } from '@/components/ui';
-import { Plus, ChevronLeft, ChevronDown, ChevronUp, Save, Edit } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronDown, ChevronUp, Save, Edit, Stethoscope } from 'lucide-react';
 
 function EstudioPeriodontalContent() {
   const router = useRouter();
@@ -374,10 +377,10 @@ function EstudioPeriodontalContent() {
     }
   };
 
-  const compactLabelClass = 'block text-[11px] font-medium text-gray-400 mb-1';
-  const slimInputClass = 'h-8 text-xs px-2.5 py-1 w-full';
+  const compactLabelClass = 'block text-[11px] font-medium text-gray-400 dark:text-gray-500 mb-1';
+  const slimInputClass = 'h-8 text-xs px-2.5 py-1 w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded';
   const dateInputClass =
-    'h-8 text-xs px-2.5 py-1 w-full dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100';
+    'h-8 text-xs px-2.5 py-1 w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100';
   const phoneDisplay = patient?.telefono
     ? patient.telefono.trim().startsWith('+')
       ? patient.telefono
@@ -385,7 +388,54 @@ function EstudioPeriodontalContent() {
     : '–';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <>
+      <style jsx global>{`
+        :root {
+          --overview-bg: #FFFFFF;
+          --overview-stroke: #000000;
+          --overview-text: #000000;
+          --overview-tooth-text: #000000;
+          --overview-percent-text: #FF0000;
+          --overview-pd-text: red;
+          --overview-furcation: #000000;
+          --overview-implant-bg: white;
+          --overview-implant-stroke: gray;
+          --overview-implant-text: black;
+          --overview-missing: #808080;
+          --badersten-bg: #FAFAFA;
+          --badersten-axis: #000000;
+          --badersten-label: #666666;
+          --ramseier-bg: #FAFAFA;
+          --ramseier-axis: #000000;
+          --ramseier-after: #FDA5A5;
+          --ramseier-diff: #FFDDDD;
+          --ramseier-remaining: #E7F3FD;
+          --ramseier-label: #666666;
+        }
+        .dark {
+          --overview-bg: #1F2937;
+          --overview-stroke: #E5E7EB;
+          --overview-text: #F9FAFB;
+          --overview-tooth-text: #F9FAFB;
+          --overview-percent-text: #FF0000;
+          --overview-pd-text: #FF6B6B;
+          --overview-furcation: #E5E7EB;
+          --overview-implant-bg: #374151;
+          --overview-implant-stroke: #9CA3AF;
+          --overview-implant-text: #F9FAFB;
+          --overview-missing: #6B7280;
+          --badersten-bg: #1F2937;
+          --badersten-axis: #E5E7EB;
+          --badersten-label: #9CA3AF;
+          --ramseier-bg: #1F2937;
+          --ramseier-axis: #E5E7EB;
+          --ramseier-after: #FDA5A5;
+          --ramseier-diff: #FFDDDD;
+          --ramseier-remaining: #1E3A5F;
+          --ramseier-label: #9CA3AF;
+        }
+      `}</style>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
         {([
           { id: 'chart' as const, label: 'Nuevo Estudio' },
@@ -554,7 +604,7 @@ function EstudioPeriodontalContent() {
             disabled={readOnly}
             rows={4}
             placeholder="Observaciones generales del estudio..."
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white disabled:opacity-60"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white disabled:opacity-60 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
         </div>
 
@@ -574,7 +624,7 @@ function EstudioPeriodontalContent() {
                   checked={chartData.plan_tratamiento?.[item.key] || false}
                   onChange={(e) => handleInputChange(`plan_tratamiento.${item.key}`, e.target.checked)}
                   disabled={readOnly}
-                  className="h-4 w-4 text-teal-600 rounded border-gray-300"
+                  className="h-4 w-4 text-teal-600 rounded border-gray-300 dark:border-gray-600 focus:ring-teal-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
               </label>
@@ -585,7 +635,7 @@ function EstudioPeriodontalContent() {
                 onChange={(e) => handleInputChange('plan_tratamiento.otroEspecificar', e.target.value)}
                 disabled={readOnly}
                 placeholder="Especificar otro tratamiento..."
-                className="w-full"
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             )}
           </div>
@@ -637,7 +687,23 @@ function EstudioPeriodontalContent() {
         onOpenChange={open => !open && setOpenModal(null)}
         patient={patient}
       />
+      <GeneralHealthFormModal
+        open={openModal === 'general-health'}
+        onOpenChange={open => !open && setOpenModal(null)}
+        patient={patient}
+      />
+      <GeneralHealthEditorModal
+        open={openModal === 'general-health-editor'}
+        onOpenChange={open => !open && setOpenModal(null)}
+        patient={patient}
+      />
+      <MicrobiologyModal
+        open={openModal === 'microbiology'}
+        onOpenChange={open => !open && setOpenModal(null)}
+        patient={patient}
+      />
     </div>
+  </>  
   );
 }
 

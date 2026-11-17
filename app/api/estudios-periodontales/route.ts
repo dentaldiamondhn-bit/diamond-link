@@ -183,6 +183,8 @@ export async function POST(request: NextRequest) {
         objetivo_estudio: body.objetivo_estudio || null,
         plan_tratamiento: body.plan_tratamiento || {},
         clasificacion: body.clasificacion || null,
+        general_health_data: body.general_health_data || null,
+        microbiology_data: body.microbiology_data || null,
       })
       .select()
       .single();

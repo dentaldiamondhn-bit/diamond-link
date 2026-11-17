@@ -108,17 +108,22 @@ const DIABETES_CELLS: MatrixCellData[] = [
 ];
 
 const STAGE_STYLES: Record<number, string> = {
-  0: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-  1: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  2: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  3: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  4: 'bg-purple-100 text-purple-900 dark:bg-purple-900 dark:text-purple-200',
+  0: 'bg-slate-700/60 text-slate-300',
+  1: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30',
+  2: 'bg-orange-500/20 text-orange-300 border-orange-400/30',
+  3: 'bg-red-500/20 text-red-300 border-red-400/30',
+  4: 'bg-purple-500/20 text-purple-300 border-purple-400/30',
 };
 
 const HEADER_CELL_CLASS =
-  'border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 px-2 py-2 text-left align-top text-[11px] font-semibold text-gray-700 dark:text-gray-200';
+  'border border-white/10 bg-white/[0.02] px-2 py-2 text-left align-top text-[11px] font-semibold text-slate-300';
 const LABEL_CELL_CLASS =
-  'border border-gray-300 dark:border-gray-600 bg-gray-50/60 dark:bg-gray-900/60 px-2 py-2 text-left align-top text-[11px] text-gray-600 dark:text-gray-300';
+  'border border-white/10 bg-white/[0.02] px-2 py-2 text-left align-top text-[11px] text-slate-400';
+
+const PILL_BASE =
+  'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors';
+const PILL_IDLE = 'border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.12] hover:text-white';
+const PILL_ACTIVE = 'border-teal-400/40 bg-teal-500/15 text-teal-300';
 
 interface ClickableCellProps {
   cell: MatrixCellData;
@@ -129,19 +134,25 @@ interface ClickableCellProps {
 
 function ClickableCell({ cell, active, suggested, onSelect }: ClickableCellProps) {
   const stateClasses = active
-    ? 'bg-teal-600 text-white border-teal-700 dark:bg-teal-600 dark:text-white'
-    : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200 hover:bg-teal-50 dark:hover:bg-gray-700 cursor-pointer';
+    ? 'bg-teal-500/20 text-teal-200 border-teal-400/40'
+    : 'bg-white/[0.02] text-slate-300 border-white/10 hover:bg-white/[0.08] cursor-pointer';
   const suggestionClasses = suggested && !active ? 'ring-2 ring-inset ring-sky-500' : '';
 
   return (
     <td
       colSpan={cell.colSpan}
       onClick={() => onSelect(cell.id)}
-      className={`border border-gray-300 dark:border-gray-600 px-2 py-2 align-top text-[11px] leading-snug transition-colors ${stateClasses} ${suggestionClasses}`}
+      className={`border border-white/10 px-2 py-2 align-top text-[11px] leading-snug transition-colors ${stateClasses} ${suggestionClasses}`}
     >
       {cell.label}
     </td>
   );
+}
+
+interface ClassificationModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  patient?: Patient | null;
 }
 
 export function ClassificationModal({ open, onOpenChange, patient = null }: ClassificationModalProps) {
@@ -198,322 +209,342 @@ export function ClassificationModal({ open, onOpenChange, patient = null }: Clas
     : '';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50" onClick={() => onOpenChange(false)} aria-hidden="true" />
-      <div className="relative z-50 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
-        <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Clasificación de las Enfermedades Periodontales
-            </h2>
-            {patientInfo && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{patientInfo}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-            aria-label="Cerrar"
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => onOpenChange(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Clasificación periodontal"
+        >
+          <div
+            className="flex h-[min(760px,92vh)] w-[min(1100px,95vw)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/85 shadow-2xl backdrop-blur-2xl"
+            onClick={event => event.stopPropagation()}
           >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto px-6 py-4">
-          <div className="mb-4 rounded-md border border-teal-200 bg-teal-50 px-4 py-3 dark:border-teal-800 dark:bg-teal-900/20">
-            <p className="text-sm text-gray-900 dark:text-gray-100">
-              <b>Diagnóstico:</b>{' '}
-              <span className="font-semibold">
-                {diagnosis ?? 'Determine al menos un estadio.'}
-              </span>
-            </p>
-          </div>
-
-          <div className="space-y-5">
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">
-                Estadio de Periodontitis
-              </h3>
-              <table className="w-full border-collapse table-fixed">
-                <thead>
-                  <tr>
-                    <th colSpan={2} className={HEADER_CELL_CLASS}>
-                      Estadio de Periodontitis
-                    </th>
-                    {STAGE_HEADERS.map(header => (
-                      <th key={header.id} className={HEADER_CELL_CLASS}>
-                        {header.title}
-                        <span className="mt-1 block font-normal text-[10px] leading-snug text-gray-500 dark:text-gray-400">
-                          {header.subtitle}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td rowSpan={3} className={`${LABEL_CELL_CLASS} font-semibold`}>
-                      Severidad
-                    </td>
-                    <td className={LABEL_CELL_CLASS}>{SEVERITY_CRITERIA[0]}</td>
-                    {SEVERITY_ROWS[0].map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className={LABEL_CELL_CLASS}>{SEVERITY_CRITERIA[1]}</td>
-                    {SEVERITY_ROWS[1].map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className={LABEL_CELL_CLASS}>{SEVERITY_CRITERIA[2]}</td>
-                    {SEVERITY_ROWS[2].map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                  <tr>
-                    <td colSpan={2} className={`${LABEL_CELL_CLASS} font-semibold`}>
-                      Complejidad
-                    </td>
-                    {COMPLEXITY_CELLS.map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </section>
-
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">
-                Extensión y Distribución
-              </h3>
-              <table className="w-full border-collapse table-fixed">
-                <tbody>
-                  <tr>
-                    <td className={LABEL_CELL_CLASS}>Descripción adicional del estadio</td>
-                    {EXTENT_CELLS.map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </section>
-
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">
-                Grado de Periodontitis
-              </h3>
-              <table className="w-full border-collapse table-fixed">
-                <thead>
-                  <tr>
-                    <th colSpan={3} className={HEADER_CELL_CLASS}>
-                      Grado de Periodontitis
-                    </th>
-                    {GRADE_HEADERS.map(header => (
-                      <th key={header.id} className={HEADER_CELL_CLASS}>
-                        {header.title}
-                        <span className="mt-1 block font-normal text-[10px] leading-snug text-gray-500 dark:text-gray-400">
-                          {header.subtitle}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td rowSpan={2} className={`${LABEL_CELL_CLASS} font-semibold`}>
-                      Criterios Principales
-                    </td>
-                    <td colSpan={2} className={LABEL_CELL_CLASS}>
-                      Evidencia directa de progresión — datos longitudinales (pérdida ósea radiográfica o pérdida de inserción)
-                    </td>
-                    {LONGITUDINAL_CELLS.map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                  <tr>
-                    <td colSpan={2} className={LABEL_CELL_CLASS}>
-                      Evidencia indirecta de progresión — pérdida ósea (%) por edad
-                    </td>
-                    {BL_AGE_CELLS.map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                  <tr>
-                    <td colSpan={3} className={LABEL_CELL_CLASS}>
-                      Fenotipo
-                    </td>
-                    {PHENOTYPE_CELLS.map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                  <tr>
-                    <td rowSpan={2} className={`${LABEL_CELL_CLASS} font-semibold`}>
-                      Modificadores
-                    </td>
-                    <td rowSpan={2} className={LABEL_CELL_CLASS}>
-                      Factores de Riesgo
-                    </td>
-                    <td className={LABEL_CELL_CLASS}>Tabaquismo</td>
-                    {SMOKING_CELLS.map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className={LABEL_CELL_CLASS}>Diabetes</td>
-                    {DIABETES_CELLS.map(cell => (
-                      <ClickableCell
-                        key={cell.id}
-                        cell={cell}
-                        active={selection[getGroupPrefix(cell.id)] === cell.id}
-                        suggested={suggestedCellIds.has(cell.id)}
-                        onSelect={handleSelect}
-                      />
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </section>
-          </div>
-
-          {suggestions.length > 0 && (
-            <div className="mt-5 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-800 dark:bg-sky-900/20">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
-                Sugerencias automáticas del periodontograma
-              </p>
-              <ul className="space-y-1">
-                {suggestions.map(suggestion => (
-                  <li key={suggestion.cellId} className="text-xs text-gray-700 dark:text-gray-200">
-                    • {suggestion.text}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-                Las celdas marcadas con borde azul corresponden a estas sugerencias; la selección final es del clínico.
-              </p>
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-2.5">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-white">
+                  Clasificación de las Enfermedades Periodontales
+                </h2>
+                {patientInfo && (
+                  <p className="mt-1 text-[11px] text-slate-400">{patientInfo}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300 transition-colors hover:bg-white/[0.12] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-          )}
 
-          <details className="mt-5 rounded-md border border-gray-200 dark:border-gray-700">
-            <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-              Desglose por diente (referencia)
-            </summary>
-            <div className="px-4 pb-3">
-              {toothClassifications.length === 0 ? (
-                <p className="py-3 text-center text-xs text-gray-500 dark:text-gray-400">
-                  Ningún diente cumple criterios de periodontitis con los datos registrados.
+            <div className="overflow-y-auto px-4 py-4">
+              <div className="mb-4 rounded-md border border-teal-400/30 bg-teal-500/10 p-4">
+                <p className="text-sm text-slate-100">
+                  <b>Diagnóstico:</b>{' '}
+                  <span className="font-semibold">
+                    {diagnosis ?? 'Determine al menos un estadio.'}
+                  </span>
                 </p>
-              ) : (
-                <table className="w-full border-collapse text-xs">
-                  <thead>
-                    <tr>
-                      {['Diente', 'Estadío', 'Criterios'].map(header => (
-                        <th
-                          key={header}
-                          className="border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-2 py-1 text-left font-semibold text-gray-700 dark:text-gray-200"
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {toothClassifications.map(item => (
-                      <tr key={item.tooth}>
-                        <td className="border border-gray-200 dark:border-gray-600 px-2 py-1 text-center font-bold text-gray-900 dark:text-white">
-                          {item.tooth}
-                        </td>
-                        <td className="border border-gray-200 dark:border-gray-600 px-2 py-1">
-                          <span className={`rounded px-2 py-0.5 font-semibold ${STAGE_STYLES[item.stage]}`}>
-                            {item.label}
-                          </span>
-                        </td>
-                        <td className="border border-gray-200 dark:border-gray-600 px-2 py-1 text-gray-700 dark:text-gray-200">
-                          {item.reasons.join(' · ')}
-                        </td>
-                      </tr>
+              </div>
+
+              <div className="space-y-5">
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-white">
+                    Estadio de Periodontitis
+                  </h3>
+                  <div className="overflow-x-auto rounded-md border border-white/10 bg-white/[0.02]">
+                    <table className="w-full border-collapse table-fixed">
+                      <thead>
+                        <tr>
+                          <th colSpan={2} className="border border-white/10 bg-white/[0.02] px-2 py-2 text-left font-semibold text-slate-300">
+                            Estadio de Periodontitis
+                          </th>
+                          {STAGE_HEADERS.map(header => (
+                            <th key={header.id} className="border border-white/10 bg-white/[0.02] px-2 py-2 text-left font-semibold text-slate-300">
+                              {header.title}
+                              <span className="mt-1 block font-normal text-[10px] leading-snug text-slate-400">
+                                {header.subtitle}
+                              </span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td rowSpan={3} className={`${LABEL_CELL_CLASS} font-semibold`}>
+                            Severidad
+                          </td>
+                          <td className={LABEL_CELL_CLASS}>{SEVERITY_CRITERIA[0]}</td>
+                          {SEVERITY_ROWS[0].map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className={LABEL_CELL_CLASS}>{SEVERITY_CRITERIA[1]}</td>
+                          {SEVERITY_ROWS[1].map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className={LABEL_CELL_CLASS}>{SEVERITY_CRITERIA[2]}</td>
+                          {SEVERITY_ROWS[2].map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                        <tr>
+                          <td colSpan={2} className={`${LABEL_CELL_CLASS} font-semibold`}>
+                            Complejidad
+                          </td>
+                          {COMPLEXITY_CELLS.map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-white">
+                    Extensión y Distribución
+                  </h3>
+                  <div className="overflow-x-auto rounded-md border border-white/10 bg-white/[0.02]">
+                    <table className="w-full border-collapse table-fixed">
+                      <tbody>
+                        <tr>
+                          <td className={LABEL_CELL_CLASS}>Descripción adicional del estadio</td>
+                          {EXTENT_CELLS.map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-white">
+                    Grado de Periodontitis
+                  </h3>
+                  <div className="overflow-x-auto rounded-md border border-white/10 bg-white/[0.02]">
+                    <table className="w-full border-collapse table-fixed">
+                      <thead>
+                        <tr>
+                          <th colSpan={3} className="border border-white/10 bg-white/[0.02] px-2 py-2 text-left font-semibold text-slate-300">
+                            Grado de Periodontitis
+                          </th>
+                          {GRADE_HEADERS.map(header => (
+                            <th key={header.id} className="border border-white/10 bg-white/[0.02] px-2 py-2 text-left font-semibold text-slate-300">
+                              {header.title}
+                              <span className="mt-1 block font-normal text-[10px] leading-snug text-slate-400">
+                                {header.subtitle}
+                              </span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td rowSpan={2} className={`${LABEL_CELL_CLASS} font-semibold`}>
+                            Criterios Principales
+                          </td>
+                          <td colSpan={2} className={LABEL_CELL_CLASS}>
+                            Evidencia directa de progresión — datos longitudinales (pérdida ósea radiográfica o pérdida de inserción)
+                          </td>
+                          {LONGITUDINAL_CELLS.map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                        <tr>
+                          <td colSpan={2} className={LABEL_CELL_CLASS}>
+                            Evidencia indirecta de progresión — pérdida ósea (%) por edad
+                          </td>
+                          {BL_AGE_CELLS.map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className={LABEL_CELL_CLASS}>
+                            Fenotipo
+                          </td>
+                          {PHENOTYPE_CELLS.map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                        <tr>
+                          <td rowSpan={2} className={`${LABEL_CELL_CLASS} font-semibold`}>
+                            Modificadores
+                          </td>
+                          <td rowSpan={2} className={LABEL_CELL_CLASS}>
+                            Factores de Riesgo
+                          </td>
+                          <td className={LABEL_CELL_CLASS}>Tabaquismo</td>
+                          {SMOKING_CELLS.map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className={LABEL_CELL_CLASS}>Diabetes</td>
+                          {DIABETES_CELLS.map(cell => (
+                            <ClickableCell
+                              key={cell.id}
+                              cell={cell}
+                              active={selection[getGroupPrefix(cell.id)] === cell.id}
+                              suggested={suggestedCellIds.has(cell.id)}
+                              onSelect={handleSelect}
+                            />
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
+
+              {suggestions.length > 0 && (
+                <div className="mt-5 rounded-md border border-sky-400/30 bg-sky-500/10 px-4 py-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-sky-300">
+                    Sugerencias automáticas del periodontograma
+                  </p>
+                  <ul className="space-y-1">
+                    {suggestions.map(suggestion => (
+                      <li key={suggestion.cellId} className="text-xs text-slate-300">
+                        • {suggestion.text}
+                      </li>
                     ))}
-                  </tbody>
-                </table>
+                  </ul>
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    Las celdas marcadas con borde azul corresponden a estas sugerencias; la selección final es del clínico.
+                  </p>
+                </div>
               )}
+
+              <details className="mt-5 rounded-md border border-white/10 bg-white/[0.02]">
+                <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-slate-300">
+                  Desglose por diente (referencia)
+                </summary>
+                <div className="px-4 pb-3">
+                  {toothClassifications.length === 0 ? (
+                    <p className="py-3 text-center text-xs text-slate-500">
+                      Ningún diente cumple criterios de periodontitis con los datos registrados.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto rounded-md border border-white/10 bg-white/[0.02]">
+                      <table className="w-full border-collapse text-xs">
+                        <thead>
+                          <tr>
+                            {['Diente', 'Estadío', 'Criterios'].map(header => (
+                              <th
+                                key={header}
+                                className="border border-white/10 bg-white/[0.03] px-2 py-1 text-left font-semibold text-slate-300"
+                              >
+                                {header}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {toothClassifications.map(item => (
+                            <tr key={item.tooth}>
+                              <td className="border border-white/10 bg-white/[0.02] px-2 py-1 text-center font-bold text-white">
+                                {item.tooth}
+                              </td>
+                              <td className="border border-white/10 bg-white/[0.02] px-2 py-1">
+                                <span className={`rounded px-2 py-0.5 font-semibold ${STAGE_STYLES[item.stage]}`}>
+                                  {item.label}
+                                </span>
+                              </td>
+                              <td className="border border-white/10 bg-white/[0.02] px-2 py-1 text-slate-300">
+                                {item.reasons.join(' · ')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </details>
+
+              <p className="mt-5 text-[11px] leading-relaxed text-slate-500">
+                Tonetti, M. S., Greenwell, H., Kornman, K. S. (2018). Staging and grading of periodontitis:
+                Framework and proposal of a new classification and case definition. <i>Journal of Periodontology</i>, 89(1), 159-172.
+              </p>
             </div>
-          </details>
 
-          <p className="mt-5 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-            Tonetti, M. S., Greenwell, H., Kornman, K. S. (2018). Staging and grading of periodontitis:
-            Framework and proposal of a new classification and case definition. <i>Journal of Periodontology</i>, 89(1), 159-172.
-          </p>
+            <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
+              <p className="text-[11px] text-slate-500">
+                La clasificación se guarda junto con el estudio periodontal.
+              </p>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-400/35 hover:border-teal-400/60 shadow-[0_0_12px_rgba(45,212,191,0.12)] px-4 py-2 text-sm font-medium transition-all"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-gray-200 px-6 py-3 dark:border-gray-700">
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            La clasificación se guarda junto con el estudio periodontal.
-          </p>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
