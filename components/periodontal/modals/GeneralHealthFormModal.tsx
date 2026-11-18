@@ -271,34 +271,45 @@ const DEFAULT_FORM_STRUCTURE = {
 function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralHealthFormModalProps) {
   const chartData = useChartStore(state => state.chartData);
   const updateField = useChartStore(state => state.updateField);
-  const [formData, setFormData] = useState<Record<string, any>>({});
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>({});
   const [downloading, setDownloading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const formInitialized = useRef(false);
 
   const structure = useMemo(() => DEFAULT_FORM_STRUCTURE, []);
 
-  useEffect(() => {
-    const savedData = chartData.general_health_data;
+  const patientDefaults = useMemo<Record<string, any>>(() => {
     const defaults: Record<string, any> = {};
     if (patient) {
       defaults.nombre_completo = patient.nombre_completo || '';
       defaults.patient_number = patient.numero_identidad || '';
       defaults.patient_dob = patient.fecha_nacimiento || '';
-      defaults.date_saved = chartData.date || new Date().toISOString().split('T')[0];
     }
+    defaults.date_saved = chartData.date || new Date().toISOString().split('T')[0];
+    return defaults;
+  }, [patient, chartData.date]);
+
+  // Initialize state with patient defaults so every input stays controlled
+  // for its lifetime (avoids React's uncontrolled->controlled warning).
+  const [formData, setFormData] = useState<Record<string, any>>(patientDefaults);
+
+  // Merge saved form data once after mount; defaults are already applied as
+  // the initial state so every input stays controlled for its lifetime.
+  useEffect(() => {
+    if (formInitialized.current) return;
+    formInitialized.current = true;
+
+    const savedData = chartData.general_health_data;
     if (savedData) {
       try {
         const parsed = typeof savedData === 'string' ? JSON.parse(savedData) : savedData;
-        setFormData({ ...defaults, ...parsed });
+        setFormData({ ...patientDefaults, ...parsed });
       } catch {
-        setFormData(defaults);
+        setFormData(patientDefaults);
       }
-    } else {
-      setFormData(defaults);
     }
-  }, [chartData.general_health_data, patient, chartData.date]);
+  }, [chartData.general_health_data, patientDefaults]);
 
   const handleChange = (fieldName: string, value: any) => {
     setFormData(prev => ({ ...prev, [fieldName]: value }));
