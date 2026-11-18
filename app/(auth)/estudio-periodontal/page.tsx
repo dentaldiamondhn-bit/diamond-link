@@ -68,6 +68,30 @@ function EstudioPeriodontalContent() {
 
   const { addToast } = useToast();
 
+  const loadStudy = useCallback(async (studyId: string, readOnly: boolean) => {
+    try {
+      const response = await fetch(`/api/estudios-periodontales/${studyId}`);
+      if (!response.ok) throw new Error('Failed to fetch study');
+      const result = await response.json();
+      const study = result.data || result;
+
+      loadFromApiData(study);
+      setLoadedStudy({ id: study.id, version: study.version ?? null });
+      setReadOnly(readOnly);
+      setActiveTab('chart');
+
+      if (readOnly) {
+        addToast(
+          'El estudio se cargó en modo solo lectura. Habilite la edición para modificarlo (botón "Habilitar Edición" al final de la página).',
+          'warning',
+        );
+      }
+    } catch (error) {
+      console.error('Error loading study:', error);
+      alert('Ocurrió un error al cargar el estudio: ' + (error as Error).message);
+    }
+  }, [addToast, loadFromApiData]);
+
   const { overlayData, setOverlayData, clearOverlay } = useOverlayStore();
 
   const loadSavedStudies = useCallback(async () => {
@@ -109,14 +133,32 @@ function EstudioPeriodontalContent() {
   }, [initializeFromPatient, pacienteId]);
 
   useEffect(() => {
-    if (pacienteId) {
-      loadPatientData();
-    } else {
-      setPatientLoading(false);
-      initializeFromPatient('new', '');
-    }
-    setLoadedStudy(null);
-  }, [initializeFromPatient, loadPatientData, pacienteId]);
+    let cancelled = false;
+
+    const initializePage = async () => {
+      if (pacienteId) {
+        try {
+          await loadPatientData();
+          const params = new URLSearchParams({ limit: '1', paciente_id: pacienteId });
+          const response = await fetch(`/api/estudios-periodontales?${params}`);
+          if (!response.ok) throw new Error('Failed to fetch latest study');
+          const result = await response.json();
+          const latest = (result.data || [])[0];
+          if (latest && !cancelled) {
+            await loadStudy(latest.id, true);
+          }
+        } catch (error) {
+          console.error('Error initializing estudio page:', error);
+        }
+      } else {
+        setPatientLoading(false);
+        initializeFromPatient('new', '');
+      }
+    };
+
+    initializePage();
+    return () => { cancelled = true; };
+  }, [initializeFromPatient, loadPatientData, loadStudy, pacienteId]);
 
   useEffect(() => {
     loadSavedStudies();
@@ -347,30 +389,6 @@ function EstudioPeriodontalContent() {
     } catch (error) {
       console.error('Error al crear la nueva versión:', error);
       alert('Ocurrió un error al crear la nueva versión: ' + (error as Error).message);
-    }
-  };
-
-  const loadStudy = async (studyId: string, readOnly: boolean) => {
-    try {
-      const response = await fetch(`/api/estudios-periodontales/${studyId}`);
-      if (!response.ok) throw new Error('Failed to fetch study');
-      const result = await response.json();
-      const study = result.data || result;
-
-      loadFromApiData(study);
-      setLoadedStudy({ id: study.id, version: study.version ?? null });
-      setReadOnly(readOnly);
-      setActiveTab('chart');
-
-      if (readOnly) {
-        addToast(
-          'El estudio se cargó en modo solo lectura. Habilite la edición para modificarlo (botón "Habilitar Edición" al final de la página).',
-          'warning',
-        );
-      }
-    } catch (error) {
-      console.error('Error loading study:', error);
-      alert('Ocurrió un error al cargar el estudio: ' + (error as Error).message);
     }
   };
 
