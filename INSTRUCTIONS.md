@@ -268,6 +268,50 @@ the chart URL); we generate it locally with `qrcode` — no data leaves the devi
 URL points at the reference site's viewer (our app has no public unauthenticated chart viewer;
 revisit `PERIO_QR_TARGET_BASE` if one is added).
 
+### 21.8 Intervalo (IntervalModal) — ported (2026-11-17)
+
+Source: `js/renderer/interval_renderer.js` + the site's `window.intervalLabels` ES dictionary.
+Replaced the previous placeholder radio-picker (which wrote a `intervalo_mantenimiento` chart
+field that was never persisted).
+
+- Files: `src/lib/utils/periodontalInterval.ts` (self-contained engine), rewritten
+  `components/periodontal/modals/IntervalModal.tsx`, tests `tests/periodontalInterval.test.ts`
+  (23), migration `database/migrations/add_interval_data_estudios_periodontales.sql`
+  (**must be applied manually in Supabase**).
+- Engine ports `analyzeIntervalData` (denominator = 6 sites × present teeth; "der Zahn
+  entscheidet" gate; BOP/PI > 0 surfaces + == 1 positive sites; PD buckets 4/5/≥6; furcation
+  2|3 advanced; the site's `pi_sci_*` guard is kept via a strict `^(bop|pi|pd|furcation)_\d\d_`
+  key regex), `calculateIntervalCumulative` (≥4/≥5/≥6 %, 1 decimal), and
+  `calculateRecommendedInterval` (risk factors BOP > 16% smoker / 23% non-smoker, S, D,
+  furcations ≥2 shorten the interval one step in [3,4,6,9,12]; label order BOP, S, D, F).
+- **Ladder difference:** the site has TWO interval ladders. The Historial one (already ported in
+  `periodontalHistory.suggestMaintenanceInterval`, thresholds 20/10/5/2 → 4/6/9/12) is NOT the
+  Interval modal's. The Interval modal's ladder contains duplicated conditions whose effective
+  result is: cum4 ≤10→12, ≤20→6, else 3 (the "≤20→4" line is dead); cum5 ≤2→12, ≤4→9, ≤6→6,
+  ≤10→4, else 3; cum6 ≤1→12, ≤2→6, ≤3→4, else 3 (the "≤1→9" line is dead); suggested =
+  min(st4, st5, st6). `findLadderHighlightRow` mirrors the table highlight (bottom-most row
+  whose threshold covers the value; none → whole column critical/red).
+- UI: Evaluación table (count/%/cumulative per 4/5/≥6), pure-SVG stacked bar chart with the
+  site's colors (#7D97E3 PI, #CCCCCC/#656565/#FD0000 PD, #FDA5A5 BOP, #E7F3FD background) and
+  black threshold lines (PI 20%, BOP 16/23%), threshold table with green/critical highlighting
+  and amber suggested row, clickable month boxes [3,4,6,9,12] (suggested grey, recommended
+  white outline, selected teal) with an SVG suggested→recommended arrow labelled with the
+  factor codes, and Tabaquismo/Diabetes checkboxes (initialized from saved interval_data, else
+  from the patient record like ProfileModal).
+- Persistence: `interval_data` jsonb column `{recommended, suggested, smoking, diabetes}`
+  (same shape the site stores on its studies) wired through `buildChartDataFromStudy`,
+  `prepareApiPayload` and the POST/PUT routes. The legacy `intervalo_mantenimiento` chart
+  field is no longer written (nothing read it).
+- Export: composed SVG → `interval.png` via `rasterizeSvg` (chart + evaluation + threshold
+  grid with highlights + recommendation lines), matching the site's html2canvas artifact.
+
+**Deviations:** the site auto-saves interval changes into its local JSON every second; our port
+persists on each user action into `chartData.interval_data` and ships it with the study save
+flow. Month boxes come from the site's 5-ladder (the old placeholder offered 24 months, which
+the reference never uses). The chart keeps the site's light background so its original colors
+and threshold lines stay readable.
+
+
 
 ## 22. Pending ports (backlog)
 

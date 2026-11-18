@@ -522,6 +522,7 @@ export const useChartStore = create<ChartState>()(
         objetivo_estudio: chart.objetivo_estudio || null,
         plan_tratamiento: chart.plan_tratamiento || {},
         clasificacion: chart.clasificacion || null,
+        interval_data: chart.interval_data || null,
         mediciones,
       };
     },

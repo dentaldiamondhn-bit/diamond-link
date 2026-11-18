@@ -670,7 +670,11 @@ function EstudioPeriodontalContent() {
         onOpenChange={open => !open && setOpenModal(null)}
         patient={patient}
       />
-      <IntervalModal open={openModal === 'interval'} onOpenChange={open => !open && setOpenModal(null)} />
+      <IntervalModal
+        open={openModal === 'interval'}
+        onOpenChange={open => !open && setOpenModal(null)}
+        patient={patient}
+      />
       <Periodontal3DModal open={openModal === 'three-d'} onOpenChange={open => !open && setOpenModal(null)} />
       <QrModal open={openModal === 'qr'} onOpenChange={open => !open && setOpenModal(null)} />
       <CalibrationModal

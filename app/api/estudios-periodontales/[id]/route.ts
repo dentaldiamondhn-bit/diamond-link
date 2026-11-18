@@ -86,6 +86,7 @@ export async function PUT(
         clasificacion: body.clasificacion || null,
         general_health_data: body.general_health_data || null,
         microbiology_data: body.microbiology_data || null,
+        interval_data: body.interval_data || null,
         actualizado_en: new Date().toISOString()
       })
       .eq('id', estudioId)
