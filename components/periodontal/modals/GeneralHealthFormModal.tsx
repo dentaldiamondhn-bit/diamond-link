@@ -275,7 +275,6 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
   const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>({});
   const [downloading, setDownloading] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const formInitialized = useRef(false);
 
   const structure = useMemo(() => DEFAULT_FORM_STRUCTURE, []);
 
@@ -294,12 +293,10 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
   // for its lifetime (avoids React's uncontrolled->controlled warning).
   const [formData, setFormData] = useState<Record<string, any>>(patientDefaults);
 
-  // Merge saved form data once after mount; defaults are already applied as
-  // the initial state so every input stays controlled for its lifetime.
+  // Re-apply defaults (and merge saved questionnaire data) whenever the
+  // patient changes — e.g. patient loads asynchronously after the component
+  // mounts — while keeping every input controlled from the first render.
   useEffect(() => {
-    if (formInitialized.current) return;
-    formInitialized.current = true;
-
     const savedData = chartData.general_health_data;
     if (savedData) {
       try {
@@ -308,6 +305,8 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
       } catch {
         setFormData(patientDefaults);
       }
+    } else {
+      setFormData(patientDefaults);
     }
   }, [chartData.general_health_data, patientDefaults]);
 
