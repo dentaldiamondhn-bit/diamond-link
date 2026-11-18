@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Camera, ChevronDown, ChevronUp, Download, Printer, Stethoscope, X } from 'lucide-react';
 import { useChartStore } from '@/lib/store/useChartStore';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -274,6 +274,7 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
   const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>({});
   const [downloading, setDownloading] = useState(false);
+  const [userEdits, setUserEdits] = useState<Record<string, any>>({});
   const formRef = useRef<HTMLFormElement>(null);
 
   const structure = useMemo(() => DEFAULT_FORM_STRUCTURE, []);
@@ -289,33 +290,29 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
     return defaults;
   }, [patient, chartData.date]);
 
-  // Initialize state with patient defaults so every input stays controlled
-  // for its lifetime (avoids React's uncontrolled->controlled warning).
-  const [formData, setFormData] = useState<Record<string, any>>(patientDefaults);
-
-  // Re-apply defaults (and merge saved questionnaire data) whenever the
-  // patient changes — e.g. patient loads asynchronously after the component
-  // mounts — while keeping every input controlled from the first render.
-  useEffect(() => {
+  // Derive formData during render so every input is controlled from the
+  // very first render — patientDefaults and savedData are applied
+  // synchronously (no effect-after-render state update that could flip an
+  // input from uncontrolled to controlled). User edits live in userEdits.
+  const formData = useMemo<Record<string, any>>(() => {
+    const base: Record<string, any> = { ...patientDefaults };
     const savedData = chartData.general_health_data;
     if (savedData) {
       try {
-        const parsed = typeof savedData === 'string' ? JSON.parse(savedData) : savedData;
-        setFormData({ ...patientDefaults, ...parsed });
+        Object.assign(base, typeof savedData === 'string' ? JSON.parse(savedData) : savedData);
       } catch {
-        setFormData(patientDefaults);
+        // Ignore malformed saved data; patient defaults stand.
       }
-    } else {
-      setFormData(patientDefaults);
     }
-  }, [chartData.general_health_data, patientDefaults]);
+    return { ...base, ...userEdits };
+  }, [patientDefaults, chartData.general_health_data, userEdits]);
 
   const handleChange = (fieldName: string, value: any) => {
-    setFormData(prev => ({ ...prev, [fieldName]: value }));
+    setUserEdits(prev => ({ ...prev, [fieldName]: value }));
   };
 
   const handleMultiSelectChange = (fieldName: string, option: string, checked: boolean) => {
-    setFormData(prev => {
+    setUserEdits(prev => {
       const current = (prev[fieldName] as string[]) || [];
       const updated = checked ? [...current, option] : current.filter(o => o !== option);
       return { ...prev, [fieldName]: updated };
