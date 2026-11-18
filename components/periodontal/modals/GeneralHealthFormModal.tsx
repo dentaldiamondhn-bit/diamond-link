@@ -504,7 +504,7 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
                                       {field.type === 'multi-select' && (
                                         <div className="flex flex-wrap gap-2">
                                           {field.options?.map(opt => {
-                                            const checked = (formData[field.name] as string[])?.includes(opt);
+                                            const checked = (formData[field.name] as string[] || []).includes(opt);
                                             return (
                                               <label key={opt} className="inline-flex items-center gap-1.5 cursor-pointer">
                                                 <input
