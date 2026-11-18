@@ -16,7 +16,7 @@ interface GeneralHealthFormModalProps {
 interface FormField {
   name: string;
   label: string;
-  type: 'text' | 'checkbox' | 'select' | 'multi-select';
+  type: 'text' | 'date' | 'checkbox' | 'select' | 'multi-select';
   options?: string[];
 }
 
@@ -46,12 +46,11 @@ const DEFAULT_FORM_STRUCTURE = {
           title: 'General',
           description: '',
           fields: [
-            { name: 'patient_number', label: 'ID del paciente', type: 'text' },
-            { name: 'date_saved', label: 'Fecha', type: 'text' },
-            { name: 'patient_last_name', label: 'Apellidos', type: 'text' },
-            { name: 'patient_first_name', label: 'Nombre', type: 'text' },
+            { name: 'nombre_completo', label: 'Nombre Completo', type: 'text' },
+            { name: 'patient_number', label: 'ID del paciente (DNI)', type: 'text' },
             { name: 'patient_dob', label: 'Fecha de nacimiento', type: 'text' },
-            { name: 'reevaluation_note', label: 'Nota de reevaluación', type: 'text' },
+            { name: 'date_saved', label: 'Fecha', type: 'date' },
+            { name: 'reevaluation_note', label: 'Notas de reevaluación', type: 'text' },
           ],
         },
       ],
@@ -282,17 +281,24 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
 
   useEffect(() => {
     const savedData = chartData.general_health_data;
+    const defaults: Record<string, any> = {};
+    if (patient) {
+      defaults.nombre_completo = patient.nombre_completo || '';
+      defaults.patient_number = patient.numero_identidad || '';
+      defaults.patient_dob = patient.fecha_nacimiento || '';
+      defaults.date_saved = chartData.date || new Date().toISOString().split('T')[0];
+    }
     if (savedData) {
       try {
         const parsed = typeof savedData === 'string' ? JSON.parse(savedData) : savedData;
-        setFormData(parsed);
+        setFormData({ ...defaults, ...parsed });
       } catch {
-        setFormData({});
+        setFormData(defaults);
       }
     } else {
-      setFormData({});
+      setFormData(defaults);
     }
-  }, [chartData.general_health_data]);
+  }, [chartData.general_health_data, patient, chartData.date]);
 
   const handleChange = (fieldName: string, value: any) => {
     setFormData(prev => ({ ...prev, [fieldName]: value }));
@@ -353,10 +359,6 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
   const isGroupExpanded = (sectionIndex: number, groupIndex: number) => expandedGroups[`${sectionIndex}-${groupIndex}`] ?? true;
 
   if (!open) return null;
-
-  const patientInfo = patient
-    ? `${patient.nombre_completo} · ${chartData.date || ''}`
-    : 'Sin paciente';
 
   return (
     <div
@@ -465,6 +467,16 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
                                           value={formData[field.name] || ''}
                                           onChange={e => handleChange(field.name, e.target.value)}
                                           placeholder={field.label}
+                                          className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/[0.04] text-sm text-white focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
+                                        />
+                                      )}
+                                      {field.type === 'date' && (
+                                        <input
+                                          type="date"
+                                          id={field.name}
+                                          name={field.name}
+                                          value={formData[field.name] || ''}
+                                          onChange={e => handleChange(field.name, e.target.value)}
                                           className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/[0.04] text-sm text-white focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
                                         />
                                       )}
@@ -629,7 +641,7 @@ async function formToSvg(form: HTMLFormElement): Promise<string> {
   subtitle.setAttribute('font-size', '12');
   subtitle.setAttribute('font-family', 'Arial, sans-serif');
   subtitle.setAttribute('fill', '#6B7280');
-  subtitle.textContent = `Paciente: ${formData.get('patient_first_name') || ''} ${formData.get('patient_last_name') || ''}  ·  Fecha: ${formData.get('date_saved') || ''}`;
+        subtitle.textContent = `Paciente: ${formData.get('nombre_completo') || ''}  ·  ID: ${formData.get('patient_number') || ''}  ·  Fecha: ${formData.get('date_saved') || ''}`;
   svg.appendChild(subtitle);
 
   y += 25;
