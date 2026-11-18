@@ -33,6 +33,7 @@ import {
 } from '@/components/periodontal';
 import type { ClinicalModalKey } from '@/components/periodontal';
 import { Button, Input } from '@/components/ui';
+import { useToast, ToastProvider } from '@/components/ui/Toast';
 import { Plus, ChevronLeft, ChevronDown, ChevronUp, Save, Edit, Stethoscope } from 'lucide-react';
 
 function EstudioPeriodontalContent() {
@@ -64,6 +65,8 @@ function EstudioPeriodontalContent() {
     setChartData,
     collectDataAsJson,
   } = useChartStore();
+
+  const { addToast } = useToast();
 
   const { overlayData, setOverlayData, clearOverlay } = useOverlayStore();
 
@@ -358,6 +361,13 @@ function EstudioPeriodontalContent() {
       setLoadedStudy({ id: study.id, version: study.version ?? null });
       setReadOnly(readOnly);
       setActiveTab('chart');
+
+      if (readOnly) {
+        addToast(
+          'El estudio se cargó en modo solo lectura. Habilite la edición para modificarlo (botón "Habilitar Edición" al final de la página).',
+          'warning',
+        );
+      }
     } catch (error) {
       console.error('Error loading study:', error);
       alert('Ocurrió un error al cargar el estudio: ' + (error as Error).message);
@@ -713,8 +723,10 @@ function EstudioPeriodontalContent() {
 
 export default function EstudioPeriodontal() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="text-lg">Cargando...</div></div>}>
-      <EstudioPeriodontalContent />
-    </Suspense>
+    <ToastProvider>
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="text-lg">Cargando...</div></div>}>
+        <EstudioPeriodontalContent />
+      </Suspense>
+    </ToastProvider>
   );
 }
