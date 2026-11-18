@@ -398,7 +398,7 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
           </div>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
+        <form id="general-health-form" ref={formRef} onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4">
             {structure.sections.map((section, sectionIndex) => {
               const expanded = isSectionExpanded(sectionIndex);
