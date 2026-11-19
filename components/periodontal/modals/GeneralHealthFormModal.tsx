@@ -454,7 +454,7 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
                                     </label>
                                     <div>
                                       {field.type === 'checkbox' && (
-                                        <label className="flex items-center gap-2 cursor-pointer">
+                                        <label className="flex items-center min-h-[32px] gap-2 cursor-pointer">
                                           <input
                                             type="checkbox"
                                             id={field.name}
@@ -463,7 +463,6 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
                                             onChange={e => handleChange(field.name, e.target.checked)}
                                             className="h-4 w-4 text-teal-400 rounded border-white/20 focus:ring-teal-400"
                                           />
-                                          <span className="text-sm text-slate-300">{field.label}</span>
                                         </label>
                                       )}
                                       {field.type === 'text' && (
@@ -562,7 +561,7 @@ function GeneralHealthFormModal({ open, onOpenChange, patient = null }: GeneralH
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/[0.08] transition-all"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/[0.08] transition-all"
               >
                 <X className="h-4 w-4" />
                 Cerrar
