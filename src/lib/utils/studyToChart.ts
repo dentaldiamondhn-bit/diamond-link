@@ -24,6 +24,7 @@ export function buildChartDataFromStudy(study: any): ChartData {
   chartData.plan_tratamiento = study?.plan_tratamiento || {};
   chartData.clasificacion = study?.clasificacion || undefined;
   chartData.interval_data = study?.interval_data || undefined;
+  chartData.general_health_data = study?.general_health_data || undefined;
   chartData.doctor_id = study?.doctor_id || '';
   chartData.clinician = study?.atendido_por || study?.doctors?.name || study?.doctor || '';
 

@@ -523,6 +523,7 @@ export const useChartStore = create<ChartState>()(
         plan_tratamiento: chart.plan_tratamiento || {},
         clasificacion: chart.clasificacion || null,
         interval_data: chart.interval_data || null,
+        general_health_data: chart.general_health_data || null,
         mediciones,
       };
     },
