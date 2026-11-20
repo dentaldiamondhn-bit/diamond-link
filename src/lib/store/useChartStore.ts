@@ -31,6 +31,10 @@ interface ChartState {
   toothMeasurements: ToothMeasurement[];
   deletedRowsStack: { row: ToothMeasurement; index: number }[];
 
+  // Undo history stack: capped snapshot history for mutating clinical actions.
+  past: ChartStateSnapshot[];
+  MAX_UNDO_STEPS: number;
+
   viewStatus: ViewStatus;
   isGmInverted: boolean;
   isMirrored: boolean;
@@ -46,6 +50,8 @@ interface ChartState {
   updateToothMeasurement: (index: number, field: string, value: any) => void;
   deleteToothRow: (index: number) => void;
   restoreLastDeletedRow: () => void;
+  undo: () => void;
+  clearAll: () => void;
   setViewStatus: (status: ViewStatus) => void;
   toggleGmInverted: () => void;
   toggleMirrored: () => void;
@@ -74,6 +80,18 @@ interface ChartState {
 
 const INDEX_SURFACES: SurfaceId[] = ['mb', 'b', 'db', 'mp', 'p', 'dp', 'ml', 'l', 'dl'];
 
+/** Snapshot of the full clinical chart state used by the undo stack. */
+export interface ChartStateSnapshot {
+  chartData: ChartData;
+  toothMeasurements: ToothMeasurement[];
+  viewStatus: ViewStatus;
+  isGmInverted: boolean;
+  isMirrored: boolean;
+  activeIndices: ActiveIndices;
+  activeRemoteControl: string;
+  isOverlayMode: boolean;
+}
+
 const initialToothMeasurements: ToothMeasurement[] = ALL_TEETH.map(tooth => ({
   diente: String(tooth),
   vestibular: { mesial: '', medio: '', distal: '' },
@@ -88,7 +106,9 @@ const initialState: ChartState = {
   chartData: CHART_TEMPLATE,
   toothMeasurements: initialToothMeasurements,
   deletedRowsStack: [],
-  
+  past: [],
+  MAX_UNDO_STEPS: 50,
+
   viewStatus: 2,
   // The site defaults isGmInverted to its locale check isUSA (js/script.js:300-305):
   // false for lang=es, so a positive GM means recession and AL = PD - GM.
@@ -106,6 +126,8 @@ const initialState: ChartState = {
   updateToothMeasurement: () => {},
   deleteToothRow: () => {},
   restoreLastDeletedRow: () => {},
+  undo: () => {},
+  clearAll: () => {},
   setViewStatus: () => {},
   toggleGmInverted: () => {},
   toggleMirrored: () => {},
@@ -132,23 +154,55 @@ const initialState: ChartState = {
   setMobility: () => {},
 };
 
+// Push a deep clone of the current clinical state onto the undo stack, unless
+// the chart data is identical to the last snapshot (avoids duplicate entries
+// when blurring an input with the same value).
+function pushSnapshot(get: () => ChartState, set: (fn: (draft: ChartState) => void) => void) {
+  const state = get();
+  const last = state.past[state.past.length - 1];
+  if (
+    last &&
+    JSON.stringify(state.chartData) === JSON.stringify(last.chartData) &&
+    JSON.stringify(state.toothMeasurements) === JSON.stringify(last.toothMeasurements)
+  ) {
+    return;
+  }
+  const snapshot: ChartStateSnapshot = {
+    chartData: JSON.parse(JSON.stringify(state.chartData)),
+    toothMeasurements: JSON.parse(JSON.stringify(state.toothMeasurements)),
+    viewStatus: state.viewStatus,
+    isGmInverted: state.isGmInverted,
+    isMirrored: state.isMirrored,
+    activeIndices: { ...state.activeIndices },
+    activeRemoteControl: state.activeRemoteControl,
+    isOverlayMode: state.isOverlayMode,
+  };
+  set((draft) => {
+    draft.past = [...draft.past, snapshot].slice(-draft.MAX_UNDO_STEPS);
+  });
+}
+
 export const useChartStore = create<ChartState>()(
   immer((set, get) => ({
     ...initialState,
 
-    setChartData: (newData) => set((state) => {
-      Object.assign(state.chartData, newData);
-      // The store flag is the single source of truth for the GM sign; an
-      // imported chart may carry its own flag, so adopt it here.
-      if (typeof newData.isGmInverted === 'boolean') {
-        state.isGmInverted = newData.isGmInverted;
-      }
-      state.chartData.isGmInverted = state.isGmInverted;
-      state.isDirty = true;
-    }),
+    setChartData: (newData) => {
+      pushSnapshot(get, set);
+      set((state) => {
+        Object.assign(state.chartData, newData);
+        // The store flag is the single source of truth for the GM sign; an
+        // imported chart may carry its own flag, so adopt it here.
+        if (typeof newData.isGmInverted === 'boolean') {
+          state.isGmInverted = newData.isGmInverted;
+        }
+        state.chartData.isGmInverted = state.isGmInverted;
+        state.isDirty = true;
+      });
+    },
 
 
     updateField: (key, value) => {
+      pushSnapshot(get, set);
       set((state) => {
         if (key.includes('.')) {
           const parts = key.split('.');
@@ -174,7 +228,9 @@ export const useChartStore = create<ChartState>()(
       }
     },
 
-    updateToothMeasurement: (index, field, value) => set((state) => {
+    updateToothMeasurement: (index, field, value) => {
+      pushSnapshot(get, set);
+      set((state) => {
       if (field.includes('.')) {
         const [parent, child] = field.split('.');
         const parentKey = parent as keyof ToothMeasurement;
@@ -193,25 +249,91 @@ export const useChartStore = create<ChartState>()(
         };
       }
       state.isDirty = true;
-    }),
+      });
+    },
 
-    deleteToothRow: (index) => set((state) => {
-      const row = state.toothMeasurements[index];
-      state.deletedRowsStack.push({ row, index });
-      state.toothMeasurements = state.toothMeasurements.filter((_, i) => i !== index);
-      state.isDirty = true;
-    }),
-
-    restoreLastDeletedRow: () => set((state) => {
-      if (state.deletedRowsStack.length > 0) {
-        const { row, index } = state.deletedRowsStack[state.deletedRowsStack.length - 1];
-        const updated = [...state.toothMeasurements];
-        updated.splice(index, 0, row);
-        state.toothMeasurements = updated;
-        state.deletedRowsStack = state.deletedRowsStack.slice(0, -1);
+    deleteToothRow: (index) => {
+      pushSnapshot(get, set);
+      set((state) => {
+        const row = state.toothMeasurements[index];
+        state.deletedRowsStack.push({ row, index });
+        state.toothMeasurements = state.toothMeasurements.filter((_, i) => i !== index);
         state.isDirty = true;
-      }
-    }),
+      });
+    },
+
+    restoreLastDeletedRow: () => {
+      pushSnapshot(get, set);
+      set((state) => {
+        if (state.deletedRowsStack.length > 0) {
+          const { row, index } = state.deletedRowsStack[state.deletedRowsStack.length - 1];
+          const updated = [...state.toothMeasurements];
+          updated.splice(index, 0, row);
+          state.toothMeasurements = updated;
+          state.deletedRowsStack = state.deletedRowsStack.slice(0, -1);
+          state.isDirty = true;
+        }
+      });
+    },
+
+    undo: () => {
+      set((state) => {
+        if (state.past.length === 0) return;
+        const snapshot = state.past[state.past.length - 1];
+        state.chartData = JSON.parse(JSON.stringify(snapshot.chartData));
+        state.toothMeasurements = JSON.parse(JSON.stringify(snapshot.toothMeasurements));
+        state.viewStatus = snapshot.viewStatus;
+        state.isGmInverted = snapshot.isGmInverted;
+        state.isMirrored = snapshot.isMirrored;
+        state.activeIndices = { ...snapshot.activeIndices };
+        state.activeRemoteControl = snapshot.activeRemoteControl;
+        state.isOverlayMode = snapshot.isOverlayMode;
+        state.past = state.past.slice(0, -1);
+        state.isDirty = true;
+      });
+    },
+
+    clearAll: () => {
+      pushSnapshot(get, set);
+      set((state) => {
+        state.chartData = {
+          ...CHART_TEMPLATE,
+          patient_number: state.chartData.patient_number,
+          patient_first_name: state.chartData.patient_first_name,
+          patient_last_name: state.chartData.patient_last_name,
+          patient_dob: state.chartData.patient_dob,
+          date: state.chartData.date,
+          date_saved: state.chartData.date_saved,
+          clinician: state.chartData.clinician,
+          doctor_id: state.chartData.doctor_id,
+          isGmInverted: state.isGmInverted,
+        };
+        ALL_TEETH.forEach(tooth => {
+          const surfaces = ['mb', 'b', 'db', 'mp', 'p', 'dp', 'ml', 'l', 'dl'] as const;
+          surfaces.forEach(surf => {
+            state.chartData[`pd_${tooth}_${surf}`] = 0;
+            state.chartData[`gm_${tooth}_${surf}`] = 0;
+            state.chartData[`bop_${tooth}_${surf}`] = '0';
+            state.chartData[`pi_${tooth}_${surf}`] = '0';
+          });
+          state.chartData[`mobility_${tooth}`] = 0;
+          state.chartData[`implant_${tooth}`] = 0;
+          state.chartData[`note_${tooth}`] = '';
+          ['b', 'mp', 'dp', 'l'].forEach(site => {
+            state.chartData[`furcation_${tooth}_${site}`] = 0;
+          });
+        });
+        state.toothMeasurements = initialToothMeasurements.map(tm => ({
+          ...tm,
+          vestibular: { ...tm.vestibular },
+          palatino: { ...tm.palatino },
+        }));
+        state.deletedRowsStack = [];
+        state.hasClinicalData = false;
+        state.isDirty = true;
+      });
+      get().calculateAllAL();
+    },
 
     setViewStatus: (status) => set((state) => {
       state.viewStatus = status;
@@ -219,6 +341,7 @@ export const useChartStore = create<ChartState>()(
     }),
 
     toggleGmInverted: () => {
+      pushSnapshot(get, set);
       set((state) => {
         state.isGmInverted = !state.isGmInverted;
         state.chartData.isGmInverted = state.isGmInverted;
@@ -226,15 +349,21 @@ export const useChartStore = create<ChartState>()(
       get().calculateAllAL();
     },
 
-    toggleMirrored: () => set((state) => {
-      state.isMirrored = !state.isMirrored;
-      state.chartData.isMirrored = state.isMirrored;
-    }),
+    toggleMirrored: () => {
+      pushSnapshot(get, set);
+      set((state) => {
+        state.isMirrored = !state.isMirrored;
+        state.chartData.isMirrored = state.isMirrored;
+      });
+    },
 
-    setActiveIndices: (indices) => set((state) => {
-      state.activeIndices = { ...state.activeIndices, ...indices };
-      state.chartData.active_indices = state.activeIndices;
-    }),
+    setActiveIndices: (indices) => {
+      pushSnapshot(get, set);
+      set((state) => {
+        state.activeIndices = { ...state.activeIndices, ...indices };
+        state.chartData.active_indices = state.activeIndices;
+      });
+    },
 
     setActiveRemoteControl: (mode) => set((state) => {
       state.activeRemoteControl = mode;
@@ -297,6 +426,7 @@ export const useChartStore = create<ChartState>()(
     }),
 
     initializeFromPatient: (patientId, patientName) => {
+      pushSnapshot(get, set);
       const initialChartData: ChartData = { ...CHART_TEMPLATE };
       ALL_TEETH.forEach(tooth => {
         initialChartData[`tooth_${tooth}`] = '1';
@@ -345,6 +475,7 @@ export const useChartStore = create<ChartState>()(
     },
 
     loadFromApiData: (apiData) => {
+      pushSnapshot(get, set);
       set((state) => {
         if (!apiData) return;
 
@@ -529,6 +660,7 @@ export const useChartStore = create<ChartState>()(
     },
 
     handleToothSurfaceClick: (tooth: number, surfaceId: string, type: 'bop' | 'pi', value: boolean) => {
+      pushSnapshot(get, set);
       set((state) => {
         getApplicableSurfaces(tooth as FDIToothNumber).forEach(surface => {
           state.chartData[`${type}_${tooth}_${surface}`] = value ? '1' : '0';
@@ -567,6 +699,7 @@ export const useChartStore = create<ChartState>()(
       const key = `bop_${tooth}_${surface}`;
       const current = get().chartData[key] === '1' || get().chartData[key] === 1;
 
+      pushSnapshot(get, set);
       set((state) => {
         state.chartData[key] = current ? '0' : '1';
         state.isDirty = true;
@@ -582,6 +715,7 @@ export const useChartStore = create<ChartState>()(
       const key = `pi_${tooth}_${surface}`;
       const current = get().chartData[key] === '1' || get().chartData[key] === 1;
 
+      pushSnapshot(get, set);
       set((state) => {
         state.chartData[key] = current ? '0' : '1';
         state.isDirty = true;
@@ -594,6 +728,7 @@ export const useChartStore = create<ChartState>()(
       const key = `tooth_${tooth}`;
       const present = isToothPresent(get().chartData, tooth as FDIToothNumber);
 
+      pushSnapshot(get, set);
       set((state) => {
         state.chartData[key] = present ? '0' : '1';
 
@@ -624,6 +759,7 @@ export const useChartStore = create<ChartState>()(
       const current = parseInt(get().chartData[`implant_${tooth}`], 10) || 0;
       const next = (current + 1) % 4;
 
+      pushSnapshot(get, set);
       set((state) => {
         state.chartData[`implant_${tooth}`] = next;
         // An implanted tooth has no furcation to grade: activating the implant
@@ -643,6 +779,7 @@ export const useChartStore = create<ChartState>()(
       // marked Ausente.
       if ((parseInt(get().chartData[`implant_${tooth}`], 10) || 0) !== 0) return;
       if (!isToothPresent(get().chartData, tooth as FDIToothNumber)) return;
+      pushSnapshot(get, set);
       set((state) => {
         state.chartData[`furcation_${tooth}_${site}`] = grade;
         state.isDirty = true;
@@ -653,6 +790,7 @@ export const useChartStore = create<ChartState>()(
       // Mobility is locked while the position is Ausente without an implant
       // (peri-implant mobility stays measurable on purpose).
       if (!isToothCharted(get().chartData, tooth as FDIToothNumber)) return;
+      pushSnapshot(get, set);
       set((state) => {
         state.chartData[`mobility_${tooth}`] = grade;
         state.isDirty = true;

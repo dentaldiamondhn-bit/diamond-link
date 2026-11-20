@@ -64,6 +64,8 @@ function EstudioPeriodontalContent() {
     updateField,
     setChartData,
     collectDataAsJson,
+    undo,
+    clearAll,
   } = useChartStore();
 
   const { addToast } = useToast();
@@ -163,6 +165,27 @@ function EstudioPeriodontalContent() {
   useEffect(() => {
     loadSavedStudies();
   }, [loadSavedStudies]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        // Don't undo when actively typing in a text input or textarea
+        const target = e.target as HTMLElement;
+        if (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+        e.preventDefault();
+        undo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo]);
 
   useEffect(() => {
     if (!isOverlayMode) {
@@ -286,6 +309,21 @@ function EstudioPeriodontalContent() {
     };
     reader.readAsText(file);
     event.target.value = '';
+  };
+
+  const handleUndo = () => {
+    undo();
+  };
+
+  const handleClearAll = () => {
+    if (
+      !confirm(
+        '¿Limpiar todo el chart periodontal? Se borrarán todos los valores de sondaje, margen gingival, sangrado, placa, movilidad, implantes y furcaciones. Esta acción se puede deshacer.',
+      )
+    ) {
+      return;
+    }
+    clearAll();
   };
 
   const handleFormSubmit = async (e?: React.FormEvent) => {
@@ -596,6 +634,8 @@ function EstudioPeriodontalContent() {
               onSave={handleFormSubmit}
               onExport={handleExportJson}
               onImport={() => importInputRef.current?.click()}
+              onClearAll={handleClearAll}
+              onUndo={handleUndo}
               onOpenModal={setOpenModal}
               onNewVersion={handleCreateNewVersion}
               isEditingVersion={Boolean(loadedStudy)}

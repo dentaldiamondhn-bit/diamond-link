@@ -9,6 +9,7 @@ import {
   Copy,
   Download,
   Droplet,
+  Eraser,
   QrCode,
   Ruler,
   Save,
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   Sparkles,
   Stethoscope,
+  Undo2,
   Upload,
 } from 'lucide-react';
 import { useChartStore } from '@/lib/store/useChartStore';
@@ -38,6 +40,8 @@ interface LeftActionPanelProps {
   onSave: () => void;
   onExport: () => void;
   onImport: () => void;
+  onClearAll: () => void;
+  onUndo: () => void;
   onOpenModal: (key: ClinicalModalKey) => void;
   onNewVersion: () => void;
   isEditingVersion: boolean;
@@ -103,6 +107,8 @@ export function LeftActionPanel({
   onSave,
   onExport,
   onImport,
+  onClearAll,
+  onUndo,
   onOpenModal,
   onNewVersion,
   isEditingVersion,
@@ -152,6 +158,29 @@ export function LeftActionPanel({
         >
           <Upload className="h-4 w-4" />
           Importar
+        </button>
+      </div>
+
+      <div className="mt-2 flex flex-col gap-1.5 border-t border-gray-200 dark:border-gray-700 pt-3">
+        <button
+          type="button"
+          onClick={onClearAll}
+          disabled={disabled}
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 hover:border-rose-400/35 bg-white/[0.04] hover:bg-rose-500/15 px-2.5 py-2.5 text-xs font-medium text-slate-200 hover:text-rose-200 transition-all"
+          title="Limpiar todo el chart periodontal"
+        >
+          <Eraser className="h-4 w-4" />
+          Limpiar Todo
+        </button>
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={disabled}
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 hover:border-amber-400/35 bg-white/[0.04] hover:bg-amber-500/15 px-2.5 py-2.5 text-xs font-medium text-slate-200 hover:text-amber-200 disabled:opacity-40 disabled:pointer-events-none transition-all"
+          title="Deshacer último cambio (Ctrl+Z)"
+        >
+          <Undo2 className="h-4 w-4" />
+          Deshacer
         </button>
       </div>
 
