@@ -6,7 +6,6 @@ import type {
   DateHeaderProps,
   EventProps,
   HeaderProps,
-  ToolbarProps,
   View,
 } from 'react-big-calendar';
 import { format, isSameDay } from 'date-fns';
@@ -19,13 +18,15 @@ import { STATUS_CHIP, btnSecondary, chipCls, glassBar, glassChip, glassCard } fr
 import { withAlpha } from '@/calendario/eventTint';
 import { cn } from '@/lib/utils';
 import { formatClock12 } from '@/calendario/timezone';
+import type { CalendarView } from '@/calendario/range';
 
-const VIEW_LABELS: Record<View, string> = {
+const VIEW_LABELS: Record<CalendarView, string> = {
   month: 'Mes',
   week: 'Semana',
   work_week: 'Semana laboral',
   day: 'Día',
   agenda: 'Agenda',
+  birthdays: 'Cumpleaños',
 };
 
 const NAV_ICONS: Record<string, ReactNode> = {
@@ -178,8 +179,14 @@ export function AgendaEventCard({ event, title }: EventProps<RbcEvent>) {
  *  two uneven lines that pushed the grid down. Every control also carries a
  *  40px touch target on coarse pointers (h-10 below `sm`, back to h-8 above)
  *  so `Mes/Semana/Día/Agenda` stay comfortably tappable. */
-export function CalendarToolbar({ label, view, views, onNavigate, onView }: ToolbarProps<RbcEvent, object>) {
-  const viewList = (Array.isArray(views) ? views : Object.keys(views)) as View[];
+export function CalendarToolbar({ label, view, views, onNavigate, onView }: {
+  label: string;
+  view: CalendarView;
+  views: CalendarView[];
+  onNavigate: (action: 'TODAY' | 'PREV' | 'NEXT' | Date) => void;
+  onView: (view: CalendarView) => void;
+}) {
+  const viewList = views;
   // 40px (2.5rem) touch height on phones, 32px pill density from `sm` up.
   const touchCls = 'h-10 sm:h-8';
   const activeCls =
@@ -282,7 +289,6 @@ export function MonthWeekdayHeader({ label }: HeaderProps) {
 
 export const calendarComponents: Components<RbcEvent, object> = {
   event: EventPill,
-  toolbar: CalendarToolbar,
   header: WeekdayHeader,
   // `month.dateHeader` is the slot RBC actually reads. `month.header` is dead
   // config, so registering there left RBC to fall back to its own header and

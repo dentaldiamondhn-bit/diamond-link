@@ -106,6 +106,11 @@ export interface ModalPrefill {
     phone?: string;
     phone_country?: string;
   };
+  /** DOB-event prefill ("Agendar cita" from Cumpleaños view). */
+  patient_id?: string;
+  patient_name?: string;
+  phone?: string;
+  phone_country?: string;
 }
 
 interface Props {
@@ -376,6 +381,14 @@ export default function EventModal({ open, onClose, onSaved, dateStr, editingEve
           base.phone = pph.number;
           base.phone_country = pph.country;
         }
+      }
+      // DOB-event prefill ("Agendar cita" from Cumpleaños view).
+      if (prefill.patient_id) {
+        base.patient_id = prefill.patient_id;
+        base.patient_name = prefill.patient_name || '';
+        base.phone = prefill.phone ?? '';
+        base.phone_country = prefill.phone_country || '504';
+        base.title = base.title || `Cita con ${prefill.patient_name}`;
       }
       autoEndRef.current = false; // respect the exact slot the user drew
     } else {

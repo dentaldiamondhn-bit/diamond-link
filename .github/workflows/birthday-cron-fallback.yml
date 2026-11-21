@@ -1,0 +1,36 @@
+name: birthday-cron-fallback
+
+# Birthday cron fallback — hits /api/cron/birthdays (POST) as a backup to
+# Supabase pg_cron, which runs at '0 14 * * *' (14:00 UTC = 08:00 Honduras).
+# This fallback runs at '15 14 * * *' (14:15 UTC = 08:15 Honduras), 15 minutes
+# after pg_cron. The endpoint is idempotent (skips patients who already received
+# a birthday_wish notification today in Tegucigalpa bounds), so running both
+# pg_cron and this fallback is safe — zero duplicates.
+
+on:
+  schedule:
+    - cron: '15 14 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: birthday-cron-fallback
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fire the birthday cron dispatcher
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.CRON_BASE_URL }}/api/cron/birthdays")
+          echo "Birthday cron responded with HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Birthday cron failed with status $STATUS" >&2
+            exit 1
+          fi
