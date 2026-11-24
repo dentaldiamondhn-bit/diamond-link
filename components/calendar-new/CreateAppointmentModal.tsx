@@ -16,7 +16,7 @@ import {
 } from '@/calendario/timezone';
 import { TimeClockPicker } from '@/calendario/event/TimeClockPicker';
 import { useToast } from '@/components/calendar-new/Toast';
-import { openWhatsAppDirectly } from '@/lib/contacts/vcard';
+import { openWhatsAppDirectly, formatPhoneDisplay } from '@/lib/contacts/vcard';
 import { CalendarRepository, isDentistConflictError } from '@/calendario/calendarRepository';
 
 export interface PrefilledContact {
@@ -670,7 +670,7 @@ export function CreateAppointmentModal({
                   <label className="block text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 mb-1">
                     Teléfono
                   </label>
-                  <Input value={effectivePhone} readOnly className="text-sm" />
+                  <Input value={formatPhoneDisplay(effectivePhone)} readOnly className="text-sm" />
                 </div>
               </div>
 
