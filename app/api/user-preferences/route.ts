@@ -4,7 +4,17 @@ import { authorizeCalendar } from '@/lib/calendarAuth';
 
 export const runtime = 'nodejs';
 
-/** GET the current user's favorite_invitees and appointment_confirmation. */
+/** Columns the API route is allowed to read/write. */
+const ALLOWED_COLUMNS = [
+  'clerk_user_id',
+  'favorite_invitees',
+  'appointment_confirmation',
+  'page_preferences',
+  'global_preferences',
+  'updated_at',
+] as const;
+
+/** GET the current user's full preferences row. */
 export async function GET(_req: NextRequest) {
   const authz = await authorizeCalendar();
   if ('response' in authz) return authz.response;
@@ -13,7 +23,7 @@ export async function GET(_req: NextRequest) {
   const supabase = createServerServiceClient();
   const { data, error } = await supabase
     .from('user_preferences')
-    .select('favorite_invitees, appointment_confirmation')
+    .select(ALLOWED_COLUMNS.join(','))
     .eq('clerk_user_id', userId)
     .maybeSingle();
 
@@ -21,12 +31,26 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const favorites = Array.isArray(data?.favorite_invitees) ? data.favorite_invitees : [];
-  const confirm = typeof data?.appointment_confirmation === 'boolean' ? data.appointment_confirmation : false;
-  return NextResponse.json({ favorite_invitees: favorites, appointment_confirmation: confirm });
+  const row = (data as unknown) as Record<string, unknown> | null;
+  return NextResponse.json({
+    clerk_user_id: userId,
+    favorite_invitees: Array.isArray(row?.[
+      'favorite_invitees'
+    ]) ? row['favorite_invitees'] : [],
+    appointment_confirmation: typeof row?.['appointment_confirmation'] === 'boolean' ? row['appointment_confirmation'] : false,
+    page_preferences: row?.[
+      'page_preferences'
+    ] ?? {},
+    global_preferences: row?.[
+      'global_preferences'
+    ] ?? {},
+    updated_at: row?.['updated_at'] ?? null,
+  });
 }
 
-/** PUT (upsert) the current user's favorite_invitees and/or appointment_confirmation. */
+/** PUT (upsert) the current user's preferences. Accepts a partial row; only
+ *  the provided updatable fields are changed — everything else is left intact
+ *  so preferences from multiple pages and settings coexist in one row. */
 export async function PUT(req: NextRequest) {
   const authz = await authorizeCalendar();
   if ('response' in authz) return authz.response;
@@ -39,32 +63,55 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { favorite_invitees, appointment_confirmation } = body as {
-    favorite_invitees?: unknown;
-    appointment_confirmation?: unknown;
-  };
+  const prefs = body as Record<string, unknown>;
+  if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) {
+    return NextResponse.json({ error: 'Body must be a preferences object' }, { status: 400 });
+  }
 
   const update: Record<string, unknown> = {
     clerk_user_id: userId,
     updated_at: new Date().toISOString(),
   };
 
-  if (favorite_invitees !== undefined) {
-    if (!Array.isArray(favorite_invitees) || !favorite_invitees.every((v) => typeof v === 'string')) {
+  let hasUpdatable = false;
+
+  if ('favorite_invitees' in prefs) {
+    const v = prefs['favorite_invitees'];
+    if (!Array.isArray(v) || !v.every((x) => typeof x === 'string')) {
       return NextResponse.json({ error: 'favorite_invitees must be an array of strings' }, { status: 400 });
     }
-    update.favorite_invitees = favorite_invitees;
+    update['favorite_invitees'] = v;
+    hasUpdatable = true;
   }
 
-  if (appointment_confirmation !== undefined) {
-    if (typeof appointment_confirmation !== 'boolean') {
+  if ('appointment_confirmation' in prefs) {
+    const v = prefs['appointment_confirmation'];
+    if (typeof v !== 'boolean') {
       return NextResponse.json({ error: 'appointment_confirmation must be a boolean' }, { status: 400 });
     }
-    update.appointment_confirmation = appointment_confirmation;
+    update['appointment_confirmation'] = v;
+    hasUpdatable = true;
   }
 
-  if (Object.keys(update).length <= 2) {
-    // Only clerk_user_id and updated_at present — nothing to update.
+  if ('page_preferences' in prefs) {
+    const v = prefs['page_preferences'];
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+      return NextResponse.json({ error: 'page_preferences must be an object' }, { status: 400 });
+    }
+    update['page_preferences'] = v;
+    hasUpdatable = true;
+  }
+
+  if ('global_preferences' in prefs) {
+    const v = prefs['global_preferences'];
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+      return NextResponse.json({ error: 'global_preferences must be an object' }, { status: 400 });
+    }
+    update['global_preferences'] = v;
+    hasUpdatable = true;
+  }
+
+  if (!hasUpdatable) {
     return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 });
   }
 
@@ -77,5 +124,24 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, favorite_invitees: update.favorite_invitees, appointment_confirmation: update.appointment_confirmation });
+  return NextResponse.json({ ok: true });
+}
+
+/** DELETE the current user's preferences row. */
+export async function DELETE(_req: NextRequest) {
+  const authz = await authorizeCalendar();
+  if ('response' in authz) return authz.response;
+  const { userId } = authz;
+
+  const supabase = createServerServiceClient();
+  const { error } = await supabase
+    .from('user_preferences')
+    .delete()
+    .eq('clerk_user_id', userId);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

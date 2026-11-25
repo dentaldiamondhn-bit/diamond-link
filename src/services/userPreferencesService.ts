@@ -1,4 +1,18 @@
-import { supabase } from '../lib/supabase';
+const API = '/api/user-preferences';
+
+async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(init.headers || {}) },
+    ...init,
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error || `Request failed (${res.status})`);
+  }
+  if (res.status === 204) return undefined as unknown as T;
+  return res.json();
+}
 
 export interface UserPreferences {
   clerk_user_id: string;
@@ -8,6 +22,7 @@ export interface UserPreferences {
       recordsPerPage?: number;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
+      columnVisibility?: string[];
       [key: string]: any;
     };
   };
@@ -21,113 +36,67 @@ export interface UserPreferences {
 }
 
 export class UserPreferencesService {
-  // Get user preferences.
-  // A failed read throws instead of resolving to null: the update paths below
-  // merge into the current values, so treating a read error as "no row yet"
-  // would wipe every other stored preference.
-  static async getUserPreferences(clerkUserId: string): Promise<UserPreferences | null> {
-    const { data, error } = await supabase
-      .from('user_preferences')
-      .select('*')
-      .eq('clerk_user_id', clerkUserId)
-      .limit(1);
-
-    if (error) {
+  // Get user preferences. The server route resolves the Clerk user from the
+  // session, so clerkUserId is accepted for signature compatibility but the
+  // server enforces ownership (clerk_user_id === session user).
+  static async getUserPreferences(_clerkUserId: string): Promise<UserPreferences | null> {
+    try {
+      const data = await apiJson<UserPreferences | null>(``);
+      return data ?? null;
+    } catch (error) {
       console.error('Error fetching user preferences:', error);
-      throw new Error(error.message);
+      return null;
     }
-
-    return data?.[0] || null;
   }
 
-  // Save user preferences
+  // Save user preferences (full-row upsert).
   static async saveUserPreferences(preferences: UserPreferences): Promise<UserPreferences> {
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
-        .upsert({
-          ...preferences,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'clerk_user_id',
-          ignoreDuplicates: false
-        })
-        .select()
-        .single();
-
-      if (error) {
-        // Handle network errors gracefully
-        if (error.message?.includes('Failed to fetch') || error.code === 'NETWORK_ERROR') {
-          console.warn('Network error saving preferences, using offline mode:', error);
-          // Return preferences as if saved (optimistic update)
-          return preferences;
-        }
-        console.error('Error saving user preferences:', error);
-        throw error;
-      }
-
+      const data = await apiJson<UserPreferences>(``, {
+        method: 'PUT',
+        body: JSON.stringify(preferences),
+      });
       return data;
     } catch (error) {
-      // Handle network errors gracefully
-      if (error instanceof TypeError && error.message?.includes('Failed to fetch')) {
-        console.warn('Network error saving preferences, using offline mode:', error);
-        // Return preferences as if saved (optimistic update)
-        return preferences;
-      }
-      console.error('Unexpected error saving user preferences:', error);
+      console.error('Error saving user preferences:', error);
       throw error;
     }
   }
 
-  // Update specific page preferences
+  // Update specific page preferences (merge into current row).
   static async updatePagePreferences(
-    clerkUserId: string,
+    _clerkUserId: string,
     page: string,
     preferences: Partial<UserPreferences['page_preferences'][string]>
   ): Promise<UserPreferences> {
     try {
-      // Get current preferences
-      const currentPrefs = await this.getUserPreferences(clerkUserId);
-      
-      const updatedPrefs: UserPreferences = {
-        clerk_user_id: clerkUserId,
-        page_preferences: {
-          ...currentPrefs?.page_preferences || {},
-          [page]: {
-            ...currentPrefs?.page_preferences?.[page] || {},
-            ...preferences
-          }
-        },
-        global_preferences: currentPrefs?.global_preferences || {}
+      const current = (await apiJson<Partial<UserPreferences> | null>(``)) ?? {};
+      const pagePrefs = {
+        ...(current.page_preferences || {}),
+        [page]: { ...(current.page_preferences?.[page] || {}), ...preferences },
       };
-
-      return await this.saveUserPreferences(updatedPrefs);
+      const updated: UserPreferences = {
+        clerk_user_id: current.clerk_user_id,
+        page_preferences: pagePrefs,
+        global_preferences: current.global_preferences || {},
+        updated_at: new Date().toISOString(),
+      };
+      const data = await apiJson<UserPreferences>(``, { method: 'PUT', body: JSON.stringify(updated) });
+      return data;
     } catch (error) {
       console.error('Error updating page preferences:', error);
-      // For network errors, return optimistic update
-      if (error instanceof TypeError && error.message?.includes('Failed to fetch')) {
-        console.warn('Network error in updatePagePreferences, returning optimistic preferences');
-        // Return a basic preferences object to prevent UI breaking
-        return {
-          clerk_user_id: clerkUserId,
-          page_preferences: {
-            [page]: preferences
-          },
-          global_preferences: {}
-        } as UserPreferences;
-      }
       throw error;
     }
   }
 
   // Get specific page preferences
   static async getPagePreferences(
-    clerkUserId: string,
+    _clerkUserId: string,
     page: string
   ): Promise<UserPreferences['page_preferences'][string] | null> {
     try {
-      const userPrefs = await this.getUserPreferences(clerkUserId);
-      return userPrefs?.page_preferences?.[page] || null;
+      const current = await apiJson<UserPreferences | null>(``);
+      return current?.page_preferences?.[page] ?? null;
     } catch (error) {
       console.error('Error getting page preferences:', error);
       return null;
@@ -136,23 +105,20 @@ export class UserPreferencesService {
 
   // Update global preferences
   static async updateGlobalPreferences(
-    clerkUserId: string,
+    _clerkUserId: string,
     preferences: Partial<UserPreferences['global_preferences']>
   ): Promise<UserPreferences> {
     try {
-      // Get current preferences
-      const currentPrefs = await this.getUserPreferences(clerkUserId);
-      
-      const updatedPrefs: UserPreferences = {
-        clerk_user_id: clerkUserId,
-        page_preferences: currentPrefs?.page_preferences || {},
-        global_preferences: {
-          ...currentPrefs?.global_preferences || {},
-          ...preferences
-        }
+      const current = (await apiJson<Partial<UserPreferences> | null>(``)) ?? {};
+      const globalPrefs = { ...(current.global_preferences || {}), ...preferences };
+      const updated: UserPreferences = {
+        clerk_user_id: current.clerk_user_id,
+        page_preferences: current.page_preferences || {},
+        global_preferences: globalPrefs,
+        updated_at: new Date().toISOString(),
       };
-
-      return await this.saveUserPreferences(updatedPrefs);
+      const data = await apiJson<UserPreferences>(``, { method: 'PUT', body: JSON.stringify(updated) });
+      return data;
     } catch (error) {
       console.error('Error updating global preferences:', error);
       throw error;
@@ -161,11 +127,11 @@ export class UserPreferencesService {
 
   // Get global preferences
   static async getGlobalPreferences(
-    clerkUserId: string
+    _clerkUserId: string
   ): Promise<UserPreferences['global_preferences'] | null> {
     try {
-      const userPrefs = await this.getUserPreferences(clerkUserId);
-      return userPrefs?.global_preferences || null;
+      const current = await apiJson<UserPreferences | null>(``);
+      return current?.global_preferences ?? null;
     } catch (error) {
       console.error('Error getting global preferences:', error);
       return null;
@@ -173,17 +139,9 @@ export class UserPreferencesService {
   }
 
   // Delete user preferences
-  static async deleteUserPreferences(clerkUserId: string): Promise<void> {
+  static async deleteUserPreferences(_clerkUserId: string): Promise<void> {
     try {
-      const { error } = await supabase
-        .from('user_preferences')
-        .delete()
-        .eq('clerk_user_id', clerkUserId);
-
-      if (error) {
-        console.error('Error deleting user preferences:', error);
-        throw error;
-      }
+      await fetch(`${API}`, { method: 'DELETE', cache: 'no-store' });
     } catch (error) {
       console.error('Unexpected error deleting user preferences:', error);
       throw error;
